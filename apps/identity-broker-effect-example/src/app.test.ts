@@ -37,7 +37,7 @@ async function createTestHub() {
       issuer: HUB,
       connectors: [{ ...google.connector, name: "google", provider: "google", label: "Google" }],
     },
-    routes: stack({
+    registration: stack({
       keys: {
         production: { key: Config.succeed(Redacted.make(PRODUCTION_KEY)), permanent: true },
         preview: { key: Config.succeed(Redacted.make(PREVIEW_KEY)) },

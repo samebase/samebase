@@ -237,7 +237,7 @@ const memoryHub = async (): Promise<TestHub> => {
   const h = await createBroker({
     fetch: upstream,
     config: { issuer: siteUrl, connectors: [idp.connector] },
-    routes: github(ALLOW_LIST),
+    registration: github(ALLOW_LIST),
   });
   h.clock.set(Date.now());
   return {

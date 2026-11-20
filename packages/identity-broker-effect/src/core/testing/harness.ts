@@ -11,7 +11,7 @@ import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
 import { github } from "../connectors/github.ts";
-import { hubLogger, makeHandle, type Route } from "../router.ts";
+import { hubLogger, makeHandle, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { google } from "../connectors/google.ts";
 import type { Connector } from "../connectors/types.ts";
@@ -299,14 +299,14 @@ export function sqliteTestStore(database: SqliteDatabase, now: number): TestStor
  * through `fetchBroker`. The
  * Store's step clock follows the test clock, so `clock.set` and `clock.advance` move both.
  * `failCommands` makes the commands whose name it answers true for fail with `StoreUnavailable`,
- * as a lost RPC reply does, until it is set to null. `routes` are a layer's routes, each with the
- * layer's own services provided.
+ * as a lost RPC reply does, until it is set to null. `registration` is a layer as a host mounts it,
+ * each route with the layer's own services provided.
  */
 export async function createBroker(
   options: {
     config?: Partial<HubConfigInput>;
     seed?: number;
-    routes?: ReadonlyArray<Route>;
+    registration?: Registration;
     fetch?: StubFetch;
     signInPage?: SignInPageFunction;
   } = {},
@@ -321,7 +321,7 @@ export async function createBroker(
         ? Effect.fail(new StoreUnavailable())
         : memory.store.run(name, args),
   });
-  const handle = makeHandle({ routes: options.routes ?? [] });
+  const handle = makeHandle(options.registration ?? { routes: [] });
   const layer = Layer.merge(core.layer, Layer.succeed(Store, store));
   const clock = {
     now: core.clock.now,

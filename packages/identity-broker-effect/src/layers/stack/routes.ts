@@ -7,7 +7,7 @@
 import { Config, Effect, Option, Redacted } from "effect";
 import { readBearerToken } from "../../core/protocol.ts";
 import { invalidToken, json, noToken } from "../../core/responses.ts";
-import type { Route } from "../../core/router.ts";
+import type { Registration } from "../../core/router.ts";
 import { HubConfig } from "../../core/services.ts";
 import { sha256HexEffect } from "../../core/subject.ts";
 import {
@@ -22,6 +22,7 @@ import {
   readClientMetadata,
   updateClient,
 } from "../clientRegistration.ts";
+import { keyRef } from "./clients.ts";
 import { command } from "./commands.ts";
 
 /** One key of the hub. */
@@ -42,13 +43,13 @@ const CLIENT_NAME = /^[A-Za-z0-9._-]{1,64}$/;
 
 /**
  * The keys that the hub has now, each with the SHA-256 hex of its value, read in the request. A key
- * whose `Config` is missing is not one of them.
+ * whose `Config` is missing or whose value is empty is not one of them.
  */
 const configuredKeys = (settings: StackSettings) =>
   Effect.forEach(Object.entries(settings.keys), ([name, entry]) =>
     Effect.gen(function* () {
       const value = yield* Config.option(entry.key);
-      return Option.isNone(value)
+      return Option.isNone(value) || Redacted.value(value.value) === ""
         ? []
         : [
             {
@@ -191,34 +192,43 @@ const deleteClient = Effect.fn("stack.deleteClient")(function* (request: Request
   return new Response(null, { status: 204 });
 });
 
-/** The stack layer as a hub's one registration layer: its routes with its keys. */
-export const stack = (settings: StackSettings): ReadonlyArray<Route> => [
-  {
-    method: "POST",
-    path: "/register",
-    match: "exact",
-    template: "/register",
-    handler: registerClient(settings),
-  },
-  {
-    method: "GET",
-    path: "/register/",
-    match: "prefix",
-    template: "/register/{client}",
-    handler: readClient(settings),
-  },
-  {
-    method: "DELETE",
-    path: "/register/",
-    match: "prefix",
-    template: "/register/{client}",
-    handler: deleteClient,
-  },
-  {
-    method: "PUT",
-    path: "/register/",
-    match: "prefix",
-    template: "/register/{client}",
-    handler: updateClient,
-  },
-];
+/**
+ * The stack layer as a hub's one registration layer: its routes with its keys, and its gates. A
+ * card's gate `stack:<name>` is live while the hub has the key of that name, so a key removed from
+ * the settings refuses every sign-in step of its clients.
+ */
+export const stack = (settings: StackSettings): Registration => ({
+  routes: [
+    {
+      method: "POST",
+      path: "/register",
+      match: "exact",
+      template: "/register",
+      handler: registerClient(settings),
+    },
+    {
+      method: "GET",
+      path: "/register/",
+      match: "prefix",
+      template: "/register/{client}",
+      handler: readClient(settings),
+    },
+    {
+      method: "DELETE",
+      path: "/register/",
+      match: "prefix",
+      template: "/register/{client}",
+      handler: deleteClient,
+    },
+    {
+      method: "PUT",
+      path: "/register/",
+      match: "prefix",
+      template: "/register/{client}",
+      handler: updateClient,
+    },
+  ],
+  liveGates: Effect.suspend(() => configuredKeys(settings)).pipe(
+    Effect.map((keys) => [{ prefix: keyRef(""), live: keys.map((key) => keyRef(key.name)) }]),
+  ),
+});

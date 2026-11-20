@@ -1,8 +1,9 @@
 // Proof 2: a breadth-first bounded check of the authorization request machine over the memory
 // Store. Every reachable state up to a fixed depth is visited once (states compared by content),
 // and the properties of design section 6 are asserted on every transition. Between any two steps
-// of a sign-in, a stop on either of the card's two gates can commit or go, a connector can leave
-// the card or come back, the request's return address can leave the card or come back, and the
+// of a sign-in, a stop on either of the card's two gates can commit or go, the gate in a layer's
+// namespace can leave the layer's live gates or come back, a connector can leave the card or come
+// back, the request's return address can leave the card or come back, and the
 // card's `confirm` can flip: each step must read the card as it is.
 import { describe, expect, test } from "vite-plus/test";
 import { makeMemoryStore } from "../hosts/memory.ts";
@@ -16,7 +17,9 @@ const CODE_MS = 60_000;
 /** The clock moves along these points only, across each expiry of a request made at 0 or 30 s. */
 const TIMES = [0, 30_000, 60_000, 600_000, 630_000, 700_000];
 const CONNECTORS = ["g", "h"];
-const GATES = ["gate:a", "gate:b"];
+/** `key:b` is in the namespace `key:` of a layer, which gives its live gates with each step. */
+const GATES = ["gate:a", "key:b"];
+const NAMESPACE = "key:";
 const redirectUri = "https://app.test/cb";
 const otherUri = "https://app.test/other";
 
@@ -27,6 +30,8 @@ interface Model {
   readonly created: ReadonlyArray<string>;
   /** Successful exchanges per request id. */
   readonly redeemed: Readonly<Record<string, number>>;
+  /** The layer's live gates hold `key:b`. */
+  readonly keyLive: boolean;
 }
 
 type Action =
@@ -50,6 +55,8 @@ type Action =
   | { readonly kind: "tick" }
   /** A stop on one gate of the card commits, or goes. */
   | { readonly kind: "stop"; readonly gate: string }
+  /** `key:b` leaves the layer's live gates, or comes back. */
+  | { readonly kind: "live" }
   /** The layer takes `h` off the card, or puts it back. */
   | { readonly kind: "connector" }
   /** The layer takes the request's return address off the card, or puts it back. */
@@ -88,6 +95,7 @@ const alphabet = (requestIds: ReadonlyArray<string>): ReadonlyArray<Action> => [
   ]),
   { kind: "tick" },
   ...GATES.map((gate): Action => ({ kind: "stop", gate })),
+  { kind: "live" },
   { kind: "connector" },
   { kind: "redirect" },
   { kind: "confirm" },
@@ -118,8 +126,14 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
   const requestOf = (r: string) => docs().authRequests.find((request) => request.requestId === r);
   const codeOf = (r: string) => docs().authorizationCodes.find((code) => code.requestId === r);
   const cardOf = () => docs().clients.find((client) => client.clientId === "cl");
+  /** Whether the layer's live gates hold `key:b` in the step being applied. */
+  let keyLive = true;
+  /** A stop holds a gate of the card, or a gate of the card left the layer's live gates. */
   const stopped = () =>
-    cardOf()?.gates.some((gate) => docs().stops.some((stop) => stop.key === gate)) ?? true;
+    cardOf()?.gates.some(
+      (gate) =>
+        docs().stops.some((stop) => stop.key === gate) || (gate.startsWith(NAMESPACE) && !keyLive),
+    ) ?? true;
   /**
    * Whether `request` may go on with `connector` as the card is now: the model's own statement of
    * the three refusals, read from the rows before the step.
@@ -144,10 +158,13 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
     hub.db.restore(model.snapshot);
     hub.setNow(model.now);
     const { now } = model;
+    keyLive = model.keyLive;
+    const liveGates = [{ prefix: NAMESPACE, live: keyLive ? ["key:b"] : [] }];
     let next: Omit<Model, "snapshot"> = {
       now,
       created: model.created,
       redeemed: model.redeemed,
+      keyLive,
     };
     switch (action.kind) {
       case "create": {
@@ -163,6 +180,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           codeChallenge: `challenge-${action.r}`,
           requested: [],
           configured: CONNECTORS,
+          liveGates,
           freshLogin: false,
           txnCookieHash: `cookie-${action.r}`,
           createdAt: now,
@@ -196,6 +214,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           upstreamStateHash: stateHash(action.r, action.connector, action.k),
           upstreamCodeVerifier: `verifier-${action.k}`,
           configured: CONNECTORS,
+          liveGates,
           now,
         });
         if (result.ok) {
@@ -216,6 +235,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           connector: action.asConnector,
           txnCookieHashes: action.cookie ? [`cookie-${action.r}`] : ["cookie-of-another-browser"],
           configured: CONNECTORS,
+          liveGates,
           now,
         });
         if (result.status === "claimed") {
@@ -243,6 +263,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           codeHash: `code-${action.r}`,
           codeExpiresAt: now + CODE_MS,
           configured: CONNECTORS,
+          liveGates,
           now,
         });
         if (result.ok) {
@@ -276,6 +297,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           codeChallengeOfVerifier:
             variant === "badVerifier" ? "challenge-other" : `challenge-${action.r}`,
           configured: CONNECTORS,
+          liveGates,
           now,
         });
         if (result.ok) {
@@ -322,6 +344,9 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           seed(hub, "stops", [{ key: action.gate, at: now }]);
         }
         break;
+      case "live":
+        next = { ...next, keyLive: !keyLive };
+        break;
       case "connector":
         patch(hub, "clients", "by_client_id", ["cl"], (doc) => ({
           ...doc,
@@ -359,13 +384,14 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
   };
 
   const keyOf = (model: Model) =>
-    JSON.stringify([hub.db.contents(), model.now, model.created, model.redeemed]);
+    JSON.stringify([hub.db.contents(), model.now, model.created, model.redeemed, model.keyLive]);
 
   const start: Model = {
     snapshot: hub.db.snapshot(),
     now: 0,
     created: [],
     redeemed: {},
+    keyLive: true,
   };
   hub.db.restore(start.snapshot);
   const seen = new Set<string>([keyOf(start)]);
@@ -398,15 +424,15 @@ const depthOf = (name: string, fallback: number) => {
 
 describe("the authorization request machine", () => {
   test("one request: every property holds in every reachable state", () => {
-    // Depth 12 (105,248 states) takes about 26 s on the development Mac; every step of a sign-in
-    // with a card change before each of them fits in it. Depth 14 (144,858 states) takes 41 s.
+    // Depth 12 (114,791 states) takes about 24 s on the development Mac; every step of a sign-in
+    // with a card change before each of them fits in it.
     const result = search(["r1"], depthOf("MACHINE_DEPTH_ONE", 12));
     console.log("one request", result);
     expect(result.states).toBeGreaterThan(1);
   }, 120_000);
 
   test("two requests: every property holds in every reachable state", () => {
-    // Depth 7 (64,963 states) takes about 12 s on the development Mac and about 3.5 times that on
+    // Depth 7 (57,012 states) takes about 10 s on the development Mac and about 3.5 times that on
     // a CI runner.
     const result = search(["r1", "r2"], depthOf("MACHINE_DEPTH_TWO", 7));
     console.log("two requests", result);

@@ -13,7 +13,7 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Clock, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { hubLogger, makeHandle, type CoreServices, type Route } from "../../core/router.ts";
+import { hubLogger, makeHandle, type CoreServices, type Registration } from "../../core/router.ts";
 import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import {
@@ -174,25 +174,25 @@ export type HubOptions = HubSettings & {
   /** The Worker's script name, the first part of the address of all data. */
   readonly name: string;
   /**
-   * The routes of the one registration layer that the hub mounts, from that layer's module, such
-   * as `stack({ keys })` of src/layers/stack/routes.ts.
+   * The one registration layer that the hub mounts, from that layer's module, such as
+   * `stack({ keys })` of src/layers/stack/routes.ts.
    */
-  readonly registration: ReadonlyArray<Route>;
+  readonly registration: Registration;
 };
 
 /**
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
  * logger, and `fetch`. The core takes the Web `Request` and gives a Web `Response`;
  * `HttpServerResponse.raw` hands that `Response` to the platform unchanged (status, body and each
- * `Set-Cookie` field). The hub mounts the `registration` routes. `hubWorker` gives it the settings
+ * `Set-Cookie` field). The hub mounts the `registration` layer. `hubWorker` gives it the settings
  * of its options; the conformance test stack (test/conformance) gives it local settings.
  */
 export const hubRuntime = <E, R>(
   settings: Layer.Layer<HubConfig | SignInPage, E, R>,
-  registration: ReadonlyArray<Route>,
+  registration: Registration,
 ) =>
   Effect.gen(function* () {
-    const handle = makeHandle({ routes: registration });
+    const handle = makeHandle(registration);
     // Built once per isolate, when the Worker starts.
     const services = yield* Effect.context<CoreServices>();
     return {

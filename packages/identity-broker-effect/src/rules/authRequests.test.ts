@@ -61,6 +61,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeChallenge: challenge,
       requested: [],
       configured: CONNECTORS,
+      liveGates: [],
       freshLogin: false,
       txnCookieHash: "cookie-hash",
       createdAt: now,
@@ -85,6 +86,7 @@ describe.each(hosts)("%s", (_name, make) => {
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -94,6 +96,7 @@ describe.each(hosts)("%s", (_name, make) => {
       connector: "g",
       txnCookieHashes: ["cookie-hash"],
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -105,6 +108,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeHash: "ch",
       codeExpiresAt: now + 60_000,
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -114,6 +118,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeHash: "ch",
       codeChallengeOfVerifier: challenge,
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });

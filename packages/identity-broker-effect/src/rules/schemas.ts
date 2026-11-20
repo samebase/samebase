@@ -11,6 +11,15 @@ const opt = Schema.optionalKey;
 /** The hub's configured connector names, in the order discovery names them. */
 const configured = Strs;
 
+/**
+ * A namespace of card gates that a layer owns, with the gates of it that the hub has now: a card
+ * with a gate that starts with `prefix` and is not in `live` is refused, as a stop on that gate
+ * refuses it. A gate outside every prefix is not affected.
+ */
+export const GateNamespace = Schema.Struct({ prefix: Str, live: Strs });
+export type GateNamespace = typeof GateNamespace.Type;
+const liveGates = Schema.Array(GateNamespace);
+
 /** Where the user goes back to once a request fails or finishes: the client's exact redirect URI. */
 const returnFields = { redirectUri: Str, state: opt(Str) };
 export const Return = Schema.Struct(returnFields);
@@ -39,6 +48,7 @@ export const CreateArgs = Schema.Struct({
   /** The connectors the request named; none named: every connector of the card. */
   requested: Strs,
   configured,
+  liveGates,
   freshLogin: Bool,
   txnCookieHash: Str,
   createdAt: Num,
@@ -76,6 +86,7 @@ export const StartUpstreamArgs = Schema.Struct({
   upstreamCodeVerifier: Str,
   upstreamNonce: opt(Str),
   configured,
+  liveGates,
   now: Num,
 });
 
@@ -85,6 +96,7 @@ export const ClaimUpstreamArgs = Schema.Struct({
   /** SHA-256 hex of each transaction cookie the callback request carried. */
   txnCookieHashes: Strs,
   configured,
+  liveGates,
   now: Num,
 });
 export const ClaimResult = Schema.Union([
@@ -114,6 +126,7 @@ export const CompleteArgs = Schema.Struct({
   codeHash: Str,
   codeExpiresAt: Num,
   configured,
+  liveGates,
   now: Num,
 });
 
@@ -133,6 +146,7 @@ export const ExchangeCodeArgs = Schema.Struct({
   /** The `resource` parameter of the token request. A sign-in code grants none. */
   resource: opt(Str),
   configured,
+  liveGates,
   now: Num,
 });
 export const ExchangeResult = Schema.Union([

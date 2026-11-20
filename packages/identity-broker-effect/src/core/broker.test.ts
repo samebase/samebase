@@ -68,7 +68,7 @@ async function fakeBroker(
       ...(options.issuer === undefined ? {} : { issuer: options.issuer }),
       service: { ...TEST_SERVICE, name: "Samebase" },
     },
-    ...(options.routes === undefined ? {} : { routes: options.routes }),
+    ...(options.routes === undefined ? {} : { registration: { routes: options.routes } }),
   });
   return { ...h, connector };
 }

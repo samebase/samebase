@@ -1,8 +1,9 @@
 // The authorization request machine: create (pending), start (upstream), claim (claimed), complete
 // (completed plus an unused code), exchange (request deleted, code marked used), and the replay that
 // removes the used code. Every step reads the client's card in its own transaction and refuses when
-// the card is gone or stopped, the request's return address left it, or the connector is not in
-// the request's stored set, the card's set and the hub's configured set.
+// the card is gone, a stop or a gate that is not live refuses it, the request's return address left
+// it, or the connector is not in the request's stored set, the card's set and the hub's configured
+// set.
 import { Effect } from "effect";
 import { unique, type Row } from "../store/Tx.ts";
 import { cardRow, isStopped, usableCard, used } from "./clients.ts";
@@ -88,7 +89,7 @@ const spendBudget = Effect.fnUntraced(function* (key: string, now: number) {
 
 /**
  * Stores a validated /authorize request, from the card as it is in this step: the card must exist,
- * be stopped by no gate and hold the return address. The stored set is what the request named
+ * be refused by no gate (`isStopped`) and hold the return address. The stored set is what the request named
  * (none named: every connector of the card), of those on the card and configured; `off` when none
  * is left. The answer carries the card's `confirm` of this step, and the start spends the card's
  * `budget`. A refused request writes no row.
@@ -102,7 +103,7 @@ export const create = Effect.fnUntraced(function* (
   if (card === undefined) {
     return { ok: false, error: "unknown_client" };
   }
-  if (yield* isStopped(card.doc)) {
+  if (yield* isStopped(card.doc, args.liveGates)) {
     return { ok: false, error: "stopped" };
   }
   if (!card.doc.redirectUris.includes(args.redirectUri)) {
@@ -175,7 +176,7 @@ export const startUpstream = Effect.fnUntraced(function* (
   if (request.status !== "pending" && request.status !== "upstream") {
     return { ok: false, error: "wrong_status", ...back };
   }
-  if ((yield* usableCard(request, args.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, args.connector, args)) === undefined) {
     return { ok: false, error: "refused", ...back };
   }
   yield* tx.replace("authRequests", row.id, {
@@ -213,7 +214,7 @@ export const claimUpstream = Effect.fnUntraced(function* (
     yield* tx.delete("authRequests", row.id);
     return { status: "expired", requestId: request.requestId, ...back };
   }
-  if ((yield* usableCard(request, request.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, request.connector, args)) === undefined) {
     yield* tx.delete("authRequests", row.id);
     return { status: "refused", requestId: request.requestId, ...back };
   }
@@ -256,7 +257,7 @@ export const complete = Effect.fnUntraced(function* (
   if (request.status !== "claimed") {
     return { ok: false, error: "wrong_status", ...back };
   }
-  if ((yield* usableCard(request, request.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, request.connector, args)) === undefined) {
     yield* tx.delete("authRequests", row.id);
     return { ok: false, error: "refused", ...back };
   }
@@ -310,7 +311,7 @@ export const exchangeCode = Effect.fnUntraced(function* (
     card === undefined ||
     card.doc.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
     card.doc.secretHash !== args.clientSecretHash ||
-    (yield* isStopped(card.doc))
+    (yield* isStopped(card.doc, args.liveGates))
   ) {
     return invalid("invalid_client", "Client authentication failed.");
   }
@@ -347,7 +348,7 @@ export const exchangeCode = Effect.fnUntraced(function* (
   if (args.codeChallengeOfVerifier !== request.codeChallenge) {
     return invalid("invalid_grant", "code_verifier does not match code_challenge.");
   }
-  if ((yield* usableCard(request, request.identity.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, request.identity.connector, args)) === undefined) {
     return invalid("invalid_grant", "This client cannot finish this sign-in now.");
   }
   yield* tx.replace("authorizationCodes", code.id, { ...code.doc, usedAt: args.now });

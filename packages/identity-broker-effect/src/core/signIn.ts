@@ -34,7 +34,7 @@ import {
   readParameters,
   redirect,
 } from "./responses.ts";
-import { Fetch, HubConfig, Keys, SignInPage, type HubConfigShape } from "./services.ts";
+import { Fetch, HubConfig, Keys, LiveGates, SignInPage, type HubConfigShape } from "./services.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "./subject.ts";
 
 /** A request lives this long from /authorize to the code redirect. */
@@ -113,6 +113,11 @@ const invalidRedirectPage = () =>
  * 3.1.2.6, named in docs/design.md).
  */
 const refusePage = (description: string) => errorPage("Sign-in refused", description, 400);
+
+/** The live gates of the hub's registration layer, read for one sign-in step. */
+const liveGates = Effect.gen(function* () {
+  return yield* (yield* LiveGates).read;
+});
 
 /** The signing keys of this request. A missing or malformed key set is a defect of the host: 500. */
 const keySet = Effect.gen(function* () {
@@ -224,6 +229,7 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
     upstreamCodeVerifier: start.codeVerifier,
     ...(start.nonce === undefined ? {} : { upstreamNonce: start.nonce }),
     configured: hub.configured,
+    liveGates: yield* liveGates,
     now,
   });
   if (!result.ok) {
@@ -327,6 +333,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     codeChallenge: rest.value.codeChallenge,
     requested: named,
     configured: hub.configured,
+    liveGates: yield* liveGates,
     freshLogin,
     txnCookieHash: yield* sha256HexEffect(txnCookie),
     createdAt: now,
@@ -485,6 +492,7 @@ export const upstreamCallback = (connector: Connector) =>
       connector: connector.name,
       txnCookieHashes,
       configured: hub.configured,
+      liveGates: yield* liveGates,
       now,
     });
     if (claim.status === "missing") {
@@ -611,6 +619,7 @@ export const upstreamCallback = (connector: Connector) =>
         codeHash: yield* sha256HexEffect(code),
         codeExpiresAt: now + CODE_TTL_MS,
         configured: hub.configured,
+        liveGates: yield* liveGates,
         now,
       });
       if (!completed.ok) {
@@ -684,6 +693,7 @@ export const token = Effect.fn("token")(function* (request: Request) {
     codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
     ...(resource === undefined ? {} : { resource }),
     configured: hub.configured,
+    liveGates: yield* liveGates,
     now,
   });
   if (!exchange.ok) {

@@ -3,6 +3,7 @@
 // Layer that implements it; a host composes those Layers with its own `Store` Layer, and the tests
 // build theirs in src/core/testing/harness.ts.
 import { Config, Context, Effect, Layer, type Redacted, Schema } from "effect";
+import type { GateNamespace } from "../rules/schemas.ts";
 import type { Connector } from "./connectors/types.ts";
 import { signInPage, type SignInPageFunction } from "./html.ts";
 import { isSecureUrl } from "./protocol.ts";
@@ -131,6 +132,16 @@ export class Keys extends Context.Service<
     Effect.map(Config.Redacted("IDENTITY_BROKER_KEYS"), (keys) => Keys.of({ read: () => keys })),
   );
 }
+
+/**
+ * The gate namespaces that the hub's registration layer owns, with the gates of each that the hub
+ * has now. Every sign-in step reads them in its request and gives them to its command;
+ * `makeHandle` provides them from the layer (src/core/router.ts).
+ */
+export class LiveGates extends Context.Service<
+  LiveGates,
+  { readonly read: Effect.Effect<ReadonlyArray<GateNamespace>> }
+>()("identity-broker-effect/core/LiveGates") {}
 
 /** Random bytes: `crypto.getRandomValues` in production, a seeded source in tests. */
 export class Random extends Context.Service<

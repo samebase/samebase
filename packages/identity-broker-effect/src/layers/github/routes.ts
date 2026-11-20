@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { Route } from "../../core/router.ts";
+import type { Registration, Route } from "../../core/router.ts";
 import { updateClient } from "../clientRegistration.ts";
 import { deleteClient, readClient } from "./manage.ts";
 import { registerClient } from "./register.ts";
@@ -46,9 +46,10 @@ export const githubRoutes: ReadonlyArray<Route<GithubSettings>> = [
  * The GitHub layer as a hub's one registration layer: its routes with the allow-list, the
  * repositories whose cards get every configured connector while the named owner owns them.
  */
-export const github = (allowList: typeof AllowList.Type): ReadonlyArray<Route> =>
-  githubRoutes.map((route) => ({
+export const github = (allowList: typeof AllowList.Type): Registration => ({
+  routes: githubRoutes.map((route) => ({
     ...route,
     handler: (request: Request) =>
       route.handler(request).pipe(Effect.provide(GithubSettings.layer(allowList))),
-  }));
+  })),
+});

@@ -17,7 +17,7 @@ import {
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import { command } from "../../core/command.ts";
-import { hubLogger, makeHandle, type Route } from "../../core/router.ts";
+import { hubLogger, makeHandle, type Registration } from "../../core/router.ts";
 import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import { Store, StoreUnavailable } from "../../store/Store.ts";
@@ -80,8 +80,8 @@ export const convexStore = (ctx: Runner, run: RunCommand) =>
 
 /**
  * One hub on Convex. `settings` is built in each request, so each request reads the deployment's
- * environment variables of that moment. `registration` is the routes of the one registration layer
- * that the hub mounts, from that layer's module. Each key of the stack layer
+ * environment variables of that moment. `registration` is the one registration layer that the hub
+ * mounts, from that layer's module. Each key of the stack layer
  * (`stack({ keys })` of src/layers/stack/routes.ts) is the deployment variable that its `Config`
  * names, such as `Config.Redacted("HUB_PREVIEW_KEY")`, read when a registration arrives: the app's
  * stack sets it in the `env` of the hub's `Convex.Deployment`.
@@ -89,9 +89,9 @@ export const convexStore = (ctx: Runner, run: RunCommand) =>
 export const convexHub = <E>(
   component: ComponentApi,
   settings: Layer.Layer<HubConfig | SignInPage, E>,
-  registration: ReadonlyArray<Route>,
+  registration: Registration,
 ) => {
-  const handle = makeHandle({ routes: registration });
+  const handle = makeHandle(registration);
 
   /**
    * Every request of the hub. The core takes the Web `Request` and gives the Web `Response`, which

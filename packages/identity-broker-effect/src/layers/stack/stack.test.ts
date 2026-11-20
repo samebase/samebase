@@ -9,6 +9,7 @@ import {
   pkce,
   stubFetch,
   TEST_SERVICE,
+  txnCookie,
 } from "../../core/testing/harness.ts";
 import { LEASE_MS } from "../../rules/clients.ts";
 import { stack, type StackKey } from "./routes.ts";
@@ -49,7 +50,7 @@ async function createStackHub(
   const h = await createBroker({
     fetch,
     config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
-    routes: stack({ keys }),
+    registration: stack({ keys }),
   });
   h.clock.set(EPOCH);
   return { ...h, keys, cards: () => h.memory.db.contents().clients };
@@ -100,9 +101,9 @@ const manage = (h: StackHub, method: "GET" | "DELETE", clientId: string, token: 
     headers: { Authorization: `Bearer ${token}` },
   });
 
-/** `/authorize` for `clientId` with `fake` named: `provider` when the hub sends the user on. */
-async function signIn(h: StackHub, clientId: string) {
-  const { challenge } = await pkce();
+/** `/authorize` for `clientId` with `fake` named, and the PKCE verifier of the request. */
+async function authorize(h: StackHub, clientId: string) {
+  const { verifier, challenge } = await pkce();
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
     client_id: clientId,
@@ -114,9 +115,46 @@ async function signIn(h: StackHub, clientId: string) {
     code_challenge_method: "S256",
     connector: "fake",
   }).toString();
-  const response = await h.fetchBroker(url);
+  return { response: await h.fetchBroker(url), verifier };
+}
+
+/** `/authorize` for `clientId`: `provider` when the hub sends the user on. */
+async function signIn(h: StackHub, clientId: string) {
+  const { response } = await authorize(h, clientId);
   return response.status === 302 ? "provider" : `status ${response.status}`;
 }
+
+/** A sign-in of `clientId` up to the code at its return address, with the request's verifier. */
+async function codeOf(h: StackHub, clientId: string) {
+  const { response, verifier } = await authorize(h, clientId);
+  const provider = new URL(response.headers.get("location") ?? "");
+  const callback = new URL(provider.searchParams.get("redirect_uri") ?? "");
+  callback.searchParams.set("code", "upstream-code");
+  callback.searchParams.set("state", provider.searchParams.get("state") ?? "");
+  const back = await h.fetchBroker(callback, { headers: txnCookie(response) });
+  const code = new URL(back.headers.get("location") ?? "").searchParams.get("code");
+  expect(code).not.toBeNull();
+  return { code: code ?? "", verifier };
+}
+
+/** The token request of `client` for `code`. */
+const redeem = (
+  h: StackHub,
+  client: typeof NewClient.Type,
+  issued: { code: string; verifier: string },
+) =>
+  h.fetchBroker(`${h.issuer}/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: client.client_id,
+      client_secret: client.client_secret,
+      code: issued.code,
+      code_verifier: issued.verifier,
+      redirect_uri: CALLBACK,
+    }).toString(),
+  });
 
 describe("POST /register with a key", () => {
   test.each([
@@ -237,6 +275,30 @@ describe("POST /register with a key", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     await h.setStop("stack:preview", true);
     expect(await signIn(h, preview.client_id)).toBe("status 403");
+    expect(await signIn(h, production.client_id)).toBe("provider");
+  });
+
+  test.each([
+    ["removed from the hub's settings", undefined],
+    ["set to the empty string", keyOf("")],
+  ])("a key %s refuses its clients' sign-ins and their codes", async (_name, replacement) => {
+    const h = await createStackHub();
+    const preview = await registered(h, PREVIEW_KEY);
+    const production = await registered(h, PRODUCTION_KEY, {
+      client_name: "prod",
+      deployment_type: "production",
+    });
+    const issued = await codeOf(h, preview.client_id);
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    if (replacement === undefined) {
+      delete h.keys["preview"];
+    } else {
+      h.keys["preview"] = replacement;
+    }
+    expect(await signIn(h, preview.client_id)).toBe("status 403");
+    const refused = await redeem(h, preview, issued);
+    expect(refused.status).toBe(401);
+    expect(Schema.decodeUnknownSync(Refusal)(await refused.json()).error).toBe("invalid_client");
     expect(await signIn(h, production.client_id)).toBe("provider");
   });
 });

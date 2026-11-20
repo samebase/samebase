@@ -2,7 +2,7 @@
 // rule of whether a request may go on with a connector now.
 import { Effect } from "effect";
 import { first, unique, type Row } from "../store/Tx.ts";
-import type { ClientIdArgs } from "./schemas.ts";
+import type { ClientIdArgs, GateNamespace } from "./schemas.ts";
 import { Tx, type CoreTables } from "./tables.ts";
 
 /** How long a temporary card lives after its last sign-in. */
@@ -14,10 +14,23 @@ export const cardRow = Effect.fnUntraced(function* (clientId: string) {
   return yield* unique(yield* Tx, "clients", "by_client_id", [clientId]);
 });
 
-/** Whether a row of `stops` holds one of the card's gates. */
-export const isStopped = Effect.fnUntraced(function* (card: Card) {
+/**
+ * Whether one of the card's gates refuses it: a row of `stops` holds the gate, or the gate is in a
+ * namespace of `liveGates` and not among that namespace's live gates.
+ */
+export const isStopped = Effect.fnUntraced(function* (
+  card: Card,
+  liveGates: ReadonlyArray<GateNamespace>,
+) {
   const tx = yield* Tx;
   for (const key of card.gates) {
+    if (
+      liveGates.some(
+        (namespace) => key.startsWith(namespace.prefix) && !namespace.live.includes(key),
+      )
+    ) {
+      return true;
+    }
     if ((yield* first(tx, "stops", "by_key", [key])) !== undefined) {
       return true;
     }
@@ -25,9 +38,15 @@ export const isStopped = Effect.fnUntraced(function* (card: Card) {
   return false;
 });
 
+/** What every sign-in step knows of the hub: its configured connectors and its live gates. */
+type HubNow = {
+  readonly configured: ReadonlyArray<string>;
+  readonly liveGates: ReadonlyArray<GateNamespace>;
+};
+
 /**
  * The card of `request`'s client when the request may go on with `connector` now: the card exists,
- * no stop holds one of its gates, the request's return address is still on it, and the connector
+ * no gate refuses it (`isStopped`), the request's return address is still on it, and the connector
  * is in the request's stored set, on the card, and among the hub's `configured` connectors.
  * Undefined otherwise.
  */
@@ -38,16 +57,16 @@ export const usableCard = Effect.fnUntraced(function* (
     readonly connectors: ReadonlyArray<string>;
   },
   connector: string,
-  configured: ReadonlyArray<string>,
+  hub: HubNow,
 ) {
   const row = yield* cardRow(request.clientId);
   if (
     row === undefined ||
-    (yield* isStopped(row.doc)) ||
+    (yield* isStopped(row.doc, hub.liveGates)) ||
     !row.doc.redirectUris.includes(request.redirectUri) ||
     !request.connectors.includes(connector) ||
     !row.doc.connectors.includes(connector) ||
-    !configured.includes(connector)
+    !hub.configured.includes(connector)
   ) {
     return undefined;
   }
