@@ -196,20 +196,11 @@ function RepositoryEnvironmentResourceRow({
           </a>
         </div>
       );
-    case "hub_client":
-      return (
-        <div className="flex min-h-10 items-center py-1.5 text-sm text-muted-foreground">
-          {hubClientLine(resource)}
-        </div>
-      );
     default:
       resource satisfies never;
       return null;
   }
 }
-
-const hubClientLine = (resource: Extract<RepositoryEnvironmentResource, { kind: "hub_client" }>) =>
-  `Google sign-in: ${resource.status}`;
 
 /**
 What a box of the stage diagram adds from the resource rows, at its top right, by the fqn in the
@@ -279,8 +270,6 @@ function boxAsides(card: RepositoryStackCard) {
             label={resource.bucketName}
           />,
         );
-        return;
-      case "hub_client":
         return;
       default:
         resource satisfies never;

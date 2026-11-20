@@ -33,7 +33,6 @@ import {
 } from "./RepositoryEnvironmentTree";
 
 const DIAGRAM: RepositoryStackViewControl = { view: "diagram", onChange: () => {} };
-const LIST: RepositoryStackViewControl = { view: "list", onChange: () => {} };
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
@@ -334,14 +333,13 @@ function renderStackCards(
   stacks: RepositoryAlchemyStacks,
   repository: RepositorySettingsBuilderRepository,
   headCommit: string | null,
-  stackView = DIAGRAM,
 ) {
   const container = document.createElement("div");
   container.innerHTML = renderToStaticMarkup(
     <TestRouterProvider initialEntries={[`/repo/${repository.githubRepositoryFullName}`]}>
       <DefaultBranchSection
         filesReadEnabled={false}
-        stackView={stackView}
+        stackView={DIAGRAM}
         workspace={{
           access: { state: "ready", accessKeys: [] },
           alchemyState: {
@@ -576,44 +574,6 @@ describe("Alchemy stack cards", () => {
       "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-public-media",
       "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces",
       "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
-    ]);
-  });
-
-  it.each([
-    ["on", "Google sign-in: on"],
-    ["off", "Google sign-in: not set up"],
-    ["suspended", "Google sign-in: suspended"],
-  ])("shows a shared hub client that is %s as the last row of its card", (status, line) => {
-    const stacks = observedBaseAlchemyStack();
-    const { cards } = renderStackCards(
-      {
-        ...stacks,
-        stacks: stacks.stacks.map((stack) => ({
-          name: "samebase/scout",
-          store: stack.store,
-          stages: stack.stages.map((stage) => ({
-            ...stage,
-            run: { ...stage.run, stackFile: "alchemy.run.ts" },
-            resources: [
-              {
-                fqn: "Client",
-                value: JSON.stringify({
-                  resourceType: "IdentityHub.Client",
-                  attr: { status, clientId: "client-id" },
-                }),
-              },
-              ...observedScoutR2Resources,
-            ],
-          })),
-        })),
-      },
-      makeRepositorySettingsBuilderRepository({}),
-      null,
-      LIST,
-    );
-
-    expect(cards.map((card) => card.textContent)).toEqual([
-      `scout-public-mediascout-workspacesscout-workspaces-prod${line}`,
     ]);
   });
 
