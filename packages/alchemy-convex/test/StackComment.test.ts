@@ -44,7 +44,7 @@ const cardsAt = (stage: string, name = repository) =>
     readStackCards({ repository: name, stage }).pipe(Effect.provide(stateOf(stages))),
   );
 
-const worker = (cards: readonly StackCard[]) => cards[1]?.resources[0];
+const workerBox = (cards: readonly StackCard[]) => cards[1]?.diagram.boxes[0];
 
 describe("readStackCards", () => {
   it("gives a card for each stack of the repository with the stage", async () => {
@@ -64,12 +64,11 @@ describe("readStackCards", () => {
     expect(await cardsAt("pr-1829", "samebase/same")).toEqual([]);
   });
 
-  it("leaves out a row of another type", async () => {
+  it("shows a deployment of two rows as one box, with its project folded in", async () => {
     const [app] = await cardsAt("pr-1829");
 
-    expect(app?.resources.map(({ resourceType }) => resourceType)).toEqual([
-      "Convex.Deployment",
-      "Convex.Deployment",
+    expect(app?.diagram.boxes.map((box) => [box.name, box.folded.map((row) => row.fqn)])).toEqual([
+      ["Preview, Site", ["Project"]],
     ]);
   });
 });
@@ -106,11 +105,13 @@ describe("renderStackComment", () => {
 
   it("shows another URL of a Worker below its name", async () => {
     const cards = await cardsAt("pr-1829");
-    const row = worker(cards);
+    const box = workerBox(cards);
     const [app] = cards;
 
     const body = renderStackComment(
-      app && row ? [{ ...app, resources: [...app.resources, row] }] : [],
+      app && box
+        ? [{ ...app, diagram: { ...app.diagram, boxes: [...app.diagram.boxes, box] } }]
+        : [],
       repository,
     );
 
@@ -145,16 +146,11 @@ describe("renderStackComment", () => {
 
   it("escapes the values of the state", async () => {
     const [bucket] = await cardsAt("prod", "samebase/scout");
-    const [row] = bucket?.resources ?? [];
+    const [box] = bucket?.diagram.boxes ?? [];
 
     const body = renderStackComment(
-      bucket && row?.resourceType === "Cloudflare.R2.Bucket"
-        ? [
-            {
-              ...bucket,
-              resources: [{ ...row, attr: { ...row.attr, bucketName: "<script>" } }],
-            },
-          ]
+      bucket && box
+        ? [{ ...bucket, diagram: { ...bucket.diagram, boxes: [{ ...box, name: "<script>" }] } }]
         : [],
       "samebase/scout",
     );
@@ -163,24 +159,43 @@ describe("renderStackComment", () => {
     expect(body).toContain("&lt;script&gt;");
   });
 
-  it.each([
-    ["IdentityHub.Client", "on", "Sign-in with github, google: on"],
-    ["IdentityHub.Client", "off", "Sign-in: not set up"],
-    ["IdentityHub.Client", "suspended", "Sign-in with github, google: suspended"],
-    ["IdentityHub.SharedClient", "on", "Sign-in with github, google: on"],
-  ])("shows an %s that is %s, and no secret of its row", async (resourceType, status, line) => {
-    const row = {
-      fqn: "Client",
+  it("names the boxes that a box uses, and shows no secret of a row", async () => {
+    const row = (fqn: string, resourceType: string, attr: object, more: object = {}) => ({
+      fqn,
+      logicalId: fqn,
       resourceType,
-      attr: {
-        status,
-        connectors: status === "off" ? [] : ["github", "google"],
-        clientId: "client-id",
-        clientSecret: "client-secret",
-        registrationAccessToken: "registration-token",
-      },
-    };
-    const stage = { stack: repository, stage: "pr-1", rows: [row], output: null };
+      status: "created",
+      attr,
+      downstream: [],
+      ...more,
+    });
+    const rows = [
+      row("Prices", "Cloudflare.R2.Bucket", { bucketName: "prices" }, { downstream: ["Sync"] }),
+      row(
+        "Sync",
+        "Cloudflare.Worker",
+        { workerName: "sync", url: "https://sync.acme.workers.dev", crons: ["0 6 * * *"] },
+        {
+          bindings: [
+            {
+              sid: "PRICES",
+              data: { bindings: [{ type: "r2_bucket", name: "PRICES", bucketName: "prices" }] },
+            },
+            {
+              sid: "TOKEN",
+              data: { bindings: [{ type: "secret_text", name: "TOKEN", text: "token-value" }] },
+            },
+          ],
+        },
+      ),
+      row(
+        "HubClient",
+        "IdentityHub.Client",
+        { clientId: "client-id", clientSecret: "client-secret" },
+        { downstream: ["Sync"] },
+      ),
+    ];
+    const stage = { stack: repository, stage: "pr-1", rows, output: null };
 
     const body = renderStackComment(
       await Effect.runPromise(
@@ -189,8 +204,9 @@ describe("renderStackComment", () => {
       repository,
     );
 
-    expect(body).toContain(`<tbody><tr><td>${line}</td></tr></tbody>`);
-    expect(body).not.toMatch(/client-id|client-secret|registration-token/);
+    expect(body).toContain("<br><sub>Worker, Daily at 06:00 UTC</sub>");
+    expect(body).toContain("<br><sub>uses Prices (PRICES)</sub>");
+    expect(body).not.toMatch(/token-value|client-id|client-secret/);
   });
 });
 

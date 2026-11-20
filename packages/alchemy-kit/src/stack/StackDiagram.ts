@@ -127,7 +127,7 @@ export interface DiagramBox {
   resourceType: string;
   category: ResourceCategory;
   icon: IconNode;
-  rows: DiagramRow[];
+  rows: [DiagramRow, ...DiagramRow[]];
   /** The rows without a box of their own that attach to this box. */
   folded: DiagramRow[];
   link: string | null;

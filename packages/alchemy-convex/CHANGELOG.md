@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.43.0
+
+- The pull request comment of `alchemy-convex stack-comment` shows a row for each main resource of a
+  stage, of any type, from `stageDiagram` of `@samebase/alchemy-kit/stack` 0.5.0: the same boxes as
+  Samebase's stack diagram. A row names the resources that it uses, with the binding names, and the
+  schedule of a Worker. A project and a hub client show under their deployment, so the line
+  `Sign-in with google, github: on` is gone.
+
 ## 0.42.0
 
 - `IdentityHub.Client` takes `key`, for any `deploymentType`: the client asks a hub on the stack

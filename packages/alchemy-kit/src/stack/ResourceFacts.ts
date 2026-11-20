@@ -140,9 +140,9 @@ const dashboard = (...path: string[]) =>
   `https://dash.cloudflare.com/${path.map(encodeURIComponent).join("/")}`;
 
 /**
-The Cloudflare dashboard page of a Worker or a D1 database, as a menu link of its box. The dashboard
-has no confirmed page address for one D1 database, so a database links to the D1 list of its
-account.
+The dashboard page of a resource: the Cloudflare page of a Worker, an R2 bucket or a D1 database, and
+the Convex page of a deployment. The Cloudflare dashboard has no confirmed page address for one D1
+database, so a database links to the D1 list of its account.
 
 @see https://developers.cloudflare.com/d1/get-started/
 */
@@ -160,6 +160,29 @@ const DASHBOARDS = new Map<
             href: dashboard(accountId, "workers", "services", "view", workerName),
             label: workerName,
           }
+        : undefined;
+    },
+  ],
+  [
+    "Cloudflare.R2.Bucket",
+    (attr) => {
+      const accountId = readString(attr, "accountId");
+      const bucketName = readString(attr, "bucketName");
+      const jurisdiction = readString(attr, "jurisdiction") ?? "default";
+      return accountId && bucketName
+        ? {
+            href: dashboard(accountId, "r2", jurisdiction, "buckets", bucketName),
+            label: bucketName,
+          }
+        : undefined;
+    },
+  ],
+  [
+    "Convex.Deployment",
+    (attr) => {
+      const name = readString(attr, "name");
+      return name
+        ? { href: `https://dashboard.convex.dev/d/${encodeURIComponent(name)}`, label: name }
         : undefined;
     },
   ],
