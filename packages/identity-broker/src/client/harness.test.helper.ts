@@ -56,6 +56,7 @@ export async function createHarness(options: {
   });
   const http = httpRouter();
   broker.addHttpRoutes(http);
+  broker.addMigrationExportRoute(http);
   /** A test's read outage: the queries whose name this answers true for throw, while it is set. */
   const reads: { failing: ((name: string) => boolean) | null } = { failing: null };
 

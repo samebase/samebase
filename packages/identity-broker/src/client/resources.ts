@@ -426,20 +426,90 @@ export function resourceEndpoints(options: {
       );
     const token = params.get("token");
     if (token === null) return oauthError(400, "invalid_request", "token is required.");
-    const authenticated = await ctx.runMutation(component.resourceRequests.revoke, {
+    const revoked = await ctx.runMutation(component.resourceRequests.revoke, {
       clientId: auth.value.clientId,
       clientSecretHash: await sha256Hex(auth.value.clientSecret),
       tokenEndpointAuthMethod: auth.value.method,
       tokenHash: await sha256Hex(token),
     });
-    return authenticated
-      ? new Response(null, { status: 200, headers: { "Cache-Control": "no-store" } })
-      : oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+    switch (revoked) {
+      case "revoked":
+        return new Response(null, { status: 200, headers: { "Cache-Control": "no-store" } });
+      case "invalid_client":
+        return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+      // RFC 7009 section 2.2.1: the client may retry later.
+      case "frozen":
+        return oauthError(503, "temporarily_unavailable", "Revocation is paused. Retry later.");
+      default:
+        return revoked satisfies never;
+    }
+  });
+
+  /**
+   * `POST /migration/export`: the provider refresh token behind a frozen client's refresh token,
+   * for the move of its grants to another hub. The client authenticates as at `/token`, and the
+   * policy decides as for a refresh. Nothing is written and no provider is called. No log line
+   * names the request or the answer: both carry tokens.
+   */
+  const exportGrant = httpActionGeneric(async (ctx, request) => {
+    const params = await readParameters(request);
+    if (params === null)
+      return oauthError(
+        400,
+        "invalid_request",
+        "The body must be application/x-www-form-urlencoded.",
+      );
+    const auth = readClientAuthentication(request.headers.get("authorization"), params);
+    if (!auth.ok)
+      return oauthError(
+        auth.status,
+        auth.error,
+        auth.description,
+        auth.status === 401 ? challenge : {},
+      );
+    const refreshToken = params.get("refresh_token");
+    if (refreshToken === null)
+      return oauthError(400, "invalid_request", "refresh_token is required.");
+    const found = await ctx.runQuery(component.clients.withApp, { clientId: auth.value.clientId });
+    if (found === null)
+      return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+    const decision = decide(found);
+    if (decision === null)
+      return oauthError(503, "temporarily_unavailable", "Export is not available right now.");
+    const exported = await ctx.runQuery(component.resourceRequests.exportGrant, {
+      clientId: auth.value.clientId,
+      clientSecretHash: await sha256Hex(auth.value.clientSecret),
+      tokenEndpointAuthMethod: auth.value.method,
+      tokenHash: await sha256Hex(refreshToken),
+      policy: policyArg(decision),
+      now: Date.now(),
+    });
+    if (exported.ok)
+      return json({ refresh_token: exported.upstreamRefreshToken, resource: exported.resource });
+    switch (exported.error) {
+      case "invalid_client":
+        return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+      case "not_frozen":
+        return oauthError(403, "unauthorized_client", "The client is not frozen.");
+      case "invalid_grant":
+        return oauthError(400, "invalid_grant", "The refresh token is invalid or expired.");
+      case "invalid_target":
+        return oauthError(400, "invalid_target", "This client cannot use that API resource.");
+      case "refresh_in_progress":
+        return oauthError(
+          409,
+          "refresh_in_progress",
+          "A refresh holds this grant, and its result is unknown.",
+        );
+      default:
+        return exported.error satisfies never;
+    }
   });
 
   return {
     authorize,
     refresh,
+    exportGrant,
     enabled: providers.size > 0,
     scopes: [...new Set(options.providers.flatMap((provider) => [...provider.scopes]))],
     addRoutes(http: HttpRouter) {

@@ -1066,6 +1066,20 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
     },
 
     /**
+     * Mounts `POST /migration/export`, which hands a frozen client the provider refresh token of
+     * each of its grants (`admin().freezeClient`), for a move of its connections to another hub.
+     * Only a host that moves a client mounts it.
+     */
+    addMigrationExportRoute(http: HttpRouter): void {
+      if (resources.enabled)
+        http.route({
+          path: path("/migration/export"),
+          method: "POST",
+          handler: resources.exportGrant,
+        });
+    },
+
+    /**
      * The credentials of a client for `component.registration.register`, for a host that proves its
      * callers in another way than `POST /register`. Call it in an action: the secret and the
      * registration access token go to the caller of the host's endpoint, and nowhere else.
@@ -1094,6 +1108,31 @@ export function defineIdentityBroker<C extends Connector, R extends ResourceProv
             await ctx.runMutation(component.apps.remove, { appId: args.appId });
             return null;
           },
+        }),
+        /**
+         * Freezes a client for the move of its grants to another hub, for good: its refreshes and
+         * revocations answer 503 `temporarily_unavailable`, nothing deletes it or its grants, and
+         * `POST /migration/export` answers it.
+         */
+        freezeClient: internalMutationGeneric({
+          args: { clientId: string() },
+          handler: async (ctx, args) =>
+            await ctx.runMutation(component.clients.freeze, {
+              clientId: args.clientId,
+              now: Date.now(),
+            }),
+        }),
+        /**
+         * Counts of a client's grants: all, those a refresh holds (running, or ended with no saved
+         * answer: only a reconnect helps those), and those expired.
+         */
+        drainStatus: internalQueryGeneric({
+          args: { clientId: string() },
+          handler: async (ctx, args) =>
+            await ctx.runQuery(component.resourceRequests.drainStatus, {
+              clientId: args.clientId,
+              now: Date.now(),
+            }),
         }),
         listApps: internalQueryGeneric({
           args: {},

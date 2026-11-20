@@ -111,6 +111,8 @@ async function removeRows(ctx: MutationCtx, appId: string): Promise<void> {
     .withIndex("by_app_id", (q) => q.eq("appId", appId))
     .take(BATCH);
   for (const client of clients) {
+    // A frozen client stays with its grants (see `frozenAt`); with its app gone, it cannot sign in.
+    if (client.frozenAt !== undefined) continue;
     await ctx.db.delete("clients", client._id);
     await ctx.scheduler.runAfter(0, internal.resourceRequests.continueRemoveClientGrants, {
       clientId: client.clientId,
