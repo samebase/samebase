@@ -1,13 +1,14 @@
-import type { Route } from "../router.ts";
-import { registerClient } from "./hubClients.ts";
-import { deleteClient, readClient, updateClient } from "./registration.ts";
+import type { Route } from "../../core/router.ts";
+import { deleteClient, readClient, updateClient } from "./manage.ts";
+import { registerClient } from "./register.ts";
+import type { GithubSettings } from "./settings.ts";
 
 /**
- * The routes of the hub mode: `POST /register` (RFC 7591) and the client configuration endpoint
- * `/register/<client>` (RFC 7592). The router mounts them only when `HubConfig.registration` is set.
- * The client id is the final segment of the path, as it is.
+ * The routes of the GitHub layer: `POST /register` (RFC 7591) and the client configuration
+ * endpoint `/register/<client>` (RFC 7592). The client id is the final segment of the path, as it
+ * is.
  */
-export const registrationRoutes: ReadonlyArray<Route> = [
+export const githubRoutes: ReadonlyArray<Route<GithubSettings>> = [
   {
     method: "POST",
     path: "/register",

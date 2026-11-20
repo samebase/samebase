@@ -7,24 +7,26 @@
 // strings compare with the BINARY collation (UTF-8 byte order). `id` is the insertion order.
 import { Effect, Schema } from "effect";
 import {
-  declarations,
   tableNames,
   tables,
   type Doc,
-  type IndexField,
   type IndexName,
   type TableName,
+  type Tables,
 } from "./tables.ts";
 import {
   checkQuery,
   RowId,
   valueAt,
   type Bound,
+  type IndexField,
   type IndexValue,
   type Query,
-  type Row,
+  type Row as RowOf,
   type TxShape,
 } from "./Tx.ts";
+
+type Row<T extends TableName> = RowOf<Tables, T>;
 
 export type SqlValue = string | number | null;
 
@@ -39,7 +41,7 @@ const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 /** The distinct indexed paths of a table, in declaration order: its key columns. */
 const columnsOf = (table: TableName): ReadonlyArray<IndexField> => {
   const seen = new Map<string, IndexField>();
-  for (const fields of Object.values(declarations[table].indexes)) {
+  for (const fields of Object.values<ReadonlyArray<IndexField>>(tables[table].indexes)) {
     for (const field of fields) {
       seen.set(field.path, field);
     }
@@ -48,7 +50,7 @@ const columnsOf = (table: TableName): ReadonlyArray<IndexField> => {
 };
 
 const indexSql = (table: TableName) =>
-  Object.entries(declarations[table].indexes).map(
+  Object.entries<ReadonlyArray<IndexField>>(tables[table].indexes).map(
     ([index, fields]) =>
       `CREATE INDEX IF NOT EXISTS ${quote(`${table}__${index}`)} ON ${quote(table)} (${[
         ...fields.map((field) => quote(field.path)),
@@ -127,7 +129,7 @@ const boundSql = (
 };
 
 /** A `Tx` over `exec`, live while `isOpen()` holds. A read-only `Tx` refuses writes. */
-export const sqlTx = (exec: Exec, isOpen: () => boolean, readOnly: boolean): TxShape => {
+export const sqlTx = (exec: Exec, isOpen: () => boolean, readOnly: boolean): TxShape<Tables> => {
   /** Checked right before each statement: a closed `Tx` never reaches storage. */
   const run = (sql: string, params: ReadonlyArray<SqlValue>) => {
     if (!isOpen()) {
@@ -153,7 +155,7 @@ export const sqlTx = (exec: Exec, isOpen: () => boolean, readOnly: boolean): TxS
     id: new RowId(table, String(row.id)),
     doc: Schema.decodeUnknownSync(tables[table].schema)(parseJson(row.doc)),
   });
-  const idOf = (id: RowId<TableName>) => {
+  const idOf = (id: RowId<string>) => {
     const key = Number(id.key);
     if (!Number.isSafeInteger(key)) {
       throw new Error(`Not a row id of this store: ${id.key}`);
@@ -163,7 +165,7 @@ export const sqlTx = (exec: Exec, isOpen: () => boolean, readOnly: boolean): TxS
   const one = (
     rows: ReadonlyArray<Record<string, unknown>>,
     table: TableName,
-    id: RowId<TableName>,
+    id: RowId<string>,
   ) => {
     if (decodeIds(rows).length !== 1) {
       throw new Error(`No row ${id.key} in ${table}`);
@@ -218,7 +220,7 @@ export const sqlTx = (exec: Exec, isOpen: () => boolean, readOnly: boolean): TxS
       }),
     query: <T extends TableName>(table: T, index: IndexName<T>, query: Query) =>
       Effect.sync((): ReadonlyArray<Row<T>> => {
-        const checked = checkQuery(table, index, query);
+        const checked = checkQuery(tables, table, index, query);
         const conditions: Array<string> = [];
         const params: Array<SqlValue> = [];
         checked.eq.forEach((value, at) => {

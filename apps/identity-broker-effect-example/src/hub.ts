@@ -21,7 +21,7 @@ export default hubWorker({
   },
   // samebase/samebase only.
   allowedRepositories: [{ repositoryId: "1021726325", ownerId: "285392744" }],
-  registration: {
+  service: {
     name: "Identity broker example",
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",

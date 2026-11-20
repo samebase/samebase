@@ -6,7 +6,8 @@
 import { defineTable, type TableDefinition } from "convex/server";
 import { v, type Validator } from "convex/values";
 import { SchemaAST } from "effect";
-import { declarations, tableNames, tables, type TableName } from "../../store/tables.ts";
+import { tableNames, tables, type TableName } from "../../store/tables.ts";
+import type { IndexField } from "../../store/Tx.ts";
 
 type Value = Validator<unknown, "required", string>;
 
@@ -81,7 +82,7 @@ const table = (name: TableName): TableDefinition => {
   let definition: TableDefinition = defineTable(
     document(SchemaAST.toEncoded(tables[name].schema.ast)),
   );
-  for (const [index, fields] of Object.entries(declarations[name].indexes)) {
+  for (const [index, fields] of Object.entries<ReadonlyArray<IndexField>>(tables[name].indexes)) {
     const [first, ...rest] = fields.map((field) => field.path);
     if (first === undefined) {
       throw new Error(`${name}.${index} has no fields`);

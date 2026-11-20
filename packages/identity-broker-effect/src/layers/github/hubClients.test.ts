@@ -2,8 +2,7 @@
 // memory Store, with the source's two connectors `fake` and `other` of one fake provider.
 import { Effect, Schema } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { Tx } from "../../store/Tx.ts";
-import { sha256Hex } from "../subject.ts";
+import { sha256Hex } from "../../core/subject.ts";
 import {
   APP_ID,
   createClient,
@@ -28,9 +27,10 @@ import {
   setBlock,
   signToken,
   stubProviders,
-  testPolicy,
+  TEST_ALLOW_LIST,
   type Hub,
 } from "./testing/hub.ts";
+import { setGrant } from "./testing/seeds.ts";
 
 const decodeNewClient = Schema.decodeUnknownSync(NewClient);
 
@@ -66,19 +66,13 @@ function seedWindow(
   row: { scope: "repository" | "owner" | "new_owners"; githubId: string; count: number },
   startedAt = h.clock.now(),
 ) {
-  h.memory.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      yield* tx.insert("rateLimits", { ...row, startedAt });
-    }),
-  );
+  h.memory.withTx((tx) => Effect.asVoid(tx.insert("rateLimits", { ...row, startedAt })));
 }
 
 /** Rewrites each rate limit row: `change` answers the new count, or null to delete the row. */
 function changeWindows(h: Hub, change: (row: { scope: string; count: number }) => number | null) {
-  h.memory.withTx(
+  h.memory.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
       const rows = yield* tx.query("rateLimits", "by_scope_and_github_id", {
         eq: [],
         order: "asc",
@@ -98,9 +92,8 @@ function changeWindows(h: Hub, change: (row: { scope: string; count: number }) =
 
 /** Deletes every initial access token row. */
 function deleteInitialAccessTokens(h: Hub) {
-  h.memory.withTx(
+  h.memory.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
       const rows = yield* tx.query("initialAccessTokens", "by_token_hash", {
         eq: [],
         order: "asc",
@@ -114,18 +107,17 @@ function deleteInitialAccessTokens(h: Hub) {
 }
 
 function insertInitialAccessToken(h: Hub, row: { tokenHash: string; app: string }) {
-  h.memory.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      yield* tx.insert("initialAccessTokens", {
+  h.memory.withTx((tx) =>
+    Effect.asVoid(
+      tx.insert("initialAccessTokens", {
         tokenHash: row.tokenHash,
         githubRepositoryDatabaseId: REPOSITORY_ID,
         githubOwnerId: OWNER_ID,
         githubRepository: "octo-org/octo-repo",
         app: row.app,
         issuedAt: h.clock.now(),
-      });
-    }),
+      }),
+    ),
   );
 }
 
@@ -187,17 +179,24 @@ describe("POST /register", () => {
       const client = await createClient(h);
 
       expect(clientRow(h, client.client_id)).toMatchObject({
-        appId: APP_ID,
         redirectUris: [PRODUCTION_CALLBACK],
-        deploymentType: "production",
-        clientName: "prod",
-        softwareVersion: "abc123",
         tokenEndpointAuthMethod: "client_secret_post",
         connectors: ["fake"],
+        gates: ["github:repository:74", `github:owner:${OWNER_ID}`],
+        confirm: true,
+        budget: "github:gh-74",
+        ref: "github:gh-74",
+        github: {
+          appId: APP_ID,
+          deploymentType: "production",
+          clientName: "prod",
+          softwareVersion: "abc123",
+          enrollment: ["fake"],
+        },
       });
-      expect(h.rows().apps).toEqual([
-        { appId: APP_ID, name: APP_ID, tenantId: "gh-74", createdAt: EPOCH },
-      ]);
+      // A production card is permanent.
+      expect(clientRow(h, client.client_id)).not.toHaveProperty("removeAt");
+      expect(h.rows().apps).toEqual([{ appId: APP_ID, tenantId: "gh-74" }]);
       expect(h.rows().tenants).toEqual([
         { tenantId: "gh-74", ownerId: OWNER_ID, ownerProofIssuedAt: EPOCH / 1_000 },
       ]);
@@ -232,10 +231,9 @@ describe("POST /register", () => {
       const client = await readNewClient(response);
 
       expect(clientRow(h, client.client_id)).toMatchObject({
-        appId: APP_ID,
         redirectUris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub"],
-        deploymentType: "preview",
-        clientName: "pr-12",
+        removeAt: EPOCH + 14 * 24 * 60 * 60 * 1_000,
+        github: { appId: APP_ID, deploymentType: "preview", clientName: "pr-12" },
       });
     });
 
@@ -247,28 +245,24 @@ describe("POST /register", () => {
       expect(rows.clients).toEqual([
         expect.objectContaining({
           clientId: client.client_id,
-          clientName: "prod",
-          app: "my-app",
           redirectUris: [PRODUCTION_CALLBACK],
           createdAt: EPOCH,
-          registeredBy: {
-            kind: "github",
-            githubRepository: "octo-org/octo-repo",
-            githubOwnerId: OWNER_ID,
-            githubActorId: "12",
-            githubActorLogin: "octocat",
-            commitSha: "example-sha",
-          },
+          github: expect.objectContaining({
+            clientName: "prod",
+            app: "my-app",
+            registeredBy: {
+              kind: "github",
+              githubRepository: "octo-org/octo-repo",
+              githubOwnerId: OWNER_ID,
+              githubActorId: "12",
+              githubActorLogin: "octocat",
+              commitSha: "example-sha",
+            },
+          }),
         }),
       ]);
       expect(rows.events).toEqual([
-        {
-          kind: "registration",
-          clientId: client.client_id,
-          githubRepositoryDatabaseId: REPOSITORY_ID,
-          githubOwnerId: OWNER_ID,
-          at: EPOCH,
-        },
+        { githubRepositoryDatabaseId: REPOSITORY_ID, githubOwnerId: OWNER_ID, at: EPOCH },
       ]);
       const tables = JSON.stringify(rows);
       expect(tables).not.toContain(client.client_secret);
@@ -309,7 +303,7 @@ describe("POST /register", () => {
       expect((await postHubClient(h, await signToken(h))).status).toBe(400);
 
       const line = (event: string, deployment: string, reason: string | null) =>
-        `hub_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment, connector: null, reason })}`;
+        `hub_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment, reason })}`;
       expect(info.mock.calls).toEqual([
         [line("registration", "production", null)],
         [line("registration", "development", null)],
@@ -322,7 +316,7 @@ describe("POST /register", () => {
       // The tenant's budget of apps is full, so the rule refuses a new app of the repository.
       for (let index = 0; index < 10; index += 1) {
         seedClient(h, {
-          tenantId: `gh-${REPOSITORY_ID}`,
+          repositoryId: REPOSITORY_ID,
           appId: `gh-${REPOSITORY_ID}-other-${index}`,
           deploymentType: "production",
           clientId: `cl_other_${index}`,
@@ -343,7 +337,7 @@ describe("POST /register", () => {
       const h = await createHub();
       for (let index = 0; index < 30; index += 1) {
         seedClient(h, {
-          tenantId: `gh-${REPOSITORY_ID}`,
+          repositoryId: REPOSITORY_ID,
           appId: APP_ID,
           deploymentType: "production",
           clientId: `cl_prod_${index}`,
@@ -360,7 +354,7 @@ describe("POST /register", () => {
     it("refuses an app whose id another tenant holds", async () => {
       const h = await createHub();
       seedClient(h, {
-        tenantId: "gh-99",
+        repositoryId: "99",
         appId: APP_ID,
         deploymentType: "production",
         clientId: "cl_other",
@@ -373,65 +367,15 @@ describe("POST /register", () => {
     });
   });
 
-  describe("the policy", () => {
-    it("refuses a paused registration before it reads the file, and lets one the policy exempts register", async () => {
-      const h = await createHub({
-        policy: (registration) => testPolicy({ paused: registration.repositoryId !== "81" }),
-      });
-      const fileRequests = await stubProviders(h);
-
-      const response = await postHubClient(h, await signToken(h));
-
-      await expectInsufficientScope(response, "paused");
-      expect(fileRequests).toEqual([]);
-      expect(h.rows().rateLimits).toEqual([]);
-      const exempt = await createClient(h, { repository_id: "81" });
-      expect(exempt.client_id).toMatch(/^cl_/);
-    });
-
-    it("sees the registration's facts: the repository, its owner, the app, the deploy, the address, and the proof", async () => {
-      const seen: unknown[] = [];
-      const h = await createHub({
-        policy: (registration) => {
-          seen.push(registration);
-          return testPolicy();
-        },
-      });
-      const production = await createClient(h);
-      await createDevelopmentClient(h, production.initial_access_token ?? "");
-      await stubProviders(h);
-      await postHubClient(h, await signToken(h, pullRequestClaims));
-
-      expect(seen).toEqual([
-        {
-          repositoryId: REPOSITORY_ID,
-          repository: "octo-org/octo-repo",
-          ownerId: OWNER_ID,
-          app: "my-app",
-          deploymentType: "production",
-          redirectUris: [PRODUCTION_CALLBACK],
-          proof: "github-actions",
-        },
-        {
-          repositoryId: REPOSITORY_ID,
-          repository: "octo-org/octo-repo",
-          ownerId: OWNER_ID,
-          app: "my-app",
-          deploymentType: "development",
-          redirectUris: [LOOPBACK_CALLBACK],
-          proof: "initial-access-token",
-        },
-        expect.objectContaining({ deploymentType: "preview", proof: "github-actions" }),
-      ]);
-    });
-
-    it("refuses an enrollment outside the hub's connectors or the policy's, and names the allowed ones", async () => {
-      const h = await createHub({
-        policy: (registration) =>
-          testPolicy({
-            connectors: registration.app === "my-app" ? ["other"] : ["fake", "other"],
-          }),
-      });
+  describe("the allow-list and the grants", () => {
+    it("refuses an enrollment outside the hub's connectors, the allow-list's and the grants', and names the allowed ones", async () => {
+      // The repository is not on the allow-list; its owner has a grant of `other`.
+      const h = await createHub({ allowList: [] });
+      setGrant(
+        h.memory,
+        { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, connector: "other" },
+        true,
+      );
       const fileRequests = await stubProviders(h);
 
       const unknown = await postHubClient(h, await signToken(h), { connectors: ["okta"] });
@@ -483,15 +427,19 @@ describe("POST /register", () => {
     });
 
     it("enrolls in every allowed connector without `connectors`, and refuses when none is allowed", async () => {
+      // The allow-list names the test repository, and not repository 81.
       const h = await createHub({
-        policy: (registration) =>
-          testPolicy({ connectors: registration.app === "my-app" ? ["fake", "other"] : [] }),
+        allowList: [{ repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }],
       });
-      await stubProviders(h);
+      await stubProviders(h, (request) =>
+        jsonResponse({
+          repository: new URL(request.url).hostname.startsWith("r81") ? "81" : REPOSITORY_ID,
+        }),
+      );
 
       const all = await postHubClient(h, await signToken(h), { connectors: undefined });
-      const none = await postHubClient(h, await signToken(h), {
-        software_id: "empty-app",
+      const none = await postHubClient(h, await signToken(h, { repository_id: "81" }), {
+        redirect_uris: ["https://r81.example.com/auth/hub/callback"],
         connectors: undefined,
       });
 
@@ -503,7 +451,7 @@ describe("POST /register", () => {
       );
     });
 
-    it("the development command refuses a token row that differs from any fact the policy saw, and writes nothing", async () => {
+    it("the development command refuses a token row that differs from any fact the handler read, and writes nothing", async () => {
       const h = await createHub();
       const token = await createInitialAccessToken(h);
       const facts = {
@@ -522,7 +470,7 @@ describe("POST /register", () => {
       ]) {
         const seen = { ...facts, ...changed };
         expect(
-          h.memory.run("hubClients.createDevelopmentClient", {
+          h.memory.run("github.createDevelopmentClient", {
             clientId: "cl_dev",
             secretHash: "secret-hash",
             registrationTokenHash: "token-hash",
@@ -533,39 +481,15 @@ describe("POST /register", () => {
             app: seen.app,
             appId: `gh-${seen.githubRepositoryDatabaseId}-${(await sha256Hex(seen.app)).slice(0, 32)}`,
             connectors: ["fake"],
-            policyConnectors: ["fake"],
-            configuredConnectors: ["fake"],
             redirectUris: [LOOPBACK_CALLBACK],
             softwareVersion: "dev-1",
             tokenEndpointAuthMethod: "client_secret_post",
+            allowList: TEST_ALLOW_LIST,
+            configured: ["fake", "other"],
           }),
         ).toEqual({ ok: false, reason: "invalid_token" });
       }
       expect(h.rows()).toEqual(before);
-    });
-
-    it("refuses with 503 and writes nothing when the policy throws or answers a malformed value", async () => {
-      let answer: () => unknown = () => {
-        throw new Error("no env");
-      };
-      // @ts-expect-error The policy is wrong on purpose: the core validates its answer at runtime.
-      const h = await createHub({ policy: () => answer() });
-      vi.spyOn(console, "error").mockImplementation(() => undefined);
-      const fileRequests = await stubProviders(h);
-
-      const thrown = await postHubClient(h, await signToken(h));
-      answer = () => ({ connectors: "fake", resources: [], paused: false });
-      const malformed = await postHubClient(h, await signToken(h));
-      answer = () => ({ connectors: ["fake"], resources: [], paused: false, extra: true });
-      const wider = await postHubClient(h, await signToken(h));
-
-      for (const response of [thrown, malformed, wider]) {
-        expect(response.status).toBe(503);
-        expect(await response.json()).toEqual(refusalBody("temporarily_unavailable"));
-      }
-      expect(fileRequests).toEqual([]);
-      expect(h.rows().rateLimits).toEqual([]);
-      expect(h.rows().clients).toEqual([]);
     });
   });
 
@@ -726,7 +650,9 @@ describe("POST /register", () => {
         expect(client.software_id).toBe(full);
         expect(await record.json()).toMatchObject({ software_id: full });
         expect(h.rows().clients).toEqual([
-          expect.objectContaining({ app: full.slice(full.indexOf("/") + 1) }),
+          expect.objectContaining({
+            github: expect.objectContaining({ app: full.slice(full.indexOf("/") + 1) }),
+          }),
         ]);
       },
     );
@@ -748,8 +674,8 @@ describe("POST /register", () => {
       ]);
       const clients = h.rows().clients;
       expect(clients).toHaveLength(2);
-      expect(new Set(clients.map((row) => row.appId)).size).toBe(1);
-      expect(clients.map((row) => row.app)).toEqual(["a/b", "a/b"]);
+      expect(new Set(clients.map((row) => row.github?.appId)).size).toBe(1);
+      expect(clients.map((row) => row.github?.app)).toEqual(["a/b", "a/b"]);
     });
 
     it.each([
@@ -1310,26 +1236,27 @@ describe("POST /register with the initial access token", () => {
     });
     const clientId = client.client_id;
     expect(clientRow(h, clientId)).toMatchObject({
-      appId: APP_ID,
       redirectUris: [LOOPBACK_CALLBACK],
-      deploymentType: "development",
-      clientName: "development",
       removeAt: EPOCH + 14 * 24 * 60 * 60 * 1_000,
-      app: "my-app",
-      registeredBy: {
-        kind: "initial_access_token",
-        githubRepository: "octo-org/octo-repo",
-        githubOwnerId: OWNER_ID,
-        issuedAt: EPOCH,
+      gates: [`github:repository:${REPOSITORY_ID}`, `github:owner:${OWNER_ID}`],
+      ref: `github:gh-${REPOSITORY_ID}`,
+      github: {
+        appId: APP_ID,
+        deploymentType: "development",
+        clientName: "development",
+        app: "my-app",
+        registeredBy: {
+          kind: "initial_access_token",
+          githubRepository: "octo-org/octo-repo",
+          githubOwnerId: OWNER_ID,
+          issuedAt: EPOCH,
+        },
       },
     });
-    expect(registrationEvents(h).find((row) => row.clientId === clientId)).toEqual({
-      kind: "registration",
-      clientId,
-      githubRepositoryDatabaseId: REPOSITORY_ID,
-      githubOwnerId: OWNER_ID,
-      at: EPOCH,
-    });
+    expect(registrationEvents(h)).toEqual([
+      { githubRepositoryDatabaseId: REPOSITORY_ID, githubOwnerId: OWNER_ID, at: EPOCH },
+      { githubRepositoryDatabaseId: REPOSITORY_ID, githubOwnerId: OWNER_ID, at: EPOCH },
+    ]);
   });
 
   it.each(["http://[::1]:3211/auth/hub/callback", "http://localhost:5173/callback"])(
@@ -1343,16 +1270,14 @@ describe("POST /register with the initial access token", () => {
     },
   );
 
-  it("enrolls in what the policy allows a development client, which can differ from production's", async () => {
-    const h = await createHub({
-      policy: (registration) =>
-        testPolicy({
-          connectors: registration.deploymentType === "development" ? ["fake"] : ["fake", "other"],
-        }),
-    });
+  it("enrolls a development client in what the allow-list and the grants give at its registration", async () => {
+    const h = await createHub();
     const production = await createClient(h);
     const token = production.initial_access_token ?? "";
     await stubProviders(h);
+    // The repository leaves the allow-list; its owner keeps a grant of `fake`.
+    h.setAllowList([]);
+    setGrant(h.memory, { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, connector: "fake" }, true);
 
     const refused = await postHubClient(h, token, {
       redirect_uris: [LOOPBACK_CALLBACK],
@@ -1378,7 +1303,7 @@ describe("POST /register with the initial access token", () => {
     const token = production.initial_access_token ?? "";
     for (let index = 0; index < 30; index += 1) {
       seedClient(h, {
-        tenantId: `gh-${REPOSITORY_ID}`,
+        repositoryId: REPOSITORY_ID,
         appId: APP_ID,
         deploymentType: "preview",
         clientId: `cl_preview_${index}`,
@@ -1390,11 +1315,15 @@ describe("POST /register with the initial access token", () => {
 
     const development = await createDevelopmentClient(h, token);
 
-    const clients = h.rows().clients.filter((client) => client.deploymentType !== "production");
+    const clients = h
+      .rows()
+      .clients.filter((client) => client.github?.deploymentType !== "production");
     expect(clients).toHaveLength(30);
     expect(clients.map((client) => client.clientId)).not.toContain("cl_preview_0");
     expect(clients.map((client) => client.clientId)).toContain(development.client_id);
-    expect(clientRow(h, production.client_id)).toMatchObject({ deploymentType: "production" });
+    expect(clientRow(h, production.client_id)).toMatchObject({
+      github: { deploymentType: "production" },
+    });
   });
 
   it("needs the verification file for an https address", async () => {
@@ -1454,17 +1383,17 @@ describe("POST /register with the initial access token", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual(INVALID_TOKEN);
-    expect(h.rows().clients.map((row) => row.clientName)).toEqual(["prod"]);
+    expect(h.rows().clients.map((row) => row.github?.clientName)).toEqual(["prod"]);
     expect(registrationEvents(h)).toHaveLength(1);
   });
 
-  it("passes no owner: the rule checks the tenant's recorded owner and keeps it", async () => {
+  it("refuses a token whose owner no longer owns the repository, and keeps the recorded owner", async () => {
     const h = await createHub();
     const token = await createInitialAccessToken(h);
     // Another app of the tenant records owner 66, as after a transfer whose run made no client of
     // `my-app`; the token's row still names owner 65.
     seedClient(h, {
-      tenantId: `gh-${REPOSITORY_ID}`,
+      repositoryId: REPOSITORY_ID,
       ownerId: "66",
       appId: `gh-${REPOSITORY_ID}-other`,
       deploymentType: "production",
@@ -1473,17 +1402,12 @@ describe("POST /register with the initial access token", () => {
       now: h.clock.now(),
     });
     await stubProviders(h);
+    const before = h.rows().clients;
 
-    setBlock(h, { action: "block", kind: "owner", githubId: "66" });
     const refused = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
-    await expectInsufficientScope(refused, "suspended");
-
-    // A block of the token's own owner refuses as `blocked`: "refuses a blocked owner" below.
-    setBlock(h, { action: "unblock", kind: "owner", githubId: "66" });
-    const accepted = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
-    expect(accepted.status).toBe(201);
-
-    // The development client left the recorded owner 66 in place.
+    expect(refused.status).toBe(401);
+    expect(await refused.json()).toEqual(INVALID_TOKEN);
+    expect(h.rows().clients).toEqual(before);
     expect(h.rows().tenants).toEqual([expect.objectContaining({ ownerId: "66" })]);
   });
 
@@ -1501,18 +1425,6 @@ describe("POST /register with the initial access token", () => {
 
     await expectInsufficientScope(response, "blocked");
     expect(h.rows().rateLimits).toEqual(before);
-  });
-
-  it("refuses it while the policy pauses the app", async () => {
-    let paused = false;
-    const h = await createHub({ policy: () => testPolicy({ paused }) });
-    const token = await createInitialAccessToken(h);
-    paused = true;
-    await stubProviders(h);
-
-    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
-
-    await expectInsufficientScope(response, "paused");
   });
 
   it.each([
@@ -1565,7 +1477,7 @@ describe("POST /register with the initial access token", () => {
       expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
       expect(await response.json()).toEqual(INVALID_TOKEN);
     }
-    expect(h.rows().clients.map((row) => row.clientName)).toEqual(["prod"]);
+    expect(h.rows().clients.map((row) => row.github?.clientName)).toEqual(["prod"]);
     expect(registrationEvents(h)).toHaveLength(1);
   });
 
@@ -1660,26 +1572,5 @@ describe("registration rules at their edges", () => {
     const response = await postHubClient(h, token, { redirect_uris: [redirectUri] });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual(refusalBody("invalid_redirect_uri"));
-  });
-
-  it("tells the policy that a development client was proven by the initial access token", async () => {
-    let pauseDevelopment = false;
-    const h = await createHub({
-      policy: (registration) =>
-        testPolicy({ paused: pauseDevelopment && registration.proof === "initial-access-token" }),
-    });
-    const development = await createDevelopmentClient(h, await createInitialAccessToken(h));
-    pauseDevelopment = true;
-    const params = new URLSearchParams({
-      client_id: development.client_id,
-      redirect_uri: LOOPBACK_CALLBACK,
-      response_type: "code",
-      scope: "openid",
-      connector: "fake",
-      code_challenge: "a".repeat(43),
-      code_challenge_method: "S256",
-    });
-
-    expect((await h.fetchBroker(`${ISSUER}/authorize?${params}`)).status).toBe(503);
   });
 });

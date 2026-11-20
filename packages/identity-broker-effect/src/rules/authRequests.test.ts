@@ -1,11 +1,11 @@
 // Port of packages/identity-broker/src/component/authRequests.test.ts, on both hosts. The core
-// computes the S256 challenge of the verifier, so these tests pass challenges.
+// computes the S256 challenge of the verifier, so these tests pass challenges. Each step reads the
+// client's card in its own transaction: these tests change the card or its stops between steps.
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vite-plus/test";
-import type { Args } from "../store/Store.ts";
+import type { Args } from "../store/commands.ts";
 import type { Doc } from "../store/tables.ts";
-import { LEASE_MS } from "./registration.ts";
-import type { PolicyDecision } from "./schemas.ts";
+import { LEASE_MS } from "./clients.ts";
 import { patch, remove, rowsOf, seed, testHosts, type TestHost } from "./testing.ts";
 
 const hosts = testHosts(() => new DatabaseSync(":memory:"));
@@ -13,8 +13,9 @@ const hosts = testHosts(() => new DatabaseSync(":memory:"));
 const now = 1_700_000_000_000;
 /** The S256 challenge stored at `/authorize`, and the core's challenge of the right verifier. */
 const challenge = "challenge-of-verifier";
-/** The enrollment of client "cl", and the set of every request of it. */
+/** The hub's configured connectors, and the set of the card of "cl". */
 const CONNECTORS = ["g", "github", "google"];
+const GATES = ["layer:repository:1", "layer:owner:65"];
 
 /** The client's credentials and the return address every request of these tests names. */
 const cl = {
@@ -24,80 +25,56 @@ const cl = {
   redirectUri: "https://app.test/cb",
 } as const;
 
-/** The host's decision for "cl" when its policy allows everything it enrolled in. */
-const policy: PolicyDecision = {
-  ownerId: "65",
-  paused: false,
+const card = (expires: boolean): Doc<"clients"> => ({
+  clientId: cl.clientId,
+  redirectUris: [cl.redirectUri, "https://app.test/other"],
+  tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
+  secretHash: cl.clientSecretHash,
   connectors: CONNECTORS,
-  configured: CONNECTORS,
-};
-
-const testClientRecord = {
-  app: "my-app",
-  registeredBy: {
-    kind: "github",
-    githubRepository: "octo-org/octo-repo",
-    githubOwnerId: "65",
-    githubActorId: "12",
-    githubActorLogin: "octocat",
-    commitSha: "example-sha",
-  },
-} as const;
-
-const ownerBlock: Doc<"blocks"> = {
-  kind: "owner",
-  githubId: "65",
-  reason: "Phishing page",
-  adminEmail: "admin@example.com",
-  at: now,
-};
+  gates: GATES,
+  confirm: true,
+  budget: "layer:1",
+  ref: "layer:1",
+  ...(expires ? { removeAt: now + LEASE_MS } : {}),
+  createdAt: now,
+});
 
 describe.each(hosts)("%s", (_name, make) => {
-  /** App "app" of the repository `gh-1` of owner 65, with its preview client "cl", with or without a removal date. */
+  /** The card of client "cl", with or without a removal date. */
   const registered = (expires = false) => {
     const t = make({ now });
-    seed(t, "tenants", [{ tenantId: "gh-1", ownerId: "65" }]);
-    seed(t, "apps", [{ appId: "app", name: "App", tenantId: "gh-1", createdAt: now }]);
-    seed(t, "clients", [
-      {
-        clientId: cl.clientId,
-        appId: "app",
-        secretHash: cl.clientSecretHash,
-        registrationTokenHash: "token-hash",
-        tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
-        redirectUris: ["https://app.test/cb"],
-        deploymentType: "preview",
-        clientName: "App preview",
-        softwareVersion: "v1",
-        createdAt: now,
-        renewedAt: now,
-        ...testClientRecord,
-        connectors: CONNECTORS,
-        ...(expires ? { removeAt: now + LEASE_MS } : {}),
-      },
-    ]);
+    seed(t, "clients", [card(expires)]);
     return t;
   };
 
-  const pendingRequest = (requestId = "r1", given?: TestHost, connectors = CONNECTORS) => {
-    const t = given ?? registered();
-    const created = t.run("authRequests.create", {
-      tenantId: "gh-1",
-      requestId,
-      appId: "app",
+  const editCard = (t: TestHost, change: (doc: Doc<"clients">) => Doc<"clients">) =>
+    patch(t, "clients", "by_client_id", [cl.clientId], change);
+  const stop = (t: TestHost, key: string) => seed(t, "stops", [{ key, at: now }]);
+
+  const create = (t: TestHost, args: Partial<Args<"authRequests.create">> = {}) =>
+    t.run("authRequests.create", {
+      requestId: "r1",
       clientId: "cl",
-      redirectUri: "https://app.test/cb",
+      redirectUri: cl.redirectUri,
       scope: "openid",
       state: "s",
       codeChallenge: challenge,
-      connectors,
-      policy,
+      requested: [],
+      configured: CONNECTORS,
       freshLogin: false,
       txnCookieHash: "cookie-hash",
       createdAt: now,
       expiresAt: now + 600_000,
+      ...args,
     });
-    expect(created).toEqual({ ok: true, connectors });
+
+  const pendingRequest = (requestId = "r1", given?: TestHost, requested: string[] = []) => {
+    const t = given ?? registered();
+    expect(create(t, { requestId, requested })).toEqual({
+      ok: true,
+      connectors: requested.length === 0 ? CONNECTORS : requested,
+      confirm: true,
+    });
     return t;
   };
 
@@ -107,7 +84,7 @@ describe.each(hosts)("%s", (_name, make) => {
       connector: "g",
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
-      policy,
+      configured: CONNECTORS,
       now,
       ...args,
     });
@@ -116,7 +93,7 @@ describe.each(hosts)("%s", (_name, make) => {
       upstreamStateHash: "sh",
       connector: "g",
       txnCookieHashes: ["cookie-hash"],
-      policy,
+      configured: CONNECTORS,
       now,
       ...args,
     });
@@ -127,7 +104,7 @@ describe.each(hosts)("%s", (_name, make) => {
       authTime: now,
       codeHash: "ch",
       codeExpiresAt: now + 60_000,
-      policy,
+      configured: CONNECTORS,
       now,
       ...args,
     });
@@ -136,7 +113,7 @@ describe.each(hosts)("%s", (_name, make) => {
       ...cl,
       codeHash: "ch",
       codeChallengeOfVerifier: challenge,
-      policy,
+      configured: CONNECTORS,
       now,
       ...args,
     });
@@ -173,7 +150,8 @@ describe.each(hosts)("%s", (_name, make) => {
       const exchanged = exchange(t);
       expect(exchanged).toMatchObject({
         ok: true,
-        appId: "app",
+        clientId: "cl",
+        ref: "layer:1",
         identity: { upstreamId: "42" },
       });
       // The request asked for no fresh login, so the exchange names no login time.
@@ -196,8 +174,7 @@ describe.each(hosts)("%s", (_name, make) => {
           Args<"authRequests.exchangeCode">,
           "clientId" | "clientSecretHash" | "tokenEndpointAuthMethod"
         >,
-        decision = policy,
-      ) => exchange(t, { ...credentials, policy: decision });
+      ) => exchange(t, { ...credentials });
       return { t, redeem };
     };
 
@@ -207,52 +184,69 @@ describe.each(hosts)("%s", (_name, make) => {
       description: "Client authentication failed.",
     } as const;
 
+    const unchanged = (t: TestHost) => {
+      expect(codes(t).map((code) => [code.codeHash, code.usedAt])).toEqual([["ch", undefined]]);
+      expect(get(t)).toMatchObject({ status: "completed" });
+    };
+
     test("a client that fails authentication in the redemption leaves the code as it was", () => {
       const { t, redeem } = completedCode();
-      const unchanged = () => {
-        expect(codes(t).map((code) => [code.codeHash, code.usedAt])).toEqual([["ch", undefined]]);
-        expect(get(t)).toMatchObject({ status: "completed" });
-      };
       for (const credentials of [
         { ...cl, clientSecretHash: "wrong-hash" },
         { ...cl, tokenEndpointAuthMethod: "client_secret_basic" as const },
         { ...cl, clientId: "cl_unknown" },
       ]) {
         expect(redeem(credentials)).toEqual(refused);
-        unchanged();
+        unchanged(t);
       }
-      // deleteApp deletes the app row first and the app's clients in later batches.
-      remove(t, "apps", "by_app_id", ["app"]);
+      // The layer deleted the card.
+      remove(t, "clients", "by_client_id", [cl.clientId]);
       expect(redeem(cl)).toEqual(refused);
-      unchanged();
+      unchanged(t);
     });
 
-    test("the policy's pause and a stale owner refuse the redemption and leave the code", () => {
+    test("a stop on either gate refuses the redemption and leaves the code; one of two going leaves the other", () => {
       const { t, redeem } = completedCode();
-      expect(redeem(cl, { ...policy, paused: true })).toEqual({
-        ok: false,
-        error: "invalid_client",
-        description: "This client is paused.",
-      });
-      // The tenant's owner is no longer the one the policy decided on.
-      expect(redeem(cl, { ...policy, ownerId: "66" })).toEqual(refused);
-      expect(codes(t).map((code) => code.usedAt)).toEqual([undefined]);
-      expect(get(t)).toMatchObject({ status: "completed" });
+      stop(t, "layer:repository:1");
+      stop(t, "layer:owner:65");
+      expect(redeem(cl)).toEqual(refused);
+      remove(t, "stops", "by_key", ["layer:repository:1"]);
+      expect(redeem(cl)).toEqual(refused);
+      unchanged(t);
+      remove(t, "stops", "by_key", ["layer:owner:65"]);
       expect(redeem(cl)).toMatchObject({ ok: true });
     });
 
-    test("a connector that the policy withdrew after the callback refuses the redemption", () => {
-      const { redeem } = completedCode();
-      expect(redeem(cl, { ...policy, connectors: ["github", "google"] })).toEqual({
+    test("a connector taken off the card after the callback refuses the redemption", () => {
+      const { t, redeem } = completedCode();
+      editCard(t, (doc) => ({ ...doc, connectors: ["github", "google"] }));
+      expect(redeem(cl)).toEqual({
         ok: false,
         error: "invalid_grant",
-        description: "This client cannot sign in through that connector.",
+        description: "This client cannot finish this sign-in now.",
       });
+      unchanged(t);
+    });
+
+    test("a return address taken off the card after the callback refuses the redemption", () => {
+      const { t, redeem } = completedCode();
+      editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/other"] }));
+      expect(redeem(cl)).toMatchObject({ ok: false, error: "invalid_grant" });
+      unchanged(t);
+    });
+
+    test("a connector that leaves the configuration refuses the redemption", () => {
+      const { t } = completedCode();
+      expect(exchange(t, { configured: ["github", "google"] })).toMatchObject({
+        ok: false,
+        error: "invalid_grant",
+      });
+      unchanged(t);
     });
 
     test("a code redeems once, and a failed authentication does not revoke a used code", () => {
       const { t, redeem } = completedCode();
-      expect(redeem(cl)).toMatchObject({ ok: true, appId: "app" });
+      expect(redeem(cl)).toMatchObject({ ok: true, ref: "layer:1" });
       expect(codes(t)).toMatchObject([{ codeHash: "ch", usedAt: now }]);
       expect(redeem({ ...cl, clientSecretHash: "wrong-hash" })).toEqual(refused);
       expect(codes(t)).toMatchObject([{ codeHash: "ch", usedAt: now }]);
@@ -265,20 +259,17 @@ describe.each(hosts)("%s", (_name, make) => {
       expect(codes(t)).toEqual([]);
     });
 
-    test("a sign-in moves the removal date of a client that expires, and gives none to another", () => {
+    test("a sign-in moves the removal date of a temporary card, and gives none to another", () => {
       for (const expires of [true, false]) {
         const { t, redeem } = completedCode(registered(expires));
-        // The client was created at `now` too, so an older date shows that the sign-in moved it.
+        // The card was created at `now` too, so an older date shows that the sign-in moved it.
         if (expires) {
-          patch(t, "clients", "by_client_id", [cl.clientId], (client) => ({
-            ...client,
-            removeAt: 1,
-          }));
+          editCard(t, (doc) => ({ ...doc, removeAt: 1 }));
         }
         expect(redeem(cl)).toMatchObject({ ok: true });
-        const client = t.run("clients.get", { clientId: cl.clientId });
-        expect(client?.lastSignInAt).toBe(now);
-        expect(client?.removeAt).toBe(expires ? now + LEASE_MS : undefined);
+        const stored = rowsOf(t, "clients", "by_client_id").at(0);
+        expect(stored?.lastSignInAt).toBe(now);
+        expect(stored?.removeAt).toBe(expires ? now + LEASE_MS : undefined);
       }
     });
 
@@ -316,47 +307,91 @@ describe.each(hosts)("%s", (_name, make) => {
       claim(t, { now: late });
       complete(t, { authTime: late, codeExpiresAt: late + 60_000, now: late });
       const cleanup = (at: number) =>
-        t.run("lifecycle.cleanup", {
-          now: at,
-          previewClientMaxAgeMs: 30 * 86_400_000,
-          signInRetentionMs: 90 * 86_400_000,
-        });
+        t.run("lifecycle.cleanup", { now: at, signInRetentionMs: 90 * 86_400_000 });
       expect(cleanup(late + 59_000)).toMatchObject({ authRequests: 0 });
       expect(exchange(t, { now: late + 59_000 })).toMatchObject({ ok: true });
     });
   });
 
   describe("what a request may use", () => {
-    test("a connector outside the request's set, the enrollment, or the policy does not start", () => {
+    test("create stores the card's set of its step, answers its confirm, and spends its budget", () => {
+      const t = registered();
+      editCard(t, (doc) => ({ ...doc, connectors: ["g", "github"], confirm: false }));
+      expect(create(t, { requested: ["github", "google"] })).toEqual({
+        ok: true,
+        connectors: ["github"],
+        confirm: false,
+      });
+      expect(get(t)).toMatchObject({ connectors: ["github"] });
+      expect(rowsOf(t, "signInBudgets", "by_key")).toMatchObject([{ key: "layer:1" }]);
+      // A connector that the hub no longer configures is not stored either.
+      expect(create(t, { requestId: "r2", configured: ["g"] })).toMatchObject({
+        ok: true,
+        connectors: ["g"],
+      });
+      expect(create(t, { requestId: "r3", requested: ["google"] })).toEqual({
+        ok: false,
+        error: "off",
+      });
+    });
+
+    test("a stopped card, a missing card or a return address that left the card stores no request", () => {
+      const stopped = registered();
+      stop(stopped, "layer:owner:65");
+      expect(create(stopped)).toEqual({ ok: false, error: "stopped" });
+      const gone = registered();
+      remove(gone, "clients", "by_client_id", [cl.clientId]);
+      expect(create(gone)).toEqual({ ok: false, error: "unknown_client" });
+      const moved = registered();
+      editCard(moved, (doc) => ({ ...doc, redirectUris: ["https://app.test/other"] }));
+      expect(create(moved)).toEqual({ ok: false, error: "redirect_uri" });
+      for (const t of [stopped, gone, moved]) {
+        expect(get(t)).toBeNull();
+        expect(rowsOf(t, "signInBudgets", "by_key")).toEqual([]);
+      }
+    });
+
+    test("a connector outside the request's set, the card, or the configuration does not start", () => {
       const t = pendingRequest("r1", undefined, ["g", "github"]);
-      const startWith = (connector: string, decision = policy) =>
-        start(t, { connector, upstreamStateHash: `sh-${connector}`, policy: decision });
+      const startWith = (connector: string, configured = CONNECTORS) =>
+        start(t, { connector, upstreamStateHash: `sh-${connector}`, configured });
       const refused = {
         ok: false,
         error: "refused",
         redirectUri: "https://app.test/cb",
         state: "s",
       };
-      // Enrolled and allowed, but not in the request's set.
+      // On the card, but not in the request's set.
       expect(startWith("google")).toEqual(refused);
-      // In the set, but withdrawn by the policy since the request was stored.
-      expect(startWith("github", { ...policy, connectors: ["g"] })).toEqual(refused);
-      // In the set and allowed, but the policy decided on another owner, or paused the client.
-      expect(startWith("github", { ...policy, ownerId: "66" })).toEqual(refused);
-      expect(startWith("github", { ...policy, paused: true })).toEqual(refused);
+      // In the set and configured, but taken off the card since the request was stored.
+      editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] }));
+      expect(startWith("github")).toEqual(refused);
+      editCard(t, (doc) => ({ ...doc, connectors: CONNECTORS }));
+      // In the set and on the card, but no longer configured.
+      expect(startWith("github", ["g"])).toEqual(refused);
       expect(get(t)).toMatchObject({ status: "pending" });
       expect(startWith("github")).toMatchObject({ ok: true });
     });
 
-    test("a callback whose connector the policy withdrew, or that is paused, is refused and deleted", () => {
-      for (const decision of [
-        { ...policy, connectors: ["g", "google"] },
-        { ...policy, paused: true },
-        { ...policy, ownerId: "66" },
+    test("a connector added to the card after the request was stored does not start", () => {
+      const t = registered();
+      editCard(t, (doc) => ({ ...doc, connectors: ["g"] }));
+      pendingRequest("r1", t, ["g"]);
+      editCard(t, (doc) => ({ ...doc, connectors: CONNECTORS }));
+      expect(start(t, { connector: "github" })).toMatchObject({ ok: false, error: "refused" });
+      expect(start(t, { connector: "g" })).toMatchObject({ ok: true });
+    });
+
+    test("a callback after a stop, a withdrawn connector or a moved return address is refused and deleted", () => {
+      for (const landed of [
+        (t: TestHost) => stop(t, "layer:repository:1"),
+        (t: TestHost) => editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] })),
+        (t: TestHost) => editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/x"] })),
       ]) {
         const t = pendingRequest();
         start(t, { connector: "github" });
-        expect(claim(t, { connector: "github", policy: decision })).toEqual({
+        landed(t);
+        expect(claim(t, { connector: "github" })).toEqual({
           status: "refused",
           requestId: "r1",
           redirectUri: "https://app.test/cb",
@@ -366,63 +401,32 @@ describe.each(hosts)("%s", (_name, make) => {
       }
     });
 
-    test("a block, a changed owner, a pause, or a withdrawn connector that landed while the provider answered refuses the completion", () => {
-      const block = (t: TestHost) => {
-        seed(t, "blocks", [ownerBlock]);
-        return policy;
-      };
+    test("a stop, a withdrawn connector or a moved return address that landed while the provider answered refuses the completion", () => {
       for (const landed of [
-        block,
-        () => ({ ...policy, ownerId: "66" }),
-        () => ({ ...policy, paused: true }),
-        () => ({ ...policy, connectors: ["g", "google"] }),
+        (t: TestHost) => stop(t, "layer:owner:65"),
+        (t: TestHost) => editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] })),
+        (t: TestHost) => editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/x"] })),
+        (t: TestHost) => remove(t, "clients", "by_client_id", [cl.clientId]),
       ]) {
         const t = pendingRequest();
         start(t, { connector: "github" });
         claim(t, { connector: "github" });
-        const decision = landed(t);
-        expect(
-          complete(t, { identity: { connector: "github", upstreamId: "42" }, policy: decision }),
-        ).toEqual({ ok: false, error: "refused", redirectUri: "https://app.test/cb", state: "s" });
+        landed(t);
+        expect(complete(t, { identity: { connector: "github", upstreamId: "42" } })).toEqual({
+          ok: false,
+          error: "refused",
+          redirectUri: "https://app.test/cb",
+          state: "s",
+        });
         expect(get(t)).toBeNull();
         expect(codes(t)).toEqual([]);
       }
     });
-
-    test("a request of a blocked tenant is not stored", () => {
-      const t = registered();
-      seed(t, "blocks", [{ ...ownerBlock, kind: "repository", githubId: "1" }]);
-      expect(
-        t.run("authRequests.create", {
-          tenantId: "gh-1",
-          requestId: "r1",
-          appId: "app",
-          clientId: "cl",
-          redirectUri: "https://app.test/cb",
-          scope: "openid",
-          codeChallenge: "c",
-          connectors: CONNECTORS,
-          policy,
-          freshLogin: false,
-          txnCookieHash: "cookie-hash",
-          createdAt: now,
-          expiresAt: now + 600_000,
-        }),
-      ).toEqual({ ok: false, error: "suspended" });
-      expect(get(t)).toBeNull();
-    });
   });
 
   // Rules that mutation testing found no test for: each test fails when the rule is weakened, such
-  // as `<=` turned into `<` at an expiry or a fence dropped from the host's decision.
+  // as `<=` turned into `<` at an expiry.
   describe("fences at the edges", () => {
-    test("a decision made before the repository changed owner starts no upstream hop", () => {
-      const t = pendingRequest();
-      // The host decided for owner 65; the tenant's recorded owner moves before the step runs.
-      patch(t, "tenants", "by_tenant_id", ["gh-1"], (tenant) => ({ ...tenant, ownerId: "66" }));
-      expect(start(t)).toMatchObject({ ok: false, error: "refused" });
-    });
-
     test.each(["start", "claim", "complete"] as const)(
       "a request refuses to %s at the very millisecond it expires",
       (step) => {

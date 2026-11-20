@@ -25,7 +25,7 @@ type Credentials = {
  * A plain OAuth 2.0 provider found through its RFC 8414 metadata: identity comes from an API call
  * with the access token.
  */
-/** `Name` is the connector's name as a literal type, so a hub's policy can only name its own. */
+/** `Name` is the connector's name as a literal type. */
 export type OauthConnector<Name extends string = string> = Credentials & {
   kind: "oauth";
   name: Name;

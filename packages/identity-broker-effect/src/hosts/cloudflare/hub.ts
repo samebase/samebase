@@ -6,30 +6,36 @@
 // `hubWorker(options)` makes one hub's Worker; an app's stack deploys the hub that its own module
 // makes with it. This module's default export is the test hub.
 //
-// The Worker's script name, the class name `Hub` and the instance name `hub` are the address of
-// all data: renaming one of them starts from empty storage. The object's binding has the class
-// name too.
+// The Worker's script name, the class name `Hub` and the instance name (`HUB_INSTANCE`) are the
+// address of all data: renaming one of them starts from empty storage. The object's binding has
+// the class name too.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Clock, Config, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { registrationRoutes } from "../../core/hub/routes.ts";
 import { hubLogger, makeHandle, type CoreServices } from "../../core/router.ts";
 import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
-import { commands, CommandNameSchema } from "../../rules/commands.ts";
-import { ensureLayout, sqlTx, type Exec } from "../../store/sql.ts";
+import { githubRoutes } from "../../layers/github/routes.ts";
+import type { GithubSettings } from "../../layers/github/settings.ts";
 import {
   decodeArgs,
+  decodeName,
   decodeResult,
   isReadOnly,
   runStep,
-  Store,
-  StoreUnavailable,
   type Args,
   type CommandName,
-} from "../../store/Store.ts";
+} from "../../store/commands.ts";
+import { ensureLayout, sqlTx, type Exec } from "../../store/sql.ts";
+import { Store, StoreUnavailable } from "../../store/Store.ts";
 import { hubSettings, type HubSettings } from "../settings.ts";
+
+/**
+ * The one object of a hub, by name. The store of client cards started with this name: an object of
+ * another name holds another layout, which this build refuses.
+ */
+export const HUB_INSTANCE = "cards";
 import { alarmPlan, nextDailyAt, FALLBACK_MS } from "./settings.ts";
 
 declare global {
@@ -128,7 +134,7 @@ export class HubObject extends Cloudflare.DurableObject<HubObject>()(
         run: Effect.fn("HubObject.run")(function* (name: string, args: string) {
           const now = yield* Clock.currentTimeMillis;
           return yield* Effect.sync(() => {
-            const command = Schema.decodeUnknownSync(CommandNameSchema)(name);
+            const command = decodeName(name);
             return JSON.stringify(step(command, decodeArgs(command, parseJson(args)), now));
           });
         }),
@@ -148,14 +154,12 @@ const HubStore = Layer.effect(
   Effect.gen(function* () {
     const hubs = yield* HubObject;
     return Store.of({
-      run: Effect.fn("Store.run")(function* <N extends CommandName>(name: N, args: Args<N>) {
+      run: Effect.fn("Store.run")(function* (name: string, args: unknown) {
         const text = yield* Effect.suspend(() =>
           // A stub per call: a stub made in one request refuses I/O in the next one.
-          hubs
-            .getByName("hub")
-            .run(name, JSON.stringify(Schema.encodeSync(commands[name].args)(args))),
+          hubs.getByName(HUB_INSTANCE).run(name, JSON.stringify(args)),
         ).pipe(Effect.catchCause(() => Effect.fail(new StoreUnavailable())));
-        return decodeResult(name, parseJson(text));
+        return parseJson(text);
       }),
     });
   }),
@@ -177,14 +181,14 @@ export type HubOptions = HubSettings & {
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
  * logger, and `fetch`. The core takes the Web `Request` and gives a Web `Response`;
  * `HttpServerResponse.raw` hands that `Response` to the platform unchanged (status, body and each
- * `Set-Cookie` field). `hubWorker` gives it the settings of its options; the conformance test stack
- * (test/conformance) gives it local settings.
+ * `Set-Cookie` field). The hub mounts the GitHub layer's routes. `hubWorker` gives it the settings
+ * of its options; the conformance test stack (test/conformance) gives it local settings.
  */
-export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig, E, R>) =>
+export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig | GithubSettings, E, R>) =>
   Effect.gen(function* () {
-    const handle = makeHandle({ registerRoutes: registrationRoutes });
+    const handle = makeHandle({ routes: githubRoutes });
     // Built once per isolate, when the Worker starts.
-    const services = yield* Effect.context<CoreServices>();
+    const services = yield* Effect.context<CoreServices | GithubSettings>();
     return {
       fetch: Effect.gen(function* () {
         const request = yield* Cloudflare.Request;
@@ -240,7 +244,7 @@ export default hubWorker({
   },
   // samebase/samebase and the samebase organization.
   allowedRepositories: [{ repositoryId: "1021726325", ownerId: "285392744" }],
-  registration: {
+  service: {
     name: "Samebase identity hub (Effect test)",
     terms: "https://samebase.com/terms",
     privacy: "https://samebase.com/privacy",

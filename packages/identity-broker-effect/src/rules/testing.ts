@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import { makeMemoryStore } from "../hosts/memory.ts";
 import { makeSqliteStore, type SqliteDatabase } from "../hosts/nodeSqlite.ts";
 import type { Doc, IndexName, TableName } from "../store/tables.ts";
-import { Tx } from "../store/Tx.ts";
 
 export type TestHost = Pick<
   ReturnType<typeof makeMemoryStore>,
@@ -21,9 +20,8 @@ export const testHosts = (
 
 /** Inserts `docs` into `table` in one step. */
 export const seed = <T extends TableName>(host: TestHost, table: T, docs: ReadonlyArray<Doc<T>>) =>
-  host.withTx(
+  host.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
       for (const doc of docs) {
         yield* tx.insert(table, doc);
       }
@@ -32,13 +30,10 @@ export const seed = <T extends TableName>(host: TestHost, table: T, docs: Readon
 
 /** Every document of `table`, in the order of `index`. */
 export const rowsOf = <T extends TableName>(host: TestHost, table: T, index: IndexName<T>) =>
-  host.withTx(
-    Effect.gen(function* () {
-      const tx = yield* Tx;
-      return (yield* tx.query(table, index, { eq: [], order: "asc", limit: 10_000 })).map(
-        (row) => row.doc,
-      );
-    }),
+  host.withTx((tx) =>
+    tx
+      .query(table, index, { eq: [], order: "asc", limit: 10_000 })
+      .pipe(Effect.map((rows) => rows.map((row) => row.doc))),
   );
 
 /** Replaces the one document of `table` that `index` finds by `eq`, with `change` applied. */
@@ -49,9 +44,8 @@ export const patch = <T extends TableName>(
   eq: ReadonlyArray<string | number>,
   change: (doc: Doc<T>) => Doc<T>,
 ) =>
-  host.withTx(
+  host.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
       const rows = yield* tx.query(table, index, { eq, order: "asc", limit: 2 });
       const row = rows.at(0);
       if (row === undefined || rows.length > 1) {
@@ -68,9 +62,8 @@ export const remove = <T extends TableName>(
   index: IndexName<T>,
   eq: ReadonlyArray<string | number>,
 ) =>
-  host.withTx(
+  host.withTx((tx) =>
     Effect.gen(function* () {
-      const tx = yield* Tx;
       for (const row of yield* tx.query(table, index, { eq, order: "asc", limit: 10_000 })) {
         yield* tx.delete(table, row.id);
       }

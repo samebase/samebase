@@ -4,11 +4,9 @@
 import { mutationGeneric } from "convex/server";
 import { v } from "convex/values";
 import { Schema } from "effect";
-import { CommandNameSchema } from "../../../rules/commands.ts";
-import { decodeArgs, runStepAsync } from "../../../store/Store.ts";
+import { decodeArgs, decodeName, runStepAsync } from "../../../store/commands.ts";
 import { convexTx } from "../tx.ts";
 
-const decodeName = Schema.decodeUnknownSync(CommandNameSchema);
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
 export const run = mutationGeneric({

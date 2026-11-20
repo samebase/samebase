@@ -4,23 +4,13 @@
 // build theirs in src/core/testing/harness.ts.
 import { Config, Context, Effect, Layer, type Redacted, Schema } from "effect";
 import type { Connector } from "./connectors/types.ts";
-import type { PolicyFunction } from "./policy.ts";
 import { isSecureUrl } from "./protocol.ts";
 
-/**
- * The hub mode: `POST /register` (RFC 7591) and `/register/<client>` (RFC 7592), and the policy.
- * Absent: none of these endpoints, and the host is its own policy.
- */
-export type RegistrationSettings = {
-  /**
-   * What a registration may do, decided from its facts: the connectors it may enroll in and use,
-   * and whether it is paused. Run at registration and at each use. A policy that throws or answers
-   * a malformed value refuses the request (`evaluate` in src/core/policy.ts).
-   */
-  readonly policy: PolicyFunction;
+/** The hub's sign-in service as users meet it on the page before the provider and in discovery. */
+export type ServiceSettings = {
   /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
   readonly name: string;
-  /** The terms of the hub's sign-in service: every new client's answer names them. */
+  /** The terms of the hub's sign-in service: discovery's `op_tos_uri`. */
   readonly terms: string;
   /** The privacy notice of the hub's sign-in service, linked under the sign-in page. */
   readonly privacy: string;
@@ -34,9 +24,9 @@ export type HubConfigInput = {
    * cookies scoped to its path.
    */
   readonly issuer: string;
-  /** The connectors a client may enroll in, in the order discovery names them. */
+  /** The configured connectors, in the order discovery names them. */
   readonly connectors: ReadonlyArray<Connector>;
-  readonly registration: RegistrationSettings | undefined;
+  readonly service: ServiceSettings;
 };
 
 export type HubConfigShape = {
@@ -46,7 +36,9 @@ export type HubConfigShape = {
   readonly prefix: string;
   readonly connectors: ReadonlyArray<Connector>;
   readonly connectorsByName: ReadonlyMap<string, Connector>;
-  readonly registration: RegistrationSettings | undefined;
+  /** The configured connector names, in order: the set that every sign-in step checks. */
+  readonly configured: ReadonlyArray<string>;
+  readonly service: ServiceSettings;
 };
 
 /** A host's configuration that the hub cannot run with. The message names the wrong setting. */
@@ -105,7 +97,8 @@ export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
       prefix: issuerUrl.pathname.replace(/\/$/, ""),
       connectors: input.connectors,
       connectorsByName,
-      registration: input.registration,
+      configured: input.connectors.map((connector) => connector.name),
+      service: input.service,
     });
   });
 
@@ -144,8 +137,8 @@ export class Random extends Context.Service<
 }
 
 /**
- * Every outgoing HTTP request of the core: provider discovery, token exchange, the GitHub API, the
- * GitHub Actions keys and the verification files. oauth4webapi gets it as its custom fetch
+ * Every outgoing HTTP request of the hub: provider discovery, token exchange, the providers' user
+ * APIs, and a layer's own requests. oauth4webapi gets it as its custom fetch
  * (`oauthFetch` in src/core/connectors/upstream.ts). Tests give a stub that fails on an unplanned
  * call.
  *

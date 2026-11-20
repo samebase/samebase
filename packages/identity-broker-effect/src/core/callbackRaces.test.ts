@@ -1,18 +1,15 @@
-// The callback while the provider's answer is held (design section 12): the only usable connector
-// is revoked, or the request's or the code's expiry passes, between the claim and the completion.
+// The callback while the provider's answer is held (design section 12): the only connector leaves
+// the card, or the request's or the code's expiry passes, between the claim and the completion.
 // Expiry uses the callback's entry time, as in the Convex broker.
 import { afterEach, expect, test, vi } from "vite-plus/test";
-import type { PolicyFunction } from "./policy.ts";
 import {
   createBroker,
   fakeUpstream,
   pkce,
   stubFetch,
-  testRegistration,
   txnCookie,
   type Broker,
 } from "./testing/harness.ts";
-import { setExemption, setGrant } from "./testing/seeds.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -21,26 +18,21 @@ afterEach(() => {
 const REDIRECT_URI = "https://app.test/oauth/hub/callback";
 const AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 
-/** The policy gives `fake` alone; `other` is open only through a grant. */
-const policy: PolicyFunction = () => ({ connectors: ["fake"], resources: [], paused: false });
-
 /**
  * A hub whose provider runs `during` while it holds its token answer: after the claim, before
- * the completion. The client is enrolled in `connectors`.
+ * the completion. The card offers `connector` alone and shows no page.
  */
-async function heldSignIn(args: { connector: string; during: (h: Broker) => void }) {
+async function heldSignIn(args: {
+  connector: string;
+  during: (h: Broker, clientId: string) => void | Promise<void>;
+}) {
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
   const h = await createBroker({
     fetch,
-    config: {
-      connectors: [connector, { ...connector, name: "other", label: "Other" }],
-      registration: testRegistration(policy),
-    },
+    config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
   });
   vi.spyOn(console, "info").mockImplementation(() => undefined);
-  setExemption(h.memory, { scope: "every_app" }, true);
-  setGrant(h.memory, { repositoryId: "1", ownerId: "65", connector: "other" }, true);
   const client = await h.registerClient({
     appName: "My app",
     redirectUri: REDIRECT_URI,
@@ -66,7 +58,7 @@ async function heldSignIn(args: { connector: string; during: (h: Broker) => void
     match: (request) => request.url === "https://upstream.test/token",
     respond: async (request) => {
       held += 1;
-      args.during(h);
+      await args.during(h, client.clientId);
       const body = new URLSearchParams(await request.text());
       return body.get("code") === "upstream-code"
         ? Response.json({ access_token: "up-access", token_type: "bearer" })
@@ -100,11 +92,10 @@ const redeem = (
     }).toString(),
   });
 
-test("a held provider answer while the only usable connector is revoked ends in the exact refusal", async () => {
+test("a held provider answer while the only connector leaves the card ends in the exact refusal", async () => {
   const { h, back, requestId } = await heldSignIn({
     connector: "other",
-    during: (hub) =>
-      setGrant(hub.memory, { repositoryId: "1", ownerId: "65", connector: "other" }, false),
+    during: (hub, clientId) => hub.editCard(clientId, (card) => ({ ...card, connectors: [] })),
   });
   expect(back.status).toBe(302);
   const location = new URL(back.headers.get("location") ?? "");

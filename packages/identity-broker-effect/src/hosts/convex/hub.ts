@@ -16,18 +16,13 @@ import {
 } from "convex/server";
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
-import { registrationRoutes } from "../../core/hub/routes.ts";
+import { command } from "../../core/command.ts";
 import { hubLogger, makeHandle } from "../../core/router.ts";
 import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
-import { commands } from "../../rules/commands.ts";
-import {
-  decodeResult,
-  Store,
-  StoreUnavailable,
-  type Args,
-  type CommandName,
-} from "../../store/Store.ts";
+import { githubRoutes } from "../../layers/github/routes.ts";
+import type { GithubSettings } from "../../layers/github/settings.ts";
+import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { ComponentApi } from "./component/_generated/component.ts";
 
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
@@ -75,23 +70,25 @@ type Runner = {
  */
 export const convexStore = (ctx: Runner, run: RunCommand) =>
   Store.of({
-    run: Effect.fn("Store.run")(function* <N extends CommandName>(name: N, args: Args<N>) {
-      const encoded = JSON.stringify(Schema.encodeSync(commands[name].args)(args));
+    run: Effect.fn("Store.run")(function* (name: string, args: unknown) {
       const now = yield* Clock.currentTimeMillis;
       const text = yield* Effect.tryPromise({
-        try: () => ctx.runMutation(run, { name, args: encoded, now }),
+        try: () => ctx.runMutation(run, { name, args: JSON.stringify(args), now }),
         catch: () => new StoreUnavailable(),
       });
-      return decodeResult(name, parseJson(text));
+      return parseJson(text);
     }),
   });
 
 /**
- * One hub on Convex. `settings` is built in each request, so each request reads the deployment's
- * environment variables of that moment.
+ * One hub on Convex, with the GitHub layer's routes. `settings` is built in each request, so each
+ * request reads the deployment's environment variables of that moment.
  */
-export const convexHub = <E>(component: ComponentApi, settings: Layer.Layer<HubConfig, E>) => {
-  const handle = makeHandle({ registerRoutes: registrationRoutes });
+export const convexHub = <E>(
+  component: ComponentApi,
+  settings: Layer.Layer<HubConfig | GithubSettings, E>,
+) => {
+  const handle = makeHandle({ routes: githubRoutes });
 
   /**
    * Every request of the hub. The core takes the Web `Request` and gives the Web `Response`, which
@@ -140,17 +137,16 @@ export const convexHub = <E>(component: ComponentApi, settings: Layer.Layer<HubC
       handler: (ctx) =>
         Effect.runPromise(
           Effect.gen(function* () {
-            const store = convexStore(ctx, component.commands.run);
             const cutoff = yield* Clock.currentTimeMillis;
             let more = true;
             while (more) {
-              ({ more } = yield* store.run("lifecycle.cleanup", {
+              ({ more } = yield* command("lifecycle.cleanup", {
                 now: cutoff,
                 signInRetentionMs: SIGN_IN_RETENTION_MS,
               }));
             }
             return null;
-          }),
+          }).pipe(Effect.provideService(Store, convexStore(ctx, component.commands.run))),
         ),
     }),
   };

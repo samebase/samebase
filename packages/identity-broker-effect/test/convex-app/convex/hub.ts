@@ -2,10 +2,11 @@
 // provider of the core's tests (`fakeOidcUpstream` in src/core/testing/harness.ts), whose issuer,
 // client id and client secret these are. The test on a real backend (../backend.test.ts) serves
 // that provider and sets the environment variables of the local deployment: the signing keys and
-// `IDP_CLIENT_SECRET`. Every repository gets the connector.
+// `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
 import { Config, Effect, Layer, Redacted } from "effect";
 import { HubConfig } from "../../../src/core/services.ts";
 import { convexHub } from "../../../src/hosts/convex/hub.ts";
+import { GithubSettings } from "../../../src/layers/github/settings.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";
 
@@ -48,17 +49,16 @@ const settings = Layer.unwrap(
           clientSecret: yield* Config.Redacted("IDP_CLIENT_SECRET"),
         },
       ],
-      // The names of `testRegistration` in src/core/testing/harness.ts, so that discovery is the
-      // memory host's in the test.
-      registration: {
+      // `TEST_SERVICE` of src/core/testing/harness.ts, so that discovery is the memory host's in
+      // the test.
+      service: {
         name: "Test hub",
         terms: "https://hub.example.com/terms",
         privacy: "https://hub.example.com/privacy",
-        policy: () => ({ connectors: ["idp"], resources: [], paused: false }),
       },
     }).pipe(Layer.orDie);
   }),
-);
+).pipe(Layer.merge(GithubSettings.layer([{ repositoryId: "1", ownerId: "65" }])));
 
 export const hub = convexHub(components.identityBroker, settings);
 

@@ -2,18 +2,21 @@
 // `Tx` that is closed before the transaction ends. The database is passed in, so this file needs
 // no Node types and the shape is the one of `DatabaseSync`.
 import { Effect, Layer } from "effect";
-import { ensureLayout, sqlTx, type Exec, type SqlValue } from "../store/sql.ts";
 import {
   decodeArgs,
+  decodeName,
   decodeResult,
+  encodeArgs,
   isReadOnly,
   runStep,
-  Store,
   type Args,
   type CommandName,
   type Result,
-} from "../store/Store.ts";
-import { Tx, type TxShape } from "../store/Tx.ts";
+} from "../store/commands.ts";
+import { ensureLayout, sqlTx, type Exec, type SqlValue } from "../store/sql.ts";
+import { Store } from "../store/Store.ts";
+import type { Tables } from "../store/tables.ts";
+import type { TxShape } from "../store/Tx.ts";
 
 /** The part of node:sqlite's `DatabaseSync` that the host uses. */
 export interface SqliteDatabase {
@@ -24,7 +27,7 @@ export interface SqliteDatabase {
 /** Runs `body` between BEGIN and COMMIT over a fresh `Tx`; a throw rolls back and is rethrown. */
 export const sqliteStep = <A>(
   database: SqliteDatabase,
-  body: (tx: TxShape) => A,
+  body: (tx: TxShape<Tables>) => A,
   options: { readonly readOnly: boolean } = { readOnly: false },
 ): A => {
   const exec: Exec = (sql, params) => database.prepare(sql).all(...params);
@@ -52,25 +55,26 @@ export const makeSqliteStore = (
   sqliteStep(database, () => ensureLayout((sql, params) => database.prepare(sql).all(...params)));
   let now = options.now;
 
-  const run = <N extends CommandName>(name: N, args: Args<N>): Result<N> => {
+  const runEncoded = (input: string, args: unknown): unknown => {
+    const name = decodeName(input);
     const decoded = decodeArgs(name, args);
-    const encoded = sqliteStep(database, (tx) => runStep(name, decoded, now, tx), {
+    return sqliteStep(database, (tx) => runStep(name, decoded, now, tx), {
       readOnly: isReadOnly(name),
     });
-    return decodeResult(name, encoded);
   };
 
-  const store = Store.of({ run: (name, args) => Effect.sync(() => run(name, args)) });
+  const store = Store.of({ run: (name, args) => Effect.sync(() => runEncoded(name, args)) });
 
   return {
     store,
     layer: Layer.succeed(Store, store),
-    run,
+    run: <N extends CommandName>(name: N, args: Args<N>): Result<N> =>
+      decodeResult(name, runEncoded(name, encodeArgs(name, args))),
     setNow: (ms: number) => {
       now = ms;
     },
     now: () => now,
-    withTx: <A>(effect: Effect.Effect<A, never, Tx>): A =>
-      sqliteStep(database, (tx) => Effect.runSync(effect.pipe(Effect.provideService(Tx, tx)))),
+    withTx: <A>(body: (tx: TxShape<Tables>) => Effect.Effect<A>): A =>
+      sqliteStep(database, (tx) => Effect.runSync(body(tx))),
   };
 };

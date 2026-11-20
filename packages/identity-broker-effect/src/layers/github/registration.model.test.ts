@@ -1,10 +1,12 @@
 // The port of registration.model.test.ts of the Convex broker (RFC 136, property A: registration and
-// ownership). Random stories of GitHub Actions runs, development clients, repository transfers,
-// blocks, policy changes, renewals, and self-deletes, played through `fetchBroker` on the memory
-// Store. The model knows each repository's owner in the fake GitHub, the newest accepted proof of
-// each repository, and the hub's policy; it never reads expected ownership or enrollment back from
-// the rows. The runner of model.test.helper.ts is inlined here: the sign-in and refresh worlds of
-// that helper are not part of registration.
+// ownership), on client cards. Random stories of GitHub Actions runs, development clients,
+// repository transfers, blocks, allow-list changes, connector grants, renewals, and self-deletes,
+// played through `fetchBroker` on the memory Store, with a block or a lost grant that can land
+// while a run's verification file is fetched. The model knows each repository's owner in the fake
+// GitHub, the newest accepted proof of each repository, the allow-list and the grants, and what
+// each card must hold from its last write; it never reads expected ownership, enrollment or card
+// fields back from the rows. The runner of model.test.helper.ts is inlined here: the sign-in and
+// refresh worlds of that helper are not part of registration.
 import fc from "fast-check";
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
@@ -18,6 +20,7 @@ import {
   stubProviders,
   type Hub,
 } from "./testing/hub.ts";
+import { setGrant } from "./testing/seeds.ts";
 
 /** The start of every story. */
 const EPOCH = Date.UTC(2026, 10, 6, 12, 0, 0);
@@ -28,8 +31,24 @@ const APPS = ["app-a", "app-b"] as const;
 const STAGES = ["prod", "pr-1", "pr-2"] as const;
 /** The enrollments a registration asks for, by name. */
 const ENROLLMENTS = { fake: ["fake"], both: ["fake", "other"], other: ["other"] } as const;
-/** What the hub's policy allows, by name: every connector, one, or none. */
-const POLICIES = { all: ["fake", "other"], fakeOnly: ["fake"], none: [] } as const;
+/** The hub's configured connectors: what an allow-listed repository gets. */
+const CONFIGURED = ["fake", "other"] as const;
+/**
+ * What the allow-list names, by name: every repository with every owner, each repository with
+ * the owner it starts with, or nothing.
+ */
+const ALLOW_LISTS = {
+  everyone: REPOSITORIES.flatMap((repositoryId) =>
+    OWNERS.map((ownerId) => ({ repositoryId, ownerId })),
+  ),
+  firstOwners: [
+    { repositoryId: REPOSITORIES[0], ownerId: OWNERS[0] },
+    { repositoryId: REPOSITORIES[1], ownerId: OWNERS[1] },
+  ],
+  none: [],
+} as const;
+/** The connector that a grant gives. */
+const GRANTED = "other";
 /**
  * Mostly short steps, so a retained proof (300 s) is still valid when it is replayed, and a few
  * around its lifetime and around the one-hour windows.
@@ -45,11 +64,14 @@ type Owner = (typeof OWNERS)[number];
 type App = (typeof APPS)[number];
 type Stage = (typeof STAGES)[number];
 type Enrollment = keyof typeof ENROLLMENTS;
-type PolicyName = keyof typeof POLICIES;
+type AllowListName = keyof typeof ALLOW_LISTS;
 /** What a host serves at `/samebase-verification.json`. */
 type HostOutcome = "present" | "missing" | "wrongId";
-/** `blockedWhileFetched`: the file is present, and an admin blocks the repository while it is read. */
-type RunHost = HostOutcome | "blockedWhileFetched";
+/**
+ * The file is present, and while it is read an admin blocks the repository
+ * (`blockedWhileFetched`) or revokes the grant of the proof's owner (`grantLostWhileFetched`).
+ */
+type RunHost = HostOutcome | "blockedWhileFetched" | "grantLostWhileFetched";
 
 type Command =
   | {
@@ -72,8 +94,10 @@ type Command =
   | { kind: "transfer"; repository: Repository; owner: Owner }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
-  /** The hub's policy changes: what it allows, and whether every app but R1's production pauses. */
-  | { kind: "policy"; connectors: PolicyName; paused: boolean }
+  /** The hub's allow-list changes; it reaches a card at its next write. */
+  | { kind: "allowList"; list: AllowListName }
+  /** The admin grants `other` to a repository for one owner, or revokes it. */
+  | { kind: "grant"; repository: Repository; owner: Owner; on: boolean }
   | { kind: "renew"; client: number }
   | { kind: "deleteOwn"; client: number }
   | { kind: "tick"; ms: number };
@@ -104,6 +128,7 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
       host: fc.oneof(
         { weight: 12, arbitrary: hostArbitrary },
         { weight: 1, arbitrary: fc.constant("blockedWhileFetched" as const) },
+        { weight: 1, arbitrary: fc.constant("grantLostWhileFetched" as const) },
       ),
       proof: fc.oneof(
         { weight: 2, arbitrary: fc.constant("new" as const) },
@@ -138,9 +163,17 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
   {
     weight: 1,
     arbitrary: fc.record({
-      kind: fc.constant("policy" as const),
-      connectors: fc.constantFrom<PolicyName>("all", "fakeOnly", "none"),
-      paused: fc.boolean(),
+      kind: fc.constant("allowList" as const),
+      list: fc.constantFrom<AllowListName>("everyone", "firstOwners", "none"),
+    }),
+  },
+  {
+    weight: 2,
+    arbitrary: fc.record({
+      kind: fc.constant("grant" as const),
+      repository: fc.constantFrom(...REPOSITORIES),
+      owner: fc.constantFrom(...OWNERS),
+      on: fc.boolean(),
     }),
   },
   {
@@ -350,15 +383,16 @@ type Client = {
   registrationClientUri: string;
   repository: string;
   production: boolean;
-  /** The enrollment the registration asked for, sorted and unique: the row's, for good. */
+  /** The owner whose run or token registered the client. */
+  registeringOwner: string;
+  /** The enrollment the registration asked for, sorted and unique: the card's, for good. */
   connectors: readonly string[];
+  /** What the card's `connectors` must be, as of the layer's last write of it. */
+  expected: readonly string[];
   deleted: boolean;
 };
 
-/** The hub's policy of the moment, which the hub's policy function reads at each request. */
-type PolicyState = { connectors: PolicyName; paused: boolean };
-
-function createModel(policy: PolicyState) {
+function createModel(allowList: AllowListName) {
   return {
     /** The order of accepted registrations. */
     order: 0,
@@ -367,7 +401,9 @@ function createModel(policy: PolicyState) {
     newest: new Map<string, { iat: number; ownerId: string; proof: string }>(),
     acceptedRuns: new Array<{ repository: string; ownerId: string; order: number }>(),
     blocks: new Set<string>(),
-    policy,
+    allowList,
+    /** The grants of `other`, by `<repository>:<owner>`. */
+    grants: new Set<string>(),
     clients: new Array<Client>(),
     tokens: new Array<Token>(),
     /** The owners with an accepted registration: they are never new again. */
@@ -381,42 +417,74 @@ type Rows = ReturnType<Hub["rows"]>;
 const isBlocked = (model: Model, repository: string, ownerId: string) =>
   model.blocks.has(`repository:${repository}`) || model.blocks.has(`owner:${ownerId}`);
 
-/** The pause of the hub's policy: every app but the production of R1. */
-const isPaused = (model: Model, repository: string, stage: string) =>
-  model.policy.paused && !(repository === REPOSITORIES[0] && stage === "prod");
+/**
+ * The connectors that a client of `repository` registered by `registeringOwner` may use while
+ * `currentOwner` owns the repository: every configured one while the allow-list names the
+ * repository with its current owner, else the grant's while the current owner registered it.
+ */
+function allowedFor(
+  model: Model,
+  repository: string,
+  currentOwner: string,
+  registeringOwner: string,
+): readonly string[] {
+  if (
+    ALLOW_LISTS[model.allowList].some(
+      (entry) => entry.repositoryId === repository && entry.ownerId === currentOwner,
+    )
+  ) {
+    return CONFIGURED;
+  }
+  return currentOwner === registeringOwner && model.grants.has(`${repository}:${currentOwner}`)
+    ? [GRANTED]
+    : [];
+}
 
-/** Whether the policy of the moment lets a registration enroll in `enrollment`. */
-const enrollmentAllowed = (model: Model, enrollment: Enrollment) => {
-  const allowed: readonly string[] = POLICIES[model.policy.connectors];
+/** Whether a registration of `owner` may enroll in `enrollment` now. */
+const enrollmentAllowed = (
+  model: Model,
+  repository: string,
+  owner: string,
+  enrollment: Enrollment,
+) => {
+  const allowed = allowedFor(model, repository, owner, owner);
   return ENROLLMENTS[enrollment].every((name) => allowed.includes(name));
 };
 
+/** What a card of `client` holds when the layer writes it now. */
+const cardConnectors = (model: Model, client: Client) => {
+  const allowed = allowedFor(
+    model,
+    client.repository,
+    model.newest.get(client.repository)?.ownerId ?? "",
+    client.registeringOwner,
+  );
+  return client.connectors.filter((name) => allowed.includes(name));
+};
+
 /**
- * `policyAtRegistration`: a registration that the policy of the moment pauses or does not allow is
- * refused with the reason of the policy, and one that it allows is never refused for the policy.
+ * `enrollmentAtRegistration`: a registration outside what the allow-list and the grants give is
+ * refused, and one inside is never refused for its enrollment. A stop is checked first, so a
+ * stopped repository's refusal names the stop.
  */
-function checkPolicy(
+function checkAdmission(
   checks: Checks,
   label: string,
   response: Response,
   answer: { reason?: string },
-  model: Model,
-  args: { repository: string; stage: string; enrollment: Enrollment },
+  allowed: boolean,
 ) {
-  const paused = isPaused(model, args.repository, args.stage);
-  const allowed = enrollmentAllowed(model, args.enrollment);
   check(
     checks,
-    "policyAtRegistration",
-    !(response.status === 201 && (paused || !allowed)),
-    `${label} registered ${paused ? "while paused" : "outside the policy"}`,
+    "enrollmentAtRegistration",
+    !(response.status === 201 && !allowed),
+    `${label} registered outside the allow-list and the grants`,
   );
   check(
     checks,
-    "policyAtRegistration",
-    !(answer.reason === "paused" && !paused) &&
-      !(answer.reason === "invalid_connectors" && allowed),
-    `${label} was refused for the policy, which allows it`,
+    "enrollmentAtRegistration",
+    !(answer.reason === "invalid_connectors" && allowed),
+    `${label} was refused for its enrollment, which is allowed`,
   );
 }
 
@@ -533,11 +601,29 @@ function checkState(h: Hub, model: Model, checks: Checks) {
   }
   for (const client of model.clients.filter((candidate) => !candidate.deleted)) {
     const row = rows.clients.find((candidate) => candidate.clientId === client.clientId);
+    if (row === undefined) {
+      continue;
+    }
     check(
       checks,
       "enrollmentImmutable",
-      row === undefined || sameRows(row.connectors, client.connectors),
-      `${client.handle} enrolled in ${client.connectors.join(", ")} and now holds ${row?.connectors.join(", ") ?? ""}`,
+      sameRows(row.github?.enrollment, client.connectors),
+      `${client.handle} enrolled in ${client.connectors.join(", ")} and now holds ${row.github?.enrollment.join(", ") ?? "none"}`,
+    );
+    // `cardsMatchModel`: each card holds what its last write computed, the repository's key and
+    // its current owner's, the page, and the tenant as ref and budget.
+    const owner = model.newest.get(client.repository)?.ownerId ?? "";
+    const tenant = `github:gh-${client.repository}`;
+    check(
+      checks,
+      "cardsMatchModel",
+      sameRows(row.connectors, client.expected) &&
+        sameRows(row.gates, [`github:repository:${client.repository}`, `github:owner:${owner}`]) &&
+        row.confirm &&
+        row.ref === tenant &&
+        row.budget === tenant,
+      `${client.handle}'s card holds ${row.connectors.join(", ") || "nothing"} with gates ${row.gates.join(", ")}, ` +
+        `the model ${client.expected.join(", ") || "nothing"} with the owner ${ownerHandle(owner)}`,
     );
   }
   check(
@@ -548,7 +634,8 @@ function checkState(h: Hub, model: Model, checks: Checks) {
   );
   const perApp = new Map<string, number>();
   for (const client of rows.clients) {
-    perApp.set(client.appId, (perApp.get(client.appId) ?? 0) + 1);
+    const appId = client.github?.appId ?? "";
+    perApp.set(appId, (perApp.get(appId) ?? 0) + 1);
   }
   check(
     checks,
@@ -633,7 +720,10 @@ async function playRun(
   }
   const blockedBefore = isBlocked(model, proof.repository, proof.ownerId);
   world.hosts.serve({
-    outcome: command.host === "blockedWhileFetched" ? "present" : command.host,
+    outcome:
+      command.host === "blockedWhileFetched" || command.host === "grantLostWhileFetched"
+        ? "present"
+        : command.host,
     repositoryId: proof.repository,
   });
   const body = {
@@ -647,14 +737,22 @@ async function playRun(
   const before = h.rows();
   let blockedWhileFetched = false;
   let response: Response;
-  if (command.host === "blockedWhileFetched") {
+  if (command.host === "blockedWhileFetched" || command.host === "grantLostWhileFetched") {
     const hold = world.hosts.holdNext();
     const pending = postHubClient(h, proof.token, body);
     const reached = await Promise.race([hold.reached, pending.then(() => false)]);
-    if (reached) {
+    if (reached && command.host === "blockedWhileFetched") {
       setBlock(h, { action: "block", kind: "repository", githubId: proof.repository });
       model.blocks.add(`repository:${proof.repository}`);
       blockedWhileFetched = true;
+    }
+    if (reached && command.host === "grantLostWhileFetched") {
+      setGrant(
+        h.memory,
+        { repositoryId: proof.repository, ownerId: proof.ownerId, connector: GRANTED },
+        false,
+      );
+      model.grants.delete(`${proof.repository}:${proof.ownerId}`);
     }
     hold.release();
     response = await pending;
@@ -674,11 +772,14 @@ async function playRun(
     !(accepted && (blockedBefore || blockedWhileFetched)),
     `${label} registered while blocked`,
   );
-  checkPolicy(checks, label, response, answer, model, {
-    repository: proof.repository,
-    stage: proof.stage,
-    enrollment: command.enrollment,
-  });
+  // The creating step reads the grants again, so a grant lost during the fetch counts.
+  checkAdmission(
+    checks,
+    label,
+    response,
+    answer,
+    enrollmentAllowed(model, proof.repository, proof.ownerId, command.enrollment),
+  );
   if (!accepted) {
     story.trace.push(
       `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}${answer.error === undefined ? "" : ` ${answer.error}`}`,
@@ -711,6 +812,14 @@ async function playRun(
       proof: proof.handle,
     });
   }
+  // A transfer rewrites every card of the repository in the registration's step.
+  if (newest !== undefined && newest.ownerId !== proof.ownerId) {
+    for (const owned of model.clients) {
+      if (owned.repository === proof.repository && !owned.deleted) {
+        owned.expected = cardConnectors(model, owned);
+      }
+    }
+  }
   const client: Client = {
     handle: `C${model.clients.length + 1}`,
     clientId: answer.client_id ?? "",
@@ -718,9 +827,12 @@ async function playRun(
     registrationClientUri: answer.registration_client_uri ?? "",
     repository: proof.repository,
     production: proof.stage === "prod",
+    registeringOwner: proof.ownerId,
     connectors: answer.connectors ?? [],
+    expected: [],
     deleted: false,
   };
+  client.expected = cardConnectors(model, client);
   model.clients.push(client);
   let issued = "";
   if (answer.initial_access_token !== undefined) {
@@ -779,14 +891,15 @@ async function playDevelopment(
   story.trace.push(
     `${label}: ${response.status}${answer.reason === undefined ? "" : ` ${answer.reason}`}${answer.error === undefined ? "" : ` ${answer.error}`}`,
   );
-  // A token whose row names another app or owner is refused before the policy runs; the policy
-  // sees the token's row, so a development client is never R1's production.
+  // A token whose row names another app or owner is refused before its enrollment is checked.
   if (valid && app === token.app) {
-    checkPolicy(checks, label, response, answer, model, {
-      repository: token.repository,
-      stage: "development",
-      enrollment: command.enrollment,
-    });
+    checkAdmission(
+      checks,
+      label,
+      response,
+      answer,
+      enrollmentAllowed(model, token.repository, token.ownerId, command.enrollment),
+    );
   }
   check(
     checks,
@@ -812,24 +925,28 @@ async function playDevelopment(
   check(
     checks,
     "developmentTokenScope",
-    row !== undefined &&
-      row.app === token.app &&
-      row.appId.startsWith(`gh-${token.repository}-`) &&
-      row.deploymentType === "development",
+    row?.github !== undefined &&
+      row.github.app === token.app &&
+      row.github.appId.startsWith(`gh-${token.repository}-`) &&
+      row.github.deploymentType === "development",
     `${label} made a client outside its app and repository`,
   );
   model.order += 1;
   model.everRegistered.add(token.ownerId);
-  model.clients.push({
+  const client: Client = {
     handle: `C${model.clients.length + 1}`,
     clientId: answer.client_id ?? "",
     registrationAccessToken: answer.registration_access_token ?? "",
     registrationClientUri: answer.registration_client_uri ?? "",
     repository: token.repository,
     production: false,
+    registeringOwner: token.ownerId,
     connectors: answer.connectors ?? [],
+    expected: [],
     deleted: false,
-  });
+  };
+  client.expected = cardConnectors(model, client);
+  model.clients.push(client);
 }
 
 async function playClient(
@@ -867,6 +984,10 @@ async function playClient(
       !(response.status === 200 && isBlocked(model, client.repository, owner ?? "")),
       `${label} renewed while blocked`,
     );
+    // A renewal writes the card again from the allow-list and the grants of its step.
+    if (response.status === 200) {
+      client.expected = cardConnectors(model, client);
+    }
     return;
   }
   if (!client.deleted) {
@@ -916,11 +1037,24 @@ async function playCommand(
       }
       return;
     }
-    case "policy":
-      model.policy.connectors = command.connectors;
-      model.policy.paused = command.paused;
+    case "allowList":
+      model.allowList = command.list;
+      h.setAllowList(ALLOW_LISTS[command.list]);
+      story.trace.push(`allow-list: ${command.list}`);
+      return;
+    case "grant":
+      setGrant(
+        h.memory,
+        { repositoryId: command.repository, ownerId: command.owner, connector: GRANTED },
+        command.on,
+      );
+      if (command.on) {
+        model.grants.add(`${command.repository}:${command.owner}`);
+      } else {
+        model.grants.delete(`${command.repository}:${command.owner}`);
+      }
       story.trace.push(
-        `policy: ${command.connectors}${command.paused ? ", paused but R1 prod" : ""}`,
+        `${command.on ? "grant" : "revoke"} ${GRANTED} for ${repositoryHandle(command.repository)} as ${ownerHandle(command.owner)}`,
       );
       return;
     case "renew":
@@ -937,26 +1071,13 @@ async function playCommand(
 
 /** Plays one story on a fresh hub, from the epoch, and checks the invariants after each command. */
 async function play(commands: Command[], checks: Checks, story: Story) {
-  const policy: PolicyState = { connectors: "all", paused: false };
-  // The shape of our hub's policy: every connector, and a pause that spares R1's production.
-  const h = await createHub({
-    policy: (registration) => ({
-      connectors: [...POLICIES[policy.connectors]],
-      resources: [],
-      paused:
-        policy.paused &&
-        !(
-          registration.repositoryId === REPOSITORIES[0] &&
-          registration.deploymentType === "production"
-        ),
-    }),
-  });
+  const model = createModel("everyone");
+  const h = await createHub({ allowList: ALLOW_LISTS[model.allowList] });
   h.clock.set(EPOCH);
   const world = await createWorld(h, {
     [REPOSITORIES[0]]: OWNERS[0],
     [REPOSITORIES[1]]: OWNERS[1],
   });
-  const model = createModel(policy);
   for (const command of commands) {
     await step(checks, story, async () => {
       await playCommand(h, world, model, command, checks, story);
@@ -1028,12 +1149,13 @@ const run = (
   repository: Repository,
   proof: "new" | number,
   host: RunHost = "present",
+  more: { app?: App; stage?: Stage; enrollment?: Enrollment } = {},
 ): Command => ({
   kind: "run",
-  enrollment: "fake",
+  enrollment: more.enrollment ?? "fake",
   repository,
-  app: "app-a",
-  stage: "prod",
+  app: more.app ?? "app-a",
+  stage: more.stage ?? "prod",
   host,
   proof,
 });
@@ -1106,5 +1228,36 @@ describe("RFC 136 property A regressions", () => {
   // Writes before refusals (F3's write): `admit` marked a new owner as counted before the host check.
   it("a refused registration changes only the repository and owner counts", async () => {
     await replay([run("102", "new", "missing")], "refusedRegistrationRateLimits");
+  });
+
+  // The creating step reads the grants again: a grant lost while the file is read admits nothing.
+  it("a grant lost while the verification file is read creates no client of its connector", async () => {
+    await replay(
+      [
+        { kind: "allowList", list: "none" },
+        { kind: "grant", repository: "102", owner: "202", on: true },
+        run("102", "new", "grantLostWhileFetched", { enrollment: "other" }),
+      ],
+      "enrollmentAtRegistration",
+    );
+  });
+
+  // A transfer rewrites every card of the repository in its step: the new owner's key, and
+  // connectors from the new owner's rights.
+  it("a transfer rewrites the cards of the repository's other apps and stages", async () => {
+    await replay(
+      [
+        { kind: "allowList", list: "firstOwners" },
+        run("101", "new", "present", { enrollment: "both" }),
+        run("101", "new", "present", { app: "app-b", stage: "pr-1" }),
+        { kind: "tick", ms: 1_000 },
+        { kind: "transfer", repository: "101", owner: "202" },
+        { kind: "allowList", list: "everyone" },
+        run("101", "new"),
+        { kind: "allowList", list: "firstOwners" },
+        { kind: "renew", client: 0 },
+      ],
+      "cardsMatchModel",
+    );
   });
 });

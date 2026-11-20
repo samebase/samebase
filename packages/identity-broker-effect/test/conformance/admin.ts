@@ -1,9 +1,9 @@
 // The fixture Worker of the conformance stack: it creates the suite's static clients. It binds the
-// local hub's Durable Object (stack.ts) and runs the store command `hubClients.createClient`, as
+// local hub's Durable Object (stack.ts) and runs the store command `github.createClient`, as
 // `POST /register` does after it checked a GitHub Actions proof. A conformance run has no GitHub
-// proof, so this Worker gives the facts of a fixed test repository instead, as the unit tests'
-// `registerClient` does. It exists only in the local test stack; the deployed hub has no such
-// Worker and no route that creates a client without a proof.
+// proof, so this Worker gives the facts of a fixed test repository instead, with an allow-list that
+// names it, so the card offers what the fixture enrolls it in. It exists only in the local test
+// stack; the deployed hub has no such Worker and no route that creates a client without a proof.
 //
 // POST / with `{ stage, redirectUris, connectors, tokenEndpointAuthMethod }` answers
 // `{ client_id, client_secret }`. Each client is a preview deployment of the app `conformance`.
@@ -28,6 +28,7 @@ const decodeResult = Schema.decodeUnknownSync(Schema.fromJsonString(CreateClient
 
 /** The test repository whose facts every client gets. */
 const REPOSITORY_ID = "1";
+const OWNER_ID = "65";
 const APP = "conformance";
 
 const hex = (bytes: ArrayBuffer | Uint8Array) =>
@@ -49,7 +50,7 @@ export default {
       secretHash: await sha256Hex(clientSecret),
       registrationTokenHash: await sha256Hex(randomHex(32)),
       githubRepositoryDatabaseId: REPOSITORY_ID,
-      githubOwnerId: "65",
+      githubOwnerId: OWNER_ID,
       githubRepository: "conformance/hub",
       githubActorId: "12",
       githubActorLogin: "conformance",
@@ -57,17 +58,18 @@ export default {
       proofIssuedAt: Math.floor(Date.now() / 1000),
       deployment: { type: "preview", stage: body.stage },
       connectors: body.connectors,
-      policyConnectors: body.connectors,
-      configuredConnectors: body.connectors,
       app: APP,
-      // `appIdOf` in src/core/hub/hubClients.ts.
+      // `appIdOf` in src/layers/github/register.ts.
       appId: `gh-${REPOSITORY_ID}-${(await sha256Hex(APP)).slice(0, 32)}`,
       redirectUris: body.redirectUris,
       softwareVersion: "conformance",
       tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
+      allowList: [{ repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }],
+      configured: body.connectors,
     };
-    const result = await env.HUB.getByName("hub").run(
-      "hubClients.createClient",
+    // `HUB_INSTANCE` of src/hosts/cloudflare/hub.ts, which this Worker does not bundle.
+    const result = await env.HUB.getByName("cards").run(
+      "github.createClient",
       JSON.stringify(args),
     );
     if (!decodeResult(result).ok) {

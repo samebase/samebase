@@ -25,8 +25,9 @@ import {
 import { sqliteStep } from "../hosts/nodeSqlite.ts";
 import { MemoryDb } from "./memory.ts";
 import { ensureLayout } from "./sql.ts";
+import type { Tables } from "./tables.ts";
 import { playStep, StepOutput } from "./testing.ts";
-import { Tx, type TxShape } from "./Tx.ts";
+import type { TxShape } from "./Tx.ts";
 
 const appModules = import.meta.glob("../../test/convex-app/convex/**/*.ts");
 const decodeOutput = Schema.decodeUnknownSync(StepOutput);
@@ -38,10 +39,7 @@ const freshSqlite = () => {
 };
 
 const sqlitePlayer = (database: DatabaseSync): Player => {
-  return async (input) =>
-    sqliteStep(database, (tx) =>
-      Effect.runSync(playStep(input).pipe(Effect.provideService(Tx, tx))),
-    );
+  return async (input) => sqliteStep(database, (tx) => Effect.runSync(playStep(tx, input)));
 };
 
 /** The app's `step` mutation of test/convex-app, the one that the real backend runs. */
@@ -112,7 +110,7 @@ test("-0 and 0 are one index value", async () => {
 });
 
 test("a rule that suspends between two writes stores neither, and its late write meets a closed Tx", async () => {
-  type Runner = <A>(body: (tx: TxShape) => A) => A;
+  type Runner = <A>(body: (tx: TxShape<Tables>) => A) => A;
   const memory = new MemoryDb();
   const database = freshSqlite();
   const runners: ReadonlyArray<Runner> = [
@@ -121,28 +119,21 @@ test("a rule that suspends between two writes stores neither, and its late write
   ];
   for (const runner of runners) {
     let late: Exit.Exit<unknown> | undefined;
-    const rule = Effect.gen(function* () {
-      const tx = yield* Tx;
-      yield* tx.insert("signIns", { appId: "a", clientId: "1", connector: "c", sub: "s", at: 1 });
-      yield* Effect.promise(() => Promise.resolve());
-      late = yield* Effect.exit(
-        tx.insert("signIns", { appId: "a", clientId: "2", connector: "c", sub: "s", at: 2 }),
-      );
-    });
-    expect(() =>
-      runner((tx) => Effect.runSync(rule.pipe(Effect.provideService(Tx, tx)))),
-    ).toThrow();
+    const rule = (tx: TxShape<Tables>) =>
+      Effect.gen(function* () {
+        yield* tx.insert("signIns", { clientId: "1", ref: "a", connector: "c", sub: "s", at: 1 });
+        yield* Effect.promise(() => Promise.resolve());
+        late = yield* Effect.exit(
+          tx.insert("signIns", { clientId: "2", ref: "a", connector: "c", sub: "s", at: 2 }),
+        );
+      });
+    expect(() => runner((tx) => Effect.runSync(rule(tx)))).toThrow();
     await new Promise((resolve) => setTimeout(resolve, 10));
     const count = runner((tx) =>
       Effect.runSync(
-        Effect.gen(function* () {
-          const rows = yield* (yield* Tx).query("signIns", "by_at", {
-            eq: [],
-            order: "asc",
-            limit: 10,
-          });
-          return rows.length;
-        }).pipe(Effect.provideService(Tx, tx)),
+        tx
+          .query("signIns", "by_at", { eq: [], order: "asc", limit: 10 })
+          .pipe(Effect.map((rows) => rows.length)),
       ),
     );
     expect(count).toBe(0);
