@@ -79,8 +79,9 @@ already shows: its name, its type and its link.
 const FACTS = new Map<string, (row: StateFields) => ResourceFact[]>([
   [
     "Cloudflare.Worker",
+    // The details list the custom domains of a Worker with its URLs, from `attr.urls`. A route has
+    // no URL when its host is a wildcard, so the routes are facts.
     ({ attr, props }) => {
-      const domain = asRecord(attr["domain"]);
       const crons = strings(attr["crons"]);
       return [
         ...(crons.length === 0
@@ -88,10 +89,6 @@ const FACTS = new Map<string, (row: StateFields) => ResourceFact[]>([
           : [
               { label: "Schedule", value: crons.map(cronInWords).join(", "), clock: true as const },
             ]),
-        ...listFact(
-          "Custom domains",
-          [readString(domain, "name"), ...strings(domain["aliases"])].filter(notEmpty),
-        ),
         ...listFact(
           "Routes",
           (Array.isArray(attr["routes"]) ? attr["routes"] : [])
@@ -141,10 +138,8 @@ const FACTS = new Map<string, (row: StateFields) => ResourceFact[]>([
   ],
 ]);
 
-const dashboard = (accountId: string | undefined, ...path: string[]) =>
-  accountId
-    ? `https://dash.cloudflare.com/${[accountId, ...path].map(encodeURIComponent).join("/")}`
-    : undefined;
+const dashboard = (...path: string[]) =>
+  `https://dash.cloudflare.com/${path.map(encodeURIComponent).join("/")}`;
 
 /**
 The Cloudflare dashboard page of a Worker or a D1 database, as a menu link of its box. The dashboard
@@ -160,18 +155,23 @@ const DASHBOARDS = new Map<
   [
     "Cloudflare.Worker",
     (attr) => {
+      const accountId = readString(attr, "accountId");
       const workerName = readString(attr, "workerName");
-      const href =
-        workerName &&
-        dashboard(readString(attr, "accountId"), "workers", "services", "view", workerName);
-      return workerName && href ? { href, label: workerName } : undefined;
+      return accountId && workerName
+        ? {
+            href: dashboard(accountId, "workers", "services", "view", workerName),
+            label: workerName,
+          }
+        : undefined;
     },
   ],
   [
     "Cloudflare.D1Database",
     (attr) => {
-      const href = dashboard(readString(attr, "accountId"), "workers", "d1");
-      return href ? { href, label: "D1 databases" } : undefined;
+      const accountId = readString(attr, "accountId");
+      return accountId
+        ? { href: dashboard(accountId, "workers", "d1"), label: "D1 databases" }
+        : undefined;
     },
   ],
 ]);

@@ -23,6 +23,9 @@ import type { DiagramBox, StageDiagram } from "@/components/alchemyStageDiagramM
 
 const BOX_WIDTH = 248;
 
+/** The space between two boxes of a column, or of a row, which a phone has less room for. */
+const NODE_GAP = { LR: 32, TB: 24 } as const;
+
 /** Border and padding, the icon row, the link row, and the "N more" row of a box, in pixels. */
 const boxHeight = (box: DiagramBox) => 72 + (box.link ? 24 : 0) + (box.folded.length > 0 ? 20 : 0);
 
@@ -41,7 +44,10 @@ type BoxNode = Node<
   "box"
 >;
 type NamespaceNode = Node<{ name: string }, "namespace">;
-type LineEdge = Edge<{ labels: string[]; dim: boolean }, "line">;
+type LineEdge = Edge<
+  { labels: string[]; dim: boolean; points: { x: number; y: number }[] },
+  "line"
+>;
 
 /** The Alchemy statuses of a row after its last apply finished. */
 const SETTLED = new Set(["created", "updated"]);
@@ -52,12 +58,15 @@ and a box without one starts at the box with the URL, so boxes with a URL come f
 a dagre cluster, drawn as a frame around its boxes. The arrow of a line points at the box that the
 other box depends on.
 */
-function layoutDiagram({ boxes, edges }: StageDiagram, rankdir: "LR" | "TB") {
+function layoutDiagram(
+  { boxes, edges }: StageDiagram,
+  { rankdir, columns }: { rankdir: "LR" | "TB"; columns: number },
+) {
   const graph = new Graph<GraphLabel, NodeLabel, EdgeLabel>({ compound: true });
   const labels = edges.map((edge) => edge.labels);
   graph.setGraph({
     rankdir,
-    nodesep: 32,
+    nodesep: NODE_GAP[rankdir],
     // A label is 11px monospace text, about 6.7px for each character and 14px for each line.
     ranksep:
       rankdir === "LR"
@@ -99,6 +108,28 @@ function layoutDiagram({ boxes, edges }: StageDiagram, rankdir: "LR" | "TB") {
     }
   }
   layout(graph);
+  // A row of a top to bottom diagram holds at most `columns` boxes: a hidden line from the box
+  // `columns` places to the left moves each other box one row down. Moving boxes can fill a lower
+  // row, so this runs until no row is too long, at most once for each box.
+  for (let pass = 0; rankdir === "TB" && pass < boxes.length; pass++) {
+    const rows = new Map<number, string[]>();
+    for (const { id } of [...boxes].sort(
+      (a, b) => (graph.node(a.id).x ?? 0) - (graph.node(b.id).x ?? 0),
+    )) {
+      const y = graph.node(id).y ?? 0;
+      rows.set(y, [...(rows.get(y) ?? []), id]);
+    }
+    const extra = [...rows.values()].flatMap((row) =>
+      row.slice(columns).map((id, index) => [row[index], id] as const),
+    );
+    if (extra.length === 0) {
+      break;
+    }
+    for (const [above, below] of extra) {
+      graph.setEdge(above, below, {});
+    }
+    layout(graph);
+  }
 
   // dagre sets `x` and `y`, the centre, of every node in `layout`.
   const placed = boxes.map((box) => {
@@ -120,8 +151,18 @@ function layoutDiagram({ boxes, edges }: StageDiagram, rankdir: "LR" | "TB") {
         height: Math.max(...members.map((node) => node.y + node.height)) + FRAME_PADDING - y,
       };
     });
+  // A top to bottom line follows the points of dagre, which pass beside the boxes of the rows that
+  // the line crosses. A left to right line is a curve straight from box to box.
+  const routed = lines.map((line) => ({
+    ...line,
+    points: rankdir === "TB" ? (graph.edge(line.source, line.target).points ?? []) : [],
+  }));
   // The diagram starts at 0, 0.
-  const extent = [...placed, ...frames];
+  const extent = [
+    ...placed,
+    ...frames,
+    ...routed.flatMap((line) => line.points.map((point) => ({ ...point, width: 0, height: 0 }))),
+  ];
   const left = Math.min(...extent.map((node) => node.x));
   const top = Math.min(...extent.map((node) => node.y));
   const shift = <T extends { x: number; y: number }>(node: T) => ({
@@ -132,11 +173,36 @@ function layoutDiagram({ boxes, edges }: StageDiagram, rankdir: "LR" | "TB") {
   return {
     placed: placed.map(shift),
     frames: frames.map(shift),
-    lines,
+    lines: routed.map((line) => ({ ...line, points: line.points.map(shift) })),
     width: Math.max(...extent.map((node) => node.x + node.width)) - left,
     height: Math.max(...extent.map((node) => node.y + node.height)) - top,
   };
 }
+
+/**
+The top to bottom layout of a card too narrow for the left to right layout `wide` at `MIN_ZOOM`,
+such as on a phone, or null when `wide` fits. A row holds any number of boxes when they fit at
+`MIN_ZOOM`, or else as many as fit, fewer when the lines beside the boxes need the room. When no
+count fits, such as when a namespace frame sits beside another box, the narrowest layout wins, the
+one with more boxes in a row on a tie.
+*/
+function tallLayout(diagram: StageDiagram, wide: DiagramLayout, cardWidth: number) {
+  const fits = (layout: DiagramLayout) => layout.width * MIN_ZOOM + 2 <= cardWidth;
+  if (fits(wide)) {
+    return null;
+  }
+  const most = Math.floor(((cardWidth - 2) / MIN_ZOOM + NODE_GAP.TB) / (BOX_WIDTH + NODE_GAP.TB));
+  let best = layoutDiagram(diagram, { rankdir: "TB", columns: Infinity });
+  for (let columns = most; columns >= 1 && !fits(best); columns--) {
+    const tall = layoutDiagram(diagram, { rankdir: "TB", columns });
+    if (tall.width < best.width) {
+      best = tall;
+    }
+  }
+  return best;
+}
+
+type DiagramLayout = ReturnType<typeof layoutDiagram>;
 
 function BoxNodeView({
   data: { box, aside, open, onToggle },
@@ -215,8 +281,26 @@ function NamespaceNodeView({ data: { name } }: NodeProps<NamespaceNode>) {
   );
 }
 
+/**
+A smooth path through `points`: straight to the middle of the first segment, then a curve through
+each inner point to the middle of the next segment, and straight to the last point.
+*/
+function pathThrough(points: { x: number; y: number }[]) {
+  const middle = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    `${(a.x + b.x) / 2},${(a.y + b.y) / 2}`;
+  const inner = points.slice(1, -1).map((point, index) => {
+    return `Q${point.x},${point.y} ${middle(point, points[index + 2])}`;
+  });
+  const [first, second] = points;
+  const last = points[points.length - 1];
+  return `M${first.x},${first.y} L${middle(first, second)} ${inner.join(" ")} L${last.x},${last.y}`;
+}
+
 function LineEdgeView({ data, ...props }: EdgeProps<LineEdge>) {
-  const [path, labelX, labelY] = getBezierPath(props);
+  const points = data?.points ?? [];
+  const label = points[Math.floor(points.length / 2)];
+  const [path, labelX, labelY] =
+    points.length >= 2 ? [pathThrough(points), label.x, label.y] : getBezierPath(props);
   return (
     <>
       <BaseEdge path={path} markerStart={props.markerStart} markerEnd={props.markerEnd} />
@@ -346,11 +430,14 @@ export function AlchemyStageDiagram({
   const [cardWidth, setCardWidth] = useState<number | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   useElementSize(cardRef, ({ widthPx }) => setCardWidth(widthPx));
-  const wide = useMemo(() => layoutDiagram(diagram, "LR"), [diagram]);
-  // A card too narrow for the left to right diagram at `MIN_ZOOM`, such as on a phone, stacks the
-  // boxes top to bottom instead.
-  const narrow = cardWidth !== null && cardWidth < wide.width * MIN_ZOOM + 2;
-  const tall = useMemo(() => (narrow ? layoutDiagram(diagram, "TB") : null), [diagram, narrow]);
+  const wide = useMemo(
+    () => layoutDiagram(diagram, { rankdir: "LR", columns: Infinity }),
+    [diagram],
+  );
+  const tall = useMemo(
+    () => (cardWidth === null ? null : tallLayout(diagram, wide, cardWidth)),
+    [diagram, wide, cardWidth],
+  );
   const { placed, frames, lines, width, height } = tall ?? wide;
   const [targetPosition, sourcePosition] = tall
     ? [Position.Top, Position.Bottom]
@@ -388,7 +475,7 @@ export function AlchemyStageDiagram({
       },
     })),
   ];
-  const edges = lines.map(({ id, source, target, arrow, labels }): LineEdge => {
+  const edges = lines.map(({ id, source, target, arrow, labels, points }): LineEdge => {
     const lit = active !== null && touches({ source, target });
     const color = lit ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))";
     const marker = { type: MarkerType.ArrowClosed, width: 14, height: 14, color };
@@ -404,7 +491,7 @@ export function AlchemyStageDiagram({
           : {}),
       style: { stroke: color },
       className: `transition-opacity ${active !== null && !lit ? "opacity-30" : ""}`,
-      data: { labels, dim: active !== null && !lit },
+      data: { labels, dim: active !== null && !lit, points },
     };
   });
   const open = diagram.boxes.find((box) => box.id === selected);

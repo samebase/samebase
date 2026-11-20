@@ -208,10 +208,7 @@ const DOCS_SITE_RESOURCES = [
     ],
     [],
     {
-      attr: {
-        urls: ["https://docs-site.example.workers.dev", "https://docs.example.com"],
-        domain: { name: "docs.example.com", aliases: [], redirects: [] },
-      },
+      attr: { urls: ["https://docs-site.example.workers.dev", "https://docs.example.com"] },
       props: { compatibility: { date: "2026-10-01" } },
     },
   ),
