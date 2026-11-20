@@ -2,10 +2,10 @@
 // which the stage `prod` of alchemy.run.ts deploys. Only the previews of pull requests register on
 // it, with the preview key; production and development stay on https://auth.samebase.com.
 //
-// The provider clients and the signing keys (`IDENTITY_BROKER_KEYS`) are the deploying shell's
-// variables of these names, bound to the Worker as secrets (.github/workflows/alchemy.yml). The
-// preview key is the binding that alchemy.run.ts makes. Each provider must list the callback of
-// its connector or connection: `/connectors/<name>/callback` and `/connections/<name>/callback`.
+// The provider clients and the signing keys are secrets of the account's Cloudflare Secrets Store,
+// bound to the Worker by name (`secretsStore` below). The preview key is the binding that
+// alchemy.run.ts makes. Each provider must list the callback of its connector or connection:
+// `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import { Config } from "effect";
 import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
 import { stack } from "@samebase/identity-broker-effect/stack";
@@ -50,6 +50,24 @@ export default hubWorker({
     github: {
       clientId: Config.Redacted("SAMEBASE_HUB_GITHUB_APP_CLIENT_ID"),
       clientSecret: Config.Redacted("SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET"),
+    },
+  },
+  // Each name the hub reads, and its secret in the store. The hub reads its signing keys as
+  // `IDENTITY_BROKER_KEYS`.
+  secretsStore: {
+    store: "default_secrets_store",
+    secrets: {
+      SAMEBASE_HUB_GOOGLE_CLIENT_ID: "SAMEBASE_HUB_GOOGLE_CLIENT_ID",
+      SAMEBASE_HUB_GOOGLE_CLIENT_SECRET: "SAMEBASE_HUB_GOOGLE_CLIENT_SECRET",
+      SAMEBASE_HUB_GITHUB_CLIENT_ID: "SAMEBASE_HUB_GITHUB_CLIENT_ID",
+      SAMEBASE_HUB_GITHUB_CLIENT_SECRET: "SAMEBASE_HUB_GITHUB_CLIENT_SECRET",
+      SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID: "SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID",
+      SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET: "SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET",
+      SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID: "SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID",
+      SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET: "SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET",
+      SAMEBASE_HUB_GITHUB_APP_CLIENT_ID: "SAMEBASE_HUB_GITHUB_APP_CLIENT_ID",
+      SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET: "SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET",
+      IDENTITY_BROKER_KEYS: "SAMEBASE_HUB_IDENTITY_BROKER_KEYS",
     },
   },
   // One key, for previews: their clients have a removal date and may use the three connections.

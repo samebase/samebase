@@ -135,25 +135,6 @@ jobs:
           SAMEBASE_PRERENDER_ORIGIN: https://samebase.com
           VITE_PUBLIC_POSTHOG_HOST: https://e.samebase.com
           VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PROD_POSTHOG_PROJECT_TOKEN }}
-          # The new identity hub at auth2.samebase.com (apps/samebase/identity-hub/index.ts), which
-          # only `prod` deploys. Only this step gets its secrets, on every run of `prod`: a run
-          # without them skips the hub (alchemy.run.ts), and would remove a hub that an earlier run
-          # deployed.
-          SAMEBASE_HUB_GOOGLE_CLIENT_ID: ${{ secrets.SAMEBASE_HUB_GOOGLE_CLIENT_ID }}
-          SAMEBASE_HUB_GOOGLE_CLIENT_SECRET: ${{ secrets.SAMEBASE_HUB_GOOGLE_CLIENT_SECRET }}
-          SAMEBASE_HUB_GITHUB_CLIENT_ID: ${{ secrets.SAMEBASE_HUB_GITHUB_CLIENT_ID }}
-          SAMEBASE_HUB_GITHUB_CLIENT_SECRET: ${{ secrets.SAMEBASE_HUB_GITHUB_CLIENT_SECRET }}
-          SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID: ${{ secrets.SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID }}
-          SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET:
-            ${{ secrets.SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET }}
-          SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID:
-            ${{ secrets.SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID }}
-          SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET:
-            ${{ secrets.SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET }}
-          SAMEBASE_HUB_GITHUB_APP_CLIENT_ID: ${{ secrets.SAMEBASE_HUB_GITHUB_APP_CLIENT_ID }}
-          SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET:
-            ${{ secrets.SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET }}
-          IDENTITY_BROKER_KEYS: ${{ secrets.SAMEBASE_HUB_IDENTITY_BROKER_KEYS }}
 
       # convex-hosting writes the site URL of its push to $GITHUB_OUTPUT, the environment URL above.
       - name: Deploy the preview

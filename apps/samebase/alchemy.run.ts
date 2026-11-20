@@ -76,24 +76,6 @@ follows from the hub's domain there; this file names it and does not import it.
 const PREVIEW_HUB = { issuer: "https://auth2.samebase.com" };
 /** The resource id of the new hub's preview key, which `prod` makes and the previews read. */
 const PREVIEW_KEY = "HubPreviewKey";
-/**
-The variables that the new hub reads at deploy (identity-hub/index.ts). alchemy.yml sets
-them only on the deploy of `prod`. Without one of them, `prod` skips the hub and production deploys
-as before.
-*/
-const NEW_HUB_SECRETS = [
-  "SAMEBASE_HUB_GOOGLE_CLIENT_ID",
-  "SAMEBASE_HUB_GOOGLE_CLIENT_SECRET",
-  "SAMEBASE_HUB_GITHUB_CLIENT_ID",
-  "SAMEBASE_HUB_GITHUB_CLIENT_SECRET",
-  "SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID",
-  "SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET",
-  "SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID",
-  "SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET",
-  "SAMEBASE_HUB_GITHUB_APP_CLIENT_ID",
-  "SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET",
-  "IDENTITY_BROKER_KEYS",
-];
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
@@ -268,24 +250,16 @@ export default Alchemy.Stack(
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
-    // The new hub and its preview key, which the previews read from this stage's state. A run
-    // without the hub's variables, such as before the operator set them, skips both, and a preview
-    // then finds no key. A later run that skips them removes the hub that an earlier run deployed.
-    const missing = NEW_HUB_SECRETS.filter((name) => !process.env[name]);
-    if (missing.length > 0) {
-      yield* Effect.logWarning(
-        `The identity hub ${PREVIEW_HUB.issuer} does not deploy: this run has no ${missing.join(", ")}.`,
-      );
-    } else {
-      const newHub = yield* Hub;
-      yield* newHub.bind("RegistrationKeys", {
-        env: {
-          SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
-            stage: "prod",
-          }),
-        },
-      });
-    }
+    // The new hub and its preview key, which the previews read from this stage's state. The hub
+    // binds its other secrets from the account's Secrets Store itself (identity-hub/index.ts).
+    const newHub = yield* Hub;
+    yield* newHub.bind("RegistrationKeys", {
+      env: {
+        SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
+          stage: "prod",
+        }),
+      },
+    });
 
     return { url: site.siteUrl, posthogProxy: posthogProxy.url };
   }),
