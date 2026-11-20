@@ -208,6 +208,16 @@ const NODE_TYPES = { box: BoxNodeView, namespace: NamespaceNodeView };
 const EDGE_TYPES = { line: LineEdgeView };
 
 /**
+React Flow always renders hidden texts that say boxes and lines can be selected, moved and deleted
+with the keyboard. The diagram is read-only: its buttons and links inside the boxes take the focus.
+*/
+const READ_ONLY_ARIA_LABELS = {
+  "node.a11yDescription.default": "",
+  "node.a11yDescription.keyboardDisabled": "",
+  "edge.a11yDescription.default": "",
+} as const;
+
+/**
 Zooms the diagram to the width of its frame, between `MIN_ZOOM` and full size, at its top left.
 It runs again when the frame changes width, such as when a phone turns.
 */
@@ -363,6 +373,9 @@ export function AlchemyStageDiagram({
             nodesFocusable={false}
             edgesFocusable={false}
             elementsSelectable={false}
+            deleteKeyCode={null}
+            disableKeyboardA11y
+            ariaLabelConfig={READ_ONLY_ARIA_LABELS}
             panOnDrag={false}
             panOnScroll={false}
             zoomOnScroll={false}

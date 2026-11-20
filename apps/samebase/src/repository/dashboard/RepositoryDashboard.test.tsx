@@ -429,12 +429,14 @@ describe("Alchemy stack cards", () => {
     expect(section.querySelectorAll('[aria-label="Loading default branch commit"]')).toHaveLength(
       1,
     );
-    expect(cards.map((card) => card.textContent)).toEqual(["ideal-dolphin-15.convex.site"]);
+    // The header of a card is its first child, above the diagram.
+    expect(cards.map((card) => card.firstElementChild?.textContent)).toEqual([
+      "ideal-dolphin-15.convex.site",
+    ]);
     expect(
-      [...section.querySelectorAll("a")].map((link) => [
-        link.textContent,
-        link.getAttribute("href"),
-      ]),
+      [...section.querySelectorAll('[aria-label^="Alchemy stack "] > :first-child a')].map(
+        (link) => [link.textContent, link.getAttribute("href")],
+      ),
     ).toEqual([["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"]]);
   });
 
@@ -517,7 +519,9 @@ describe("Alchemy stack cards", () => {
       "1592243a49970f5c5142009b7ca7b2d71d31f104",
     );
 
-    expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
+    expect(
+      cards.map((card) => [card.getAttribute("aria-label"), card.firstElementChild?.textContent]),
+    ).toEqual([
       ["Alchemy stack samebase/samebase", "/clear-butterfly-858.convex.site"],
       ["Alchemy stack samebase/samebase/apps/sidebars-example", "apps/sidebars-example"],
     ]);
@@ -546,7 +550,7 @@ describe("Alchemy stack cards", () => {
       null,
     );
 
-    expect(cards.map((card) => card.textContent)).toEqual([folder]);
+    expect(cards.map((card) => card.firstElementChild?.textContent)).toEqual([folder]);
     // Each box has a menu with the dashboard link of its bucket.
     expect(
       stackCardsOf(scoutStacks, makeRepositorySettingsBuilderRepository({}), null).flatMap((card) =>
@@ -746,10 +750,14 @@ describe("Alchemy stack cards", () => {
     const { cards } = renderStackCards(stacksWith(worker), repository, "b".repeat(40));
 
     // A run from a development machine has no run URL, so its line links nowhere.
-    expect(cards.map((card) => card.textContent)).toEqual(["tmp-k7m2-rows.pfp.workers.devaaaaaaa"]);
-    expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
-      "https://tmp-k7m2-rows.pfp.workers.dev",
+    expect(cards.map((card) => card.firstElementChild?.textContent)).toEqual([
+      "tmp-k7m2-rows.pfp.workers.devaaaaaaa",
     ]);
+    expect(
+      [...cards[0].querySelectorAll(":scope > :first-child a")].map((link) =>
+        link.getAttribute("href"),
+      ),
+    ).toEqual(["https://tmp-k7m2-rows.pfp.workers.dev"]);
     // The same row with a custom domain, which Alchemy puts first: the row keeps the other URL.
     expect(
       stackCardsOf(
@@ -915,10 +923,14 @@ describe("Alchemy stack cards", () => {
     const cards = [...container.querySelectorAll('[aria-label^="Alchemy stack "]')];
 
     // One card at the root shows no folder, and a preview deployment has no live read or route.
-    expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      ["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121"],
-    ]);
-    expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
+    expect(
+      cards.map((card) => [card.getAttribute("aria-label"), card.firstElementChild?.textContent]),
+    ).toEqual([["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121"]]);
+    expect(
+      [...cards[0].querySelectorAll(":scope > :first-child a")].map((link) =>
+        link.getAttribute("href"),
+      ),
+    ).toEqual([
       "https://aware-bobcat-542.convex.site",
       "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
     ]);
