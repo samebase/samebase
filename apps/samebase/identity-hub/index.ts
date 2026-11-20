@@ -1,10 +1,12 @@
 // samebase.com's new identity hub (packages/identity-broker-effect) at https://auth2.samebase.com,
-// which the stage `prod` of alchemy.run.ts deploys. Only the previews of pull requests register on
-// it, with the preview key; production and development stay on https://auth.samebase.com.
+// which the stage `prod` of alchemy.run.ts deploys. The previews of pull requests register on it
+// with the preview key. The production key is there for production's move from
+// https://auth.samebase.com; until then no client registers with it. Development stays on
+// https://auth.samebase.com.
 //
 // The provider clients and the signing keys are secrets of the account's Cloudflare Secrets Store,
-// bound to the Worker by name (`secretsStore` below). The preview key is the binding that
-// alchemy.run.ts makes. Each provider must list the callback of its connector or connection:
+// bound to the Worker by name (`secretsStore` below). The preview and production keys are the
+// bindings that alchemy.run.ts makes. Each provider must list the callback of its connector or connection:
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import { Config } from "effect";
 import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
@@ -70,12 +72,17 @@ export default hubWorker({
       IDENTITY_BROKER_KEYS: "SAMEBASE_HUB_IDENTITY_BROKER_KEYS",
     },
   },
-  // One key, for previews: their clients have a removal date and may use the three connections.
-  // No production key yet, so no client here is permanent.
+  // Two keys, each for clients that may use the three connections: a preview client has a removal
+  // date, a production client is permanent.
   registration: stack({
     keys: {
       preview: {
         key: Config.Redacted("SAMEBASE_HUB_PREVIEW_KEY"),
+        connections: ["convex", "cloudflare", "github"],
+      },
+      production: {
+        key: Config.Redacted("SAMEBASE_HUB_PRODUCTION_KEY"),
+        permanent: true,
         connections: ["convex", "cloudflare", "github"],
       },
     },

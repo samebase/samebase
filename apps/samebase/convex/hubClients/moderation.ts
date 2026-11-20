@@ -153,6 +153,12 @@ const HUBS: readonly Hub[] = ["samebase", "public"];
 type Moderation = { hub: Hub; issuer: string; key: string };
 
 /**
+The hub that IDENTITY_HUB_MODERATION_KEY opens. Its moderation endpoints are only on this hub
+(packages/identity-broker), so the tab keeps it when IDENTITY_HUB_ISSUER moves to auth2.samebase.com.
+*/
+const SAMEBASE_HUB_ISSUER = "https://auth.samebase.com";
+
+/**
 A hub's moderation endpoints, or null while its key is unset: the admin page then says that
 moderation of that hub is off. The key can only read registration counts, clients, blocks,
 exemptions from the sign-in page, and connector grants, set blocks, exemptions, and grants, and
@@ -164,7 +170,7 @@ never from a caller's URL, so no request can send a key to another host.
 function readModeration(hub: Hub): Moderation | null {
   const [issuer, key] =
     hub === "samebase"
-      ? [env.IDENTITY_HUB_ISSUER, env.IDENTITY_HUB_MODERATION_KEY]
+      ? [SAMEBASE_HUB_ISSUER, env.IDENTITY_HUB_MODERATION_KEY]
       : [env.PUBLIC_IDENTITY_HUB_ISSUER, env.PUBLIC_IDENTITY_HUB_MODERATION_KEY];
   const trimmed = key?.trim();
   return issuer && trimmed ? { hub, issuer, key: trimmed } : null;
