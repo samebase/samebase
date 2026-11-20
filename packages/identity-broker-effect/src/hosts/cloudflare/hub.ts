@@ -13,6 +13,8 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Clock, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
+import type { ConnectionSettings } from "../../connections/providers.ts";
+import { makeConnections } from "../../connections/routes.ts";
 import { hubLogger, makeHandle, type CoreServices, type Registration } from "../../core/router.ts";
 import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
@@ -96,17 +98,24 @@ export class HubObject extends Cloudflare.DurableObject<HubObject>()(
           function* (payload: typeof CleanupPayload.Encoded) {
             const now = yield* Clock.currentTimeMillis;
             const plan = alarmPlan((yield* decodeCleanupPayload(payload)).cutoff, now);
-            const result = yield* Effect.sync(() =>
-              decodeResult(
-                "lifecycle.cleanup",
-                step(
+            // The connections part's batch first, until it has no more: it deletes the grants of
+            // the cards that the core's next batch deletes.
+            const more = yield* Effect.sync(
+              () =>
+                decodeResult(
+                  "connections.cleanup",
+                  step("connections.cleanup", { now: plan.cutoff }, now),
+                ).more ||
+                decodeResult(
                   "lifecycle.cleanup",
-                  { now: plan.cutoff, signInRetentionMs: SIGN_IN_RETENTION_MS },
-                  now,
-                ),
-              ),
+                  step(
+                    "lifecycle.cleanup",
+                    { now: plan.cutoff, signInRetentionMs: SIGN_IN_RETENTION_MS },
+                    now,
+                  ),
+                ).more,
             );
-            const next = plan.after(result.more);
+            const next = plan.after(more);
             // `progress` grows with each batch, so a run of batches keeps a fresh retry budget.
             yield* cleanup.schedule(CLEANUP_JOB, {
               at: next.alarmAt,
@@ -178,21 +187,33 @@ export type HubOptions = HubSettings & {
    * `stack({ keys })` of src/layers/stack/routes.ts.
    */
   readonly registration: Registration;
+  /**
+   * The connection providers of the hub (src/connections/providers.ts). Without it the hub
+   * mounts no connection route.
+   */
+  readonly connections?: ConnectionSettings;
 };
 
 /**
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
  * logger, and `fetch`. The core takes the Web `Request` and gives a Web `Response`;
  * `HttpServerResponse.raw` hands that `Response` to the platform unchanged (status, body and each
- * `Set-Cookie` field). The hub mounts the `registration` layer. `hubWorker` gives it the settings
- * of its options; the conformance test stack (test/conformance) gives it local settings.
+ * `Set-Cookie` field). The hub mounts the `registration` layer, and the connections part when
+ * `connections` names providers, whose secrets it reads when the Worker starts. `hubWorker` gives
+ * it the settings of its options; the conformance test stack (test/conformance) gives it local
+ * settings.
  */
 export const hubRuntime = <E, R>(
   settings: Layer.Layer<HubConfig | SignInPage, E, R>,
   registration: Registration,
+  connections?: ConnectionSettings,
 ) =>
   Effect.gen(function* () {
-    const handle = makeHandle(registration);
+    const part =
+      connections === undefined
+        ? undefined
+        : yield* makeConnections(connections).pipe(Effect.orDie);
+    const handle = makeHandle(registration, part);
     // Built once per isolate, when the Worker starts.
     const services = yield* Effect.context<CoreServices>();
     return {
@@ -228,5 +249,5 @@ export const hubWorker = (options: HubOptions) =>
       // The object runs the new rules right after a deploy, not up to 5 minutes later.
       codeUpdateStrategy: { mode: "immediate" },
     },
-    hubRuntime(hubSettings(options), options.registration),
+    hubRuntime(hubSettings(options), options.registration, options.connections),
   ) {};

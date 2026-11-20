@@ -381,6 +381,7 @@ describe.each(hosts)("%s", (_name, make) => {
       tokenEndpointAuthMethod: "client_secret_basic",
       secretHash: "s",
       connectors: ["g"],
+      connections: [],
       gates: ["github:repository:1", "github:owner:65"],
       confirm: true,
       budget: "github:gh-1",

@@ -193,6 +193,7 @@ describe("POST /register with a key", () => {
         tokenEndpointAuthMethod: "client_secret_post",
         secretHash: await sha256Hex(client.client_secret),
         connectors: ["fake"],
+        connections: [],
         gates: ["stack:preview"],
         confirm: false,
         budget: "stack:preview",
@@ -321,6 +322,19 @@ describe("the client's own record (RFC 7592)", () => {
     expect(h.cards().map((card) => [card.connectors, card.removeAt])).toEqual([
       [["fake", "other"], EPOCH + 1_000 + LEASE_MS],
     ]);
+  });
+
+  test("a card's connections are its key's, at the registration and at each read", async () => {
+    const h = await createStackHub({
+      preview: { ...keyOf(PREVIEW_KEY), connections: ["github", "cloudflare", "github"] },
+    });
+    const client = await registered(h, PREVIEW_KEY);
+    expect(h.cards().map((card) => card.connections)).toEqual([["cloudflare", "github"]]);
+    h.keys["preview"] = { ...keyOf(PREVIEW_KEY), connections: ["convex"] };
+    expect(
+      (await manage(h, "GET", client.client_id, client.registration_access_token)).status,
+    ).toBe(200);
+    expect(h.cards().map((card) => card.connections)).toEqual([["convex"]]);
   });
 
   test("a read is refused after the key left the hub's configuration", async () => {

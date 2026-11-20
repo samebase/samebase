@@ -311,6 +311,7 @@ export function seedClient(
         tokenEndpointAuthMethod: "client_secret_post",
         secretHash: "hash",
         connectors: ["fake"],
+        connections: [],
         gates: [repositoryStop(args.repositoryId), ownerStop(ownerId)],
         confirm: true,
         budget: refOf(tenantId),

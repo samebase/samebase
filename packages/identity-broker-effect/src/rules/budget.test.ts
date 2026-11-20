@@ -26,6 +26,7 @@ describe.each(hosts)("%s", (_name, make) => {
         tokenEndpointAuthMethod: "client_secret_post",
         secretHash: "s",
         connectors: ["g"],
+        connections: [],
         gates: [],
         confirm: false,
         budget: `budget-${client.slice(0, 1)}`,

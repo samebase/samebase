@@ -95,7 +95,7 @@ export const allowedConnectors = Effect.fnUntraced(function* (args: {
 
 /**
  * The fields of a card that the layer computes, from the rows of this step: `connectors` is the
- * enrollment of those allowed now (`allowedConnectors`); the gates are the repository's key and
+ * enrollment of those allowed now (`allowedConnectors`); `connections` is none; the gates are the repository's key and
  * the current owner's; `confirm` is false only while an exemption row of the current owner covers
  * the repository and that owner registered the client.
  */
@@ -122,6 +122,8 @@ export const computedFields = Effect.fnUntraced(function* (args: {
     ])) !== undefined;
   return {
     connectors: args.client.enrollment.filter((name) => allowed.includes(name)),
+    // The public hub offers no connection provider.
+    connections: [],
     gates: [repositoryStop(repositoryIdOf(args.tenantId)), ownerStop(args.currentOwnerId)],
     confirm: !exempt,
     budget: refOf(args.tenantId),

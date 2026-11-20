@@ -48,6 +48,7 @@ const clientOf = (fields: {
   tokenEndpointAuthMethod: "client_secret_basic",
   secretHash: "h",
   connectors: ["github"],
+  connections: [],
   gates: ["github:repository:1"],
   confirm: true,
   budget: fields.ref,

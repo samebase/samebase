@@ -59,9 +59,10 @@ const connectorsNamed = (hub: HubConfigShape, names: ReadonlyArray<string>): Con
 /**
  * `/authorize` binds each request to the browser that started it (RFC 9700 section 2.1.1) with one
  * cookie per request, named after the request id, so two sign-ins in one browser keep their own.
- * `__Host-` needs Path=/, so a path issuer uses a plain name scoped to its path.
+ * `__Host-` needs Path=/, so a path issuer uses a plain name scoped to its path. A connection's
+ * request uses the same cookies.
  */
-function txnCookies(hub: HubConfigShape) {
+export function txnCookies(hub: HubConfigShape) {
   const prefix = hub.prefix === "" ? "__Host-broker_txn_" : "broker_txn_";
   const attributes = `Path=${hub.prefix === "" ? "/" : hub.prefix}; HttpOnly; Secure; SameSite=Lax`;
   /** The transaction cookies the browser sent, by request id. */
@@ -120,7 +121,7 @@ const refusePage = (description: string) => errorPage("Sign-in refused", descrip
  * app's state; with no such address, the hub's own error page. The hub sends the user to no
  * address that is not on the card (RFC 6749 section 4.1.2.1).
  */
-const toApp = (
+export const toApp = (
   back: Return | undefined,
   answer: { issuer: string; clearCookie: string | undefined; error: string; description: string },
 ) =>
@@ -185,11 +186,20 @@ const metadata = (hub: HubConfigShape, registration: boolean) => {
   };
 };
 
-/** The discovery documents, with `registration_endpoint` when `registration` is mounted. */
-export const discovery = (options: { readonly registration: boolean }) =>
+/** The discovery document of the core, before a mounted part adds its own fields. */
+export type Metadata = ReturnType<typeof metadata>;
+
+/**
+ * The discovery documents, with `registration_endpoint` when `registration` is mounted, and the
+ * fields that a mounted part adds (`extend`).
+ */
+export const discovery = (options: {
+  readonly registration: boolean;
+  readonly extend: (document: Metadata) => object;
+}) =>
   Effect.fn("discovery")(function* (_request: Request) {
     const hub = yield* HubConfig;
-    return json(metadata(hub, options.registration), 200, {
+    return json(options.extend(metadata(hub, options.registration)), 200, {
       "Cache-Control": "public, max-age=300",
     });
   });
@@ -296,7 +306,8 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     return invalidRedirectPage();
   }
   if (params.has("resource")) {
-    // No API resource provider is configured in this package (design section 9 item 1).
+    // A hub without the connections part serves no API resource; with it, the router sends a
+    // request with `resource` to the part.
     return errorPage("API authorization refused", "Request one configured API resource.", 400);
   }
   const rest = validateAuthorizeRest(params, target.value);

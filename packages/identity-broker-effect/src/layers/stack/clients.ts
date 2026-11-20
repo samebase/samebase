@@ -2,6 +2,7 @@
 // key, the RFC 7592 read that renews it, and the self-delete of a temporary client. The key's name
 // is the one fact a card is computed from: its `ref`, `budget` and `gates`.
 import { Effect, Schema } from "effect";
+import { removeClientGrants } from "../../connections/rules.ts";
 import { LEASE_MS } from "../../rules/clients.ts";
 import type { Step } from "../../rules/commands.ts";
 import { TokenEndpointAuthMethod } from "../../rules/tables.ts";
@@ -24,14 +25,16 @@ export const CreateArgs = Schema.Struct({
   client: StackClient,
   /** The hub's configured connector names. */
   configured: Strs,
+  /** The connection providers of the client's key, as the hub's settings name them. */
+  connections: Strs,
 });
 export const CreateResult = Schema.Struct({ createdAt: Schema.Finite });
 
 const ManageArgs = { clientId: Str, registrationTokenHash: Str };
 export const RenewArgs = Schema.Struct({
   ...ManageArgs,
-  /** The names of the keys that the hub has now. */
-  keys: Strs,
+  /** The keys that the hub has now, by name, each with its connection providers. */
+  keys: Schema.Array(Schema.Struct({ name: Str, connections: Strs })),
   configured: Strs,
 });
 export const RenewResult = Schema.Union([
@@ -64,6 +67,7 @@ export const create = Effect.fnUntraced(function* (args: typeof CreateArgs.Type,
     tokenEndpointAuthMethod: args.tokenEndpointAuthMethod,
     secretHash: args.secretHash,
     connectors: args.client.enrollment.filter((name) => args.configured.includes(name)),
+    connections: args.connections,
     gates: [keyRef(args.client.key)],
     confirm: false,
     budget: keyRef(args.client.key),
@@ -88,8 +92,9 @@ const managedCard = Effect.fnUntraced(function* (clientId: string, registrationT
 
 /**
  * A deploy of a client reads it (RFC 7592 section 2.1), which also renews it: a temporary card gets
- * a new removal date, and its connectors are its enrollment of those configured now. A key that
- * the hub no longer has renews nothing, and a stopped card is not renewed.
+ * a new removal date, its connectors are its enrollment of those configured now, and its
+ * connections are its key's now. A key that the hub no longer has renews nothing, and a stopped
+ * card is not renewed.
  */
 export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type, step: Step) {
   const tx = yield* StackTx;
@@ -98,7 +103,8 @@ export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type, s
     return { ok: false as const, error: "invalid_token" as const };
   }
   const { card, client } = managed;
-  if (!args.keys.includes(client.key)) {
+  const key = args.keys.find((candidate) => candidate.name === client.key);
+  if (key === undefined) {
     return { ok: false as const, error: "withdrawn" as const };
   }
   for (const gate of card.doc.gates) {
@@ -109,6 +115,7 @@ export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type, s
   yield* tx.replace("clients", card.id, {
     ...card.doc,
     connectors: client.enrollment.filter((name) => args.configured.includes(name)),
+    connections: key.connections,
     ...(card.doc.removeAt === undefined ? {} : { removeAt: step.now + LEASE_MS }),
   });
   return {
@@ -122,7 +129,8 @@ export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type, s
 
 /**
  * A temporary client deletes itself (RFC 7592 section 2.3). A permanent one cannot: a stack
- * destroy can leave a production deployment running.
+ * destroy can leave a production deployment running. The card's connection grants go in the same
+ * step, so no provider refresh token outlives its client.
  */
 export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type) {
   const managed = yield* managedCard(args.clientId, args.registrationTokenHash);
@@ -133,5 +141,6 @@ export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type)
     return { ok: false as const, error: "permanent" as const };
   }
   yield* (yield* StackTx).delete("clients", managed.card.id);
+  yield* removeClientGrants(args.clientId);
   return { ok: true as const };
 });

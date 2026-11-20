@@ -79,9 +79,10 @@ const BUDGET_CAPACITY = 240;
 
 /**
  * Takes one sign-in from the token bucket of `key` at `now`, or answers false and writes nothing.
- * The bucket's time never moves back, so a step with an older clock refills nothing.
+ * The bucket's time never moves back, so a step with an older clock refills nothing. A connection
+ * start spends from the same bucket.
  */
-const spendBudget = Effect.fnUntraced(function* (key: string, now: number) {
+export const spendBudget = Effect.fnUntraced(function* (key: string, now: number) {
   const tx = yield* Tx;
   const row = yield* unique(tx, "signInBudgets", "by_key", [key]);
   const at = row === undefined ? now : Math.max(row.doc.at, now);

@@ -11,7 +11,7 @@ import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
 import { github } from "../connectors/github.ts";
-import { hubLogger, makeHandle, type Registration } from "../router.ts";
+import { hubLogger, makeHandle, type Part, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { google } from "../connectors/google.ts";
 import type { Connector } from "../connectors/types.ts";
@@ -277,6 +277,9 @@ const contentsOf = (store: Pick<TestStore, "withTx">) => () =>
         events: yield* all("events", "by_github_owner_id"),
         initialAccessTokens: yield* all("initialAccessTokens", "by_token_hash"),
         rateLimits: yield* all("rateLimits", "by_scope_and_github_id"),
+        connectionRequests: yield* all("connectionRequests", "by_request_id"),
+        connectionCodes: yield* all("connectionCodes", "by_code_hash"),
+        connectionGrants: yield* all("connectionGrants", "by_token_hash"),
       };
     }),
   );
@@ -307,6 +310,8 @@ export async function createBroker(
     config?: Partial<HubConfigInput>;
     seed?: number;
     registration?: Registration;
+    /** An optional part of the hub, such as connections. */
+    part?: Part;
     fetch?: StubFetch;
     signInPage?: SignInPageFunction;
   } = {},
@@ -321,7 +326,7 @@ export async function createBroker(
         ? Effect.fail(new StoreUnavailable())
         : memory.store.run(name, args),
   });
-  const handle = makeHandle(options.registration ?? { routes: [] });
+  const handle = makeHandle(options.registration ?? { routes: [] }, options.part);
   const layer = Layer.merge(core.layer, Layer.succeed(Store, store));
   const clock = {
     now: core.clock.now,
@@ -349,6 +354,8 @@ export async function createBroker(
     redirectUri: string;
     otherRedirectUris?: string[];
     connectors?: string[];
+    /** The connection providers of the card; none without it. */
+    connections?: string[];
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
     gates?: string[];
     confirm?: boolean;
@@ -372,6 +379,7 @@ export async function createBroker(
           tokenEndpointAuthMethod: args.tokenEndpointAuthMethod ?? "client_secret_post",
           secretHash,
           connectors,
+          connections: args.connections ?? [],
           gates: args.gates ?? [],
           confirm: args.confirm ?? false,
           budget: args.budget ?? ref,
