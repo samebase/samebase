@@ -1,3 +1,4 @@
+import { namespaceOf, type StateRow } from "@samebase/alchemy-kit/stack";
 import { isRecord } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
@@ -38,6 +39,14 @@ export function parseWithoutSecretValues(text: string): unknown {
       ? { [ALCHEMY_REDACTED_MARKER]: null }
       : current,
   );
+}
+
+/** The rows of a stage as the store gives them, each with its state parsed. */
+export function stateRows(resources: readonly { fqn: string; value: string }[]): StateRow[] {
+  return resources.map(({ fqn, value }) => {
+    const state: unknown = JSON.parse(value);
+    return { fqn, state };
+  });
 }
 
 /**
@@ -155,10 +164,7 @@ export function stageResources(stage: {
   resources: readonly { fqn: string; value: string }[];
 }) {
   const { stackFile } = stage;
-  const states = stage.resources.map((resource) => {
-    const state: unknown = JSON.parse(resource.value);
-    return { fqn: resource.fqn, state };
-  });
+  const states = stateRows(stage.resources);
 
   const convexDeployments = states.flatMap(({ fqn, state }) => {
     if (!validate(vAlchemyConvexDeploymentState, state, { allowUnknownFields: true })) {
@@ -327,8 +333,8 @@ export function stackCards({
               : deployment.state.attr.siteUrl,
           addressWorker: addressWorker?.fqn ?? null,
           resources,
-          /** The rows of the stage as the store gives them. */
-          stageRows: stage.resources,
+          /** The rows of the stage, each with its state parsed. */
+          stageRows: stateRows(stage.resources),
         },
       ];
     })
@@ -343,20 +349,6 @@ export function stackCards({
     ...card,
     folder: stacks.length === 1 && card.folder === REPOSITORY_ROOT_DIRECTORY ? null : card.folder,
   }));
-}
-
-/**
-The namespace ids of a state row from the stack root. Alchemy writes the namespace of a row as a
-chain from the innermost id, such as `{ "Id": "Inbox", "Parent": { "Id": "Mail/Shared" } }` for
-`["Mail/Shared", "Inbox"]`, and a row at the stack root has no `namespace`.
-
-@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Namespace.ts#L5-L8
-@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/State/ResourceState.ts#L36-L37
-*/
-export function namespaceOf(node: unknown): string[] {
-  return isRecord(node) && typeof node["Id"] === "string"
-    ? [...namespaceOf(node["Parent"]), node["Id"]]
-    : [];
 }
 
 /**

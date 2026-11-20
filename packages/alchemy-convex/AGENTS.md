@@ -17,9 +17,10 @@
   `STATE_KEY_<keyId>` of its deployment. A client makes a key once and never reads a key back. Never
   write to an existing key variable: a key that a row needs must stay. See
   `src/store/convex/sealing.ts` and `docs/design/convex-state.md`.
-- `alchemy-convex stack-comment` reads the store and writes a pull request comment. It reads Worker
-  and R2 rows of the store, and it depends on no Cloudflare package. GitHub removes most HTML, so
-  `src/StackComment.ts` names the reason for each choice of its markup.
+- `alchemy-convex stack-comment` reads the store and writes a pull request comment. It reads the
+  rows through `stageDiagram` of `@samebase/alchemy-kit/stack`, which keeps no secret, and it
+  depends on no Cloudflare package. GitHub removes most HTML, so `src/StackComment.ts` names the
+  reason for each choice of its markup.
 - The Convex CLI owns typecheck, codegen, bundling, and the code push. `Convex.Deployment` only runs
   the installed `convex deploy`. Do not move work of the Convex CLI into this package.
 - No backwards compatibility with earlier versions of this package, its store, or its data:

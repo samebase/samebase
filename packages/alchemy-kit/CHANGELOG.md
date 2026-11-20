@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- New entry `@samebase/alchemy-kit/stack`: `stageDiagram(rows)` reads the state rows of a stage and
+  gives its main resources as boxes, the other rows folded into them, and the lines between the
+  boxes with their binding names. `stageTree(diagram)` gives the boxes as a tree, each under the box
+  that uses it. Samebase draws its stack diagram, its resource list and its pull request comment
+  from them. It keeps no secret of a row.
+
 ## 0.4.0
 
 - New entry `@samebase/alchemy-kit/ui`: `resourceTypeUI(type)` gives a name, a Lucide icon, a colour

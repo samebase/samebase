@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-kit",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, a run record in each stage output, and a name and icon for each resource type",
   "keywords": [
     "alchemy",
@@ -32,7 +32,8 @@
   "exports": {
     "./github-state": "./src/github-state/GitHubState.ts",
     "./run-record": "./src/run-record/RunRecord.ts",
-    "./ui": "./src/ui/ResourceTypeUI.ts"
+    "./ui": "./src/ui/ResourceTypeUI.ts",
+    "./stack": "./src/stack/StackDiagram.ts"
   },
   "publishConfig": {
     "exports": {
@@ -47,6 +48,10 @@
       "./ui": {
         "types": "./lib/ui.d.ts",
         "import": "./lib/ui.js"
+      },
+      "./stack": {
+        "types": "./lib/stack.d.ts",
+        "import": "./lib/stack.js"
       }
     },
     "access": "public"

@@ -19,7 +19,7 @@ import { Clock } from "lucide-react";
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
 import { AlchemyIsometricIcon } from "@/components/AlchemyIsometricIcon";
-import type { DiagramBox, StageDiagram } from "@/components/alchemyStageDiagramModel";
+import type { DiagramBox, StageDiagram } from "@samebase/alchemy-kit/stack";
 
 const BOX_WIDTH = 248;
 
@@ -56,11 +56,11 @@ a dagre cluster, drawn as a frame around its boxes. The arrow of a line points a
 other box depends on.
 */
 function layoutDiagram(
-  { boxes, edges }: StageDiagram,
+  { boxes, lines: diagramLines }: StageDiagram,
   { rankdir, columns }: { rankdir: "LR" | "TB"; columns: number },
 ) {
   const graph = new Graph<GraphLabel, NodeLabel, EdgeLabel>({ compound: true });
-  const labels = edges.map((edge) => edge.labels);
+  const labels = diagramLines.map((line) => line.labels);
   graph.setGraph({
     rankdir,
     nodesep: NODE_GAP[rankdir],
@@ -78,18 +78,18 @@ function layoutDiagram(
       graph.setParent(box.id, frame);
     }
   }
-  const lines = edges.map((edge, index) => {
-    const dependent = edge.from === edge.b ? edge.b : edge.a;
-    const other = dependent === edge.a ? edge.b : edge.a;
-    const reversed = boxes[other].urls.length > 0 && boxes[dependent].urls.length === 0;
+  const lines = diagramLines.map((line, index) => {
+    const dependent = line.from === line.b ? line.b : line.a;
+    const other = dependent === line.a ? line.b : line.a;
+    const reversed = other.urls.length > 0 && dependent.urls.length === 0;
     const [source, target] = reversed ? [other, dependent] : [dependent, other];
-    graph.setEdge(boxes[source].id, boxes[target].id, {});
+    graph.setEdge(source.id, target.id, {});
     return {
       id: `line-${index}`,
-      source: boxes[source].id,
-      target: boxes[target].id,
-      arrow: edge.from === null ? null : reversed ? "start" : "end",
-      labels: edge.labels,
+      source: source.id,
+      target: target.id,
+      arrow: line.from === null ? null : reversed ? "start" : "end",
+      labels: line.labels,
     };
   });
   // dagre puts every box without lines in its first column, so a box without lines or a URL gets a

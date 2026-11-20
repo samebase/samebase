@@ -6,7 +6,9 @@
 // `owner/name/<folder>` that has the stage `pr-<number>`. A stack without that stage has no card. A
 // run replaces the whole body, so the last run shows the newest state.
 //
-// It reads only the fields of the rows below, because Alchemy state holds secrets in clear text.
+// The rows of a card are the boxes of `stageDiagram` from `@samebase/alchemy-kit/stack`, the model
+// of Samebase's stack diagram. Alchemy state holds secrets in clear text, and that model keeps no
+// secret of a row.
 //
 // GitHub keeps a fixed set of HTML in a comment and removes `style` and `class`, so every choice of
 // the markup is a fact about the sanitizer or the CSS of github.com:
@@ -24,6 +26,15 @@ import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { RUN_RECORD_KEY, runRecord } from "@samebase/alchemy-kit/run-record";
+import {
+  boxSubtitle,
+  stageDiagram,
+  stageTree,
+  type DiagramBox,
+  type StageDiagram,
+  type StageTreeNode,
+} from "@samebase/alchemy-kit/stack";
+import { resourceTypeUI } from "@samebase/alchemy-kit/ui";
 
 /** The first text of the comment, which finds it again. */
 const MARKER = "<!-- samebase-stacks -->";
@@ -33,36 +44,6 @@ const ICONS =
   "https://raw.githubusercontent.com/samebase/samebase/main/packages/alchemy-convex/assets/stack-comment";
 
 const GITHUB_API = "https://api.github.com";
-
-/** The resources that a card shows. A row of any other type, or without `attr` from an interrupted deploy, is left out. */
-const Resource = Schema.Union([
-  Schema.Struct({
-    resourceType: Schema.Literal("Convex.Deployment"),
-    attr: Schema.Struct({ name: Schema.String, siteUrl: Schema.String }),
-  }),
-  Schema.Struct({
-    resourceType: Schema.Literal("Cloudflare.Worker"),
-    attr: Schema.Struct({ workerName: Schema.String, url: Schema.optional(Schema.String) }),
-  }),
-  Schema.Struct({
-    resourceType: Schema.Literal("Cloudflare.R2.Bucket"),
-    attr: Schema.Struct({
-      bucketName: Schema.String,
-      accountId: Schema.String,
-      jurisdiction: Schema.String,
-    }),
-  }),
-  Schema.Struct({
-    // A row keeps the type before 0.37.0 until its next write. Remove the old type once no saved
-    // row has it.
-    resourceType: Schema.Literals(["IdentityHub.Client", "IdentityHub.SharedClient"]),
-    attr: Schema.Struct({
-      status: Schema.Literals(["on", "off", "suspended"]),
-      connectors: Schema.Array(Schema.String),
-    }),
-  }),
-]);
-type Resource = typeof Resource.Type;
 
 /** The fields of the run record that a card shows. */
 const StageOutput = Schema.Struct({
@@ -76,7 +57,7 @@ const StageOutput = Schema.Struct({
 export interface StackCard {
   readonly name: string;
   readonly stage: string;
-  readonly resources: readonly Resource[];
+  readonly diagram: StageDiagram;
   readonly run: typeof StageOutput.Type | null;
 }
 
@@ -103,31 +84,18 @@ export const readStackCards = ({ repository, stage }: { repository: string; stag
       }
       const request = { stack: name, stage };
       const rows = yield* Effect.forEach(yield* state.list(request), (fqn) =>
-        state.get({ ...request, fqn }),
+        state.get({ ...request, fqn }).pipe(Effect.map((row) => ({ fqn, state: row }))),
       );
       const output = yield* state.getOutput(request);
       cards.push({
         name,
         stage,
-        resources: rows.filter(Schema.is(Resource)),
+        diagram: stageDiagram(rows),
         run: Schema.is(StageOutput)(output) ? output : null,
       });
     }
     return cards;
   });
-
-/** A stack can create a deployment in one resource and push to it in another: a card shows it once. */
-const withoutRepeats = (resources: readonly Resource[]) => {
-  const deployments = new Set<string>();
-  return resources.filter((resource) => {
-    if (resource.resourceType !== "Convex.Deployment") {
-      return true;
-    }
-    const repeated = deployments.has(resource.attr.name);
-    deployments.add(resource.attr.name);
-    return !repeated;
-  });
-};
 
 const escapeHtml = (text: string) =>
   text
@@ -138,69 +106,62 @@ const escapeHtml = (text: string) =>
 
 const link = (href: string, text: string) => `<a href="${escapeHtml(href)}">${text}</a>`;
 
-const named = (href: string, icon: string, alt: string, name: string) => {
-  const image = `<img src="${ICONS}/${icon}.svg" width="16" align="absmiddle" alt="${alt}">`;
-  return `${link(href, image)} ${link(href, escapeHtml(name))}`;
-};
-
 const hostOf = (url: string) => escapeHtml(new URL(url).host);
 
-/** Where a stack serves: its Convex deployment, else its first Worker with a URL. */
-const addressOf = (resources: readonly Resource[]) => {
-  for (const resource of resources) {
-    if (resource.resourceType === "Convex.Deployment") {
-      return resource.attr.siteUrl;
-    }
+/** The icon file of a resource type, in `ICONS`. A box of any other type has no icon. */
+const ICON_FILES = new Map([
+  ["Convex.Deployment", "convex"],
+  ["Cloudflare.Worker", "worker"],
+  ["Cloudflare.R2.Bucket", "r2"],
+]);
+
+/** The name of a box, as a link to its dashboard page when it has one. */
+const boxName = ({ name, resourceType, rows: [first] }: DiagramBox) => {
+  const icon = ICON_FILES.get(resourceType);
+  const image =
+    icon === undefined
+      ? null
+      : `<img src="${ICONS}/${icon}.svg" width="16" align="absmiddle" alt="">`;
+  const text = escapeHtml(name);
+  const href = first.dashboard?.href;
+  if (href === undefined) {
+    return image === null ? text : `${image} ${text}`;
   }
-  for (const resource of resources) {
-    if (resource.resourceType === "Cloudflare.Worker" && resource.attr.url !== undefined) {
-      return resource.attr.url;
-    }
-  }
-  return null;
+  return image === null ? link(href, text) : `${link(href, image)} ${link(href, text)}`;
 };
 
-const resourceRow = (resource: Resource, address: string | null) => {
-  switch (resource.resourceType) {
-    case "Convex.Deployment": {
-      const { name } = resource.attr;
-      return named(
-        `https://dashboard.convex.dev/d/${encodeURIComponent(name)}`,
-        "convex",
-        "Convex",
-        name,
-      );
-    }
-    case "Cloudflare.Worker": {
-      const { url, workerName } = resource.attr;
-      const row = named(
-        `https://dash.cloudflare.com/?to=/:account/workers/services/view/${encodeURIComponent(workerName)}`,
-        "worker",
-        "Worker",
-        workerName,
-      );
-      return url === undefined || url === address
-        ? row
-        : `${row}<br><sub>${link(url, hostOf(url))}</sub>`;
-    }
-    case "Cloudflare.R2.Bucket": {
-      const { accountId, bucketName, jurisdiction } = resource.attr;
-      return named(
-        `https://dash.cloudflare.com/${encodeURIComponent(accountId)}/r2/${encodeURIComponent(jurisdiction)}/buckets/${encodeURIComponent(bucketName)}`,
-        "r2",
-        "R2 bucket",
-        bucketName,
-      );
-    }
-    case "IdentityHub.Client":
-    case "IdentityHub.SharedClient": {
-      const { status, connectors } = resource.attr;
-      return status === "off"
-        ? "Sign-in: not set up"
-        : `Sign-in with ${connectors.join(", ")}: ${status}`;
-    }
+/**
+A box of the tree: its name with the labels of its line as code, its type and schedule, and its link
+on the next line unless the link is the stage address. Below it, in a list: the boxes that it uses, the rows folded into it, and
+the boxes that share a resource with it. A repeated box has only its name.
+*/
+const treeNode = (node: StageTreeNode, address: string | null): string => {
+  const { box, labels, repeated } = node;
+  const title = `${boxName(box)}${labels.map((label) => ` <code>${escapeHtml(label)}</code>`).join("")}`;
+  if (repeated) {
+    return title;
   }
+  const linkLine =
+    box.link === null || box.link === address
+      ? ""
+      : `<br><sub>${link(box.link, hostOf(box.link))}</sub>`;
+  const below = [
+    ...node.children.map((child) => treeNode(child, address)),
+    ...box.folded.map(
+      (row) =>
+        `<sub>${escapeHtml(`${row.logicalId}, ${resourceTypeUI(row.resourceType).name}`)}</sub>`,
+    ),
+    ...node.shared.map((text) => `<sub>${escapeHtml(text)}</sub>`),
+  ];
+  const list =
+    below.length === 0 ? "" : `<ul>${below.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+  return `${title} <sub>${escapeHtml(boxSubtitle(box))}</sub>${linkLine}${list}`;
 };
+
+/** Where a stage serves: its Convex app, else the first box with a link. */
+const addressOf = ({ boxes }: StageDiagram) =>
+  (boxes.find((box) => box.resourceType === "Convex.Deployment") ?? boxes.find((box) => box.link))
+    ?.link ?? null;
 
 const runLine = ({ run }: StackCard) => {
   if (run === null) {
@@ -221,11 +182,10 @@ const renderCard = (card: StackCard, repository: string, alone: boolean) => {
     folder === "" && alone ? "" : `<b>${escapeHtml(folder || "/")}</b> `,
     `<sub>${escapeHtml(card.stage)}</sub>`,
   ].join("");
-  const resources = withoutRepeats(card.resources);
-  const address = addressOf(resources);
+  const address = addressOf(card.diagram);
   const addressLine = address === null ? "" : `<br>${link(address, hostOf(address))}`;
-  const rows = resources
-    .map((resource) => `<tbody><tr><td>${resourceRow(resource, address)}</td></tr></tbody>`)
+  const rows = stageTree(card.diagram)
+    .map((node) => `<tbody><tr><td>${treeNode(node, address)}</td></tr></tbody>`)
     .join("\n");
   return `<table>
 <tbody><tr><td>${SPACER}${heading}${addressLine}${runLine(card)}</td></tr></tbody>

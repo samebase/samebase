@@ -6,6 +6,7 @@ import {
   ALCHEMY_REDACTED_MARKER,
   groupResourcesByComponent,
   stageResources,
+  stateRows,
 } from "../../shared/alchemyState";
 import type {
   AlchemyStack,
@@ -13,7 +14,7 @@ import type {
   AlchemyStateObservation,
 } from "../../shared/alchemyStateModel";
 import { Link } from "@tanstack/react-router";
-import { stageDiagram } from "@/components/alchemyStageDiagramModel";
+import { stageDiagram } from "@samebase/alchemy-kit/stack";
 import {
   Popover,
   PopoverContent,
@@ -393,7 +394,7 @@ export function AlchemyStateTree({
           </div>
           <ul className="ml-2.5 border-l border-border pl-3">
             {stack.stages.map((stage) => {
-              const diagram = stageDiagram(stage.resources);
+              const diagram = stageDiagram(stateRows(stage.resources));
               return (
                 <li key={stage.name}>
                   <details className="group">
