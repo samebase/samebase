@@ -1,7 +1,7 @@
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { ChevronRight } from "lucide-react";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, type ReactNode } from "react";
 import {
   ALCHEMY_REDACTED_MARKER,
   groupResourcesByComponent,
@@ -13,7 +13,6 @@ import type {
   AlchemyStateObservation,
 } from "../../shared/alchemyStateModel";
 import { Link } from "@tanstack/react-router";
-import { AlchemyStageDiagram } from "@/components/AlchemyStageDiagram";
 import { stageDiagram } from "@/components/alchemyStageDiagramModel";
 import {
   Popover,
@@ -35,6 +34,12 @@ import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositor
 type AlchemyRunRecord = AlchemyStage["run"];
 
 const { object, string } = v;
+
+/** React Flow and dagre load only when a stage shows its diagram. */
+const AlchemyStageDiagram = lazy(async () => {
+  const module = await import("@/components/AlchemyStageDiagram");
+  return { default: module.AlchemyStageDiagram };
+});
 
 /** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
 const vResourceState = object({ status: string(), resourceType: string() });
@@ -412,7 +417,9 @@ export function AlchemyStateTree({
                       ))}
                     </summary>
                     <div className="ml-5 pt-1">
-                      <AlchemyStageDiagram diagram={diagram} />
+                      <Suspense>
+                        <AlchemyStageDiagram diagram={diagram} />
+                      </Suspense>
                     </div>
                     <AlchemyStageDetails stage={stage} />
                   </details>

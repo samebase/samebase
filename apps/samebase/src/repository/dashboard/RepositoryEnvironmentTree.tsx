@@ -8,10 +8,9 @@ import {
 import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { StackStateStore, StateStoreProblems } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
-import { AlchemyStageDiagram } from "@/components/AlchemyStageDiagram";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
 import type {
   RepositoryEnvironmentAction,
   RepositoryEnvironmentResource,
@@ -31,6 +30,12 @@ import { ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
+
+/** React Flow and dagre load only when a card shows the diagram. */
+const AlchemyStageDiagram = lazy(async () => {
+  const module = await import("@/components/AlchemyStageDiagram");
+  return { default: module.AlchemyStageDiagram };
+});
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
@@ -398,7 +403,9 @@ class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed:
 function StackDiagram({ card }: { card: RepositoryStackCard }) {
   return (
     <div className="border-t border-border px-3 pt-3 pb-1">
-      <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
+      <Suspense>
+        <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
+      </Suspense>
     </div>
   );
 }

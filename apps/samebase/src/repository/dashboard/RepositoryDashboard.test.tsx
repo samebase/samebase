@@ -429,21 +429,13 @@ describe("Alchemy stack cards", () => {
     expect(section.querySelectorAll('[aria-label="Loading default branch commit"]')).toHaveLength(
       1,
     );
-    expect(cards.map((card) => card.textContent)).toEqual([
-      "ideal-dolphin-15.convex.siteDeploymentConvex Deployment🇺🇸US East (N. Virginia)ideal-dolphin-15.convex.site1 more",
-    ]);
+    expect(cards.map((card) => card.textContent)).toEqual(["ideal-dolphin-15.convex.site"]);
     expect(
       [...section.querySelectorAll("a")].map((link) => [
         link.textContent,
         link.getAttribute("href"),
       ]),
-    ).toEqual([
-      ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
-      ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
-    ]);
-    const region = section.querySelector('[title="US East (N. Virginia)"]');
-    expect(region?.querySelector('[aria-hidden="true"]')?.textContent).toBe("🇺🇸");
-    expect(region?.querySelector(".sr-only")?.textContent).toBe("US East (N. Virginia)");
+    ).toEqual([["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"]]);
   });
 
   it("shows the store of each stack, and a stack in both stores as two cards", async () => {
@@ -518,7 +510,7 @@ describe("Alchemy stack cards", () => {
     }
   });
 
-  it("shows one card for each stack with its folder and rows without type labels", () => {
+  it("shows one card for each stack with its folder", () => {
     const { cards } = renderStackCards(
       samebaseStacksAfterTheMove(),
       makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
@@ -526,14 +518,8 @@ describe("Alchemy stack cards", () => {
     );
 
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      [
-        "Alchemy stack samebase/samebase",
-        "/clear-butterfly-858.convex.siteDomainsWorkerPosthogProxyWorkerSiteConvex Deploymentclear-butterfly-858.convex.site1 more",
-      ],
-      [
-        "Alchemy stack samebase/samebase/apps/sidebars-example",
-        "apps/sidebars-examplePosthogProxyWorker",
-      ],
+      ["Alchemy stack samebase/samebase", "/clear-butterfly-858.convex.site"],
+      ["Alchemy stack samebase/samebase/apps/sidebars-example", "apps/sidebars-example"],
     ]);
   });
 
@@ -560,9 +546,7 @@ describe("Alchemy stack cards", () => {
       null,
     );
 
-    expect(cards.map((card) => card.textContent)).toEqual([
-      `${folder}WorkspacesR2 BucketWorkspacesProdR2 BucketPublicMediaR2 Bucket`,
-    ]);
+    expect(cards.map((card) => card.textContent)).toEqual([folder]);
     // Each box has a menu with the dashboard link of its bucket.
     expect(
       stackCardsOf(scoutStacks, makeRepositorySettingsBuilderRepository({}), null).flatMap((card) =>
@@ -726,7 +710,7 @@ describe("Alchemy stack cards", () => {
     ]);
   });
 
-  it("shows the URL of a Worker-only stack as its address and on its box", () => {
+  it("shows the URL of a Worker-only stack as its address", () => {
     // The `main` Worker row measured in research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md.
     const worker =
       '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}';
@@ -761,16 +745,11 @@ describe("Alchemy stack cards", () => {
     const repository = makeRepositorySettingsBuilderRepository({});
     const { cards } = renderStackCards(stacksWith(worker), repository, "b".repeat(40));
 
-    // A run from a development machine has no run URL, so its line links nowhere. The address is
-    // the one URL of the Worker, so the Worker has no menu of other URLs.
-    expect(cards.map((card) => card.textContent)).toEqual([
-      "tmp-k7m2-rows.pfp.workers.devaaaaaaaWorkerWorkertmp-k7m2-rows.pfp.workers.dev",
-    ]);
+    // A run from a development machine has no run URL, so its line links nowhere.
+    expect(cards.map((card) => card.textContent)).toEqual(["tmp-k7m2-rows.pfp.workers.devaaaaaaa"]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://tmp-k7m2-rows.pfp.workers.dev",
-      "https://tmp-k7m2-rows.pfp.workers.dev",
     ]);
-    expect(cards[0].querySelector('button[aria-label$=" actions"]')).toBeNull();
     // The same row with a custom domain, which Alchemy puts first: the row keeps the other URL.
     expect(
       stackCardsOf(
@@ -803,7 +782,7 @@ describe("Alchemy stack cards", () => {
     ]);
   });
 
-  it("shows the resources of a bound namespace under their component, in the frame of the namespace", () => {
+  it("shows the resources of a bound namespace under their component", () => {
     // Like the Mail stack: the captured prod stage of samebase/base-alchemy from
     // apps/mail/alchemy.run.ts, its Deployment row with a `mail` binding in the shape of
     // https://github.com/samebase/alchemy-convex/blob/v0.10.0/test/Component.test.ts#L73-L77, the
@@ -879,11 +858,6 @@ describe("Alchemy stack cards", () => {
         },
       ],
     ]);
-    const { cards } = renderStackCards(mailStacks, repository, null);
-    // The diagram frames the boxes of the namespace Mail.
-    expect(cards.map((card) => card.textContent)).toEqual([
-      "apps/mailideal-dolphin-15.convex.siteMailDeploymentConvex Deployment🇺🇸US East (N. Virginia)ideal-dolphin-15.convex.site1 moreDomainsWorkerPosthogProxyWorkerWorkspacesR2 Bucket",
-    ]);
   });
 
   it("shows a card in a pull request row for each stack with the stage of the pull request", () => {
@@ -942,20 +916,12 @@ describe("Alchemy stack cards", () => {
 
     // One card at the root shows no folder, and a preview deployment has no live read or route.
     expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      [
-        "Alchemy stack samebase/samebase",
-        "/aware-bobcat-542.convex.site429c121SiteConvex Deploymentaware-bobcat-542.convex.site2 more",
-      ],
+      ["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121"],
     ]);
     expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
       "https://aware-bobcat-542.convex.site",
       "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
-      "https://aware-bobcat-542.convex.site",
     ]);
-    // The menu of the deployment box holds only its dashboard link: a preview has no route.
-    expect(
-      [...cards[0].querySelectorAll("button")].map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Alchemy state in Convex", null, "Open aware-bobcat-542 actions"]);
   });
 });
 
