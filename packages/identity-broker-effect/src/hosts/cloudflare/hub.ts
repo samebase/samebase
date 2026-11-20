@@ -11,7 +11,7 @@
 // the class name too.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
+import { Cause, Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import type { ConnectionSettings } from "../../connections/providers.ts";
 import { makeConnections } from "../../connections/routes.ts";
@@ -241,6 +241,18 @@ export const hubRuntime = <E, R>(
   }).pipe(
     Effect.provide(
       Layer.mergeAll(settings, Keys.layer, Random.layer, Fetch.layer, HubStore, hubLogger),
+    ),
+    // Alchemy throws a failed start as it is, and workerd logs a thrown value that is no Error
+    // (Effect's ConfigError is one) as "[object Object]". So the start fails with an Error that
+    // names each failure and its message, for example "ConfigError: SourceError: ...".
+    Effect.catchCause((cause) =>
+      Effect.die(
+        new Error(
+          `The hub cannot start: ${Cause.prettyErrors(cause)
+            .map((error) => `${error.name}: ${error.message}`)
+            .join("; ")}`,
+        ),
+      ),
     ),
   );
 
