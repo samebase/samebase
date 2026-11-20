@@ -43,7 +43,9 @@ export const secretsStoreConfig = (
       message: `The Secrets Store secret of ${name} cannot be read`,
     });
     return Effect.tryPromise({
-      try: async (): Promise<unknown> => get.call(value),
+      // On workerd the binding is a JS RPC stub, whose every property is a remote method: so
+      // `get.call(value)` asks the secret for a method `call`. Reflect.apply calls `get` itself.
+      try: async (): Promise<unknown> => Reflect.apply(get, value, []),
       catch: () => unreadable,
     }).pipe(
       Effect.flatMap((secret) =>

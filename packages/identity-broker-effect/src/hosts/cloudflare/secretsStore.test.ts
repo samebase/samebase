@@ -2,8 +2,17 @@ import { Config, ConfigProvider, Effect, Redacted } from "effect";
 import { describe, expect, test } from "vite-plus/test";
 import { secretsStoreConfig } from "./secretsStore.ts";
 
+// On workerd a Secrets Store binding is a JS RPC stub: each of its properties is a remote method,
+// `call` too. So `get.call(binding)` asks for a method `call`, which the secret does not have.
+const rpcMethod = (value: string) =>
+  Object.assign(async () => value, {
+    call: async () => {
+      throw new TypeError('The RPC receiver does not implement the method "call".');
+    },
+  });
+
 const env = {
-  STORE_SECRET: { get: async () => "from the store" },
+  STORE_SECRET: { get: rpcMethod("from the store") },
   PLAIN_SECRET: "plain",
   OTHER: "not a store name",
 };
