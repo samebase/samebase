@@ -54,12 +54,21 @@ export const deleteConvexOAuthToken = internalAction({
   args: { organizationId: id("organizations"), credential: vSealedSecret },
   returns: v.null(),
   handler: async (_ctx, { organizationId, credential }) => {
-    await deleteConvexTeamAccessToken(
-      await openSecret({
-        sealed: credential,
-        aad: organizationProviderCredentialAad(organizationId, "convex.auth.credential"),
-      }),
-    );
+    const token = await openSecret({
+      sealed: credential,
+      aad: organizationProviderCredentialAad(organizationId, "convex.auth.credential"),
+    });
+    // TEMPORARY PROOF, remove before ready: log only HTTP status codes, never the token.
+    const tokenDetailsStatus = async () =>
+      (
+        await fetch("https://api.convex.dev/v1/token_details", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ).status;
+    const before = await tokenDetailsStatus();
+    await deleteConvexTeamAccessToken(token);
+    const after = await tokenDetailsStatus();
+    console.log("convex_revoke_proof", { before, after });
     return null;
   },
 });
