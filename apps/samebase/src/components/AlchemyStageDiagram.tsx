@@ -216,7 +216,7 @@ function IsometricIcon({ box }: { box: DiagramBox }) {
 
 function DiagramBoxDetails({ box }: { box: DiagramBox }) {
   return (
-    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-x border-b p-3 text-xs">
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border p-3 text-xs">
       <dt className="text-muted-foreground">Type</dt>
       <dd>{box.typeName}</dd>
       <dt className="text-muted-foreground">Status</dt>
@@ -282,7 +282,7 @@ export function AlchemyStageDiagram({
 
   return (
     <div className="mb-2">
-      <div className="overflow-x-auto border">
+      <div className="overflow-x-auto">
         <div className="relative" style={{ width, height }}>
           {frames.map((frame) => (
             <div

@@ -508,7 +508,8 @@ function placeBoxes({
   order: number[];
   gapBetween: (x: number, y: number) => number;
 }) {
-  const layerX = [framed ? 40 : 24];
+  // The card around the diagram gives the outer spacing, so the first column starts at the edge.
+  const layerX = [framed ? 16 : 0];
   for (let L = 1; L < layerCount; L++) {
     const between = edges.filter(
       (e) => Math.min(layer[e.a], layer[e.b]) === L - 1 && Math.max(layer[e.a], layer[e.b]) === L,
@@ -520,7 +521,7 @@ function placeBoxes({
   const positions = new Map<number, BoxPosition>();
   const frames: { name: string; x: number; y: number; w: number; h: number; members: number[] }[] =
     [];
-  let cursor = 24;
+  let cursor = 0;
   let previousBand: number[] = [];
   for (const band of bands) {
     const members = boxes.flatMap((_, box) => (bandOf(box) === band ? [box] : []));
@@ -592,9 +593,9 @@ function placeBoxes({
     Math.max(
       ...nodes.map(({ position }) => position.x + position.w),
       ...frames.map((frame) => frame.x + frame.w),
-    ) + 24;
+    ) + 1;
 
-  return { nodes, frames, lines: routeLines(edges, positions, frames), width, height: cursor + 24 };
+  return { nodes, frames, lines: routeLines(edges, positions, frames), width, height: cursor + 1 };
 }
 
 type Point = { x: number; y: number };
