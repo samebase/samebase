@@ -42,8 +42,8 @@ type NamespaceNode = Node<{ name: string }, "namespace">;
 type LineEdge = Edge<{ labels: string[]; dim: boolean }, "line">;
 
 /**
-Positions from dagre, left to right: the boxes with a URL are the sources of their lines, so they
-come first. A namespace is a dagre cluster, drawn as a frame around its boxes. The arrow of a line
+Positions from dagre, left to right: a line between a box with a URL and a box without one starts
+at the box with the URL, so boxes with a URL come first. A namespace is a dagre cluster, drawn as a frame around its boxes. The arrow of a line
 points at the box that the other box depends on.
 */
 function layoutDiagram({ boxes, edges }: StageDiagram) {
