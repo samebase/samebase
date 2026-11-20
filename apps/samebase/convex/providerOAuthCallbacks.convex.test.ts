@@ -361,6 +361,7 @@ async function expectHubRevocation(request: Request | undefined, token: string) 
   const body = await request.formData();
   expect(body.get("token")).toBe(token);
   expect(body.get("token_type_hint")).toBe("refresh_token");
+  expect(body.get("resource")).toBe("https://api.cloudflare.com/client/v4/");
   expect(body.get("client_id")).toBe("resource-client");
   expect(body.get("client_secret")).toBe("resource-secret");
 }

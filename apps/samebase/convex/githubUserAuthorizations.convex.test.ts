@@ -340,6 +340,7 @@ describe("viewer GitHub user authorization", () => {
     expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "delete" });
     expect(hubRequests.map(({ url }) => url)).toEqual([`${HUB_ISSUER}/revoke`]);
     expect(hubRequests[0]?.body.get("token")).toBe("revoke-refresh-token");
+    expect(hubRequests[0]?.body.get("resource")).toBe("https://api.github.com");
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
   });
 

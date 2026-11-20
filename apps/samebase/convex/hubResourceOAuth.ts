@@ -153,8 +153,12 @@ export function expiringResourceTokens(
   return { accessToken: tokens.access_token, refreshToken, expiresIn: tokens.expires_in };
 }
 
-/** Revocation cannot prevent local removal or obscure a failed connection attempt. */
-export async function revokeHubRefreshToken(refreshToken: string) {
+/**
+Revocation cannot prevent local removal or obscure a failed connection attempt. `resource` names
+the provider: the Effect hub (auth2.samebase.com) keeps no grant to look it up, and
+auth.samebase.com ignores it.
+*/
+export async function revokeHubRefreshToken(provider: ResourceProvider, refreshToken: string) {
   try {
     const { authorizationServer, client } = configuration();
     const response = await oauth.revocationRequest(
@@ -163,7 +167,7 @@ export async function revokeHubRefreshToken(refreshToken: string) {
       authenticate(),
       refreshToken,
       {
-        additionalParameters: { token_type_hint: "refresh_token" },
+        additionalParameters: { token_type_hint: "refresh_token", resource: resources[provider] },
         signal: AbortSignal.timeout(10_000),
       },
     );
@@ -178,6 +182,7 @@ export const revokeCloudflareGrant = internalAction({
   returns: v.null(),
   handler: async (_ctx, { organizationId, refreshCredential }) => {
     await revokeHubRefreshToken(
+      "cloudflare",
       await openSecret({
         sealed: refreshCredential,
         aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),

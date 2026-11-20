@@ -177,7 +177,7 @@ const HubStore = Layer.effect(
  * Worker at deploy, with the value of the deploying shell's variable of that name, and reads that
  * binding when the Worker starts.
  */
-export type HubOptions = HubSettings & {
+export type HubOptions = Omit<HubSettings, "issuer"> & {
   /** The module whose default export is this hub's Worker: the caller's `import.meta.url`. */
   readonly main: string;
   /** The Worker's script name, the first part of the address of all data. */
@@ -192,7 +192,17 @@ export type HubOptions = HubSettings & {
    * mounts no connection route.
    */
   readonly connections?: ConnectionSettings;
-};
+} & (
+    | { readonly issuer: string; readonly domain?: never }
+    | {
+        /**
+         * The hub's custom domain, such as `auth.example.com`, in a Cloudflare zone of the
+         * Worker's account. The issuer is then `https://<domain>`.
+         */
+        readonly domain: string;
+        readonly issuer?: never;
+      }
+  );
 
 /**
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
@@ -232,13 +242,17 @@ export const hubRuntime = <E, R>(
  * The Worker of one hub. The module named by `options.main` default-exports it, so the bundle's
  * entry imports this Worker; the bundle exports the object's class `Hub` itself.
  */
-export const hubWorker = (options: HubOptions) =>
-  class Hub extends Cloudflare.Worker<Hub>()(
+export const hubWorker = (options: HubOptions) => {
+  const issuer = options.domain === undefined ? options.issuer : `https://${options.domain}`;
+  return class Hub extends Cloudflare.Worker<Hub>()(
     "Hub",
     {
       name: options.name,
       main: options.main,
-      workersDev: true,
+      // A hub on a custom domain has that one address.
+      ...(options.domain === undefined
+        ? { workersDev: true }
+        : { domain: options.domain, workersDev: false }),
       // A layer can fetch an app's host, such as the GitHub layer's verification file, and the app
       // can be another Worker on workers.dev in this account. Without the flag Cloudflare answers
       // such a fetch with error 1042.
@@ -249,5 +263,6 @@ export const hubWorker = (options: HubOptions) =>
       // The object runs the new rules right after a deploy, not up to 5 minutes later.
       codeUpdateStrategy: { mode: "immediate" },
     },
-    hubRuntime(hubSettings(options), options.registration, options.connections),
+    hubRuntime(hubSettings({ ...options, issuer }), options.registration, options.connections),
   ) {};
+};

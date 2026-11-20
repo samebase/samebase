@@ -296,6 +296,7 @@ describe("organization provider credential lifecycle", () => {
           const body = await request.formData();
           expect(body.get("token")).toBe("refresh-hub");
           expect(body.get("token_type_hint")).toBe("refresh_token");
+          expect(body.get("resource")).toBe("https://api.cloudflare.com/client/v4/");
           expect(body.get("client_id")).toBe("resource-client");
           if (!hubAvailable) throw new Error("Hub unavailable");
           return new Response(null, { status: 200 });

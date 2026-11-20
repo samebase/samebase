@@ -2,11 +2,13 @@
 //
 // - Stage `prod`, on each push to main: the Convex project `samebase-com`, its production deployment,
 //   which serves samebase.com through convex-hosting, the account API token that production sends
-//   email with, and the PostHog proxy Worker of the app, so its route and settings are code instead
-//   of settings in the Cloudflare dashboard.
+//   email with, the PostHog proxy Worker of the app, so its route and settings are code instead
+//   of settings in the Cloudflare dashboard, and the new identity hub at auth2.samebase.com
+//   (identity-hub/index.ts) with its preview key.
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
-//   slug, so it does not depend on the state of `prod`, and it creates no Workers.
+//   slug and creates no Workers. Its hub client is on auth2.samebase.com, with the preview key
+//   from the state of `prod`.
 // - Stage `dev-<name>`, in development at each `pnpm run dev`: the two hub clients of the folder's
 //   logged-in Convex local deployment and their six variables. `<name>` is the user name in the
 //   main checkout and the folder name in a linked worktree (scripts/run-worktree-dev.ts).
@@ -23,11 +25,13 @@
 //
 // Each deployment has one client of the identity hub (RFC 134, 137), with two return addresses: the
 // sign-in with GitHub and Google comes back to Convex Auth's route, a provider connection to our own
-// (convex/http.ts). IdentityHub.Client asks `POST /register` with the GitHub OIDC token of the run
-// (`id-token: write` in alchemy.yml), and the hub first reads /samebase-verification.json on the
-// callbacks' site. The hub's policy gives this repository its connectors and its API resources. The
-// client is `required`: a deploy fails rather than ship guest sign-in or a client that the hub
-// stopped.
+// (convex/http.ts). Production asks auth.samebase.com at `POST /register` with the GitHub OIDC
+// token of the run (`id-token: write` in alchemy.yml), and the hub first reads
+// /samebase-verification.json on the callbacks' site. The hub's policy gives this repository its
+// connectors and its API resources. The production and development clients are `required`: a
+// deploy fails rather than ship guest sign-in or a client that the hub stopped. A preview asks
+// auth2.samebase.com with the preview key. Before `prod` made the key, the preview gets the off
+// values and guest sign-in.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
@@ -39,6 +43,7 @@ import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import Hub from "./identity-hub/index.ts";
 
 /**
 The site of production. Its deployment overrides CONVEX_SITE_URL to it (RFC 127), so Convex Auth
@@ -62,8 +67,33 @@ development stage reads from `prod`; it plays no part in user ids.
 const APP = "samebase";
 /** The hub's connectors that the sign-in buttons name (convex/auth.ts). */
 const CONNECTORS = ["google", "github"];
-/** Samebase's identity hub, where every client of this repository registers. */
+/** Samebase's identity hub, where the production and development clients register. */
 const HUB = { issuer: "https://auth.samebase.com" };
+/**
+The new identity hub (identity-hub/index.ts), where the previews register. The issuer
+follows from the hub's domain there; this file names it and does not import it.
+*/
+const PREVIEW_HUB = { issuer: "https://auth2.samebase.com" };
+/** The resource id of the new hub's preview key, which `prod` makes and the previews read. */
+const PREVIEW_KEY = "HubPreviewKey";
+/**
+The variables that the new hub reads at deploy (identity-hub/index.ts). alchemy.yml sets
+them only on the deploy of `prod`. Without one of them, `prod` skips the hub and production deploys
+as before.
+*/
+const NEW_HUB_SECRETS = [
+  "SAMEBASE_HUB_GOOGLE_CLIENT_ID",
+  "SAMEBASE_HUB_GOOGLE_CLIENT_SECRET",
+  "SAMEBASE_HUB_GITHUB_CLIENT_ID",
+  "SAMEBASE_HUB_GITHUB_CLIENT_SECRET",
+  "SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID",
+  "SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET",
+  "SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID",
+  "SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET",
+  "SAMEBASE_HUB_GITHUB_APP_CLIENT_ID",
+  "SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET",
+  "IDENTITY_BROKER_KEYS",
+];
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
@@ -127,7 +157,8 @@ export default Alchemy.Stack(
       // writes its variables, with no push. Each variable keeps the row that owned it before:
       // a row removes a name that leaves its own `env`. Both rows delete the deployment on destroy;
       // the second delete finds it gone. adopt(true) also takes over a preview with the name of this
-      // stage that an interrupted run left behind.
+      // stage that an interrupted run left behind. The client is not `required`: before `prod` made
+      // the preview key, it gives the off values.
       const preview = yield* Convex.Deployment("Preview", {
         project,
         type: "preview",
@@ -138,12 +169,12 @@ export default Alchemy.Stack(
       const hub = IdentityHub.Client.variables(
         yield* IdentityHub.Client("HubClient", {
           app: APP,
-          hub: HUB,
+          hub: PREVIEW_HUB,
           connectors: CONNECTORS,
           redirectUris: Output.map(preview.siteUrl, callbacks),
           deploymentType: "preview",
+          key: yield* IdentityHub.registrationKey(PREVIEW_KEY, { stage: "prod" }),
           softwareVersion: commit,
-          required: true,
         }),
       );
       const site = yield* Convex.Deployment("Site", {
@@ -236,6 +267,25 @@ export default Alchemy.Stack(
       workersDev: false,
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
+
+    // The new hub and its preview key, which the previews read from this stage's state. A run
+    // without the hub's variables, such as before the operator set them, skips both, and a preview
+    // then finds no key. A later run that skips them removes the hub that an earlier run deployed.
+    const missing = NEW_HUB_SECRETS.filter((name) => !process.env[name]);
+    if (missing.length > 0) {
+      yield* Effect.logWarning(
+        `The identity hub ${PREVIEW_HUB.issuer} does not deploy: this run has no ${missing.join(", ")}.`,
+      );
+    } else {
+      const newHub = yield* Hub;
+      yield* newHub.bind("RegistrationKeys", {
+        env: {
+          SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
+            stage: "prod",
+          }),
+        },
+      });
+    }
 
     return { url: site.siteUrl, posthogProxy: posthogProxy.url };
   }),
