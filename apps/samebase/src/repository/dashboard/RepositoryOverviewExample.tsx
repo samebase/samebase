@@ -86,33 +86,119 @@ const PENDING_CHECKS = {
 
 const HEAD_COMMIT = "5d41402abc4b2a76b9719d911017c592ae2f7c3e";
 const PRODUCTION_DEPLOYMENT = "tidy-otter-412";
-const WORKER_URL = "https://pantry-barcode-lookup.acme.workers.dev";
-
-/** The rows of `alchemy.run.ts` that the page reads, as Alchemy state of a Convex deployment. */
-function convexDeploymentRow(type: "prod" | "preview", name: string) {
-  return JSON.stringify({
-    logicalId: "Site",
+/** An Alchemy state row of the example. `downstream` names the rows that use this one. */
+const row = (
+  logicalId: string,
+  resourceType: string,
+  fields: {
+    attr: Record<string, unknown>;
+    props?: Record<string, unknown>;
+    downstream?: string[];
+    bindings?: { sid: string; data: { bindings: Record<string, string>[] } }[];
+  },
+) => ({
+  fqn: logicalId,
+  value: JSON.stringify({
+    logicalId,
+    resourceType,
     status: "created",
-    downstream: [],
-    resourceType: "Convex.Deployment",
+    props: fields.props ?? {},
+    attr: fields.attr,
+    bindings: fields.bindings ?? [],
+    downstream: fields.downstream ?? [],
+  }),
+});
+
+/** A Worker binding as Alchemy records it: the env key is the `sid`. */
+const binding = (name: string, data: Record<string, string>) => ({
+  sid: name,
+  data: { bindings: [{ name, ...data }] },
+});
+
+function convexDeploymentRow(type: "prod" | "preview", name: string, envNames: string[]) {
+  return row("Site", "Convex.Deployment", {
     props: { project: { projectId: 1001 }, type, rootDir: ".", source: { path: "./convex" } },
     attr: {
       projectId: 1001,
       name,
       url: `https://${name}.convex.cloud`,
       siteUrl: `https://${name}.convex.site`,
+      envNames,
     },
-    bindings: [],
   });
 }
 
-const BARCODE_LOOKUP_ROW = JSON.stringify({
-  logicalId: "BarcodeLookup",
-  status: "created",
-  downstream: [],
-  resourceType: "Cloudflare.Worker",
-  attr: { workerName: "pantry-barcode-lookup", url: WORKER_URL, urls: [WORKER_URL], routes: [] },
-});
+function workerRow(
+  logicalId: string,
+  workerName: string,
+  fields: {
+    crons?: string[];
+    downstream?: string[];
+    bindings: ReturnType<typeof binding>[];
+  },
+) {
+  const url = `https://${workerName}.acme.workers.dev`;
+  return row(logicalId, "Cloudflare.Worker", {
+    props: { compatibility: { date: "2026-10-01" } },
+    attr: { workerName, url, urls: [url], routes: [], crons: fields.crons ?? [] },
+    bindings: fields.bindings,
+    downstream: fields.downstream,
+  });
+}
+
+const productsRow = (databaseName: string) =>
+  row("Products", "Cloudflare.D1Database", {
+    attr: { databaseName, databaseId: `${databaseName}-id`, jurisdiction: "default" },
+    props: { primaryLocationHint: "enam" },
+    downstream: ["BarcodeLookup"],
+  });
+
+/**
+The production stage: the Convex app `Site`, a Worker that looks up barcodes in a D1 database and a
+photo bucket, and a Worker that saves prices into a bucket every day. Both Workers serve `Site`, and
+`Site` shares a generated secret with the price Worker.
+*/
+const PRODUCTION_RESOURCES = [
+  row("Project", "Convex.Project", { attr: { projectId: 1001 }, downstream: ["Site"] }),
+  convexDeploymentRow("prod", PRODUCTION_DEPLOYMENT, [
+    "BARCODE_URL",
+    "PRICES_URL",
+    "SITE_URL",
+    "SYNC_SECRET",
+  ]),
+  row("SyncSecret", "Alchemy.Random", { attr: {}, downstream: ["PriceSync", "Site"] }),
+  row("PriceSnapshots", "Cloudflare.R2.Bucket", {
+    attr: { bucketName: "pantry-price-snapshots", location: "weur", jurisdiction: "default" },
+    downstream: ["PriceSync"],
+  }),
+  workerRow("PriceSync", "pantry-price-sync", {
+    crons: ["0 6 * * *"],
+    bindings: [binding("PRICES", { type: "r2_bucket", bucketName: "pantry-price-snapshots" })],
+    downstream: ["Site"],
+  }),
+  row("ProductPhotos", "Cloudflare.R2.Bucket", {
+    attr: { bucketName: "pantry-product-photos", location: "enam", jurisdiction: "default" },
+    downstream: ["BarcodeLookup"],
+  }),
+  productsRow("pantry-products"),
+  workerRow("BarcodeLookup", "pantry-barcode-lookup", {
+    bindings: [
+      binding("PHOTOS", { type: "r2_bucket", bucketName: "pantry-product-photos" }),
+      binding("PRODUCTS", { type: "d1", id: "pantry-products-id" }),
+    ],
+    downstream: ["Site"],
+  }),
+];
+
+/** A pull request preview: its own app, barcode Worker and database. */
+const previewResources = (number: number, deployment: string) => [
+  convexDeploymentRow("preview", deployment, ["BARCODE_URL", "SITE_URL"]),
+  productsRow(`pantry-products-pr-${number}`),
+  workerRow("BarcodeLookup", `pantry-barcode-lookup-pr-${number}`, {
+    bindings: [binding("PRODUCTS", { type: "d1", id: `pantry-products-pr-${number}-id` })],
+    downstream: ["Site"],
+  }),
+];
 
 const PULL_REQUESTS = [
   {
@@ -157,8 +243,8 @@ const PULL_REQUESTS = [
 ] as const;
 
 /**
-The selected repository `acme/pantry` at `now`: one production stack at pantry.acme.dev with a Convex
-deployment and a Worker, and three open pull requests, each with its preview deployment. The page
+The selected repository `acme/pantry` at `now`: one production stack at pantry.acme.dev (see
+`PRODUCTION_RESOURCES`), and three open pull requests, each with its preview stage. The page
 shows times relative to the time of the render, so they are hours and days before `now`.
 */
 function pantryWorkspace(now: number): RepositoryWorkspaceSelected {
@@ -221,18 +307,13 @@ function pantryWorkspace(now: number): RepositoryWorkspaceSelected {
               headCommit: pullRequest.headCommit,
               recordedAt: hoursAgo(pullRequest.hoursAgo),
             },
-            resources: [
-              { fqn: "Site", value: convexDeploymentRow("preview", pullRequest.preview) },
-            ],
+            resources: previewResources(pullRequest.number, pullRequest.preview),
             output: `{"url":"https://${pullRequest.preview}.convex.site"}`,
           })),
           {
             name: "prod",
             run,
-            resources: [
-              { fqn: "BarcodeLookup", value: BARCODE_LOOKUP_ROW },
-              { fqn: "Site", value: convexDeploymentRow("prod", PRODUCTION_DEPLOYMENT) },
-            ],
+            resources: PRODUCTION_RESOURCES,
             output: '{"url":"https://pantry.acme.dev"}',
           },
         ],
