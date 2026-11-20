@@ -531,6 +531,7 @@ export function AlchemyStageDiagram({
             zoomOnPinch={false}
             zoomOnDoubleClick={false}
             preventScrolling={false}
+            proOptions={{ hideAttribution: true }}
             onNodeMouseEnter={(_event, node) => {
               if (node.type === "box") {
                 setHovered(node.id);
