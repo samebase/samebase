@@ -4,7 +4,9 @@ Copyright 2026 Samebase
 The resource type names, icon choices, colours and categories in src/ui/resourceTypes.generated.ts
 come from alchemy-run/alchemy pull request #1441 by David J. Felix (@DavidJFelix),
 https://github.com/alchemy-run/alchemy/pull/1441, licensed under the Apache License 2.0. They are
-adapted: icon names are updated to current Lucide names, and entries are added.
+adapted: icon names are updated to current Lucide names, and entries are added. The added entries
+in scripts/ui/resourceTypes.input.ts and scripts/ui/resourceTypes.haiku.input.ts are not from that
+pull request; the second file holds entries that Claude Haiku picked.
 
 Alchemy
 Copyright 2026 Functionless Corp.

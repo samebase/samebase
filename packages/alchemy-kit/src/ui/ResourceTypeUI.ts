@@ -28,5 +28,6 @@ export function resourceTypeUI(type: string): ResourceTypeUI {
   if (entry === undefined || entry === "default") {
     return { name: derivedName(type), icon: icons.box, color: undefined, category: "other" };
   }
-  return { ...entry, icon: icons[entry.icon] };
+  const [name, icon, color, category] = entry;
+  return { name, icon: icons[icon], color, category };
 }

@@ -253,5 +253,7 @@ the list of types that have no entry. A weekly workflow runs it against the late
 and opens an issue with the new types.
 
 When it fails, add each type to `scripts/ui/resourceTypes.input.ts`: an entry in
-`resourceTypeEntries` with a name, a Lucide icon, a colour and a category, or its tag in
-`defaultResourceTypes` to use the default. Then run `pnpm run ui:generate`.
+`resourceTypeEntries` with a name, a Lucide icon, a colour and a category, one entry per line, or
+its tag in `defaultResourceTypes` to use the default. Then run `pnpm run ui:generate`.
+`scripts/ui/resourceTypes.haiku.input.ts` holds the entries that Claude Haiku picked for the types
+that had no entry before.

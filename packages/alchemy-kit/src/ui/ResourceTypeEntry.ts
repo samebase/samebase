@@ -22,10 +22,13 @@ export const resourceCategories = [
 
 export type ResourceCategory = (typeof resourceCategories)[number];
 
-/** A resource type's own name, Lucide icon, accent colour and category. */
-export interface ResourceTypeEntry {
-  name: string;
-  icon: IconName;
-  color: string | undefined;
-  category: ResourceCategory;
-}
+/**
+ * A resource type's own name, Lucide icon, accent colour and category. A tuple, so the generated
+ * file holds one type per line.
+ */
+export type ResourceTypeEntry = readonly [
+  name: string,
+  icon: IconName,
+  color: string | undefined,
+  category: ResourceCategory,
+];
