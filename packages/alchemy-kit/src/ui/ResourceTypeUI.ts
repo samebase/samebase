@@ -16,6 +16,9 @@ export interface ResourceTypeUI {
   category: ResourceCategory;
 }
 
+/** Every resource type tag with an entry, in alphabetical order. */
+export const resourceTypeTags: readonly string[] = [...resourceTypes.keys()];
+
 /** `GCP.Compute.Instance` is "Compute Instance": the segments after the provider. */
 const derivedName = (type: string) => type.split(".").slice(1).join(" ") || type;
 

@@ -100,8 +100,6 @@ export type DiagramBox = {
   resourceType: string;
   category: ResourceCategory;
   icon: IconNode;
-  /** A Convex deployment, drawn as three slabs. */
-  convex: boolean;
   rows: DiagramRow[];
   /** The rows without a box of their own that attach to this box. */
   folded: DiagramRow[];
@@ -153,7 +151,6 @@ export function stageDiagram(resources: AlchemyStage["resources"]) {
       category: email ? "email" : categoryOf(first.resourceType),
       // The envelope of Email Routing stands for the whole group.
       icon: email ? resourceTypeUI("Cloudflare.Email.Routing").icon : ui.icon,
-      convex: first.resourceType === "Convex.Deployment",
       rows: members,
       folded: email ? [...members] : [],
       link: members.map((row) => row.link).find(notEmpty) ?? null,

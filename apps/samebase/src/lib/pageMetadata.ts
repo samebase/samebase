@@ -149,6 +149,14 @@ export const DOCS_CHANGELOG_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const RESOURCE_TYPES_PAGE_METADATA: PageMetadata = {
+  title: "Resource types | Samebase",
+  description: "Every Alchemy resource type with its name, icon and category.",
+  canonicalPath: "/resource-types",
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
 export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
   title: "Connect Samebase | Samebase",
   description: "One-time browser connection route for Samebase MCP clients.",
