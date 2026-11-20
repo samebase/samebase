@@ -33,6 +33,7 @@ import {
 } from "./RepositoryEnvironmentTree";
 
 const DIAGRAM: RepositoryStackViewControl = { view: "diagram", onChange: () => {} };
+const LIST: RepositoryStackViewControl = { view: "list", onChange: () => {} };
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
@@ -333,13 +334,14 @@ function renderStackCards(
   stacks: RepositoryAlchemyStacks,
   repository: RepositorySettingsBuilderRepository,
   headCommit: string | null,
+  stackView = DIAGRAM,
 ) {
   const container = document.createElement("div");
   container.innerHTML = renderToStaticMarkup(
     <TestRouterProvider initialEntries={[`/repo/${repository.githubRepositoryFullName}`]}>
       <DefaultBranchSection
         filesReadEnabled={false}
-        stackView={DIAGRAM}
+        stackView={stackView}
         workspace={{
           access: { state: "ready", accessKeys: [] },
           alchemyState: {
@@ -607,10 +609,11 @@ describe("Alchemy stack cards", () => {
       },
       makeRepositorySettingsBuilderRepository({}),
       null,
+      LIST,
     );
 
     expect(cards.map((card) => card.textContent)).toEqual([
-      `WorkspacesR2 BucketWorkspacesProdR2 BucketPublicMediaR2 Bucket${line}`,
+      `scout-public-mediascout-workspacesscout-workspaces-prod${line}`,
     ]);
   });
 

@@ -347,16 +347,8 @@ export type StageDiagram = ReturnType<typeof stageDiagram>;
 
 export const BOX_WIDTH = 248;
 
-/** The lines that `notes` (by row fqn) give the folded rows of a box, such as a Google sign-in. */
-export const boxNotes = (box: DiagramBox, notes: ReadonlyMap<string, string>) =>
-  box.folded.flatMap((row) => notes.get(row.fqn) ?? []);
-
-/**
-Border and padding, the icon row, the link row, a row for each note, and the "N more" row of a box,
-in pixels.
-*/
-const boxHeight = (box: DiagramBox, notes: ReadonlyMap<string, string>) =>
-  72 + (box.link ? 24 : 0) + boxNotes(box, notes).length * 20 + (box.folded.length > 0 ? 20 : 0);
+/** Border and padding, the icon row, the link row, and the "N more" row of a box, in pixels. */
+const boxHeight = (box: DiagramBox) => 72 + (box.link ? 24 : 0) + (box.folded.length > 0 ? 20 : 0);
 
 /** A label is 11px monospace text: about 6.7px for each character and 14px for each line. */
 const labelSize = (edge: DiagramEdge | undefined) =>
@@ -413,7 +405,7 @@ Positions in pixels: layers are columns from left to right, and the boxes of eac
 band of rows, framed when the stage has namespaces. Lines are curves between columns, straight
 between neighbours in a column, and brackets on the left between other boxes of a column.
 */
-export function layoutDiagram({ boxes, edges }: StageDiagram, notes: ReadonlyMap<string, string>) {
+export function layoutDiagram({ boxes, edges }: StageDiagram) {
   const entries = boxes.flatMap((box, index) => (box.urls.length > 0 ? [index] : []));
   const { layer, adjacent } = layers(boxes.length, edges, entries);
   const layerCount = Math.max(...layer) + 1;
@@ -443,7 +435,7 @@ export function layoutDiagram({ boxes, edges }: StageDiagram, notes: ReadonlyMap
     framed,
     order,
     gapBetween,
-    heightOf: (box) => boxHeight(boxes[box], notes),
+    heightOf: (box) => boxHeight(boxes[box]),
   });
 }
 

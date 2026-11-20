@@ -406,36 +406,10 @@ class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed:
   }
 }
 
-/**
-The diagram of a card. The Google sign-in line of a hub client shows in the box that its row folds
-into; a hub client in no box, such as one that connects two boxes, keeps its line below the diagram.
-*/
 function StackDiagram({ card }: { card: RepositoryStackCard }) {
-  const prefix = `alchemy:${card.stack}:`;
-  const folded = new Set(card.diagram.boxes.flatMap((box) => box.folded.map((row) => row.fqn)));
-  const hubClients = card.resources.flatMap((resource) =>
-    resource.kind === "hub_client" ? [resource] : [],
-  );
-  const notes = new Map(
-    hubClients.flatMap((resource) => {
-      const fqn = resource.id.slice(prefix.length);
-      return folded.has(fqn) ? [[fqn, hubClientLine(resource)] as const] : [];
-    }),
-  );
-
   return (
     <div className="border-t border-border px-3 pt-3 pb-1">
-      <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} notes={notes} />
-      {hubClients.map((resource) =>
-        notes.has(resource.id.slice(prefix.length)) ? null : (
-          <div
-            key={resource.id}
-            className="flex min-h-10 items-center pb-1.5 text-sm text-muted-foreground"
-          >
-            {hubClientLine(resource)}
-          </div>
-        ),
-      )}
+      <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
     </div>
   );
 }

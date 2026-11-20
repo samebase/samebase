@@ -1,7 +1,6 @@
 import { resourceTypeUI, type ResourceCategory } from "@samebase/alchemy-kit/ui";
 import { createElement, type ReactNode, useId, useState } from "react";
 import {
-  boxNotes,
   type DiagramBox,
   layoutDiagram,
   type StageDiagram,
@@ -215,13 +214,7 @@ function IsometricIcon({ box }: { box: DiagramBox }) {
   );
 }
 
-function DiagramBoxDetails({
-  box,
-  notes,
-}: {
-  box: DiagramBox;
-  notes: ReadonlyMap<string, string>;
-}) {
+function DiagramBoxDetails({ box }: { box: DiagramBox }) {
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border p-3 text-xs">
       <dt className="text-muted-foreground">Type</dt>
@@ -256,7 +249,6 @@ function DiagramBoxDetails({
                 <span className="text-muted-foreground">
                   {resourceTypeUI(row.resourceType).name}
                 </span>
-                {notes.has(row.fqn) ? <span className="block">{notes.get(row.fqn)}</span> : null}
               </span>
             ))}
           </dd>
@@ -266,32 +258,26 @@ function DiagramBoxDetails({
   );
 }
 
-const NO_NOTES: ReadonlyMap<string, string> = new Map();
-
 /**
 The main resources of a stage as boxes, with lines from `downstream`. Each box links to its Worker
 or Convex app, and a click on the box opens its details below the diagram. A wide diagram scrolls
 inside its frame.
 
-`asides` are controls at the top right of a box, by box id, such as a menu of more links. `notes`
-are lines about folded rows, by row fqn, such as the Google sign-in of a hub client: the box of the
-row shows them, and so do its details.
+`asides` are controls at the top right of a box, by box id, such as a menu of more links.
 */
 export function AlchemyStageDiagram({
   diagram,
   asides,
-  notes = NO_NOTES,
 }: {
   diagram: StageDiagram;
   asides?: ReadonlyMap<string, ReactNode>;
-  notes?: ReadonlyMap<string, string>;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   if (diagram.boxes.length === 0) {
     return null;
   }
 
-  const { nodes, frames, lines, width, height } = layoutDiagram(diagram, notes);
+  const { nodes, frames, lines, width, height } = layoutDiagram(diagram);
   const open = diagram.boxes.find((box) => box.id === selected);
 
   return (
@@ -366,11 +352,6 @@ export function AlchemyStageDiagram({
                   {new URL(box.link).host}
                 </a>
               ) : null}
-              {boxNotes(box, notes).map((note) => (
-                <span key={note} className="mt-1 truncate text-xs leading-4">
-                  {note}
-                </span>
-              ))}
               {box.folded.length === 0 ? null : (
                 <span className="mt-1 text-xs leading-4 text-muted-foreground">
                   {box.folded.length} more
@@ -380,7 +361,7 @@ export function AlchemyStageDiagram({
           ))}
         </div>
       </div>
-      {open ? <DiagramBoxDetails box={open} notes={notes} /> : null}
+      {open ? <DiagramBoxDetails box={open} /> : null}
     </div>
   );
 }
