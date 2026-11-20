@@ -11,7 +11,7 @@ import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecks
 import { AlchemyStageDiagram } from "@/components/AlchemyStageDiagram";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import type {
   RepositoryEnvironmentAction,
   RepositoryEnvironmentResource,
@@ -358,23 +358,52 @@ function RepositoryStackCards({
               </div>
               <StackStateStore store={card.store} />
             </div>
-            {view === "list" ? (
-              <div className="border-t border-border px-3">
-                {card.resources.map((resource) => (
-                  <RepositoryEnvironmentResourceRow
-                    key={`${resource.kind}:${resource.id}`}
-                    resource={resource}
-                  />
-                ))}
-              </div>
-            ) : (
-              <StackDiagram card={card} />
-            )}
+            <StackCardBodyBoundary key={view}>
+              {view === "list" ? (
+                <div className="border-t border-border px-3">
+                  {card.resources.map((resource) => (
+                    <RepositoryEnvironmentResourceRow
+                      key={`${resource.kind}:${resource.id}`}
+                      resource={resource}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <StackDiagram card={card} />
+              )}
+            </StackCardBodyBoundary>
           </div>
         );
       })}
     </div>
   );
+}
+
+/**
+A card body draws state rows from any store. A row it cannot draw breaks only that card: the
+header with the stack's address stays, and the rest of the page keeps working.
+*/
+class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.error("Stack card failed to render", error, errorInfo);
+  }
+
+  override render() {
+    if (this.state.failed) {
+      return (
+        <p className="border-t border-border px-3 py-3 text-sm text-muted-foreground">
+          Could not draw this stack.
+        </p>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /**
