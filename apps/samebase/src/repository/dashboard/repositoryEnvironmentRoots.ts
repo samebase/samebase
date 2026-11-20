@@ -1,6 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 import { groupResourcesByComponent, stackCards } from "../../../shared/alchemyState";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
+import { stageDiagram } from "@/components/alchemyStageDiagramModel";
 import {
   buildRepositoryComponentsRoute,
   buildRepositoryDatabaseRoute,
@@ -31,7 +32,7 @@ type RepositoryEnvironmentWorkerDestination =
   | { state: "unlinked"; label: string }
   | { state: "absent" };
 
-export type RepositoryEnvironmentWorker = {
+type RepositoryEnvironmentWorker = {
   workerName: string;
   destination: RepositoryEnvironmentWorkerDestination;
   actions: readonly RepositoryEnvironmentAction[];
@@ -170,8 +171,10 @@ type RepositoryStackCardStage =
 /**
 The stack cards of the default-branch block and of a pull request row, from the stacks of the
 repository in the Alchemy state store: one card for each stack with the stage (`stackCards`), with
-the resource rows of that stage. The store records no build, so no build state shows, and the run
-line of a card names the deployed commit, so a row adds no note about it.
+the resource rows of that stage and its stack diagram (`stageDiagram`). The card draws the diagram,
+and the resource rows give the links of its boxes and the Google sign-in line. The store records no
+build, so no build state shows, and the run line of a card names the deployed commit, so a row adds
+no note about it.
 
 A Worker links to its custom domains and workers.dev URL, `attr.urls`, and without them to its zone
 routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
@@ -337,8 +340,10 @@ export function buildAlchemyStackCards({
       }),
     ];
 
+    const { stageRows, ...rest } = card;
     return {
-      ...card,
+      ...rest,
+      diagram: stageDiagram(stageRows),
       address:
         card.address === null
           ? null

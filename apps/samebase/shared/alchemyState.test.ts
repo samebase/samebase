@@ -360,6 +360,7 @@ describe("stackCards", () => {
         run: null,
         address: "https://aware-bobcat-542.convex.site",
         addressWorker: null,
+        stageRows: expect.any(Array),
         deployments: ["aware-bobcat-542"],
       },
     ]);

@@ -1,5 +1,5 @@
 import { resourceTypeUI, type ResourceCategory } from "@samebase/alchemy-kit/ui";
-import { createElement, useId, useState } from "react";
+import { createElement, type ReactNode, useId, useState } from "react";
 import {
   type DiagramBox,
   layoutDiagram,
@@ -262,8 +262,16 @@ function DiagramBoxDetails({ box }: { box: DiagramBox }) {
 The main resources of a stage as boxes, with lines from `downstream`. Each box links to its Worker
 or Convex app, and a click on the box opens its details below the diagram. A wide diagram scrolls
 inside its frame.
+
+`asides` are controls at the top right of a box, by box id, such as a menu of more links.
 */
-export function AlchemyStageDiagram({ diagram }: { diagram: StageDiagram }) {
+export function AlchemyStageDiagram({
+  diagram,
+  asides,
+}: {
+  diagram: StageDiagram;
+  asides?: ReadonlyMap<string, ReactNode>;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   if (diagram.boxes.length === 0) {
     return null;
@@ -316,7 +324,7 @@ export function AlchemyStageDiagram({ diagram }: { diagram: StageDiagram }) {
             >
               <div className="flex h-[50px] items-center gap-2.5">
                 <IsometricIcon box={box} />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <button
                     type="button"
                     aria-expanded={box.id === selected}
@@ -327,6 +335,11 @@ export function AlchemyStageDiagram({ diagram }: { diagram: StageDiagram }) {
                   </button>
                   <div className="truncate text-xs text-muted-foreground">{box.typeName}</div>
                 </div>
+                {asides?.has(box.id) ? (
+                  <div className="relative -mr-1.5 flex shrink-0 items-center">
+                    {asides.get(box.id)}
+                  </div>
+                ) : null}
               </div>
               {box.link ? (
                 <a

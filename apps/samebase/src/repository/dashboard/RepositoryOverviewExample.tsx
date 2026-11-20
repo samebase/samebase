@@ -90,6 +90,9 @@ const WORKER_URL = "https://pantry-barcode-lookup.acme.workers.dev";
 /** The rows of `alchemy.run.ts` that the page reads, as Alchemy state of a Convex deployment. */
 function convexDeploymentRow(type: "prod" | "preview", name: string) {
   return JSON.stringify({
+    logicalId: "Site",
+    status: "created",
+    downstream: [],
     resourceType: "Convex.Deployment",
     props: { project: { projectId: 1001 }, type, rootDir: ".", source: { path: "./convex" } },
     attr: {
@@ -103,6 +106,9 @@ function convexDeploymentRow(type: "prod" | "preview", name: string) {
 }
 
 const BARCODE_LOOKUP_ROW = JSON.stringify({
+  logicalId: "BarcodeLookup",
+  status: "created",
+  downstream: [],
   resourceType: "Cloudflare.Worker",
   attr: { workerName: "pantry-barcode-lookup", url: WORKER_URL, urls: [WORKER_URL], routes: [] },
 });

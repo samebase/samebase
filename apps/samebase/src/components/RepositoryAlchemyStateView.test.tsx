@@ -365,7 +365,7 @@ describe("AlchemyStateTree", () => {
       ["Deployment", "updated, Convex Deployment"],
       ["Project", "updated, Convex Project"],
       ["mail"],
-      ["Mail/Bucketunknown", "Mail/Workercreated, Worker"],
+      ["Mail/Bucketcreated, R2 Bucket", "Mail/Workercreated, Worker"],
     ]);
   });
 

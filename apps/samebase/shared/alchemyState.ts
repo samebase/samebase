@@ -345,6 +345,8 @@ export function stackCards({
               : deployment.state.attr.siteUrl,
           addressWorker: addressWorker?.fqn ?? null,
           resources,
+          /** The rows of the stage as the store gives them. */
+          stageRows: stage.resources,
         },
       ];
     })
