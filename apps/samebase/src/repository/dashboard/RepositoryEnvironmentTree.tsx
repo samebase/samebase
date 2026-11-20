@@ -8,13 +8,18 @@ import {
 import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDashboardLogos";
 import { StackStateStore, StateStoreProblems } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
-import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { Component, Fragment, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { AlchemyIsometricIcon } from "@/components/AlchemyIsometricIcon";
+import {
+  boxSubtitle,
+  lineSummary,
+  type DiagramBox,
+  type DiagramLine,
+} from "@samebase/alchemy-kit/stack";
 import type {
   RepositoryEnvironmentAction,
   RepositoryEnvironmentResource,
-  RepositoryEnvironmentWorker,
   RepositoryStackCard,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
 import type { RepositoryStackView } from "../../../convex/userPreferenceModel";
@@ -98,113 +103,6 @@ function EnvironmentActionsMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-function DestinationResource({
-  resource,
-}: {
-  resource: Extract<RepositoryEnvironmentResource, { kind: "destination" }>;
-}) {
-  const presentation = resourceTypePresentation("Convex.Deployment");
-  const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
-
-  return (
-    <div
-      aria-label={`Convex deployment ${resource.label}`}
-      className="grid min-h-10 min-w-0 py-1.5"
-      role="group"
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-1">
-        <a
-          className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
-          href={resource.href}
-          rel="noreferrer noopener"
-          target="_blank"
-          title={resource.title}
-        >
-          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-            {presentation.icon}
-          </span>
-          <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 max-lines-3">
-            {resource.label}
-          </span>
-          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-        </a>
-        {region ? (
-          <span className="text-xs" title={region.displayName}>
-            <span aria-hidden="true">{region.icon}</span>
-            <span className="sr-only">{region.displayName}</span>
-          </span>
-        ) : null}
-        {resource.actions.length > 0 ? (
-          <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
-        ) : null}
-      </div>
-      {resource.components ? (
-        <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
-          {resource.components.map((component) => (
-            <div
-              key={component.path}
-              aria-label={`Convex component ${component.path}`}
-              className="min-w-0"
-              role="group"
-            >
-              <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-2.5 py-1.5">
-                <span className="min-w-0 max-lines-3 text-sm font-medium leading-5 text-foreground">
-                  {component.path}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
-              </div>
-              <div className="ml-2.5 border-l border-border pl-3">
-                {component.resources.map((child) => (
-                  <RepositoryEnvironmentResourceRow
-                    key={`${child.kind}:${child.id}`}
-                    resource={child}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function RepositoryEnvironmentResourceRow({
-  resource,
-}: {
-  resource: RepositoryEnvironmentResource;
-}) {
-  switch (resource.kind) {
-    case "destination":
-      return <DestinationResource resource={resource} />;
-    case "cloudflare_worker":
-      return <CloudflareWorkerResource worker={resource.worker} />;
-    case "cloudflare_r2_bucket":
-      return (
-        <div className="flex">
-          <a
-            className="inline-flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-foreground no-underline hover:no-underline"
-            href={resource.href}
-            rel="noreferrer noopener"
-            target="_blank"
-            title={`Open R2 bucket ${resource.bucketName}`}
-          >
-            <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-              {resourceTypePresentation("Cloudflare.R2.Bucket").icon}
-            </span>
-            <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 max-lines-3">
-              {resource.bucketName}
-            </span>
-            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
-          </a>
-        </div>
-      );
-    default:
-      resource satisfies never;
-      return null;
-  }
 }
 
 /**
@@ -369,18 +267,7 @@ function RepositoryStackCards({
               <StackStateStore store={card.store} />
             </div>
             <StackCardBodyBoundary key={view}>
-              {view === "list" ? (
-                <div className="border-t border-border px-3">
-                  {card.resources.map((resource) => (
-                    <RepositoryEnvironmentResourceRow
-                      key={`${resource.kind}:${resource.id}`}
-                      resource={resource}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <StackDiagram card={card} />
-              )}
+              {view === "list" ? <StackList card={card} /> : <StackDiagram card={card} />}
             </StackCardBodyBoundary>
           </div>
         );
@@ -414,6 +301,83 @@ class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed:
     }
     return this.props.children;
   }
+}
+
+/**
+The List view of a stack card: a row for each box of the stack diagram, with the same name, type,
+link and lines as the diagram, and the same controls (`boxAsides`). The boxes of a namespace follow
+its name.
+*/
+function StackList({ card }: { card: RepositoryStackCard }) {
+  const { boxes, lines } = card.diagram;
+  if (boxes.length === 0) {
+    return null;
+  }
+  const asides = boxAsides(card);
+  const rows = (namespace: string) =>
+    boxes
+      .filter((box) => box.namespace.join("/") === namespace)
+      .map((box) => (
+        <StackListRow key={box.id} aside={asides.get(box.id)} box={box} lines={lines} />
+      ));
+  return (
+    <div className="border-t border-border px-3 py-1">
+      {[...new Set(boxes.map((box) => box.namespace.join("/")))].map((namespace) =>
+        namespace === "" ? (
+          <Fragment key="">{rows(namespace)}</Fragment>
+        ) : (
+          <div key={namespace} aria-label={`Namespace ${namespace}`} role="group">
+            <p className="py-1.5 font-mono text-xs text-muted-foreground">{namespace}</p>
+            <div className="ml-2.5 border-l border-border pl-3">{rows(namespace)}</div>
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+function StackListRow({
+  box,
+  lines,
+  aside,
+}: {
+  box: DiagramBox;
+  lines: readonly DiagramLine[];
+  aside: ReactNode;
+}) {
+  return (
+    <div
+      aria-label={`${box.typeName} ${box.name}`}
+      className="flex min-w-0 items-center gap-2.5 py-1.5"
+      role="group"
+    >
+      <AlchemyIsometricIcon
+        resourceType={box.resourceType}
+        category={box.category}
+        icon={box.icon}
+      />
+      <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+        <p className="font-mono text-[13px] font-medium text-foreground max-lines-3">{box.name}</p>
+        <p>{boxSubtitle(box)}</p>
+        {box.link ? (
+          <a
+            className="inline-flex max-w-full items-center gap-1.5 font-mono text-foreground"
+            href={box.link}
+            rel="noreferrer noopener"
+            target="_blank"
+            title={box.link}
+          >
+            <span className="truncate">{new URL(box.link).host}</span>
+            <ExternalLink className="h-3 w-3 shrink-0" />
+          </a>
+        ) : null}
+        {lineSummary(box, lines).map((text) => (
+          <p key={text}>{text}</p>
+        ))}
+      </div>
+      {aside}
+    </div>
+  );
 }
 
 function StackDiagram({ card }: { card: RepositoryStackCard }) {
@@ -713,52 +677,6 @@ export function DefaultBranchSection({
         </div>
       ) : null}
     </section>
-  );
-}
-
-function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWorker }) {
-  const presentation = resourceTypePresentation("Cloudflare.Worker");
-
-  return (
-    <div
-      aria-label={`Cloudflare Worker ${worker.workerName}`}
-      className="grid min-w-0 gap-1.5 py-2.5"
-      role="group"
-    >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
-          {presentation.icon}
-        </span>
-        <span className="min-w-0 max-lines-3 text-sm font-medium leading-5 text-foreground">
-          {worker.workerName}
-        </span>
-      </div>
-      {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
-        <div className="ml-2.5 grid min-w-0 gap-1.5 border-l border-border pl-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm">
-            {worker.destination.state === "available" ? (
-              <a
-                className="inline-flex min-h-10 min-w-0 items-center gap-1.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
-                href={worker.destination.href}
-                rel="noreferrer noopener"
-                target="_blank"
-                title={worker.destination.title}
-              >
-                <span className="min-w-0 max-lines-3 leading-5">{worker.destination.label}</span>
-                <ExternalLink className="h-3 w-3 shrink-0" />
-              </a>
-            ) : worker.destination.state === "unlinked" ? (
-              <span className="inline-flex min-h-10 min-w-0 items-center text-muted-foreground @4xl:min-h-8">
-                <span className="min-w-0 max-lines-3 leading-5">{worker.destination.label}</span>
-              </span>
-            ) : null}
-            {worker.actions.length > 0 ? (
-              <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </div>
   );
 }
 

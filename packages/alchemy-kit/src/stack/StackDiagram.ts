@@ -241,6 +241,32 @@ export function stageDiagram(stateRows: readonly StateRow[]) {
 
 export type StageDiagram = ReturnType<typeof stageDiagram>;
 
+/** What a box says under its name: its type name, then the schedule of a Worker in words. */
+export const boxSubtitle = (box: DiagramBox) =>
+  [
+    box.typeName,
+    ...box.rows.flatMap((row) => row.facts.filter((fact) => fact.clock).map((fact) => fact.value)),
+  ].join(", ");
+
+/**
+The lines of `box` in words: the boxes that it uses, such as `uses Prices (PRICES)`, then the boxes
+that share a folded resource with it, such as `with Site (shared secret)`. A list of the boxes of a
+stage shows each line once, at the box that uses the other.
+*/
+export function lineSummary(box: DiagramBox, lines: readonly DiagramLine[]) {
+  return (["uses", "with"] as const).flatMap((verb) => {
+    const others = lines.flatMap((line) => {
+      const other = line.a === box ? line.b : line.b === box ? line.a : null;
+      const kind = line.from === null ? "with" : line.from === box ? "uses" : null;
+      if (other === null || kind !== verb) {
+        return [];
+      }
+      return [line.labels.length === 0 ? other.name : `${other.name} (${line.labels.join(", ")})`];
+    });
+    return others.length === 0 ? [] : [`${verb} ${others.join(", ")}`];
+  });
+}
+
 /** The Worker binding names of `worker` that name a row of `other`, by logical id or R2 bucket. */
 function bindingNames(worker: DiagramBox, other: DiagramBox) {
   return worker.rows

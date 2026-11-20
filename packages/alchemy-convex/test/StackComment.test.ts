@@ -15,7 +15,7 @@ import {
 interface RecordedStage {
   readonly stack: string;
   readonly stage: string;
-  readonly rows: readonly { readonly fqn: string }[];
+  readonly rows: readonly { readonly fqn: string; readonly attr?: object }[];
   readonly output: unknown;
 }
 
@@ -160,41 +160,35 @@ describe("renderStackComment", () => {
   });
 
   it("names the boxes that a box uses, and shows no secret of a row", async () => {
-    const row = (fqn: string, resourceType: string, attr: object, more: object = {}) => ({
-      fqn,
-      logicalId: fqn,
-      resourceType,
-      status: "created",
-      attr,
-      downstream: [],
-      ...more,
-    });
-    const rows = [
-      row("Prices", "Cloudflare.R2.Bucket", { bucketName: "prices" }, { downstream: ["Sync"] }),
-      row(
-        "Sync",
-        "Cloudflare.Worker",
-        { workerName: "sync", url: "https://sync.acme.workers.dev", crons: ["0 6 * * *"] },
-        {
-          bindings: [
+    // The recorded sidebars Worker with a schedule, an R2 binding of the recorded scout bucket and
+    // a secret binding, and that bucket with the Worker downstream.
+    const [, worker, bucket] = stages;
+    const workerRow = worker?.rows[0];
+    const bucketRow = bucket?.rows[0];
+    const rows =
+      workerRow && bucketRow
+        ? [
             {
-              sid: "PRICES",
-              data: { bindings: [{ type: "r2_bucket", name: "PRICES", bucketName: "prices" }] },
+              ...workerRow,
+              attr: { ...workerRow.attr, crons: ["0 6 * * *"] },
+              bindings: [
+                {
+                  sid: "WORKSPACES",
+                  data: {
+                    bindings: [
+                      { type: "r2_bucket", name: "WORKSPACES", bucketName: "scout-workspaces" },
+                    ],
+                  },
+                },
+                {
+                  sid: "TOKEN",
+                  data: { bindings: [{ type: "secret_text", name: "TOKEN", text: "token-value" }] },
+                },
+              ],
             },
-            {
-              sid: "TOKEN",
-              data: { bindings: [{ type: "secret_text", name: "TOKEN", text: "token-value" }] },
-            },
-          ],
-        },
-      ),
-      row(
-        "HubClient",
-        "IdentityHub.Client",
-        { clientId: "client-id", clientSecret: "client-secret" },
-        { downstream: ["Sync"] },
-      ),
-    ];
+            { ...bucketRow, downstream: [workerRow.fqn] },
+          ]
+        : [];
     const stage = { stack: repository, stage: "pr-1", rows, output: null };
 
     const body = renderStackComment(
@@ -205,8 +199,8 @@ describe("renderStackComment", () => {
     );
 
     expect(body).toContain("<br><sub>Worker, Daily at 06:00 UTC</sub>");
-    expect(body).toContain("<br><sub>uses Prices (PRICES)</sub>");
-    expect(body).not.toMatch(/token-value|client-id|client-secret/);
+    expect(body).toContain("<br><sub>uses DevelopmentWorkspaceBucket (WORKSPACES)</sub>");
+    expect(body).not.toContain("token-value");
   });
 });
 

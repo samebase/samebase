@@ -27,6 +27,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { RUN_RECORD_KEY, runRecord } from "@samebase/alchemy-kit/run-record";
 import {
+  boxSubtitle,
+  lineSummary,
   stageDiagram,
   type DiagramBox,
   type DiagramLine,
@@ -128,36 +130,14 @@ const boxName = ({ name, resourceType, rows: [first] }: DiagramBox) => {
 };
 
 /**
-The boxes that `box` uses, and the boxes that share a resource with it, with the labels of their
-lines, such as `uses Prices (PRICES)` or `with Site (shared secret)`.
-*/
-const lineText = (box: DiagramBox, lines: readonly DiagramLine[]) =>
-  (["uses", "with"] as const).flatMap((verb) => {
-    const others = lines.flatMap((line) => {
-      const other = line.a === box ? line.b : line.b === box ? line.a : null;
-      const kind = line.from === null ? "with" : line.from === box ? "uses" : null;
-      if (other === null || kind !== verb) {
-        return [];
-      }
-      const labels = line.labels.length === 0 ? "" : ` (${line.labels.join(", ")})`;
-      return [escapeHtml(`${other.name}${labels}`)];
-    });
-    return others.length === 0 ? [] : [`${verb} ${others.join(", ")}`];
-  });
-
-/**
-A row of a card: the name and type of a box, its schedule, its link unless it is the stage address,
-and its lines.
+A row of a card: the name of a box, its type and schedule, its link unless it is the stage address,
+and the boxes that it uses.
 */
 const boxRow = (box: DiagramBox, address: string | null, lines: readonly DiagramLine[]) => {
-  const schedule = box.rows
-    .flatMap((row) => row.facts)
-    .filter((fact) => fact.clock)
-    .map((fact) => fact.value);
   const details = [
-    escapeHtml([box.typeName, ...schedule].join(", ")),
+    escapeHtml(boxSubtitle(box)),
     ...(box.link === null || box.link === address ? [] : [link(box.link, hostOf(box.link))]),
-    ...lineText(box, lines),
+    ...lineSummary(box, lines).map(escapeHtml),
   ];
   return `${boxName(box)}${details.map((text) => `<br><sub>${text}</sub>`).join("")}`;
 };
