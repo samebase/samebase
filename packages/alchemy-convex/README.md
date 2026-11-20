@@ -468,10 +468,10 @@ deletes the development client and keeps the deployment.
 
 `alchemy-convex stack-comment` keeps one comment on a pull request. The comment has a card for each
 stack of the repository at the stage `pr-<number>`: the folder, the address, the last run, and a row
-for each main resource, with its type, its link, its schedule, and the resources it uses. The rows
-come from `stageDiagram` of `@samebase/alchemy-kit/stack`, the same model as Samebase's stack
-diagram, so a project or a hub client shows under its deployment and not as a row of its own. A
-stack sees only itself, so a comment that a stack declares cannot show this.
+for each main resource, with its type, its link and its schedule, each under the resource that uses
+it. The rows come from `stageDiagram` of `@samebase/alchemy-kit/stack`, the same model as Samebase's
+stack diagram, so a project or a hub client shows under its deployment and not as a row of its own.
+A stack sees only itself, so a comment that a stack declares cannot show this.
 
 Run it after every deploy of the workflow. The run record gives the repository and the pull request,
 so the command needs no argument with a team access token:
