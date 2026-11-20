@@ -113,4 +113,15 @@ export const broker = defineIdentityBroker({
 //   listApps, listClients '{"appId":"..."}', deleteClient '{"clientId":"..."}', deleteApp '{"appId":"..."}'
 // Every client comes from the broker's `POST /register`. Block repository and Block owner on
 // samebase.com's admin page stop a tenant. `crons.ts` runs `cleanup` daily.
-export const { deleteApp, listApps, listClients, deleteClient, cleanup } = broker.admin();
+// The move of samebase.com's connections to auth2.samebase.com: freezeClient '{"clientId":"..."}'
+// stops the client's refreshes for good, drainStatus '{"clientId":"..."}' counts its grants, and
+// samebase.com then reads each provider token once at `POST /migration/export` (`http.ts`).
+export const {
+  deleteApp,
+  listApps,
+  listClients,
+  deleteClient,
+  cleanup,
+  freezeClient,
+  drainStatus,
+} = broker.admin();
