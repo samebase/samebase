@@ -2,6 +2,7 @@
 // answers `POST /register` (RFC 7591) and a client's own record (RFC 7592) as the registration
 // wire format of @samebase/identity-broker 0.33.0 says.
 import { adopt } from "alchemy/AdoptPolicy";
+import type { PropsInput } from "alchemy/Input";
 import * as Output from "alchemy/Output";
 import { encodeState, type PersistedState, reviveState, State } from "alchemy/State";
 import type { ScratchStack } from "@alchemy.run/test/Core";
@@ -79,17 +80,22 @@ const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProp
   ...overrides,
 });
 
-/** The body of a registration, as the fake and the tests expect it. */
+/**
+ * The body of a registration, as the fake and the tests expect it. `client_name` is the scratch
+ * stack's stage, which the first test names.
+ */
 const requestBody = (overrides: Record<string, unknown> = {}) => ({
   redirect_uris: [REDIRECT_URI],
   software_id: "scout",
   software_version: "abc",
+  client_name: expect.any(String),
+  deployment_type: "preview",
   connectors: ["google"],
   token_endpoint_auth_method: "client_secret_post",
   ...overrides,
 });
 
-const client = (input: IdentityHub.ClientProps) =>
+const client = (input: PropsInput<IdentityHub.ClientProps>) =>
   Effect.gen(function* () {
     const resource = yield* IdentityHub.Client("Client", input);
     return {
@@ -261,6 +267,10 @@ class FakeServices {
   registrar: Answer | undefined;
   /** A client's own record at the hub. */
   hub: Answer | undefined;
+  /** The hub's discovery document. */
+  discovery: Answer | undefined;
+  /** The keys of a hub on the stack layer that `POST /register` takes. */
+  readonly keys = new Set<string>();
   /** Set: the hub answers as to a run of main, with the app's initial access token. */
   production = false;
   /** The initial access tokens that the hub takes for a development client. */
@@ -297,6 +307,9 @@ class FakeServices {
   private answerOf(url: string) {
     if (url.startsWith("https://oidc.test")) return this.github ?? this.answerGitHub;
     if (new URL(url).pathname === "/register") return this.registrar ?? this.answerRegistrar;
+    if (new URL(url).pathname === "/.well-known/openid-configuration") {
+      return this.discovery ?? (() => Response.json({ issuer: new URL(url).origin }));
+    }
     return new URL(url).pathname.startsWith("/register/")
       ? (this.hub ?? this.answerHub)
       : undefined;
@@ -332,7 +345,7 @@ class FakeServices {
     }
     const bearer = authorization.replace(/^Bearer /, "");
     const withGitHub = bearer === OIDC_TOKEN;
-    if (!withGitHub && !this.initialAccessTokens.has(bearer)) {
+    if (!withGitHub && !this.initialAccessTokens.has(bearer) && !this.keys.has(bearer)) {
       return invalidToken();
     }
     const request = Schema.decodeUnknownSync(ClientRequest)(body);
@@ -462,6 +475,8 @@ describe("IdentityHub.Client", () => {
             redirect_uris: [REDIRECT_URI],
             software_id: "scout",
             software_version: "abc",
+            client_name: stack.stage,
+            deployment_type: "preview",
             connectors: ["google"],
             token_endpoint_auth_method: "client_secret_post",
           },
@@ -1332,7 +1347,7 @@ describe("IdentityHub.Client for a development client", () => {
             method: "POST",
             url: REGISTER,
             authorization: `Bearer ${INITIAL_ACCESS_TOKEN}`,
-            body: requestBody(),
+            body: requestBody({ deployment_type: "development" }),
           },
         ]);
       }),
@@ -1666,6 +1681,196 @@ describe("IdentityHub.Client.read", () => {
   );
 });
 
+type KeyProps = Extract<IdentityHub.ClientProps, { readonly key: unknown }>;
+
+/** A preview client that asks with `key`. */
+const withKey = (
+  key: KeyProps["key"] | Output.Output<KeyProps["key"]>,
+  overrides: Partial<Omit<KeyProps, "key">> = {},
+) =>
+  client({
+    app: "scout",
+    hub: HUB,
+    redirectUris: [REDIRECT_URI],
+    deploymentType: "preview",
+    connectors: ["google"],
+    softwareVersion: "abc",
+    key,
+    ...overrides,
+  });
+
+describe("IdentityHub.Client with a key", () => {
+  const KEY = "preview-key-of-the-hub";
+
+  it("takes a key for any deployment type, and never with an initial access token", () => {
+    const development: IdentityHub.ClientProps = {
+      hub: HUB,
+      redirectUris: [REDIRECT_URI],
+      deploymentType: "development",
+      connectors: ["google"],
+      key: Redacted.make(KEY),
+    };
+    // @ts-expect-error A client proves itself one way.
+    const both: IdentityHub.ClientProps = {
+      hub: HUB,
+      redirectUris: [REDIRECT_URI],
+      deploymentType: "development",
+      connectors: ["google"],
+      initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
+      key: Redacted.make(KEY),
+    };
+    expect([development, both]).toHaveLength(2);
+  });
+
+  test.provider(
+    "registers with the key once the hub answers discovery, and no OIDC token",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        fake.keys.add(KEY);
+        let discoveries = 0;
+        // The first read of discovery finds no hub yet, as a new workers.dev route does.
+        fake.discovery = ({ url }) =>
+          ++discoveries === 1
+            ? new Response("error code: 1042", { status: 404 })
+            : Response.json({ issuer: new URL(url).origin });
+        expect(yield* stack.deploy(withKey(Redacted.make(KEY)))).toEqual(issued());
+        expect(discoveries).toBe(2);
+        expect(fake.sent.filter(({ url }) => url === REGISTER)).toEqual([
+          {
+            method: "POST",
+            url: REGISTER,
+            authorization: `Bearer ${KEY}`,
+            body: requestBody({ client_name: stack.stage }),
+          },
+        ]);
+        expect(fake.calls("https://oidc.test")).toEqual([]);
+        // The next deploy renews the client with its own token, never with the key.
+        fake.sent.length = 0;
+        expect(yield* stack.deploy(withKey(Redacted.make(KEY)))).toEqual(issued());
+        expect(
+          fake.sent.map(({ method, url, authorization }) => [method, url, authorization]),
+        ).toEqual([["GET", `${RECORDS}cl_1`, "Bearer token-of-cl_1"]]);
+      }),
+  );
+
+  test.provider("a key that the hub refuses gives the off values", (stack) =>
+    Effect.gen(function* () {
+      new FakeServices().install();
+      const { layer, lines } = capturedLogs();
+      expect(yield* stack.deploy(withKey(Redacted.make(KEY))).pipe(Effect.provide(layer))).toEqual(
+        OFF,
+      );
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining("the identity hub refused the registration key (HTTP 401)"),
+      ]);
+      expect(lines.filter((line) => line.includes(KEY))).toEqual([]);
+    }),
+  );
+
+  test.provider("a key goes to no http hub: the registration request is not made", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      fake.keys.add(KEY);
+      const hub = { issuer: "http://hub.example.com" };
+      const { layer, lines } = capturedLogs();
+      expect(
+        yield* stack.deploy(withKey(Redacted.make(KEY), { hub })).pipe(Effect.provide(layer)),
+      ).toEqual(OFF);
+      expect(warningsIn(lines)).toEqual([
+        expect.stringContaining(
+          "The identity hub is not at an https URL, so no credential was sent to it",
+        ),
+      ]);
+      // Only discovery, which carries no credential, reaches the hub.
+      expect(fake.calls(hub.issuer)).toEqual([
+        `GET ${hub.issuer}/.well-known/openid-configuration`,
+      ]);
+      expect(fake.sent.filter(({ authorization }) => authorization !== "")).toEqual([]);
+    }),
+  );
+
+  test.provider(
+    "no key gives the off values with no request, or fails a required client",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        expect(yield* stack.deploy(withKey(undefined))).toEqual(OFF);
+        expect(fake.timeline).toEqual([]);
+        const exit = yield* Effect.exit(stack.deploy(withKey(undefined, { required: true })));
+        expect(Exit.isFailure(exit)).toBe(true);
+        expect(fake.timeline).toEqual([]);
+      }),
+  );
+});
+
+describe("IdentityHub.registrationKey", () => {
+  /** The key `id` as the deploy resolves it: its text, or `none`. */
+  const keyOf = (id: string, stage: string) =>
+    Effect.map(IdentityHub.registrationKey(id, { stage }), (key) =>
+      Output.map(key, (value) =>
+        value === undefined ? "none" : Redacted.isRedacted(value) ? Redacted.value(value) : "plain",
+      ),
+    );
+
+  test.provider("is a random key in the hub's stage, the same on each deploy", (stack) =>
+    Effect.gen(function* () {
+      const first = yield* stack.deploy(keyOf("PreviewKey", stack.stage));
+      expect(first).toMatch(/^[0-9a-f]{64}$/);
+      expect(yield* stack.deploy(keyOf("PreviewKey", stack.stage))).toBe(first);
+      // A second key of the same stack is its own.
+      const both = Effect.all([
+        keyOf("PreviewKey", stack.stage),
+        keyOf("ProductionKey", stack.stage),
+      ]);
+      const [preview, production] = yield* stack.deploy(
+        Effect.map(both, ([a, b]) => Output.all(a, b)),
+      );
+      expect(preview).toBe(first);
+      expect(production).toMatch(/^[0-9a-f]{64}$/);
+      expect(production).not.toBe(first);
+    }),
+  );
+
+  test.provider("another stage reads the key's row, redacted, and makes no key", (stack) =>
+    Effect.gen(function* () {
+      const made = yield* stack.deploy(keyOf("PreviewKey", stack.stage));
+      // The row of the hub's stage `prod`, as that stage's run saved it.
+      yield* Effect.gen(function* () {
+        const state = yield* yield* State;
+        const row = yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "PreviewKey" });
+        if (row === undefined) throw new Error("the deploy saved no key");
+        const stored: PersistedState = JSON.parse(JSON.stringify(encodeState(row)), reviveState);
+        yield* state.set({ stack: stack.name, stage: "prod", fqn: "PreviewKey", value: stored });
+      }).pipe(Effect.provide(stack.state));
+      yield* stack.destroy();
+      expect(yield* stack.deploy(keyOf("PreviewKey", "prod"))).toBe(made);
+      expect(yield* typeOfRow(stack, "prod", "PreviewKey")).toBe("Alchemy.Random");
+      // This stage made no key of its own.
+      const own = yield* Effect.gen(function* () {
+        const state = yield* yield* State;
+        return yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "PreviewKey" });
+      }).pipe(Effect.provide(stack.state));
+      expect(own).toBeUndefined();
+    }),
+  );
+
+  test.provider(
+    "gives no key before the hub's stage ran, and the client gets the off values",
+    (stack) =>
+      Effect.gen(function* () {
+        const fake = new FakeServices().install();
+        expect(yield* stack.deploy(keyOf("PreviewKey", "prod"))).toBe("none");
+        const app = Effect.gen(function* () {
+          const key = yield* IdentityHub.registrationKey("PreviewKey", { stage: "prod" });
+          return yield* withKey(key);
+        });
+        expect(yield* stack.deploy(app)).toEqual(OFF);
+        expect(fake.timeline).toEqual([]);
+      }),
+  );
+});
+
 describe("the development stage of the starter", () => {
   test.provider(
     "writes the repository id, registers with prod's token, writes the variables, and a destroy keeps the deployment",
@@ -1718,7 +1923,11 @@ describe("the development stage of the starter", () => {
             method: "POST",
             url: REGISTER,
             authorization: "Bearer iat-of-cl_1",
-            body: requestBody({ redirect_uris: [callback], software_version: "unknown" }),
+            body: requestBody({
+              redirect_uris: [callback],
+              software_version: "unknown",
+              deployment_type: "development",
+            }),
           },
         ]);
         const at = (pattern: RegExp) =>

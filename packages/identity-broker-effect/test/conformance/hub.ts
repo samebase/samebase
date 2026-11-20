@@ -12,9 +12,9 @@
 // fake provider, which are on loopback here.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect, Layer, Redacted } from "effect";
-import { HubConfig } from "../../src/core/services.ts";
+import { HubConfig, SignInPage } from "../../src/core/services.ts";
 import { hubRuntime } from "../../src/hosts/cloudflare/hub.ts";
-import { GithubSettings } from "../../src/layers/github/settings.ts";
+import { github } from "../../src/layers/github/routes.ts";
 import {
   FAKE_CONNECTOR_CLIENT_ID,
   FAKE_ISSUER,
@@ -59,11 +59,7 @@ const settings = Layer.unwrap(
       },
     }).pipe(Layer.orDie);
   }),
-).pipe(
-  // The suite registers no client at `POST /register`: the fixture (admin.ts) writes each card
-  // with its own allow-list.
-  Layer.merge(GithubSettings.layer([])),
-);
+).pipe(Layer.merge(SignInPage.layer()));
 
 export default class ConformanceHub extends Cloudflare.Worker<ConformanceHub>()(
   "Hub",
@@ -73,5 +69,7 @@ export default class ConformanceHub extends Cloudflare.Worker<ConformanceHub>()(
     compatibility: { date: "2026-10-26" },
     dev: { host: "127.0.0.1", port: HUB_PORT, strictPort: true },
   },
-  hubRuntime(settings),
+  // The suite registers no client at `POST /register`: the fixture (admin.ts) writes each card
+  // with its own allow-list.
+  hubRuntime(settings, github([])),
 ) {}

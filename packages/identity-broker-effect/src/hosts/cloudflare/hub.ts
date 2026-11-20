@@ -4,20 +4,18 @@
 // `transactionSync` step.
 //
 // `hubWorker(options)` makes one hub's Worker; an app's stack deploys the hub that its own module
-// makes with it. This module's default export is the test hub.
+// makes with it, such as the test hub of src/hub.ts.
 //
 // The Worker's script name, the class name `Hub` and the instance name (`HUB_INSTANCE`) are the
 // address of all data: renaming one of them starts from empty storage. The object's binding has
 // the class name too.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Clock, Config, Effect, Layer, Schema } from "effect";
+import { Clock, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { hubLogger, makeHandle, type CoreServices } from "../../core/router.ts";
-import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
+import { hubLogger, makeHandle, type CoreServices, type Registration } from "../../core/router.ts";
+import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
-import { githubRoutes } from "../../layers/github/routes.ts";
-import type { GithubSettings } from "../../layers/github/settings.ts";
 import {
   decodeArgs,
   decodeName,
@@ -175,20 +173,28 @@ export type HubOptions = HubSettings & {
   readonly main: string;
   /** The Worker's script name, the first part of the address of all data. */
   readonly name: string;
+  /**
+   * The one registration layer that the hub mounts, from that layer's module, such as
+   * `stack({ keys })` of src/layers/stack/routes.ts.
+   */
+  readonly registration: Registration;
 };
 
 /**
  * The Worker's runtime over its settings: every service of the core on Cloudflare, the hub's
  * logger, and `fetch`. The core takes the Web `Request` and gives a Web `Response`;
  * `HttpServerResponse.raw` hands that `Response` to the platform unchanged (status, body and each
- * `Set-Cookie` field). The hub mounts the GitHub layer's routes. `hubWorker` gives it the settings
+ * `Set-Cookie` field). The hub mounts the `registration` layer. `hubWorker` gives it the settings
  * of its options; the conformance test stack (test/conformance) gives it local settings.
  */
-export const hubRuntime = <E, R>(settings: Layer.Layer<HubConfig | GithubSettings, E, R>) =>
+export const hubRuntime = <E, R>(
+  settings: Layer.Layer<HubConfig | SignInPage, E, R>,
+  registration: Registration,
+) =>
   Effect.gen(function* () {
-    const handle = makeHandle({ routes: githubRoutes });
+    const handle = makeHandle(registration);
     // Built once per isolate, when the Worker starts.
-    const services = yield* Effect.context<CoreServices | GithubSettings>();
+    const services = yield* Effect.context<CoreServices>();
     return {
       fetch: Effect.gen(function* () {
         const request = yield* Cloudflare.Request;
@@ -212,8 +218,9 @@ export const hubWorker = (options: HubOptions) =>
       name: options.name,
       main: options.main,
       workersDev: true,
-      // The hub reads the verification file of an app that can be another Worker on workers.dev
-      // in this account. Without the flag Cloudflare answers such a fetch with error 1042.
+      // A layer can fetch an app's host, such as the GitHub layer's verification file, and the app
+      // can be another Worker on workers.dev in this account. Without the flag Cloudflare answers
+      // such a fetch with error 1042.
       compatibility: { date: "2026-10-28", flags: ["global_fetch_strictly_public"] },
       // A callback URL carries the provider's code and state, so no invocation log records it.
       // The hub writes only its own allow-listed lines (src/core/router.ts).
@@ -221,32 +228,5 @@ export const hubWorker = (options: HubOptions) =>
       // The object runs the new rules right after a deploy, not up to 5 minutes later.
       codeUpdateStrategy: { mode: "immediate" },
     },
-    hubRuntime(hubSettings(options)),
+    hubRuntime(hubSettings(options), options.registration),
   ) {};
-
-/**
- * The test hub, deployed at the stage `dev-spike` of alchemy.run.ts. Its issuer is the workers.dev
- * address of its script.
- */
-export default hubWorker({
-  main: import.meta.url,
-  name: "identity-broker-effect-dev-spike",
-  issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev",
-  connectors: {
-    google: {
-      clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
-      clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
-    },
-    github: {
-      clientId: Config.Redacted("AUTH_GITHUB_CLIENT_ID"),
-      clientSecret: Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
-    },
-  },
-  // samebase/samebase and the samebase organization.
-  allowedRepositories: [{ repositoryId: "1021726325", ownerId: "285392744" }],
-  service: {
-    name: "Samebase identity hub (Effect test)",
-    terms: "https://samebase.com/terms",
-    privacy: "https://samebase.com/privacy",
-  },
-});

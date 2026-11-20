@@ -392,6 +392,18 @@ export default defineConfig({
           name: "identity-broker-effect",
           environment: "node",
           include: ["packages/identity-broker-effect/src/**/*.test.ts"],
+          exclude: ["**/node_modules/**", "**/rules/machine.test.ts"],
+        },
+      },
+      {
+        // The bounded check of the request machine keeps one core busy for about a minute on a CI
+        // runner. It has its own project, so the package's `check`, which CI runs beside every
+        // other package's, leaves it out; `vp test` runs every project.
+        extends: true,
+        test: {
+          name: "identity-broker-effect-machine",
+          environment: "node",
+          include: ["packages/identity-broker-effect/src/rules/machine.test.ts"],
           exclude: ["**/node_modules/**"],
         },
       },

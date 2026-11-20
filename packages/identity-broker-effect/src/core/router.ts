@@ -6,7 +6,15 @@ import type { Store } from "../store/Store.ts";
 import type { CommandFailed } from "./command.ts";
 import type { ProviderUnavailable } from "./connectors/upstream.ts";
 import { json } from "./responses.ts";
-import { HubConfig, type Fetch, type Keys, type Random } from "./services.ts";
+import type { GateNamespace } from "../rules/schemas.ts";
+import {
+  HubConfig,
+  LiveGates,
+  type Fetch,
+  type Keys,
+  type Random,
+  type SignInPage,
+} from "./services.ts";
 import {
   authorize,
   continueSignIn,
@@ -17,7 +25,7 @@ import {
   userinfo,
 } from "./signIn.ts";
 
-export type CoreServices = Store | HubConfig | Keys | Random | Fetch;
+export type CoreServices = Store | HubConfig | SignInPage | Keys | Random | Fetch;
 
 /** The failures a route leaves to the router: each answers 500 and writes one log line. */
 export type RouteError = CommandFailed | ProviderUnavailable;
@@ -33,8 +41,15 @@ export type Route<R = never> = {
   readonly handler: (request: Request) => Effect.Effect<Response, RouteError, CoreServices | R>;
 };
 
-/** A route of the table, with its full path. */
-type Mounted<R> = Route<R> & { readonly fullPath: string };
+/** What the one registration layer of a hub gives it, from that layer's module. */
+export type Registration<R = never> = {
+  readonly routes: ReadonlyArray<Route<R>>;
+  /** The gate namespaces that the layer owns, read in each request. Absent: it owns none. */
+  readonly liveGates?: Effect.Effect<ReadonlyArray<GateNamespace>>;
+};
+
+/** A route of the table, with its full path. The core's sign-in routes read `LiveGates`. */
+type Mounted<R> = Route<R | LiveGates> & { readonly fullPath: string };
 
 /**
  * The hub's logger: one JSON object per line, on the console method of the entry's level, which is
@@ -60,19 +75,20 @@ const serverError = (annotations: {
   );
 
 /**
- * The broker's request handler. `routes` are the routes of the layers that the hub mounts, such as
- * the client registration endpoint, beside the core's sign-in routes.
+ * The broker's request handler. `registration` is the layer that the hub mounts: its routes, such
+ * as the client registration endpoint, beside the core's sign-in routes, and its live gates.
  */
-export function makeHandle<R = never>(options: { readonly routes: ReadonlyArray<Route<R>> }) {
+export function makeHandle<R = never>(registration: Registration<R>) {
   // RFC 7591: a mounted `POST /register` is the registration endpoint that discovery names.
   const metadata = discovery({
-    registration: options.routes.some(
+    registration: registration.routes.some(
       (route) => route.method === "POST" && route.path === "/register" && route.match === "exact",
     ),
   });
+  const liveGates = LiveGates.of({ read: registration.liveGates ?? Effect.succeed([]) });
   return Effect.fn("handle")(function* (request: Request) {
     const hub = yield* HubConfig;
-    const at = (route: Route<R>): Mounted<R> => ({
+    const at = (route: Route<R | LiveGates>): Mounted<R> => ({
       ...route,
       fullPath: `${hub.prefix}${route.path}`,
     });
@@ -144,7 +160,7 @@ export function makeHandle<R = never>(options: { readonly routes: ReadonlyArray<
           handler: upstreamCallback(connector),
         }),
       ),
-      ...options.routes.map(at),
+      ...registration.routes.map(at),
     ];
     const { pathname } = new URL(request.url);
     // HEAD runs the GET route and loses the body, as in Convex's HTTP router.
@@ -182,6 +198,7 @@ export function makeHandle<R = never>(options: { readonly routes: ReadonlyArray<
           serverError({ route: route.template, category: "provider_unavailable" }),
       }),
       Effect.catchCause(() => serverError({ route: route.template, category: "defect" })),
+      Effect.provideService(LiveGates, liveGates),
     );
     return head ? new Response(null, response) : response;
   });

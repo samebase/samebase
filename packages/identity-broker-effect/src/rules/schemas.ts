@@ -11,16 +11,33 @@ const opt = Schema.optionalKey;
 /** The hub's configured connector names, in the order discovery names them. */
 const configured = Strs;
 
+/**
+ * A namespace of card gates that a layer owns, with the gates of it that the hub has now: a card
+ * with a gate that starts with `prefix` and is not in `live` is refused, as a stop on that gate
+ * refuses it. A gate outside every prefix is not affected.
+ */
+export const GateNamespace = Schema.Struct({ prefix: Str, live: Strs });
+export type GateNamespace = typeof GateNamespace.Type;
+const liveGates = Schema.Array(GateNamespace);
+
 /** Where the user goes back to once a request fails or finishes: the client's exact redirect URI. */
-const returnFields = { redirectUri: Str, state: opt(Str) };
-export const Return = Schema.Struct(returnFields);
+export const Return = Schema.Struct({ redirectUri: Str, state: opt(Str) });
+export type Return = typeof Return.Type;
+
+/**
+ * The return address of a refusal, given only when the step read it on the client's card. Absent:
+ * the card is gone or no longer holds the address, and the hub sends the user nowhere (RFC 6749
+ * section 4.1.2.1).
+ */
+const back = Schema.optional(Return);
 
 export const TransitionResult = Schema.Union([
-  Schema.Struct({ ok: Schema.Literal(true), ...returnFields }),
+  /** The step read the return address on the card. */
+  Schema.Struct({ ok: Schema.Literal(true), back: Return }),
   Schema.Struct({
     ok: Schema.Literal(false),
     error: Schema.Literals(["expired", "wrong_status", "refused"]),
-    ...returnFields,
+    back,
   }),
   Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("not_found") }),
 ]);
@@ -39,6 +56,7 @@ export const CreateArgs = Schema.Struct({
   /** The connectors the request named; none named: every connector of the card. */
   requested: Strs,
   configured,
+  liveGates,
   freshLogin: Bool,
   txnCookieHash: Str,
   createdAt: Num,
@@ -61,8 +79,7 @@ export const GetResult = Schema.NullOr(
     requestId: Str,
     status: Schema.Literals(["pending", "upstream", "claimed", "completed"]),
     clientId: Str,
-    redirectUri: Str,
-    state: opt(Str),
+    back,
     connectors: Strs,
     freshLogin: Bool,
     txnCookieHash: Str,
@@ -76,6 +93,7 @@ export const StartUpstreamArgs = Schema.Struct({
   upstreamCodeVerifier: Str,
   upstreamNonce: opt(Str),
   configured,
+  liveGates,
   now: Num,
 });
 
@@ -85,6 +103,7 @@ export const ClaimUpstreamArgs = Schema.Struct({
   /** SHA-256 hex of each transaction cookie the callback request carried. */
   txnCookieHashes: Strs,
   configured,
+  liveGates,
   now: Num,
 });
 export const ClaimResult = Schema.Union([
@@ -97,11 +116,10 @@ export const ClaimResult = Schema.Union([
     freshLogin: Bool,
     /** When /authorize stored the request: an upstream `auth_time` before it is an old session. */
     createdAt: Num,
-    ...returnFields,
   }),
-  Schema.Struct({ status: Schema.Literal("expired"), requestId: Str, ...returnFields }),
+  Schema.Struct({ status: Schema.Literal("expired"), requestId: Str, back }),
   /** The request may not go on now; it is deleted. */
-  Schema.Struct({ status: Schema.Literal("refused"), requestId: Str, ...returnFields }),
+  Schema.Struct({ status: Schema.Literal("refused"), requestId: Str, back }),
   Schema.Struct({ status: Schema.Literal("unbound") }),
   Schema.Struct({ status: Schema.Literal("missing") }),
 ]);
@@ -114,9 +132,11 @@ export const CompleteArgs = Schema.Struct({
   codeHash: Str,
   codeExpiresAt: Num,
   configured,
+  liveGates,
   now: Num,
 });
 
+/** The deleted request's return address when the card holds it; null when it does not, or no request. */
 export const AbandonResult = Schema.NullOr(Return);
 
 export const ExchangeCodeArgs = Schema.Struct({
@@ -133,6 +153,7 @@ export const ExchangeCodeArgs = Schema.Struct({
   /** The `resource` parameter of the token request. A sign-in code grants none. */
   resource: opt(Str),
   configured,
+  liveGates,
   now: Num,
 });
 export const ExchangeResult = Schema.Union([

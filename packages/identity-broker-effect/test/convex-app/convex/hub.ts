@@ -4,9 +4,9 @@
 // that provider and sets the environment variables of the local deployment: the signing keys and
 // `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
 import { Config, Effect, Layer, Redacted } from "effect";
-import { HubConfig } from "../../../src/core/services.ts";
+import { HubConfig, SignInPage } from "../../../src/core/services.ts";
 import { convexHub } from "../../../src/hosts/convex/hub.ts";
-import { GithubSettings } from "../../../src/layers/github/settings.ts";
+import { github } from "../../../src/layers/github/routes.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";
 
@@ -58,8 +58,12 @@ const settings = Layer.unwrap(
       },
     }).pipe(Layer.orDie);
   }),
-).pipe(Layer.merge(GithubSettings.layer([{ repositoryId: "1", ownerId: "65" }])));
+).pipe(Layer.merge(SignInPage.layer()));
 
-export const hub = convexHub(components.identityBroker, settings);
+export const hub = convexHub(
+  components.identityBroker,
+  settings,
+  github([{ repositoryId: "1", ownerId: "65" }]),
+);
 
 export const cleanup = hub.cleanup;

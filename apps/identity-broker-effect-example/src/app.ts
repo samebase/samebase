@@ -1,5 +1,4 @@
-// The app's routes: the home page, sign-in with Google through the identity hub, sign-out, and the
-// file that the hub reads before it registers this deployment's client.
+// The app's routes: the home page, sign-in with Google through the identity hub, and sign-out.
 //
 // No page and no log line holds a token, a code, a secret, or a URL with its query: the callback
 // URL carries the code. A failed sign-in logs only its route and a fixed category.
@@ -17,8 +16,6 @@ import {
 } from "./hub-client.ts";
 import { Session } from "./session.ts";
 
-/** The numeric GitHub id of samebase/samebase, which the verification file names. */
-const REPOSITORY_ID = "1021726325";
 /** The hub sign-in has this long, from /login to /callback. */
 const SIGN_IN_TTL = Duration.minutes(10);
 /** A session lasts this long. */
@@ -154,11 +151,6 @@ export const app = Effect.gen(function* () {
   switch (url.pathname) {
     case "/":
       return yield* home;
-    case "/samebase-verification.json":
-      return HttpServerResponse.jsonUnsafe(
-        { repository: REPOSITORY_ID },
-        { headers: SECURITY_HEADERS },
-      );
     case "/logout":
       return redirect("/").pipe(HttpServerResponse.expireCookieUnsafe(SESSION_COOKIE, COOKIE));
     case "/login":

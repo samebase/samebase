@@ -3,7 +3,9 @@
 // Layer that implements it; a host composes those Layers with its own `Store` Layer, and the tests
 // build theirs in src/core/testing/harness.ts.
 import { Config, Context, Effect, Layer, type Redacted, Schema } from "effect";
+import type { GateNamespace } from "../rules/schemas.ts";
 import type { Connector } from "./connectors/types.ts";
+import { signInPage, type SignInPageFunction } from "./html.ts";
 import { isSecureUrl } from "./protocol.ts";
 
 /** The hub's sign-in service as users meet it on the page before the provider and in discovery. */
@@ -106,6 +108,19 @@ export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
   static readonly layer = (input: HubConfigInput) => Layer.effect(HubConfig, HubConfig.make(input));
 }
 
+/**
+ * The page before the provider (src/core/html.ts): a function from its facts to a whole HTML
+ * document. The hub answers it with its own headers; its error pages stay the hub's own.
+ */
+export class SignInPage extends Context.Service<
+  SignInPage,
+  { readonly render: SignInPageFunction }
+>()("identity-broker-effect/core/SignInPage") {
+  /** `render`, or the default page without it. */
+  static readonly layer = (render: SignInPageFunction = signInPage) =>
+    Layer.succeed(SignInPage, SignInPage.of({ render }));
+}
+
 /** The signing keys: the content of `IDENTITY_BROKER_KEYS`, read in the request (src/core/keys.ts). */
 export class Keys extends Context.Service<
   Keys,
@@ -117,6 +132,16 @@ export class Keys extends Context.Service<
     Effect.map(Config.Redacted("IDENTITY_BROKER_KEYS"), (keys) => Keys.of({ read: () => keys })),
   );
 }
+
+/**
+ * The gate namespaces that the hub's registration layer owns, with the gates of each that the hub
+ * has now. Every sign-in step reads them in its request and gives them to its command;
+ * `makeHandle` provides them from the layer (src/core/router.ts).
+ */
+export class LiveGates extends Context.Service<
+  LiveGates,
+  { readonly read: Effect.Effect<ReadonlyArray<GateNamespace>> }
+>()("identity-broker-effect/core/LiveGates") {}
 
 /** Random bytes: `crypto.getRandomValues` in production, a seeded source in tests. */
 export class Random extends Context.Service<

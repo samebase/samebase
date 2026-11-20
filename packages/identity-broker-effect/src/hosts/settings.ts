@@ -1,16 +1,13 @@
 // The settings of one hub, the same on every host: its issuer, the client of each provider, the
-// GitHub layer's allow-list and the names of its sign-in service. A host gives
+// names of its sign-in service and its page before the provider. A host gives
 // `hubSettings(options)` to its runtime; the secrets are Effect `Config` values, which each host's
-// configuration provider reads when the runtime builds its services.
-import { Config, Effect, Layer, type Redacted, Schema } from "effect";
+// configuration provider reads when the runtime builds its services. The registration layer is not
+// a setting: the app's hub module gives the host the routes of the one layer it mounts.
+import { Config, Effect, Layer, type Redacted } from "effect";
 import { github } from "../core/connectors/github.ts";
 import { google } from "../core/connectors/google.ts";
-import { HubConfig, type ServiceSettings } from "../core/services.ts";
-import { AllowList } from "../layers/github/schemas.ts";
-import { GithubSettings } from "../layers/github/settings.ts";
-
-/** The allow-list as JSON text: GitHub's numeric repository id and owner id pairs. */
-export const AllowedRepositories = Schema.fromJsonString(AllowList);
+import type { SignInPageFunction } from "../core/html.ts";
+import { HubConfig, SignInPage, type ServiceSettings } from "../core/services.ts";
 
 /** A secret of the hub. */
 type Secret = Config.Config<Redacted.Redacted<string>>;
@@ -27,19 +24,19 @@ export type HubSettings = {
     readonly google?: ConnectorCredentials;
     readonly github?: ConnectorCredentials;
   };
-  /**
-   * The repositories whose clients get every configured connector while the named owner owns
-   * them. The owner id is checked with the repository id: a transferred repository keeps its id.
-   */
-  readonly allowedRepositories: typeof AllowList.Type;
   /** The names that the sign-in page shows and discovery names. */
   readonly service: ServiceSettings;
+  /**
+   * The hub's own page before the provider, from its facts to a whole HTML document; the default
+   * page without it. The hub answers it with its own headers, and its error pages stay its own.
+   */
+  readonly signInPage?: SignInPageFunction;
 };
 
 /**
- * The hub's configuration and the GitHub layer's settings. A configuration that the hub cannot run
- * with stops the runtime where it builds its services: the deploy on Cloudflare, each request on
- * Convex.
+ * The hub's configuration and its page before the provider. A configuration that the hub cannot
+ * run with stops the runtime where it builds its services: the deploy on Cloudflare, each request
+ * on Convex.
  */
 export const hubSettings = (options: HubSettings) =>
   Layer.merge(
@@ -74,5 +71,5 @@ export const hubSettings = (options: HubSettings) =>
         }).pipe(Layer.orDie);
       }),
     ),
-    GithubSettings.layer(options.allowedRepositories),
+    SignInPage.layer(options.signInPage),
   );

@@ -1,8 +1,9 @@
 // The authorization request machine: create (pending), start (upstream), claim (claimed), complete
 // (completed plus an unused code), exchange (request deleted, code marked used), and the replay that
 // removes the used code. Every step reads the client's card in its own transaction and refuses when
-// the card is gone or stopped, the request's return address left it, or the connector is not in
-// the request's stored set, the card's set and the hub's configured set.
+// the card is gone, a stop or a gate that is not live refuses it, the request's return address left
+// it, or the connector is not in the request's stored set, the card's set and the hub's configured
+// set.
 import { Effect } from "effect";
 import { unique, type Row } from "../store/Tx.ts";
 import { cardRow, isStopped, usableCard, used } from "./clients.ts";
@@ -16,6 +17,7 @@ import type {
   ExchangeCodeArgs,
   ExchangeResult,
   RequestIdArgs,
+  Return,
   StartUpstreamArgs,
   TransitionResult,
 } from "./schemas.ts";
@@ -28,9 +30,20 @@ const findByRequestId = Effect.fnUntraced(function* (requestId: string) {
 });
 
 /** Where the user goes back to: the client's exact redirect URI, with the app's state. */
-const returnTo = (request: AuthRequest) => ({
+const returnOf = (request: AuthRequest): Return => ({
   redirectUri: request.redirectUri,
   ...(request.state === undefined ? {} : { state: request.state }),
+});
+
+/**
+ * The request's return address when the client's card holds it in this step, else undefined: the
+ * hub never sends the user to an address that is not on the card.
+ */
+const returnTo = Effect.fnUntraced(function* (request: AuthRequest) {
+  const card = yield* cardRow(request.clientId);
+  return card !== undefined && card.doc.redirectUris.includes(request.redirectUri)
+    ? returnOf(request)
+    : undefined;
 });
 
 /**
@@ -88,7 +101,7 @@ const spendBudget = Effect.fnUntraced(function* (key: string, now: number) {
 
 /**
  * Stores a validated /authorize request, from the card as it is in this step: the card must exist,
- * be stopped by no gate and hold the return address. The stored set is what the request named
+ * be refused by no gate (`isStopped`) and hold the return address. The stored set is what the request named
  * (none named: every connector of the card), of those on the card and configured; `off` when none
  * is left. The answer carries the card's `confirm` of this step, and the start spends the card's
  * `budget`. A refused request writes no row.
@@ -102,7 +115,7 @@ export const create = Effect.fnUntraced(function* (
   if (card === undefined) {
     return { ok: false, error: "unknown_client" };
   }
-  if (yield* isStopped(card.doc)) {
+  if (yield* isStopped(card.doc, args.liveGates)) {
     return { ok: false, error: "stopped" };
   }
   if (!card.doc.redirectUris.includes(args.redirectUri)) {
@@ -146,7 +159,7 @@ export const get = Effect.fnUntraced(function* (args: typeof RequestIdArgs.Type)
     requestId: request.requestId,
     status: request.status,
     clientId: request.clientId,
-    ...returnTo(request),
+    back: yield* returnTo(request),
     connectors: request.connectors,
     freshLogin: request.freshLogin,
     txnCookieHash: request.txnCookieHash,
@@ -166,17 +179,16 @@ export const startUpstream = Effect.fnUntraced(function* (
     return { ok: false, error: "not_found" };
   }
   const request = row.doc;
-  const back = returnTo(request);
   if (request.expiresAt <= args.now) {
-    return { ok: false, error: "expired", ...back };
+    return { ok: false, error: "expired", back: yield* returnTo(request) };
   }
   // A chooser page can be reloaded, so a pending request may start upstream more than once; the
   // newest state hash wins. Any other status means the flow already moved on.
   if (request.status !== "pending" && request.status !== "upstream") {
-    return { ok: false, error: "wrong_status", ...back };
+    return { ok: false, error: "wrong_status", back: yield* returnTo(request) };
   }
-  if ((yield* usableCard(request, args.connector, args.configured)) === undefined) {
-    return { ok: false, error: "refused", ...back };
+  if ((yield* usableCard(request, args.connector, args)) === undefined) {
+    return { ok: false, error: "refused", back: yield* returnTo(request) };
   }
   yield* tx.replace("authRequests", row.id, {
     status: "upstream",
@@ -186,7 +198,7 @@ export const startUpstream = Effect.fnUntraced(function* (
     upstreamCodeVerifier: args.upstreamCodeVerifier,
     ...(args.upstreamNonce === undefined ? {} : { upstreamNonce: args.upstreamNonce }),
   });
-  return { ok: true, ...back };
+  return { ok: true, back: returnOf(request) };
 });
 
 /**
@@ -208,14 +220,13 @@ export const claimUpstream = Effect.fnUntraced(function* (
   if (!args.txnCookieHashes.includes(request.txnCookieHash)) {
     return { status: "unbound" };
   }
-  const back = returnTo(request);
   if (request.expiresAt <= args.now) {
     yield* tx.delete("authRequests", row.id);
-    return { status: "expired", requestId: request.requestId, ...back };
+    return { status: "expired", requestId: request.requestId, back: yield* returnTo(request) };
   }
-  if ((yield* usableCard(request, request.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, request.connector, args)) === undefined) {
     yield* tx.delete("authRequests", row.id);
-    return { status: "refused", requestId: request.requestId, ...back };
+    return { status: "refused", requestId: request.requestId, back: yield* returnTo(request) };
   }
   yield* tx.replace("authRequests", row.id, {
     status: "claimed",
@@ -230,7 +241,6 @@ export const claimUpstream = Effect.fnUntraced(function* (
     ...(request.upstreamNonce === undefined ? {} : { upstreamNonce: request.upstreamNonce }),
     freshLogin: request.freshLogin,
     createdAt: request.createdAt,
-    ...back,
   };
 });
 
@@ -249,16 +259,15 @@ export const complete = Effect.fnUntraced(function* (
     return { ok: false, error: "not_found" };
   }
   const request = row.doc;
-  const back = returnTo(request);
   if (request.expiresAt <= args.now) {
-    return { ok: false, error: "expired", ...back };
+    return { ok: false, error: "expired", back: yield* returnTo(request) };
   }
   if (request.status !== "claimed") {
-    return { ok: false, error: "wrong_status", ...back };
+    return { ok: false, error: "wrong_status", back: yield* returnTo(request) };
   }
-  if ((yield* usableCard(request, request.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, request.connector, args)) === undefined) {
     yield* tx.delete("authRequests", row.id);
-    return { ok: false, error: "refused", ...back };
+    return { ok: false, error: "refused", back: yield* returnTo(request) };
   }
   yield* tx.replace("authRequests", row.id, {
     status: "completed",
@@ -273,10 +282,13 @@ export const complete = Effect.fnUntraced(function* (
     clientId: request.clientId,
     expiresAt: args.codeExpiresAt,
   });
-  return { ok: true, ...back };
+  return { ok: true, back: returnOf(request) };
 });
 
-/** Deletes a request the user abandoned at the hub, such as a failed provider sign-in. */
+/**
+ * Deletes a request the user abandoned at the hub, such as a failed provider sign-in. Answers its
+ * return address when the card holds it in this step, else null.
+ */
 export const abandon = Effect.fnUntraced(function* (args: typeof RequestIdArgs.Type) {
   const tx = yield* Tx;
   const row = yield* findByRequestId(args.requestId);
@@ -284,7 +296,7 @@ export const abandon = Effect.fnUntraced(function* (args: typeof RequestIdArgs.T
     return null;
   }
   yield* tx.delete("authRequests", row.id);
-  return returnTo(row.doc);
+  return (yield* returnTo(row.doc)) ?? null;
 });
 
 const invalid = (
@@ -310,7 +322,7 @@ export const exchangeCode = Effect.fnUntraced(function* (
     card === undefined ||
     card.doc.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
     card.doc.secretHash !== args.clientSecretHash ||
-    (yield* isStopped(card.doc))
+    (yield* isStopped(card.doc, args.liveGates))
   ) {
     return invalid("invalid_client", "Client authentication failed.");
   }
@@ -347,7 +359,7 @@ export const exchangeCode = Effect.fnUntraced(function* (
   if (args.codeChallengeOfVerifier !== request.codeChallenge) {
     return invalid("invalid_grant", "code_verifier does not match code_challenge.");
   }
-  if ((yield* usableCard(request, request.identity.connector, args.configured)) === undefined) {
+  if ((yield* usableCard(request, request.identity.connector, args)) === undefined) {
     return invalid("invalid_grant", "This client cannot finish this sign-in now.");
   }
   yield* tx.replace("authorizationCodes", code.id, { ...code.doc, usedAt: args.now });

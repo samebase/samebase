@@ -18,6 +18,12 @@
 // with `deploymentType: "development"` asks the hub with the token in place of the GitHub token
 // (RFC 133).
 //
+// A hub on the stack layer, which the app's own stack deploys, takes a key in place of a proof:
+// a client with `key` asks with it, from any run, and the hub reads no verification file.
+// `IdentityHub.registrationKey` makes each key in the stage that deploys the hub and reads it in
+// every other stage. That stage's client waits until the hub answers discovery, so one run deploys
+// the hub and registers its client.
+//
 // A client is enrolled in the connectors it signs in through, such as `google` and `github`, at
 // registration (RFC 137), and holds the return addresses its requests may name, one per handler of
 // the app, such as the sign-in callback and the connections callback. The hub records both sets on
@@ -42,11 +48,13 @@ import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Output from "alchemy/Output";
 import * as Provider from "alchemy/Provider";
+import { Random } from "alchemy/Random";
 import { Stack } from "alchemy/Stack";
 import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
+import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import type { Providers } from "./Providers.ts";
 
@@ -128,16 +136,30 @@ interface CommonProps {
 /**
  * A production or preview client asks with the GitHub OIDC token of the run. A development client
  * asks with the app's initial access token, which `IdentityHub.Client.read` gives from stage `prod`.
+ * A client of any type with `key` asks with that key, a key of a hub on the stack layer, such as
+ * `IdentityHub.registrationKey` gives.
  */
 export type ClientProps =
   | (CommonProps & {
       readonly deploymentType: "production" | "preview";
       readonly initialAccessToken?: never;
+      readonly key?: never;
     })
   | (CommonProps & {
       readonly deploymentType: "development";
       /** Empty before the first production registration: the client gets the off values. */
       readonly initialAccessToken: Redacted.Redacted<string>;
+      readonly key?: never;
+    })
+  | (CommonProps & {
+      readonly deploymentType: "production" | "preview" | "development";
+      /**
+       * The Bearer of `POST /register`. Undefined, as before the stage that makes the key ever
+       * ran: the client gets the off values, or the run fails when `required`. The hub decides
+       * whether this key may register a production client.
+       */
+      readonly key: Redacted.Redacted<string> | undefined;
+      readonly initialAccessToken?: never;
     });
 
 const DeploymentType = Schema.Literals(["production", "preview", "development"]);
@@ -211,9 +233,13 @@ const sameSet = (a: readonly string[], b: readonly string[]) =>
 const where = (client: { app: string; redirectUris: readonly string[] }) =>
   `${client.app} on ${client.redirectUris.join(", ")}`;
 
-/** What one registration sends, resolved from the props: the app's name and both sets. */
+/**
+ * What one registration sends, resolved from the props: the app's name, the deployment's name (the
+ * stage), and both sets.
+ */
 interface Enrollment {
   readonly app: string;
+  readonly clientName: string;
   readonly connectors: readonly string[];
   readonly redirectUris: readonly string[];
 }
@@ -331,19 +357,37 @@ const refusalOf = (status: number, body: unknown): string => {
   }
 };
 
-const send = (who: string, url: string, token: string, init: { method: string; body?: string }) =>
-  Effect.tryPromise({
-    try: async () => {
-      const response = await fetch(url, {
-        ...init,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+/**
+ * One request to `who` at `url`, with `token` as its Bearer. A token goes only to an https URL:
+ * to any other URL the request is not made.
+ */
+const send = (
+  who: string,
+  url: string,
+  token: string | undefined,
+  init: { method: string; body?: string },
+) =>
+  token !== undefined && !(URL.canParse(url) && new URL(url).protocol === "https:")
+    ? Effect.fail(
+        new IdentityHubClientFailed({
+          reason: `${who} is not at an https URL, so no credential was sent to it`,
+        }),
+      )
+    : Effect.tryPromise({
+        try: async () => {
+          const response = await fetch(url, {
+            ...init,
+            headers: {
+              ...(token === undefined ? {} : { Authorization: `Bearer ${token}` }),
+              "Content-Type": "application/json",
+            },
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+          });
+          const body: unknown = await response.json().catch(() => undefined);
+          return { status: response.status, body };
+        },
+        catch: () => new IdentityHubClientFailed({ reason: `${who} gave no answer` }),
       });
-      const body: unknown = await response.json().catch(() => undefined);
-      return { status: response.status, body };
-    },
-    catch: () => new IdentityHubClientFailed({ reason: `${who} gave no answer` }),
-  });
 
 const decode =
   <S extends Schema.Codec<unknown, unknown>>(schema: S, who: string) =>
@@ -374,9 +418,10 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
 
 /**
  * `POST /register`, the client registration request of RFC 7591, with `bearer` as its initial
- * access token: the GitHub OIDC token, or the app's own token. `software_id` is the app's name, and
- * `connectors` is the hub's own metadata field. Convex Auth posts the client's secret in the body
- * at the token endpoint, so the client registers that method.
+ * access token: the GitHub OIDC token, the app's own token, or a key of the hub. `software_id` is
+ * the app's name, `client_name` the stage, and `connectors` and `deployment_type` are the hub's own
+ * metadata fields. Convex Auth posts the client's secret in the body at the token endpoint, so the
+ * client registers that method.
  */
 const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: string) =>
   Effect.gen(function* () {
@@ -388,15 +433,21 @@ const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: st
         redirect_uris: redirectUris,
         software_id: app,
         software_version: props.softwareVersion ?? "unknown",
+        client_name: enrollment.clientName,
+        deployment_type: props.deploymentType,
         connectors,
         token_endpoint_auth_method: "client_secret_post",
       }),
     });
     if (status !== 201) {
       const reason =
-        status === 401 && props.deploymentType === "development"
-          ? "the identity hub refused the initial access token"
-          : refusalOf(status, body);
+        status !== 401
+          ? refusalOf(status, body)
+          : "key" in props
+            ? "the identity hub refused the registration key"
+            : props.deploymentType === "development"
+              ? "the identity hub refused the initial access token"
+              : refusalOf(status, body);
       return yield* new IdentityHubClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
     const client = yield* decode(NewClient, "The identity hub")(body);
@@ -431,6 +482,37 @@ const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: st
     };
   });
 
+const Discovery = Schema.Struct({ issuer: Schema.String });
+
+/**
+ * The time a hub has to answer discovery before a registration with a key: the stage that deploys
+ * the hub registers its own client in the same run, and a new workers.dev route answers after
+ * about a minute. Delays of 1, 2, 4, 8 and then 15 seconds, about three minutes in all.
+ */
+const DISCOVERY_RETRY = {
+  times: 15,
+  schedule: Schedule.min([Schedule.exponential("1 second"), Schedule.spaced("15 seconds")]),
+};
+
+/**
+ * Succeeds when the hub's discovery document names the hub's issuer, after bounded retries; fails
+ * when it never does.
+ */
+const hubAnswers = (hub: Hub) =>
+  send("The identity hub", `${hub.issuer}/.well-known/openid-configuration`, undefined, {
+    method: "GET",
+  }).pipe(
+    Effect.flatMap(({ body, status }) =>
+      status === 200 &&
+      Option.getOrUndefined(Schema.decodeUnknownOption(Discovery)(body))?.issuer === hub.issuer
+        ? Effect.void
+        : Effect.fail(
+            new IdentityHubClientFailed({ reason: "the identity hub does not answer discovery" }),
+          ),
+    ),
+    Effect.retry(DISCOVERY_RETRY),
+  );
+
 /** A new client, or the off values. */
 const newClient = (props: ClientProps, enrollment: Enrollment) => {
   const label = `IdentityHub.Client: ${where(enrollment)} deploys without the hub`;
@@ -444,6 +526,14 @@ const newClient = (props: ClientProps, enrollment: Enrollment) => {
         ),
       ),
     );
+
+  if ("key" in props) {
+    return props.key === undefined
+      ? Effect.logInfo(
+          `${label}: it has no registration key yet. Deploy the stage that makes the key first.`,
+        ).pipe(Effect.as(off))
+      : request(Effect.as(hubAnswers(props.hub), Redacted.value(props.key)));
+  }
 
   if (props.deploymentType === "development") {
     const token = Redacted.value(props.initialAccessToken);
@@ -561,6 +651,50 @@ const read = (id: string, options: { readonly stage: string }) =>
     }),
   );
 
+/** A saved row of an `Alchemy.Random`, whose `text` the store revives as `Redacted`. */
+const SavedKey = Schema.Struct({
+  resourceType: Schema.Literal("Alchemy.Random"),
+  attr: Schema.Struct({ text: Schema.Redacted(Schema.String) }),
+});
+
+/**
+ * A key of a hub on the stack layer, as a redacted Output, for the hub's secret binding and for
+ * `IdentityHub.Client`'s `key`. `id` is the key's resource id, the author's name for it, so a stack
+ * can make several. In `options.stage`, the stage that deploys the hub, the key is an
+ * `Alchemy.Random` at the stack's root, made once and kept in state; the stack's providers need
+ * Random's provider (`Convex.providers()` and `Cloudflare.providers()` hold one). Every other stage
+ * reads that row from the state store, as `IdentityHub.Client.read` does, so it never creates the
+ * key; before the hub's stage ran, there is no row and no key (`undefined`).
+ */
+export const registrationKey = (id: string, options: { readonly stage: string }) =>
+  Effect.gen(function* () {
+    const { stage } = yield* Stack;
+    if (stage === options.stage) {
+      const key: Output.Output<Redacted.Redacted<string> | undefined> = (yield* Random(id)).text;
+      return key;
+    }
+    return Output.fromEffect(
+      Effect.gen(function* () {
+        const stack = yield* Stack;
+        const state = yield* yield* State;
+        const row = yield* state
+          .get({ stack: stack.name, stage: options.stage, fqn: id })
+          .pipe(Effect.orDie);
+        if (row === undefined) return undefined;
+        const saved = yield* Schema.decodeUnknownEffect(SavedKey)(row).pipe(
+          Effect.catchCause(() =>
+            Effect.die(
+              new IdentityHubClientFailed({
+                reason: `the row ${id} of stage ${options.stage} is not an Alchemy.Random`,
+              }),
+            ),
+          ),
+        );
+        return saved.attr.text;
+      }),
+    );
+  });
+
 /**
  * The three values that the app's deployment gets, such as `IDENTITY_HUB_ISSUER`,
  * `IDENTITY_HUB_CLIENT_ID`, and `IDENTITY_HUB_CLIENT_SECRET`, as Outputs: the client's values when
@@ -622,6 +756,7 @@ export const ClientProvider = () =>
       }
       const enrollment: Enrollment = {
         app,
+        clientName: stack.stage,
         connectors: sortedSet(news.connectors),
         redirectUris: sortedSet(news.redirectUris),
       };

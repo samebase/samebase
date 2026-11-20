@@ -11,7 +11,7 @@ import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
 import { github } from "../connectors/github.ts";
-import { hubLogger, makeHandle, type Route } from "../router.ts";
+import { hubLogger, makeHandle, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { google } from "../connectors/google.ts";
 import type { Connector } from "../connectors/types.ts";
@@ -21,9 +21,11 @@ import {
   HubConfig,
   Keys,
   Random,
+  SignInPage,
   type HubConfigInput,
   type ServiceSettings,
 } from "../services.ts";
+import type { SignInPageFunction } from "../html.ts";
 
 /**
  * A deterministic `Random`: the same seed gives the same bytes in the same order (xorshift32).
@@ -180,6 +182,8 @@ export async function coreServices(
   seed = 1,
   /** A stub that the test made first, to plan a fake provider whose connector the config needs. */
   fetch: StubFetch = stubFetch(),
+  /** The hub's own page before the provider; the default page without it. */
+  signInPage?: SignInPageFunction,
 ) {
   const clock = testClock();
   const keySet = await testKeySet();
@@ -193,6 +197,7 @@ export async function coreServices(
   );
   const layer = Layer.mergeAll(
     Layer.succeed(HubConfig, hub),
+    SignInPage.layer(signInPage),
     Layer.succeed(Keys, keys.service),
     Layer.succeed(Random, seededRandom(seed)),
     Layer.succeed(Fetch, fetch.service),
@@ -294,18 +299,19 @@ export function sqliteTestStore(database: SqliteDatabase, now: number): TestStor
  * through `fetchBroker`. The
  * Store's step clock follows the test clock, so `clock.set` and `clock.advance` move both.
  * `failCommands` makes the commands whose name it answers true for fail with `StoreUnavailable`,
- * as a lost RPC reply does, until it is set to null. `routes` are a layer's routes, each with the
- * layer's own services provided.
+ * as a lost RPC reply does, until it is set to null. `registration` is a layer as a host mounts it,
+ * each route with the layer's own services provided.
  */
 export async function createBroker(
   options: {
     config?: Partial<HubConfigInput>;
     seed?: number;
-    routes?: ReadonlyArray<Route>;
+    registration?: Registration;
     fetch?: StubFetch;
+    signInPage?: SignInPageFunction;
   } = {},
 ) {
-  const core = await coreServices(options.config, options.seed, options.fetch);
+  const core = await coreServices(options.config, options.seed, options.fetch, options.signInPage);
   // `memory` is the test Store of the run: the memory Store, or node:sqlite (`useTestStore`).
   const memory = makeTestStore(core.clock.now());
   const failing: { commands: ((name: string) => boolean) | null } = { commands: null };
@@ -315,7 +321,7 @@ export async function createBroker(
         ? Effect.fail(new StoreUnavailable())
         : memory.store.run(name, args),
   });
-  const handle = makeHandle({ routes: options.routes ?? [] });
+  const handle = makeHandle(options.registration ?? { routes: [] });
   const layer = Layer.merge(core.layer, Layer.succeed(Store, store));
   const clock = {
     now: core.clock.now,

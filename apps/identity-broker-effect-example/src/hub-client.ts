@@ -13,6 +13,11 @@ import * as oauth from "oauth4webapi";
 
 /** The app's own hub (src/hub.ts), which the stage `prod` deploys. */
 const HUB = { issuer: "https://identity-broker-effect-example-hub-prod.pfp.workers.dev" };
+/**
+ * The resource ids of the hub's two keys, which the stage `prod` makes (alchemy.run.ts) and every
+ * other stage reads from the state of `prod`.
+ */
+export const HUB_KEYS = { production: "HubProductionKey", preview: "HubPreviewKey" } as const;
 /** IdentityHub.Client gives this client id when the deployment has no client. */
 const OFF_CLIENT_ID = "no-hub";
 /** The hub connector that the sign-in link names. */
@@ -208,23 +213,28 @@ export class HubClient extends Context.Service<
 
   /**
    * The service on Cloudflare, with the client of this deployment on the app's hub: a production
-   * client at the stage `prod`, a preview client at every other stage. Yielding the client's
-   * Outputs here binds them to the Worker as IDENTITY_HUB_* at deploy, and reads them from the
-   * Worker's env per request. The hub registers the client only for a GitHub Actions OIDC token, a
-   * production client only for a run of main, after it reads `/samebase-verification.json` at the
-   * origin of `redirectUri`; until then the client gives the off values. `Convex.providers()` in
-   * the stack holds the client's provider, so none of its code runs in the Worker.
+   * client at the stage `prod`, with the hub's production key, and a preview client at every other
+   * stage, with its preview key (`HUB_KEYS`). Yielding the client's Outputs here binds them to the
+   * Worker as IDENTITY_HUB_* at deploy, and reads them from the Worker's env per request. A stage
+   * that runs before `prod` made the keys has no key, and its client gives the off values.
+   * `Convex.providers()` in the stack holds the client's provider, so none of its code runs in the
+   * Worker.
    */
   static readonly layer = (redirectUri: (stage: string) => string) =>
     Layer.unwrap(
       Effect.gen(function* () {
         const { stage } = yield* Alchemy.Stack;
+        const production = stage === "prod";
         const client = IdentityHub.Client.variables(
           yield* IdentityHub.Client("HubClient", {
             hub: HUB,
             connectors: [CONNECTOR],
             redirectUris: [redirectUri(stage)],
-            deploymentType: stage === "prod" ? "production" : "preview",
+            deploymentType: production ? "production" : "preview",
+            key: yield* IdentityHub.registrationKey(
+              production ? HUB_KEYS.production : HUB_KEYS.preview,
+              { stage: "prod" },
+            ),
           }),
         );
         return HubClient.layerWith({

@@ -19,7 +19,8 @@
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "@cloudflare/workers-types": "5.20261028.1",
     "@effect/vitest": "4.1.4",
-    "@samebase/alchemy-convex": "0.41.0",
+    "@samebase/alchemy-convex": "workspace:*",
+    "@samebase/identity-broker-effect": "workspace:*",
     "@types/node": "24.19.2",
     "alchemy": "2.0.0-beta.87",
     "typescript": "7.0.2"

@@ -3,13 +3,14 @@
 // read this declaration; the core's rules read only their own part through their `Tx`.
 import { Schema } from "effect";
 import * as github from "../layers/github/tables.ts";
+import * as stack from "../layers/stack/tables.ts";
 import { cardFields, cardIndexes, coreTables } from "../rules/tables.ts";
 import type { DocOf, IndexOf } from "./Tx.ts";
 
 export const tables = {
   ...coreTables,
   clients: {
-    schema: Schema.Struct({ ...cardFields, ...github.cardFields }),
+    schema: Schema.Struct({ ...cardFields, ...github.cardFields, ...stack.cardFields }),
     indexes: { ...cardIndexes, ...github.cardIndexes },
   },
   ...github.githubTables,

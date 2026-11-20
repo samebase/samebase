@@ -4,13 +4,15 @@
 import { Effect, Schema } from "effect";
 import { githubCommands } from "../layers/github/commands.ts";
 import { GithubTx } from "../layers/github/tables.ts";
+import { stackCommands } from "../layers/stack/commands.ts";
+import { StackTx } from "../layers/stack/tables.ts";
 import { coreCommands, type Command } from "../rules/commands.ts";
 import { Tx, type CoreTables } from "../rules/tables.ts";
 import { microtaskScheduler } from "./Store.ts";
 import type { Tables } from "./tables.ts";
 import type { TxShape } from "./Tx.ts";
 
-const definitions = { ...coreCommands, ...githubCommands };
+const definitions = { ...coreCommands, ...githubCommands, ...stackCommands };
 
 type Definitions = typeof definitions;
 export type CommandName = keyof Definitions;
@@ -19,7 +21,7 @@ export type Result<N extends CommandName> = Definitions[N]["result"]["Type"];
 
 /** The registry, typed so that `commands[name]` keeps the argument and result types of `name`. */
 export const commands: {
-  readonly [N in CommandName]: Command<Args<N>, Result<N>, Tx | GithubTx>;
+  readonly [N in CommandName]: Command<Args<N>, Result<N>, Tx | GithubTx | StackTx>;
 } = definitions;
 
 export const commandNames = [
@@ -39,6 +41,9 @@ export const commandNames = [
   "github.createDevelopmentClient",
   "github.renew",
   "github.remove",
+  "stack.createClient",
+  "stack.renew",
+  "stack.remove",
 ] as const satisfies ReadonlyArray<CommandName>;
 
 /** Fails to compile when a command is missing from `commandNames`. */
@@ -83,7 +88,11 @@ const ruleOver = <N extends CommandName>(
 ): Effect.Effect<Result<N>> =>
   commands[name]
     .rule(args, { now })
-    .pipe(Effect.provideService(GithubTx, tx), Effect.provideService(Tx, coreView(tx)));
+    .pipe(
+      Effect.provideService(GithubTx, tx),
+      Effect.provideService(StackTx, tx),
+      Effect.provideService(Tx, coreView(tx)),
+    );
 
 /**
  * Runs the rule of `name` to completion over `tx` and encodes its result, inside the host's

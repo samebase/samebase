@@ -2,10 +2,13 @@
 // alchemy.run.ts. Every stage's client names its issuer (src/hub-client.ts). Google accepts only
 // exact callback addresses, so the app has this one hub, at one fixed address, for all its stages.
 //
-// Each secret is the deploying shell's variable of that name, bound to the Worker. The signing keys
-// are its `IDENTITY_BROKER_KEYS`.
+// The hub registers a client for either of its two keys (the stack layer), which alchemy.run.ts
+// makes and binds to this Worker as secrets: the production key may make the permanent client of
+// `prod`, the preview key only clients with a removal date. The Google client and the signing keys
+// (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import { Config } from "effect";
-import { hubWorker } from "../../../packages/identity-broker-effect/src/hosts/cloudflare/hub.ts";
+import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
+import { stack } from "@samebase/identity-broker-effect/stack";
 
 export default hubWorker({
   main: import.meta.url,
@@ -19,8 +22,12 @@ export default hubWorker({
       clientSecret: Config.Redacted("EXAMPLE_HUB_GOOGLE_CLIENT_SECRET"),
     },
   },
-  // samebase/samebase only.
-  allowedRepositories: [{ repositoryId: "1021726325", ownerId: "285392744" }],
+  registration: stack({
+    keys: {
+      production: { key: Config.Redacted("EXAMPLE_HUB_PRODUCTION_KEY"), permanent: true },
+      preview: { key: Config.Redacted("EXAMPLE_HUB_PREVIEW_KEY") },
+    },
+  }),
   service: {
     name: "Identity broker example",
     terms: "https://samebase.com/terms",

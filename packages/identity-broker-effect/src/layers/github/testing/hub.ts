@@ -61,13 +61,15 @@ export async function createHub(
     config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
     ...(options.seed === undefined ? {} : { seed: options.seed }),
     // Each request reads the allow-list of that moment, as a host reads its settings.
-    routes: githubRoutes.map((route) => ({
-      ...route,
-      handler: (request: Request) =>
-        Effect.suspend(() =>
-          route.handler(request).pipe(Effect.provideService(GithubSettings, { allowList })),
-        ),
-    })),
+    registration: {
+      routes: githubRoutes.map((route) => ({
+        ...route,
+        handler: (request: Request) =>
+          Effect.suspend(() =>
+            route.handler(request).pipe(Effect.provideService(GithubSettings, { allowList })),
+          ),
+      })),
+    },
   });
   broker.clock.set(EPOCH);
   return {

@@ -1,6 +1,7 @@
 // The provider collection users merge into a stack:
 //   providers: Layer.mergeAll(Cloudflare.providers(), Convex.providers())
 import * as Provider from "alchemy/Provider";
+import { Random, RandomProvider } from "alchemy/Random";
 import * as Layer from "effect/Layer";
 import { type Credentials, fromConfig } from "./Credentials.ts";
 import { DeploymentProvider, DeploymentResource } from "./Deployment.ts";
@@ -19,7 +20,9 @@ export class Providers extends Provider.ProviderCollection<Providers>()("Convex"
 export const providers = (credentials: Layer.Layer<Credentials> = fromConfig()) =>
   Layer.effect(
     Providers,
-    Provider.collection([Project, DeploymentResource, LocalDeployment, IdentityHub.Client]),
+    // Random's provider serves `IdentityHub.registrationKey` in a stack with no other collection
+    // that holds one; with Cloudflare's too, the first found serves it, and both are the same.
+    Provider.collection([Project, DeploymentResource, LocalDeployment, IdentityHub.Client, Random]),
   ).pipe(
     Layer.provide(
       Layer.mergeAll(
@@ -27,6 +30,7 @@ export const providers = (credentials: Layer.Layer<Credentials> = fromConfig()) 
         DeploymentProvider(),
         LocalDeploymentProvider(),
         IdentityHub.ClientProvider(),
+        RandomProvider(),
       ),
     ),
     Layer.provide(ManagementApiLive()),

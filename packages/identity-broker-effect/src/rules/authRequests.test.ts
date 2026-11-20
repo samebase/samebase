@@ -24,6 +24,8 @@ const cl = {
   tokenEndpointAuthMethod: "client_secret_post",
   redirectUri: "https://app.test/cb",
 } as const;
+/** The return address of a step that read it on the card, with the app's state. */
+const back = { redirectUri: cl.redirectUri, state: "s" };
 
 const card = (expires: boolean): Doc<"clients"> => ({
   clientId: cl.clientId,
@@ -61,6 +63,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeChallenge: challenge,
       requested: [],
       configured: CONNECTORS,
+      liveGates: [],
       freshLogin: false,
       txnCookieHash: "cookie-hash",
       createdAt: now,
@@ -85,6 +88,7 @@ describe.each(hosts)("%s", (_name, make) => {
       upstreamStateHash: "sh",
       upstreamCodeVerifier: "v",
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -94,6 +98,7 @@ describe.each(hosts)("%s", (_name, make) => {
       connector: "g",
       txnCookieHashes: ["cookie-hash"],
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -105,6 +110,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeHash: "ch",
       codeExpiresAt: now + 60_000,
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -114,6 +120,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeHash: "ch",
       codeChallengeOfVerifier: challenge,
       configured: CONNECTORS,
+      liveGates: [],
       now,
       ...args,
     });
@@ -123,11 +130,7 @@ describe.each(hosts)("%s", (_name, make) => {
   describe("upstream path", () => {
     test("pending, upstream, claimed, completed, exchanged", () => {
       const t = pendingRequest();
-      expect(start(t, { connector: "github" })).toEqual({
-        ok: true,
-        redirectUri: "https://app.test/cb",
-        state: "s",
-      });
+      expect(start(t, { connector: "github" })).toEqual({ ok: true, back });
       expect(claim(t, { connector: "github" }).status).toBe("claimed");
       // The claim is single use.
       expect(claim(t, { connector: "github" })).toEqual({ status: "missing" });
@@ -278,12 +281,7 @@ describe.each(hosts)("%s", (_name, make) => {
       const late = now + 600_001;
       expect(start(t, { now: late })).toMatchObject({ ok: false, error: "expired" });
       start(t);
-      expect(claim(t, { now: late })).toEqual({
-        status: "expired",
-        requestId: "r1",
-        redirectUri: "https://app.test/cb",
-        state: "s",
-      });
+      expect(claim(t, { now: late })).toEqual({ status: "expired", requestId: "r1", back });
       expect(get(t)).toBeNull();
     });
 
@@ -355,12 +353,7 @@ describe.each(hosts)("%s", (_name, make) => {
       const t = pendingRequest("r1", undefined, ["g", "github"]);
       const startWith = (connector: string, configured = CONNECTORS) =>
         start(t, { connector, upstreamStateHash: `sh-${connector}`, configured });
-      const refused = {
-        ok: false,
-        error: "refused",
-        redirectUri: "https://app.test/cb",
-        state: "s",
-      };
+      const refused = { ok: false, error: "refused", back };
       // On the card, but not in the request's set.
       expect(startWith("google")).toEqual(refused);
       // In the set and configured, but taken off the card since the request was stored.
@@ -383,31 +376,44 @@ describe.each(hosts)("%s", (_name, make) => {
     });
 
     test("a callback after a stop, a withdrawn connector or a moved return address is refused and deleted", () => {
-      for (const landed of [
-        (t: TestHost) => stop(t, "layer:repository:1"),
-        (t: TestHost) => editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] })),
-        (t: TestHost) => editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/x"] })),
-      ]) {
+      for (const [landed, refused] of [
+        [(t: TestHost) => stop(t, "layer:repository:1"), { back }],
+        [
+          (t: TestHost) => editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] })),
+          { back },
+        ],
+        // The card no longer holds the address, so the refusal names none.
+        [
+          (t: TestHost) => editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/x"] })),
+          {},
+        ],
+      ] as const) {
         const t = pendingRequest();
         start(t, { connector: "github" });
         landed(t);
         expect(claim(t, { connector: "github" })).toEqual({
           status: "refused",
           requestId: "r1",
-          redirectUri: "https://app.test/cb",
-          state: "s",
+          ...refused,
         });
         expect(get(t)).toBeNull();
       }
     });
 
     test("a stop, a withdrawn connector or a moved return address that landed while the provider answered refuses the completion", () => {
-      for (const landed of [
-        (t: TestHost) => stop(t, "layer:owner:65"),
-        (t: TestHost) => editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] })),
-        (t: TestHost) => editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/x"] })),
-        (t: TestHost) => remove(t, "clients", "by_client_id", [cl.clientId]),
-      ]) {
+      for (const [landed, refused] of [
+        [(t: TestHost) => stop(t, "layer:owner:65"), { back }],
+        [
+          (t: TestHost) => editCard(t, (doc) => ({ ...doc, connectors: ["g", "google"] })),
+          { back },
+        ],
+        // The card no longer holds the address, or is gone: the refusal names no address.
+        [
+          (t: TestHost) => editCard(t, (doc) => ({ ...doc, redirectUris: ["https://app.test/x"] })),
+          {},
+        ],
+        [(t: TestHost) => remove(t, "clients", "by_client_id", [cl.clientId]), {}],
+      ] as const) {
         const t = pendingRequest();
         start(t, { connector: "github" });
         claim(t, { connector: "github" });
@@ -415,8 +421,7 @@ describe.each(hosts)("%s", (_name, make) => {
         expect(complete(t, { identity: { connector: "github", upstreamId: "42" } })).toEqual({
           ok: false,
           error: "refused",
-          redirectUri: "https://app.test/cb",
-          state: "s",
+          ...refused,
         });
         expect(get(t)).toBeNull();
         expect(codes(t)).toEqual([]);

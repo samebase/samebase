@@ -47,6 +47,7 @@ describe.each(hosts)("%s", (_name, make) => {
       codeChallenge: "c",
       requested: [],
       configured: ["g"],
+      liveGates: [],
       freshLogin: false,
       txnCookieHash: "h",
       createdAt: T,

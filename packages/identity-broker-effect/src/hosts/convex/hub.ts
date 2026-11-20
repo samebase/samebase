@@ -1,8 +1,8 @@
 // The Convex host of the hub. The core runs in an `httpAction`, one run per request, and reaches
 // the state through the component `identityBroker` (component/), whose one mutation
 // `commands.run` runs one command of the closed registry as one transaction. An app gives
-// `convexHub` its reference to the component and its settings (`hubSettings` of ../settings.ts),
-// adds the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
+// `convexHub` its reference to the component, its settings (`hubSettings` of ../settings.ts) and
+// the routes of its registration layer, adds the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
 //
 // The secrets are Effect `Config` reads of the deployment's environment variables, which Convex
 // gives as `process.env`. Effect's default configuration provider does not work here: it reads
@@ -17,11 +17,9 @@ import {
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import { command } from "../../core/command.ts";
-import { hubLogger, makeHandle } from "../../core/router.ts";
-import { Fetch, type HubConfig, Keys, Random } from "../../core/services.ts";
+import { hubLogger, makeHandle, type Registration } from "../../core/router.ts";
+import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
 import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
-import { githubRoutes } from "../../layers/github/routes.ts";
-import type { GithubSettings } from "../../layers/github/settings.ts";
 import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { ComponentApi } from "./component/_generated/component.ts";
 
@@ -81,14 +79,19 @@ export const convexStore = (ctx: Runner, run: RunCommand) =>
   });
 
 /**
- * One hub on Convex, with the GitHub layer's routes. `settings` is built in each request, so each
- * request reads the deployment's environment variables of that moment.
+ * One hub on Convex. `settings` is built in each request, so each request reads the deployment's
+ * environment variables of that moment. `registration` is the one registration layer that the hub
+ * mounts, from that layer's module. Each key of the stack layer
+ * (`stack({ keys })` of src/layers/stack/routes.ts) is the deployment variable that its `Config`
+ * names, such as `Config.Redacted("HUB_PREVIEW_KEY")`, read when a registration arrives: the app's
+ * stack sets it in the `env` of the hub's `Convex.Deployment`.
  */
 export const convexHub = <E>(
   component: ComponentApi,
-  settings: Layer.Layer<HubConfig | GithubSettings, E>,
+  settings: Layer.Layer<HubConfig | SignInPage, E>,
+  registration: Registration,
 ) => {
-  const handle = makeHandle({ routes: githubRoutes });
+  const handle = makeHandle(registration);
 
   /**
    * Every request of the hub. The core takes the Web `Request` and gives the Web `Response`, which
