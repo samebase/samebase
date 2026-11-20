@@ -1,6 +1,5 @@
 // The stack layer's commands and their typed runner. Each writes or reads cards with the layer's
 // view, `StackTx`.
-import type { ConnectionsTx } from "../../connections/tables.ts";
 import { runCommand } from "../../core/command.ts";
 import { command as define, type Command } from "../../rules/commands.ts";
 import * as clients from "./clients.ts";
@@ -33,7 +32,7 @@ type Args<N extends StackCommandName> = Definitions[N]["args"]["Type"];
 type Result<N extends StackCommandName> = Definitions[N]["result"]["Type"];
 
 export const stackCommands: {
-  readonly [N in StackCommandName]: Command<Args<N>, Result<N>, StackTx | ConnectionsTx>;
+  readonly [N in StackCommandName]: Command<Args<N>, Result<N>, StackTx>;
 } = definitions;
 
 /** Runs one command of the stack layer, once. */

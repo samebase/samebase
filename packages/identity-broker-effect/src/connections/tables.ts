@@ -1,7 +1,7 @@
 // The tables of the connections part and its view of a step. A connection request lives from
-// `/authorize` to the code exchange; its code is the part's own; a grant holds the provider's
-// refresh token behind the hub's own refresh token. A hub that does not mount the part keeps
-// these tables empty.
+// `/authorize` to the code exchange (10 min at most), and its code 60 s. The hub keeps no other
+// provider token: the client holds the provider's tokens. A hub that does not mount the part
+// keeps these tables empty.
 import { Context, Schema } from "effect";
 import type { Tables } from "../store/tables.ts";
 import { n, s, type TxShape } from "../store/Tx.ts";
@@ -58,42 +58,12 @@ export const connectionTables = {
     },
   },
   /**
-   * A code of a connection, linked to its request by `requestId`. A used code keeps the hash of
-   * the grant it issued, so a replay deletes that grant (RFC 6749 section 4.1.2).
+   * A code of a connection, linked to its request by `requestId`. The exchange deletes both, so a
+   * replayed code finds nothing (RFC 6749 section 4.1.2).
    */
   connectionCodes: {
-    schema: Schema.Struct({
-      codeHash: Str,
-      requestId: Str,
-      clientId: Str,
-      expiresAt: Num,
-      usedAt: opt(Num),
-      grantTokenHash: opt(Str),
-    }),
+    schema: Schema.Struct({ codeHash: Str, requestId: Str, clientId: Str, expiresAt: Num }),
     indexes: { by_code_hash: [s("codeHash")], by_expires_at: [n("expiresAt")] },
-  },
-  /**
-   * The hub's refresh grant of one connection. `tokenHash` is the SHA-256 hex of the hub's own
-   * refresh token, which stays the same for the grant's life; the provider's refresh token
-   * rotates behind it. `attempt` counts the refreshes that took the lease, and
-   * `refreshStartedAt` is set while one attempt holds it.
-   */
-  connectionGrants: {
-    schema: Schema.Struct({
-      tokenHash: Str,
-      clientId: Str,
-      resource: Str,
-      upstreamRefreshToken: Str,
-      /** The grant ends after this time without a refresh. */
-      expiresAt: Num,
-      attempt: Num,
-      refreshStartedAt: opt(Num),
-    }),
-    indexes: {
-      by_token_hash: [s("tokenHash")],
-      by_client_id: [s("clientId")],
-      by_expires_at: [n("expiresAt")],
-    },
   },
 } as const;
 

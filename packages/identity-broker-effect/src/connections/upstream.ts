@@ -1,17 +1,15 @@
 // The hub's calls to a connection provider: the authorization URL with the hub's own state and
-// PKCE (RFC 7636), the code exchange (RFC 6749 section 4.1.3) and the refresh (section 6). Every
-// request goes through the core's `Fetch`. Errors propagate; the handler decides what they mean.
+// PKCE (RFC 7636), the code exchange (RFC 6749 section 4.1.3), and the refresh (section 6) and
+// revocation (RFC 7009) that the hub forwards with its own client authentication. Every request
+// goes through the core's `Fetch`. Errors propagate; the handler decides what they mean.
 import { Redacted } from "effect";
 import * as oauth from "oauth4webapi";
 import { oauthFetch, type FetchFunction } from "../core/connectors/upstream.ts";
 import type { ConnectionProvider } from "./providers.ts";
 import type { ProviderTokens } from "./tables.ts";
 
-/**
- * The provider call of a refresh ends after this time. It is below the lease of
- * `REFRESH_LEASE_MS` (rules.ts), so an attempt ends before another can take its grant.
- */
-export const REFRESH_TIMEOUT_MS = 30 * 1000;
+/** A refresh or a revocation that the hub forwards ends after this time. */
+const FORWARD_TIMEOUT_MS = 30 * 1000;
 
 type Tokens = typeof ProviderTokens.Type;
 
@@ -89,8 +87,9 @@ export async function finishConnection(args: {
 }
 
 /**
- * The provider's refresh of its token. An omitted scope stays omitted: on refresh it means the
- * original grant (RFC 6749 section 6), which the hub does not keep.
+ * The provider's refresh of the client's refresh token, with the hub's client authentication. An
+ * omitted scope stays omitted: on refresh it means the original grant (RFC 6749 section 6), which
+ * the hub does not keep.
  */
 export async function refreshConnection(args: {
   provider: ConnectionProvider;
@@ -107,7 +106,7 @@ export async function refreshConnection(args: {
     args.refreshToken,
     {
       [oauth.customFetch]: oauthFetch(args.fetch),
-      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(FORWARD_TIMEOUT_MS),
     },
   );
   return tokensOf(
@@ -121,9 +120,37 @@ export async function refreshConnection(args: {
   );
 }
 
-/** Whether the provider refused the token itself: only its `invalid_grant` ends a grant. */
-export const rejected = (error: unknown) =>
-  error instanceof oauth.ResponseBodyError && error.error === "invalid_grant";
+/** The provider's revocation of a token of the client (RFC 7009 section 2.1). */
+export async function revokeConnection(args: {
+  provider: ConnectionProvider;
+  token: string;
+  tokenTypeHint: string | null;
+  fetch: FetchFunction;
+}) {
+  const { provider } = args;
+  const response = await oauth.revocationRequest(
+    provider.server,
+    { client_id: Redacted.value(provider.clientId) },
+    clientAuthentication(provider),
+    args.token,
+    {
+      ...(args.tokenTypeHint === null
+        ? {}
+        : { additionalParameters: { token_type_hint: args.tokenTypeHint } }),
+      [oauth.customFetch]: oauthFetch(args.fetch),
+      signal: AbortSignal.timeout(FORWARD_TIMEOUT_MS),
+    },
+  );
+  await oauth.processRevocationResponse(response);
+}
+
+/**
+ * The provider's refusal with an error code of RFC 6749 section 5.2, which the client gets as
+ * the provider gave it. Undefined for any other failure: a timeout, a network failure, or an
+ * answer that is not an OAuth refusal.
+ */
+export const refusal = (error: unknown) =>
+  error instanceof oauth.ResponseBodyError && error.status === 400 ? error.error : undefined;
 
 /** The error codes of RFC 6749 sections 4.1.2.1 and 5.2, which a log line may name. */
 const OAUTH_ERRORS = new Set([

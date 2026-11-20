@@ -31,7 +31,7 @@ test("a sign-in through the component's run gives the memory host's results", as
   expect(fromConvex.at(-1)).toEqual(signInCleanup);
 });
 
-test("a connection and its refresh lease through the component's run give the memory host's results", async () => {
+test("a connection through the component's run gives the memory host's results", async () => {
   const fromConvex = await playConnection(backend());
   expect(fromConvex).toEqual(memoryConnection());
   expect(fromConvex.at(-1)).toEqual(connectionCleanup);

@@ -1,7 +1,7 @@
 // Test support of the connections part: fake providers at the real token endpoints of Convex,
-// Cloudflare and GitHub on the harness's `Fetch`, a hub with the part, and the client's side of
-// each step. A fake provider spends each refresh token once, like the rotation of GitHub and
-// Cloudflare, and a test can hold a refresh answer to deliver it late. No test framework import.
+// Cloudflare and GitHub, and at Cloudflare's revocation endpoint, on the harness's `Fetch`; a hub
+// with the part; and the client's side of each step. A fake provider spends each refresh token
+// once, like the rotation of GitHub and Cloudflare. No test framework import.
 import { Redacted } from "effect";
 import {
   createBroker,
@@ -35,7 +35,7 @@ export const PROVIDERS: ReadonlyArray<ConnectionProvider> = [convex, cloudflare,
 // Convex's documented response:
 // https://docs.convex.dev/platform-apis/oauth-applications#step-3-exchange-the-authorization-code-for-a-project-token
 export const convexToken = { access_token: "team:my-team|AAAAAA==", token_type: "bearer" };
-// GitHub's documented response, with the hub's own refresh token values put in:
+// GitHub's documented response; the fake adds its own refresh token:
 // https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens
 const githubToken = {
   access_token: "ghu_16C7e42F292c6912E7710c838347Ae178B4a",
@@ -59,42 +59,33 @@ const oauthToken = {
   example_parameter: "example_value",
 };
 
-/**
- * A refresh call that reached a provider, while the test holds its answer. The provider decided
- * on arrival, as a real one does: a live token is spent and its successor is live, and the answer
- * is the success; a spent token's answer is `invalid_grant`.
- */
-export type HeldRefresh = {
-  readonly provider: string;
-  readonly refreshToken: string;
-  /** The token was live: the provider spent it. */
-  readonly spent: boolean;
-  /** The provider's answer, to deliver now or late. */
-  readonly answer: Response;
-  /** The provider failed before it decided: the token stays live, and the answer is a 503. */
-  readonly unavailable: () => Response;
-  /** The provider refuses the token, as when the user revoked the grant there. */
-  readonly refuse: () => Response;
-};
-
-/** One call of a provider's token endpoint, as the provider saw it. */
+/** One call of a provider's token or revocation endpoint, as the provider saw it. */
 export type ProviderCall = {
   readonly provider: string;
+  readonly url: string;
   readonly body: URLSearchParams;
   readonly authorization: string | null;
 };
 
 /**
  * The three providers on `fetch`. Each code `upstream-code` gives tokens; Cloudflare and GitHub
- * also give a refresh token, which each refresh spends once. `onRefresh`, when set, gets each
- * refresh call and answers it in its own time.
+ * also give a refresh token, which a refresh spends once and replaces. A spent or unknown refresh
+ * token gets `invalid_grant`, in GitHub's HTTP 200 form for GitHub. Cloudflare's revocation
+ * endpoint spends the token it gets.
  */
 export function fakeProviders(fetch: StubFetch) {
   const live = new Set<string>();
   let serial = 0;
   const calls: ProviderCall[] = [];
-  const state: { onRefresh: ((held: HeldRefresh) => Promise<Response>) | undefined } = {
-    onRefresh: undefined,
+  const record = async (provider: string, request: Request) => {
+    const body = new URLSearchParams(await request.text());
+    calls.push({
+      provider,
+      url: request.url,
+      body,
+      authorization: request.headers.get("authorization"),
+    });
+    return body;
   };
   const mint = (provider: string) => {
     serial += 1;
@@ -117,12 +108,7 @@ export function fakeProviders(fetch: StubFetch) {
       match: (request) =>
         request.method === "POST" && request.url === provider.server.token_endpoint,
       respond: async (request) => {
-        const body = new URLSearchParams(await request.text());
-        calls.push({
-          provider: provider.name,
-          body,
-          authorization: request.headers.get("authorization"),
-        });
+        const body = await record(provider.name, request);
         if (body.get("grant_type") === "authorization_code") {
           if (body.get("code") !== "upstream-code") {
             return Response.json({ error: "invalid_grant" }, { status: 400 });
@@ -131,42 +117,26 @@ export function fakeProviders(fetch: StubFetch) {
             ? Response.json(convexToken)
             : success(provider, mint(provider.name));
         }
-        const refreshToken = body.get("refresh_token") ?? "";
-        const spent = live.delete(refreshToken);
-        const successor = spent ? mint(provider.name) : undefined;
-        const undo = () => {
-          if (successor !== undefined) {
-            live.delete(successor);
-            live.add(refreshToken);
-          }
-        };
-        const held: HeldRefresh = {
-          provider: provider.name,
-          refreshToken,
-          spent,
-          answer: successor === undefined ? invalidGrant(provider) : success(provider, successor),
-          unavailable: () => {
-            undo();
-            return new Response(null, { status: 503 });
-          },
-          refuse: () => {
-            undo();
-            live.delete(refreshToken);
-            return invalidGrant(provider);
-          },
-        };
-        return state.onRefresh === undefined ? held.answer : await state.onRefresh(held);
+        return live.delete(body.get("refresh_token") ?? "")
+          ? success(provider, mint(provider.name))
+          : invalidGrant(provider);
       },
     });
+    const revocation = provider.server.revocation_endpoint;
+    if (revocation !== undefined) {
+      fetch.plan({
+        match: (request) => request.method === "POST" && request.url === revocation,
+        respond: async (request) => {
+          live.delete((await record(provider.name, request)).get("token") ?? "");
+          return new Response(null, { status: 200 });
+        },
+      });
+    }
   }
   return {
     calls,
     /** Whether `token` is a live refresh token of its provider. */
     isLive: (token: string) => live.has(token),
-    /** Sets the hook that answers each refresh, or removes it. */
-    holdRefreshes: (hook: ((held: HeldRefresh) => Promise<Response>) | undefined) => {
-      state.onRefresh = hook;
-    },
   };
 }
 
@@ -281,20 +251,27 @@ export const redeem = (
     ...extra,
   });
 
-/** A refresh with the hub's refresh token. */
+/** A refresh of the provider's refresh token at the provider of `resource`. */
 export const refresh = (
   h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
   client: TestClient,
   refreshToken: string,
+  resource: string,
   extra: Record<string, string> = {},
 ) =>
-  tokenRequest(h, client, { grant_type: "refresh_token", refresh_token: refreshToken, ...extra });
+  tokenRequest(h, client, {
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    resource,
+    ...extra,
+  });
 
-/** RFC 7009 revocation of `token` by `client`. */
+/** RFC 7009 revocation of `token` by `client` at the provider of `resource`. */
 export const revoke = (
   h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
   client: TestClient,
   token: string,
+  resource: string,
 ) =>
   h.fetchBroker(`${h.issuer}/revoke`, {
     method: "POST",
@@ -304,6 +281,7 @@ export const revoke = (
       client_secret: client.clientSecret,
       token,
       token_type_hint: "refresh_token",
+      resource,
     }),
   });
 

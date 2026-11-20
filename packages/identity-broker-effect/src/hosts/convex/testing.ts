@@ -560,10 +560,42 @@ const clientAuth = {
   tokenEndpointAuthMethod: "client_secret_post",
 } as const;
 
+/** A request of `connectionCommands`, `c1` or `c2`. */
+const createRequest = (requestId: string): Command => ({
+  name: "connections.create",
+  args: {
+    requestId,
+    clientId: "client-2",
+    redirectUri: "https://app.test/cb",
+    resource: provider.resource,
+    state: "s",
+    codeChallenge: "challenge",
+    txnCookieHash: "cookie",
+    upstreamStateHash: `sh-${requestId}`,
+    upstreamCodeVerifier: "v",
+    ...hubNow,
+    now: T,
+    expiresAt: T + 600_000,
+  },
+});
+
+const exchange: Command = {
+  name: "connections.exchangeCode",
+  args: {
+    ...clientAuth,
+    codeHash: "ch",
+    redirectUri: "https://app.test/cb",
+    codeChallengeOfVerifier: "challenge",
+    ...hubNow,
+    now: T,
+  },
+};
+
 /**
  * A temporary card of the stack layer that may use Cloudflare, a connection through the provider
- * to the code exchange, a refresh with a contender during its lease and a stale failure after it,
- * the revocation, the card's self-delete, and the cleanup a day later.
+ * to the code exchange and its replay, the admission of a refresh, the authentication of a
+ * revocation, a second request that is never finished, the card's self-delete, and the cleanup a
+ * day later.
  */
 const connectionCommands: ReadonlyArray<Command> = [
   {
@@ -586,27 +618,11 @@ const connectionCommands: ReadonlyArray<Command> = [
       connections: ["cloudflare"],
     },
   },
-  {
-    name: "connections.create",
-    args: {
-      requestId: "c1",
-      clientId: "client-2",
-      redirectUri: "https://app.test/cb",
-      resource: provider.resource,
-      state: "s",
-      codeChallenge: "challenge",
-      txnCookieHash: "cookie",
-      upstreamStateHash: "sh",
-      upstreamCodeVerifier: "v",
-      ...hubNow,
-      now: T,
-      expiresAt: T + 600_000,
-    },
-  },
+  createRequest("c1"),
   {
     name: "connections.claim",
     args: {
-      upstreamStateHash: "sh",
+      upstreamStateHash: "sh-c1",
       resource: provider.resource,
       txnCookieHashes: ["cookie"],
       ...hubNow,
@@ -624,46 +640,20 @@ const connectionCommands: ReadonlyArray<Command> = [
       now: T,
     },
   },
+  exchange,
+  exchange,
   {
-    name: "connections.exchangeCode",
-    args: {
-      ...clientAuth,
-      codeHash: "ch",
-      redirectUri: "https://app.test/cb",
-      codeChallengeOfVerifier: "challenge",
-      refreshTokenHash: "g",
-      ...hubNow,
-      now: T,
-    },
+    name: "connections.admitRefresh",
+    args: { ...clientAuth, resource: provider.resource, ...hubNow, now: T },
   },
-  {
-    name: "connections.claimRefresh",
-    args: { ...clientAuth, tokenHash: "g", ...hubNow, now: T },
-  },
-  {
-    name: "connections.claimRefresh",
-    args: { ...clientAuth, tokenHash: "g", ...hubNow, now: T + 1_000 },
-  },
-  {
-    name: "connections.finishRefresh",
-    args: { tokenHash: "g", attempt: 1, refreshToken: "u2", ...hubNow, now: T + 2_000 },
-  },
-  {
-    name: "connections.failRefresh",
-    args: { tokenHash: "g", attempt: 1, rejected: true, now: T + 3_000 },
-  },
-  { name: "connections.revoke", args: { ...clientAuth, tokenHash: "g" } },
+  { name: "connections.authenticate", args: clientAuth },
+  createRequest("c2"),
   { name: "stack.remove", args: { clientId: "client-2", registrationTokenHash: "r" } },
   { name: "connections.cleanup", args: { now: T + DAY } },
 ];
 
-/** What the cleanup at the end of `connectionCommands` deletes: the used code. */
-export const connectionCleanup = {
-  connectionRequests: 0,
-  connectionCodes: 1,
-  connectionGrants: 0,
-  more: false,
-};
+/** What the cleanup at the end of `connectionCommands` deletes: the request never finished. */
+export const connectionCleanup = { connectionRequests: 1, connectionCodes: 0, more: false };
 
 /**
  * Runs `commands` through a host's `run` mutation (name, arguments in JSON, step clock `T`; the

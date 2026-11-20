@@ -99,8 +99,7 @@ export class HubObject extends Cloudflare.DurableObject<HubObject>()(
           function* (payload: typeof CleanupPayload.Encoded) {
             const now = yield* Clock.currentTimeMillis;
             const plan = alarmPlan((yield* decodeCleanupPayload(payload)).cutoff, now);
-            // The connections part's batch first, until it has no more: it deletes the grants of
-            // the cards that the core's next batch deletes.
+            // The connections part's batch of expired requests and codes, then the core's.
             const more = yield* Effect.sync(
               () =>
                 decodeResult(

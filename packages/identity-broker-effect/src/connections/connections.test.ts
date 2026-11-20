@@ -1,12 +1,12 @@
 // The connections part over HTTP, ported from the Convex broker's resources.test.ts: a client gets
 // a user's Convex, Cloudflare or GitHub token through the hub, against fake providers at the
-// providers' real token endpoints. openid-client stands in for the client where the wire matters.
+// providers' real endpoints. The hub is pass-through: the client holds the provider's tokens, and
+// the hub keeps none. openid-client stands in for the client where the wire matters.
 import { Schema } from "effect";
 import * as client from "openid-client";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { fakeUpstream, pkce } from "../core/testing/harness.ts";
+import { createBroker, fakeUpstream, pkce } from "../core/testing/harness.ts";
 import { LEASE_MS } from "../rules/clients.ts";
-import { GRANT_IDLE_MS } from "./rules.ts";
 import {
   authorize,
   callback,
@@ -20,17 +20,19 @@ import {
   REDIRECT,
   refresh,
   revoke,
+  tokenRequest,
   type ConnectionsHub,
 } from "./testing.ts";
-import { createBroker } from "../core/testing/harness.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 const testClient = (h: ConnectionsHub) => ({ ...h.client, redirectUri: REDIRECT });
-const grants = (h: ConnectionsHub) => h.memory.db.contents().connectionGrants;
 const requests = (h: ConnectionsHub) => h.memory.db.contents().connectionRequests;
+/** Whether any row of any table of the hub holds `token`. */
+const holds = (h: ConnectionsHub, token: string) =>
+  JSON.stringify(h.memory.db.contents()).includes(token);
 
 const opt = Schema.optionalKey;
 /** The members of a token answer or an OAuth error that the tests read. */
@@ -45,7 +47,7 @@ const Answer = Schema.Struct({
 const tokensOf = async (response: Response) =>
   Schema.decodeUnknownSync(Answer)(await response.json());
 
-/** A Cloudflare connection: its grant's hub refresh token. */
+/** A Cloudflare connection: the provider's refresh token, which the client now holds. */
 const connectCloudflare = async (h: ConnectionsHub) => {
   const response = await connect(h, testClient(h), cloudflare.resource);
   expect(response.status).toBe(200);
@@ -112,11 +114,10 @@ test("openid-client gets a Convex token through discovery, resource and PKCE", a
   expect(h.providers.calls.map((call) => call.body.get("client_secret"))).toEqual([
     "provider-secret",
   ]);
-  // Convex has no refresh grant: the hub keeps nothing after the exchange.
-  expect([requests(h), grants(h)]).toEqual([[], []]);
+  expect(holds(h, convexToken.access_token)).toBe(false);
 });
 
-test("a GitHub App user token goes through the hub with no scope, behind the hub's refresh token", async () => {
+test("a GitHub App user token and GitHub's own refresh token go to the client, and the hub keeps neither", async () => {
   const h = await connectionsHub();
   const { start } = await authorize(h, testClient(h), github.resource);
   const upstream = new URL(start.headers.get("location") ?? "");
@@ -124,12 +125,17 @@ test("a GitHub App user token goes through the hub with no scope, behind the hub
   expect(upstream.searchParams.has("scope")).toBe(false);
   // The account picker, so a user can connect another account than the browser's.
   expect(upstream.searchParams.get("prompt")).toBe("select_account");
-  const response = await connect(h, testClient(h), github.resource);
-  const tokens = await tokensOf(response);
-  expect(tokens).toMatchObject({ access_token: "ghu_16C7e42F292c6912E7710c838347Ae178B4a" });
+  const tokens = await tokensOf(await connect(h, testClient(h), github.resource));
+  expect(tokens).toMatchObject({
+    access_token: "ghu_16C7e42F292c6912E7710c838347Ae178B4a",
+    refresh_token: "github-refresh-1",
+  });
   expect(tokens).not.toHaveProperty("scope");
-  expect(tokens.refresh_token).toBeDefined();
-  expect(grants(h).map((grant) => grant.upstreamRefreshToken)).not.toContain(tokens.refresh_token);
+  expect(h.providers.isLive("github-refresh-1")).toBe(true);
+  expect([
+    holds(h, "ghu_16C7e42F292c6912E7710c838347Ae178B4a"),
+    holds(h, "github-refresh-1"),
+  ]).toEqual([false, false]);
 });
 
 test("a GitHub callback without its issuer is refused before the provider is called (RFC 9207)", async () => {
@@ -143,24 +149,9 @@ test("a GitHub callback without its issuer is refused before the provider is cal
   expect(h.providers.calls).toEqual([]);
 });
 
-test("only the provider's invalid_grant ends a grant; GitHub's HTTP 200 refusal counts as one", async () => {
+test("openid-client refreshes the provider's rotating token through the hub, and the hub keeps none", async () => {
   const h = await connectionsHub();
-  vi.spyOn(console, "error").mockImplementation(() => undefined);
-  const initial = await tokensOf(await connect(h, testClient(h), github.resource));
-  const token = initial.refresh_token ?? "";
-  h.providers.holdRefreshes(async (held) => held.unavailable());
-  const outage = await refresh(h, testClient(h), token);
-  expect([outage.status, (await tokensOf(outage)).error]).toEqual([503, "temporarily_unavailable"]);
-  expect(grants(h)).toHaveLength(1);
-  h.providers.holdRefreshes(async (held) => held.refuse());
-  const refused = await refresh(h, testClient(h), token);
-  expect([refused.status, (await tokensOf(refused)).error]).toEqual([400, "invalid_grant"]);
-  expect(grants(h)).toEqual([]);
-});
-
-test("openid-client refreshes with a stable hub token while the hub keeps the provider's rotation", async () => {
-  const h = await connectionsHub();
-  const hubToken = await connectCloudflare(h);
+  const initial = await connectCloudflare(h);
   const config = new client.Configuration(
     { issuer: h.issuer, token_endpoint: `${h.issuer}/token` },
     h.client.clientId,
@@ -168,39 +159,171 @@ test("openid-client refreshes with a stable hub token while the hub keeps the pr
     client.ClientSecretPost(h.client.clientSecret),
   );
   config[client.customFetch] = hubFetch(h);
-  const first = await client.refreshTokenGrant(config, hubToken);
-  const second = await client.refreshTokenGrant(config, hubToken);
-  expect([first.refresh_token, second.refresh_token]).toEqual([hubToken, hubToken]);
+  const resource = { resource: cloudflare.resource };
+  const first = await client.refreshTokenGrant(config, initial, resource);
+  const second = await client.refreshTokenGrant(config, first.refresh_token ?? "", resource);
+  expect([first.refresh_token, second.refresh_token]).toEqual([
+    "cloudflare-refresh-2",
+    "cloudflare-refresh-3",
+  ]);
   expect(first.expires_in).toBe(3600);
-  // Each refresh sent the provider's newest token, with client_secret_basic.
+  // The provider got the client's tokens, with the hub's client_secret_basic.
   const sent = h.providers.calls.map((call) => call.body.get("refresh_token"));
-  expect(sent.slice(1)).toEqual(["cloudflare-refresh-1", "cloudflare-refresh-2"]);
+  expect(sent.slice(1)).toEqual([initial, "cloudflare-refresh-2"]);
   expect(h.providers.calls.every((call) => !call.body.has("client_secret"))).toBe(true);
   expect(new Set(h.providers.calls.map((call) => call.authorization))).toEqual(
     new Set([`Basic ${btoa("provider%2Dclient:provider%2Dsecret")}`]),
   );
-  expect(grants(h).map((grant) => h.providers.isLive(grant.upstreamRefreshToken))).toEqual([true]);
+  expect(
+    [initial, "cloudflare-refresh-2", "cloudflare-refresh-3", second.access_token].map((token) =>
+      holds(h, token),
+    ),
+  ).toEqual([false, false, false, false]);
 });
 
-test("RFC 7009: only the owner revokes, and an unknown or another client's token answers 200", async () => {
+test("GitHub's HTTP 200 refusal answers 400 invalid_grant; a provider failure answers 503", async () => {
+  const h = await connectionsHub();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const token = (await tokensOf(await connect(h, testClient(h), github.resource))).refresh_token;
+  const spent = await refresh(h, testClient(h), "github-refresh-0", github.resource);
+  expect([spent.status, (await tokensOf(spent)).error]).toEqual([400, "invalid_grant"]);
+  const failures = [
+    () => Promise.reject(new TypeError("fetch failed")),
+    () => Promise.resolve(new Response("Bad gateway", { status: 502 })),
+  ];
+  for (const failure of failures) {
+    const stop = h.fetch.plan({
+      match: (request) => request.url === github.server.token_endpoint,
+      respond: failure,
+    });
+    const answer = await refresh(h, testClient(h), token ?? "", github.resource);
+    stop();
+    expect([answer.status, (await tokensOf(answer)).error]).toEqual([
+      503,
+      "temporarily_unavailable",
+    ]);
+  }
+  expect(h.providers.isLive(token ?? "")).toBe(true);
+});
+
+test("a provider that does not answer in 30 s answers 503, never invalid_grant", async () => {
+  const h = await connectionsHub();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const token = await connectCloudflare(h);
+  const timeout = AbortSignal.timeout.bind(AbortSignal);
+  const asked: number[] = [];
+  vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+    asked.push(ms);
+    return timeout(1);
+  });
+  h.fetch.plan({
+    match: (request) => request.url === cloudflare.server.token_endpoint,
+    respond: (request) =>
+      new Promise((_resolve, reject) => {
+        if (request.signal.aborted) {
+          reject(request.signal.reason);
+        }
+        request.signal.addEventListener("abort", () => reject(request.signal.reason));
+      }),
+  });
+  const late = await refresh(h, testClient(h), token, cloudflare.resource);
+  expect([late.status, (await tokensOf(late)).error, asked]).toEqual([
+    503,
+    "temporarily_unavailable",
+    [30_000],
+  ]);
+});
+
+test("a stopped client, or one whose card does not offer the provider, cannot refresh", async () => {
   const h = await connectionsHub();
   const token = await connectCloudflare(h);
-  const other = await h.registerClient({ appName: "Other", redirectUri: REDIRECT });
-  const otherClient = { ...other, redirectUri: REDIRECT };
-  expect((await revoke(h, { ...testClient(h), clientSecret: "wrong" }, token)).status).toBe(401);
+  const calls = h.providers.calls.length;
+  await h.editCard(h.client.clientId, (card) => ({ ...card, gates: ["test:gate"] }));
+  await h.setStop("test:gate", true);
+  const stopped = await refresh(h, testClient(h), token, cloudflare.resource);
+  expect([stopped.status, (await tokensOf(stopped)).error]).toEqual([401, "invalid_client"]);
+  await h.setStop("test:gate", false);
+  await h.editCard(h.client.clientId, (card) => ({ ...card, connections: ["convex"] }));
+  const withdrawn = await refresh(h, testClient(h), token, cloudflare.resource);
+  expect([withdrawn.status, (await tokensOf(withdrawn)).error]).toEqual([400, "invalid_target"]);
+  expect(h.providers.calls).toHaveLength(calls);
+});
+
+test("a refresh needs one configured resource and no scope, before the provider is called", async () => {
+  const h = await connectionsHub();
+  const token = await connectCloudflare(h);
+  const calls = h.providers.calls.length;
+  const answers = [];
+  for (const params of [
+    { grant_type: "refresh_token", refresh_token: token },
+    { grant_type: "refresh_token", refresh_token: token, resource: "https://other.example/" },
+    {
+      grant_type: "refresh_token",
+      refresh_token: token,
+      resource: cloudflare.resource,
+      scope: "workers-scripts.read",
+    },
+  ]) {
+    const response = await tokenRequest(h, testClient(h), params);
+    answers.push([response.status, (await tokensOf(response)).error]);
+  }
+  expect(answers).toEqual([
+    [400, "invalid_target"],
+    [400, "invalid_target"],
+    [400, "invalid_scope"],
+  ]);
+  expect(h.providers.calls).toHaveLength(calls);
+});
+
+test("RFC 7009: the hub forwards a Cloudflare revocation with its own client authentication", async () => {
+  const h = await connectionsHub();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const token = await connectCloudflare(h);
+  const calls = h.providers.calls.length;
+  expect(
+    (await revoke(h, { ...testClient(h), clientSecret: "wrong" }, token, cloudflare.resource))
+      .status,
+  ).toBe(401);
   const asJson = await h.fetchBroker(`${h.issuer}/revoke`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...h.client, token }),
+    body: JSON.stringify({ ...h.client, token, resource: cloudflare.resource }),
   });
   expect(asJson.status).toBe(400);
-  expect((await revoke(h, otherClient, token)).status).toBe(200);
-  expect(grants(h)).toHaveLength(1);
-  for (const each of [token, token, "unknown-token"]) {
-    const revoked = await revoke(h, testClient(h), each);
-    expect([revoked.status, await revoked.text()]).toEqual([200, ""]);
-  }
-  expect(grants(h)).toEqual([]);
+  expect((await revoke(h, testClient(h), token, "https://other.example/")).status).toBe(400);
+  expect(h.providers.calls).toHaveLength(calls);
+  // A stopped client may still revoke: a revocation only takes access away.
+  await h.editCard(h.client.clientId, (card) => ({ ...card, gates: ["test:gate"] }));
+  await h.setStop("test:gate", true);
+  const revoked = await revoke(h, testClient(h), token, cloudflare.resource);
+  expect([revoked.status, await revoked.text()]).toEqual([200, ""]);
+  const sent = h.providers.calls.at(-1);
+  expect([sent?.url, sent?.body.get("token"), sent?.body.get("token_type_hint")]).toEqual([
+    cloudflare.server.revocation_endpoint,
+    token,
+    "refresh_token",
+  ]);
+  expect(sent?.authorization).toBe(`Basic ${btoa("provider%2Dclient:provider%2Dsecret")}`);
+  expect(h.providers.isLive(token)).toBe(false);
+  const stop = h.fetch.plan({
+    match: (request) => request.url === cloudflare.server.revocation_endpoint,
+    respond: () => Promise.reject(new TypeError("fetch failed")),
+  });
+  const unavailable = await revoke(h, testClient(h), token, cloudflare.resource);
+  stop();
+  expect([unavailable.status, (await tokensOf(unavailable)).error]).toEqual([
+    503,
+    "temporarily_unavailable",
+  ]);
+});
+
+test("a revocation at a provider with no revocation endpoint answers 200 and calls nothing", async () => {
+  const h = await connectionsHub();
+  const token = (await tokensOf(await connect(h, testClient(h), github.resource))).refresh_token;
+  const calls = h.providers.calls.length;
+  const revoked = await revoke(h, testClient(h), token ?? "", github.resource);
+  expect([revoked.status, await revoked.text()]).toEqual([200, ""]);
+  expect(h.providers.calls).toHaveLength(calls);
 });
 
 describe("/authorize refuses on a page, before any provider call", () => {
@@ -308,16 +431,13 @@ test("a code exchange checks resource, return address, client and PKCE without s
   expect((await redeem(h, testClient(h), code, verifier, { resource: "" })).status).toBe(200);
 });
 
-test("a replayed code is refused and deletes the grant it issued (RFC 6749 section 4.1.2)", async () => {
+test("a replayed code is refused (RFC 6749 section 4.1.2)", async () => {
   const h = await connectionsHub();
   const { start, verifier } = await authorize(h, testClient(h), cloudflare.resource);
   const code = (await callback(h, start)).returned.searchParams.get("code") ?? "";
-  const first = await tokensOf(await redeem(h, testClient(h), code, verifier));
-  expect(grants(h)).toHaveLength(1);
+  expect((await redeem(h, testClient(h), code, verifier)).status).toBe(200);
   const replay = await redeem(h, testClient(h), code, verifier);
   expect([replay.status, (await tokensOf(replay)).error]).toEqual([400, "invalid_grant"]);
-  expect(grants(h)).toEqual([]);
-  expect((await refresh(h, testClient(h), first.refresh_token ?? "")).status).toBe(400);
 });
 
 test("a code expires after 60 s, and expires_in counts the time spent returning to the app", async () => {
@@ -354,41 +474,6 @@ test("a stop that lands while the provider answers sends the user back with no c
   expect(requests(h)).toEqual([]);
 });
 
-test("a stop during a refresh keeps the provider's rotation, answers 401, and an unstop restores the grant", async () => {
-  const h = await connectionsHub();
-  await h.editCard(h.client.clientId, (card) => ({ ...card, gates: ["test:gate"] }));
-  const token = await connectCloudflare(h);
-  h.providers.holdRefreshes(async (held) => {
-    await h.setStop("test:gate", true);
-    return held.answer;
-  });
-  const refused = await refresh(h, testClient(h), token);
-  expect([refused.status, (await tokensOf(refused)).error]).toEqual([401, "invalid_client"]);
-  expect(
-    grants(h).map((grant) => [
-      h.providers.isLive(grant.upstreamRefreshToken),
-      grant.refreshStartedAt,
-    ]),
-  ).toEqual([[true, undefined]]);
-  // The hub holds the provider's newest token, so the grant works again once the stop goes.
-  h.providers.holdRefreshes(undefined);
-  await h.setStop("test:gate", false);
-  expect((await refresh(h, testClient(h), token)).status).toBe(200);
-});
-
-test("a refresh that asks for a scope, or names two resources, is refused before the provider", async () => {
-  const h = await connectionsHub();
-  const token = await connectCloudflare(h);
-  const calls = h.providers.calls.length;
-  const scoped = await refresh(h, testClient(h), token, { scope: "workers-scripts.read" });
-  expect([scoped.status, (await tokensOf(scoped)).error]).toEqual([400, "invalid_scope"]);
-  const other = await refresh(h, testClient(h), token, { resource: convex.resource });
-  expect([other.status, (await tokensOf(other)).error]).toEqual([400, "invalid_target"]);
-  expect(h.providers.calls).toHaveLength(calls);
-  // Without a resource, or an empty one, the grant's resource is used.
-  expect((await refresh(h, testClient(h), token, { resource: "" })).status).toBe(200);
-});
-
 test("connection use renews a temporary card: the code exchange and an admitted refresh", async () => {
   const h = await connectionsHub();
   await h.editCard(h.client.clientId, (card) => ({ ...card, removeAt: h.clock.now() + 1_000 }));
@@ -396,33 +481,8 @@ test("connection use renews a temporary card: the code exchange and an admitted 
   const token = await connectCloudflare(h);
   expect(removeAt()).toEqual([h.clock.now() + LEASE_MS]);
   h.clock.advance(5_000);
-  expect((await refresh(h, testClient(h), token)).status).toBe(200);
+  expect((await refresh(h, testClient(h), token, cloudflare.resource)).status).toBe(200);
   expect(removeAt()).toEqual([h.clock.now() + LEASE_MS]);
-});
-
-test("cleanup deletes idle grants, and the grants of the cards that the core's batch deletes", async () => {
-  const h = await connectionsHub();
-  await connectCloudflare(h);
-  const temporary = await h.registerClient({
-    appName: "Preview",
-    redirectUri: REDIRECT,
-    connections: ["cloudflare"],
-    removeAt: h.clock.now(),
-  });
-  await connect(h, { ...temporary, redirectUri: REDIRECT }, cloudflare.resource);
-  await h.editCard(temporary.clientId, (card) => ({ ...card, removeAt: h.clock.now() + 1_000 }));
-  expect(grants(h)).toHaveLength(2);
-  h.clock.advance(2_000);
-  const now = h.clock.now();
-  expect(h.memory.run("connections.cleanup", { now })).toMatchObject({ connectionGrants: 1 });
-  expect(h.memory.run("lifecycle.cleanup", { now, signInRetentionMs: 0 })).toMatchObject({
-    clients: 1,
-  });
-  expect(grants(h).map((grant) => grant.clientId)).toEqual([h.client.clientId]);
-  expect(h.memory.run("connections.cleanup", { now: now + GRANT_IDLE_MS + 1 })).toMatchObject({
-    connectionGrants: 1,
-  });
-  expect(grants(h)).toEqual([]);
 });
 
 test("with the part mounted, a sign-in code still redeems at the core", async () => {

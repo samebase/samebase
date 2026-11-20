@@ -61,8 +61,9 @@ export const convexConnection = (credentials: Credentials): ConnectionProvider =
 
 /**
  * Cloudflare OAuth applications, with API permission scopes. The hub adds `offline_access`: a
- * Cloudflare access token lasts one hour, and the hub's refresh grant needs a refresh token. The
- * resource URL keeps its final slash.
+ * Cloudflare access token lasts one hour, and the client needs a refresh token to go on. The
+ * resource URL keeps its final slash. The revocation endpoint (RFC 7009) is the one that
+ * `wrangler logout` calls.
  */
 export const cloudflareConnection = (
   options: Credentials & { readonly scopes: ReadonlyArray<string> },
@@ -75,6 +76,7 @@ export const cloudflareConnection = (
     issuer: "https://dash.cloudflare.com",
     authorization_endpoint: "https://dash.cloudflare.com/oauth2/auth",
     token_endpoint: "https://dash.cloudflare.com/oauth2/token",
+    revocation_endpoint: "https://dash.cloudflare.com/oauth2/revoke",
   },
   scopes: [...new Set([...options.scopes, "offline_access"])],
   selectAccount: false,
@@ -103,7 +105,8 @@ const githubTokenError = async (response: Response) => {
 
 /**
  * The user access tokens of a GitHub App: the App's permissions set their access, not a scope.
- * GitHub sends `iss` on its callback (RFC 9207), which the hub then requires.
+ * GitHub sends `iss` on its callback (RFC 9207), which the hub then requires. GitHub has no
+ * revocation endpoint of RFC 7009.
  */
 export const githubConnection = (credentials: Credentials): ConnectionProvider => ({
   ...credentials,

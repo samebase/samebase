@@ -57,10 +57,8 @@ export const commandNames = [
   "connections.complete",
   "connections.abandon",
   "connections.exchangeCode",
-  "connections.claimRefresh",
-  "connections.finishRefresh",
-  "connections.failRefresh",
-  "connections.revoke",
+  "connections.admitRefresh",
+  "connections.authenticate",
   "connections.cleanup",
 ] as const satisfies ReadonlyArray<CommandName>;
 

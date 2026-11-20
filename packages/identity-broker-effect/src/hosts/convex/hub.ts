@@ -141,10 +141,9 @@ export const convexHub = <E>(
     },
 
     /**
-     * The daily cleanup, for the app's cron: batches with one cutoff, the time it starts, until a
-     * batch reports no `more`. Each batch of `lifecycle.cleanup` comes after the batches of
-     * `connections.cleanup` that delete the grants of the cards it deletes. The cutoff never
-     * moves, so the batches end. Each batch is its own transaction; a failed batch fails the
+     * The daily cleanup, for the app's cron: batches of `connections.cleanup` and
+     * `lifecycle.cleanup` with one cutoff, the time it starts, until a batch reports no `more`.
+     * The cutoff never moves, so the batches end. Each batch is its own transaction; a failed batch fails the
      * action, and the next day's run deletes what is left.
      */
     cleanup: internalActionGeneric({

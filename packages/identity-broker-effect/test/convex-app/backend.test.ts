@@ -147,7 +147,7 @@ test("a sign-in through the component's run gives the memory host's results", as
   expect(fromConvex.at(-1)).toEqual(signInCleanup);
 }, 60_000);
 
-test("a connection and its refresh lease through the component's run give the memory host's results", async () => {
+test("a connection through the component's run gives the memory host's results", async () => {
   emptyComponent();
   const fromConvex = await playConnection((name, args, now) =>
     client.mutation(api.ops.command, { name, args, now }),

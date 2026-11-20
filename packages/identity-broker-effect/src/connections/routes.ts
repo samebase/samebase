@@ -1,9 +1,10 @@
 // The connections part over HTTP: `/authorize` with `resource` (RFC 8707), the provider's callback
 // at `/connections/<name>/callback`, both grants of `/token` for a connection, and `/revoke`
 // (RFC 7009). The wire protocol is the Convex broker's (packages/identity-broker/src/client/
-// resources.ts), so a client of that broker changes only its issuer. Each step that moves a
-// connection on is one command that reads the card in its own transaction (rules.ts); every call
-// to the provider is outside a command.
+// resources.ts), except that the hub is pass-through: the client gets and holds the provider's own
+// refresh token, and the hub forwards a refresh or a revocation with its provider client
+// authentication. Each step that moves a connection on is one command that reads the card in its
+// own transaction (rules.ts); every call to the provider is outside a command.
 import { Cause, Clock, Effect, Exit, Result } from "effect";
 import { errorPage } from "../core/html.ts";
 import {
@@ -26,12 +27,14 @@ import { randomToken, s256Challenge, sha256HexEffect } from "../core/subject.ts"
 import type { Return } from "../rules/schemas.ts";
 import { command } from "./commands.ts";
 import { readProviders, type ConnectionProvider, type ConnectionSettings } from "./providers.ts";
+import type { ProviderTokens } from "./tables.ts";
 import {
   declined,
   failureName,
   finishConnection,
   refreshConnection,
-  rejected,
+  refusal,
+  revokeConnection,
   startConnection,
 } from "./upstream.ts";
 
@@ -46,14 +49,10 @@ const refusedPage = () =>
   errorPage("API authorization unavailable", "This client cannot connect this API resource.", 403);
 
 /**
- * The token response of RFC 6749 section 5.1 with the provider's access token unchanged. The
- * provider's expiry started upstream, so `expires_in` counts from now.
+ * The token response of RFC 6749 section 5.1 with the provider's tokens unchanged. The provider's
+ * expiry started upstream, so `expires_in` counts from now.
  */
-const tokenResponse = (
-  tokens: { readonly accessToken: string; readonly scope: string; readonly expiresAt?: number },
-  now: number,
-  refreshToken: string | undefined,
-) =>
+const tokenResponse = (tokens: typeof ProviderTokens.Type, now: number) =>
   json({
     access_token: tokens.accessToken,
     token_type: "Bearer",
@@ -61,8 +60,25 @@ const tokenResponse = (
     ...(tokens.expiresAt === undefined
       ? {}
       : { expires_in: Math.max(0, Math.floor((tokens.expiresAt - now) / 1000)) }),
-    ...(refreshToken === undefined ? {} : { refresh_token: refreshToken }),
+    ...(tokens.refreshToken === undefined ? {} : { refresh_token: tokens.refreshToken }),
   });
+
+/** A provider that did not answer, or answered with no OAuth refusal. It is never `invalid_grant`. */
+const unavailable = () =>
+  oauthError(503, "temporarily_unavailable", "The provider is unavailable. Retry shortly.");
+
+/** The answer of RFC 6749 section 5.2 when the client's credentials could not be read. */
+const clientAuthError = (clientAuth: {
+  readonly status: number;
+  readonly error: string;
+  readonly description: string;
+}) =>
+  oauthError(
+    clientAuth.status,
+    clientAuth.error,
+    clientAuth.description,
+    clientAuth.status === 401 ? challenge : {},
+  );
 
 /** The client's credentials as a command takes them: the secret only as its hash. */
 const clientArgs = Effect.fnUntraced(function* (client: {
@@ -294,21 +310,16 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     });
 
   /**
-   * A refresh (RFC 6749 section 6) has two steps around the provider's call: the admission, which
-   * takes the grant's lease, and the finish, which saves the provider's answer for the attempt
-   * that holds the lease and decides whether the access token goes out. The hub's refresh token
-   * stays the same; the provider's rotates behind it.
+   * A refresh (RFC 6749 section 6) of the provider's refresh token, which the client holds. One
+   * step admits it from the card; then the hub sends the token to the provider with its own client
+   * authentication and answers what the provider answered. The hub writes no token. The client
+   * runs one refresh of a token at a time: the provider spends a rotated token once.
    */
   const refresh = Effect.fnUntraced(function* (request: Request, params: URLSearchParams) {
     const { fetch } = yield* Fetch;
     const clientAuth = readClientAuthentication(request.headers.get("authorization"), params);
     if (!clientAuth.ok) {
-      return oauthError(
-        clientAuth.status,
-        clientAuth.error,
-        clientAuth.description,
-        clientAuth.status === 401 ? challenge : {},
-      );
+      return clientAuthError(clientAuth);
     }
     const refreshToken = params.get("refresh_token");
     if (refreshToken === null) {
@@ -318,106 +329,42 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     if (params.has("scope")) {
       return oauthError(400, "invalid_scope", "A refresh cannot change the scope of this grant.");
     }
-    if (params.getAll("resource").length > 1) {
+    // RFC 8707 section 2.2: the hub keeps no grant, so the resource names the provider.
+    const resources = params.getAll("resource");
+    if (resources.length !== 1) {
       return oauthError(400, "invalid_target", "Request one API resource.");
     }
-    const resource = params.get("resource") ?? undefined;
-    const tokenHash = yield* sha256HexEffect(refreshToken);
-    const claim = yield* command("connections.claimRefresh", {
+    const provider = byResource.get(resources[0] ?? "");
+    if (provider === undefined) {
+      return oauthError(400, "invalid_target", "Request one configured API resource.");
+    }
+    const admitted = yield* command("connections.admitRefresh", {
       ...(yield* clientArgs(clientAuth.value)),
-      tokenHash,
-      ...(resource === undefined ? {} : { resource }),
+      resource: provider.resource,
       ...(yield* hubNow),
       now: yield* Clock.currentTimeMillis,
     });
-    if (!claim.ok) {
-      switch (claim.error) {
-        case "invalid_client":
-          return oauthError(401, claim.error, claim.description, challenge);
-        case "temporarily_unavailable":
-          return oauthError(503, claim.error, claim.description);
-        default:
-          return oauthError(400, claim.error, claim.description);
-      }
-    }
-    const provider = byResource.get(claim.resource);
-    if (provider === undefined) {
-      return oauthError(400, "invalid_target", "The API resource is unavailable.");
+    if (!admitted.ok) {
+      return admitted.error === "invalid_client"
+        ? oauthError(401, admitted.error, admitted.description, challenge)
+        : oauthError(400, admitted.error, admitted.description);
     }
     const calledAt = yield* Clock.currentTimeMillis;
     const answered = yield* Effect.result(
       Effect.tryPromise({
-        try: async () =>
-          await refreshConnection({
-            provider,
-            refreshToken: claim.upstreamRefreshToken,
-            fetch,
-            now: calledAt,
-          }),
+        try: async () => await refreshConnection({ provider, refreshToken, fetch, now: calledAt }),
         catch: (error) => error,
       }),
     );
     if (Result.isFailure(answered)) {
       const error = answered.failure;
       console.error(`Connection "${provider.name}" refresh failed: ${failureName(error)}`);
-      const failed = yield* command("connections.failRefresh", {
-        tokenHash,
-        attempt: claim.attempt,
-        rejected: rejected(error),
-        now: yield* Clock.currentTimeMillis,
-      });
-      switch (failed) {
-        case "rejected":
-          return oauthError(
-            400,
-            "invalid_grant",
-            "The provider refused this grant. Authorize again.",
-          );
-        case "gone":
-          return oauthError(
-            400,
-            "invalid_grant",
-            "The grant is no longer available. Authorize again.",
-          );
-        case "retry":
-          return oauthError(
-            503,
-            "temporarily_unavailable",
-            "The provider is unavailable. Retry shortly.",
-          );
-        default:
-          return failed satisfies never;
-      }
+      const refused = refusal(error);
+      return refused === undefined
+        ? unavailable()
+        : oauthError(400, refused, "The provider refused the refresh.");
     }
-    const tokens = answered.success;
-    const now = yield* Clock.currentTimeMillis;
-    const finished = yield* command("connections.finishRefresh", {
-      tokenHash,
-      attempt: claim.attempt,
-      ...(tokens.refreshToken === undefined ? {} : { refreshToken: tokens.refreshToken }),
-      ...(yield* hubNow),
-      now,
-    });
-    switch (finished) {
-      case "released":
-        return tokenResponse(tokens, now, refreshToken);
-      case "refused":
-        return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
-      case "stale":
-        return oauthError(
-          503,
-          "temporarily_unavailable",
-          "Another refresh holds this grant. Retry shortly.",
-        );
-      case "gone":
-        return oauthError(
-          400,
-          "invalid_grant",
-          "The grant is no longer available. Authorize again.",
-        );
-      default:
-        return finished satisfies never;
-    }
+    return tokenResponse(answered.success, yield* Clock.currentTimeMillis);
   });
 
   /**
@@ -446,7 +393,6 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       return undefined;
     }
     const resource = params.get("resource") ?? undefined;
-    const refreshToken = yield* randomToken(32);
     const now = yield* Clock.currentTimeMillis;
     const exchange = yield* command("connections.exchangeCode", {
       ...(yield* clientArgs(clientAuth.value)),
@@ -454,7 +400,6 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       redirectUri: validation.value.redirectUri,
       codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
       ...(resource === undefined ? {} : { resource }),
-      refreshTokenHash: yield* sha256HexEffect(refreshToken),
       ...(yield* hubNow),
       now,
     });
@@ -468,14 +413,16 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
           return oauthError(400, exchange.error, exchange.description);
       }
     }
-    return tokenResponse(exchange, now, exchange.refresh ? refreshToken : undefined);
+    return tokenResponse(exchange.tokens, now);
   });
 
   /**
-   * RFC 7009: the client revokes the hub's refresh token of a connection. The provider is not
-   * called; its grant stays until the user revokes it there.
+   * RFC 7009: the client revokes a provider token that it holds, at the provider that `resource`
+   * names. The hub forwards it with its own client authentication when the provider has a
+   * revocation endpoint, and answers 200 when it has none: the hub keeps nothing to delete.
    */
   const revoke = Effect.fn("connections.revoke")(function* (request: Request) {
+    const { fetch } = yield* Fetch;
     const params = yield* Effect.promise(() => readParameters(request));
     if (params === null) {
       return oauthError(
@@ -486,24 +433,47 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     }
     const clientAuth = readClientAuthentication(request.headers.get("authorization"), params);
     if (!clientAuth.ok) {
-      return oauthError(
-        clientAuth.status,
-        clientAuth.error,
-        clientAuth.description,
-        clientAuth.status === 401 ? challenge : {},
-      );
+      return clientAuthError(clientAuth);
     }
     const token = params.get("token");
     if (token === null) {
       return oauthError(400, "invalid_request", "token is required.");
     }
-    const authenticated = yield* command("connections.revoke", {
-      ...(yield* clientArgs(clientAuth.value)),
-      tokenHash: yield* sha256HexEffect(token),
-    });
-    return authenticated
-      ? new Response(null, { status: 200, headers: { "Cache-Control": "no-store" } })
-      : oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+    const resources = params.getAll("resource");
+    const provider = resources.length === 1 ? byResource.get(resources[0] ?? "") : undefined;
+    if (provider === undefined) {
+      return oauthError(400, "invalid_target", "Request one configured API resource.");
+    }
+    if (!(yield* command("connections.authenticate", yield* clientArgs(clientAuth.value)))) {
+      return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+    }
+    const revoked = new Response(null, { status: 200, headers: { "Cache-Control": "no-store" } });
+    if (provider.server.revocation_endpoint === undefined) {
+      return revoked;
+    }
+    const answered = yield* Effect.result(
+      Effect.tryPromise({
+        try: async () =>
+          await revokeConnection({
+            provider,
+            token,
+            tokenTypeHint: params.get("token_type_hint"),
+            fetch,
+          }),
+        catch: (error) => error,
+      }),
+    );
+    if (Result.isFailure(answered)) {
+      console.error(
+        `Connection "${provider.name}" revocation failed: ${failureName(answered.failure)}`,
+      );
+      // RFC 7009 section 2.2.1: the provider's refusal, such as `unsupported_token_type`.
+      const refused = refusal(answered.failure);
+      return refused === undefined
+        ? unavailable()
+        : oauthError(400, refused, "The provider refused the revocation.");
+    }
+    return revoked;
   });
 
   const routes: ReadonlyArray<Route<LiveGates>> = [

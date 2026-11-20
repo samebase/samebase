@@ -38,29 +38,17 @@ const definitions = {
     readOnly: false,
     rule: rules.exchangeCode,
   }),
-  "connections.claimRefresh": define({
-    args: rules.ClaimRefreshArgs,
-    result: rules.ClaimRefreshResult,
+  "connections.admitRefresh": define({
+    args: rules.AdmitRefreshArgs,
+    result: rules.AdmitRefreshResult,
     readOnly: false,
-    rule: rules.claimRefresh,
+    rule: rules.admitRefresh,
   }),
-  "connections.finishRefresh": define({
-    args: rules.FinishRefreshArgs,
-    result: rules.FinishRefreshResult,
-    readOnly: false,
-    rule: rules.finishRefresh,
-  }),
-  "connections.failRefresh": define({
-    args: rules.FailRefreshArgs,
-    result: rules.FailRefreshResult,
-    readOnly: false,
-    rule: rules.failRefresh,
-  }),
-  "connections.revoke": define({
-    args: rules.RevokeArgs,
+  "connections.authenticate": define({
+    args: rules.AuthenticateArgs,
     result: Schema.Boolean,
-    readOnly: false,
-    rule: rules.revoke,
+    readOnly: true,
+    rule: rules.authenticate,
   }),
   "connections.cleanup": define({
     args: rules.CleanupArgs,

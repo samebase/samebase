@@ -2,7 +2,6 @@
 // key, the RFC 7592 read that renews it, and the self-delete of a temporary client. The key's name
 // is the one fact a card is computed from: its `ref`, `budget` and `gates`.
 import { Effect, Schema } from "effect";
-import { removeClientGrants } from "../../connections/rules.ts";
 import { LEASE_MS } from "../../rules/clients.ts";
 import type { Step } from "../../rules/commands.ts";
 import { TokenEndpointAuthMethod } from "../../rules/tables.ts";
@@ -129,8 +128,7 @@ export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type, s
 
 /**
  * A temporary client deletes itself (RFC 7592 section 2.3). A permanent one cannot: a stack
- * destroy can leave a production deployment running. The card's connection grants go in the same
- * step, so no provider refresh token outlives its client.
+ * destroy can leave a production deployment running.
  */
 export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type) {
   const managed = yield* managedCard(args.clientId, args.registrationTokenHash);
@@ -141,6 +139,5 @@ export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type)
     return { ok: false as const, error: "permanent" as const };
   }
   yield* (yield* StackTx).delete("clients", managed.card.id);
-  yield* removeClientGrants(args.clientId);
   return { ok: true as const };
 });

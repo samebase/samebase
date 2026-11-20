@@ -279,7 +279,6 @@ const contentsOf = (store: Pick<TestStore, "withTx">) => () =>
         rateLimits: yield* all("rateLimits", "by_scope_and_github_id"),
         connectionRequests: yield* all("connectionRequests", "by_request_id"),
         connectionCodes: yield* all("connectionCodes", "by_code_hash"),
-        connectionGrants: yield* all("connectionGrants", "by_token_hash"),
       };
     }),
   );

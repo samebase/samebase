@@ -1,9 +1,10 @@
 // The rules of the connections part, each one all-or-nothing step: the request machine (create
-// `upstream`, claim, complete with the provider's tokens, abandon), the code exchange, the refresh
-// lease, revocation and cleanup. Every step reads the client's card in its own transaction, with
-// the same two forms of stop as sign-in: a row of `stops`, and a gate that the registration layer
-// no longer has (`isStopped`). A connection goes on only while its provider is in the card's
-// `connections` and among the hub's configured providers.
+// `upstream`, claim, complete with the provider's tokens, abandon), the code exchange, the
+// admission of a refresh, the client authentication of a revocation, and cleanup. Every step reads
+// the client's card in its own transaction, with the same two forms of stop as sign-in: a row of
+// `stops`, and a gate that the registration layer no longer has (`isStopped`). A connection goes
+// on only while its provider is in the card's `connections` and among the hub's configured
+// providers. The hub keeps no provider token after the code exchange: the client holds them.
 import { Effect, Schema } from "effect";
 import { spendBudget } from "../rules/authRequests.ts";
 import { cardRow, isStopped, used } from "../rules/clients.ts";
@@ -21,14 +22,6 @@ const opt = Schema.optionalKey;
 /** The views of a step that the part's rules read: cards through the core's, its own tables. */
 type Views = Tx | ConnectionsTx;
 
-/** A grant ends after 90 days without a refresh, as in the Convex broker. */
-export const GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
-/**
- * How long one refresh attempt holds a grant. It is longer than the provider call's timeout
- * (`REFRESH_TIMEOUT_MS` of upstream.ts, 30 s) and the commit after it, so an attempt that can
- * still save the provider's answer always holds the lease (design version 2 item 5).
- */
-export const REFRESH_LEASE_MS = 90 * 1000;
 /** How many rows one cleanup batch deletes per category. */
 export const BATCH = 200;
 
@@ -45,7 +38,6 @@ type HubNow = {
 const back = Schema.optional(Return);
 
 type ConnectionRequest = Doc<"connectionRequests">;
-type Grant = Doc<"connectionGrants">;
 
 /** Whether the card may use the provider of `resource`: configured, and in its `connections`. */
 const offers = (card: Doc<"clients">, resource: string, hub: HubNow) => {
@@ -79,10 +71,6 @@ const returnTo = Effect.fnUntraced(function* (request: ConnectionRequest) {
 
 const requestOf = Effect.fnUntraced(function* (requestId: string) {
   return yield* unique(yield* ConnectionsTx, "connectionRequests", "by_request_id", [requestId]);
-});
-
-const grantOf = Effect.fnUntraced(function* (tokenHash: string) {
-  return yield* unique(yield* ConnectionsTx, "connectionGrants", "by_token_hash", [tokenHash]);
 });
 
 /** The fields shared by every status. `replace` writes the whole document. */
@@ -328,8 +316,6 @@ export const ExchangeArgs = Schema.Struct({
   codeChallengeOfVerifier: Str,
   /** The `resource` of the token request: optional, as in the Convex broker (RFC 8707). */
   resource: opt(Str),
-  /** SHA-256 hex of the hub refresh token that the handler made for a grant. */
-  refreshTokenHash: Str,
   ...hubNow,
   now: Num,
 });
@@ -342,14 +328,8 @@ export const ExchangeResult = Schema.Union([
   /** The code is not a connection's: the core's sign-in redeems it, or refuses it. */
   Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("not_found") }),
   Refusal,
-  Schema.Struct({
-    ok: Schema.Literal(true),
-    accessToken: Str,
-    scope: Str,
-    expiresAt: opt(Num),
-    /** A grant was stored: the handler answers the hub's refresh token. */
-    refresh: Schema.Boolean,
-  }),
+  /** The provider's tokens, which the hub no longer holds. */
+  Schema.Struct({ ok: Schema.Literal(true), tokens: ProviderTokens }),
 ]);
 type ExchangeResult = typeof ExchangeResult.Type;
 
@@ -361,10 +341,9 @@ const refuse = (
 /**
  * Redeems a connection's code: single use, bound to the client, its return address and its PKCE
  * challenge (RFC 6749 section 4.1.3, RFC 7636), and to the request's resource (RFC 8707). The code
- * is looked up first, so a sign-in code is left to the core untouched. A replay deletes the code,
- * its request, and the grant it issued (RFC 6749 section 4.1.2). On success the provider's refresh
- * token, when it gave one, becomes a grant behind `refreshTokenHash`, the request is deleted, and
- * a temporary card lives on (design version 2 item 7).
+ * is looked up first, so a sign-in code is left to the core untouched. On success the code and the
+ * request are deleted, so the hub keeps no provider token and a replay finds no code; the
+ * provider's tokens go to the client, and a temporary card lives on.
  */
 export const exchangeCode = Effect.fnUntraced(function* (
   args: typeof ExchangeArgs.Type,
@@ -380,19 +359,6 @@ export const exchangeCode = Effect.fnUntraced(function* (
   }
   if (code.doc.clientId !== args.clientId) {
     return refuse("invalid_grant", "The authorization code belongs to another client.");
-  }
-  if (code.doc.usedAt !== undefined) {
-    yield* tx.delete("connectionCodes", code.id);
-    const request = yield* requestOf(code.doc.requestId);
-    if (request !== undefined) {
-      yield* tx.delete("connectionRequests", request.id);
-    }
-    const grant =
-      code.doc.grantTokenHash === undefined ? undefined : yield* grantOf(code.doc.grantTokenHash);
-    if (grant !== undefined) {
-      yield* tx.delete("connectionGrants", grant.id);
-    }
-    return refuse("invalid_grant", "The authorization code was already used.");
   }
   if (code.doc.expiresAt <= args.now) {
     return refuse("invalid_grant", "The authorization code expired.");
@@ -417,246 +383,64 @@ export const exchangeCode = Effect.fnUntraced(function* (
   if (!card.doc.redirectUris.includes(request.redirectUri)) {
     return refuse("invalid_grant", "This client cannot finish this connection now.");
   }
-  const { tokens } = request;
-  if (tokens.refreshToken !== undefined) {
-    yield* tx.insert("connectionGrants", {
-      tokenHash: args.refreshTokenHash,
-      clientId: request.clientId,
-      resource: request.resource,
-      upstreamRefreshToken: tokens.refreshToken,
-      expiresAt: args.now + GRANT_IDLE_MS,
-      attempt: 0,
-    });
-  }
-  yield* tx.replace("connectionCodes", code.id, {
-    ...code.doc,
-    usedAt: args.now,
-    ...(tokens.refreshToken === undefined ? {} : { grantTokenHash: args.refreshTokenHash }),
-  });
+  yield* tx.delete("connectionCodes", code.id);
   yield* tx.delete("connectionRequests", row.id);
   yield* tx.replace("clients", card.id, used(card.doc, args.now));
-  return {
-    ok: true,
-    accessToken: tokens.accessToken,
-    scope: tokens.scope,
-    ...(tokens.expiresAt === undefined ? {} : { expiresAt: tokens.expiresAt }),
-    refresh: tokens.refreshToken !== undefined,
-  };
+  return { ok: true, tokens: request.tokens };
 });
 
-// claimRefresh
+// admitRefresh
 
-export const ClaimRefreshArgs = Schema.Struct({
+export const AdmitRefreshArgs = Schema.Struct({
   ...ClientAuth,
-  /** SHA-256 hex of the hub's refresh token. */
-  tokenHash: Str,
-  /** Optional on refresh: the grant knows its resource. */
-  resource: opt(Str),
+  /** Required on refresh: the hub keeps no grant that knows it. */
+  resource: Str,
   ...hubNow,
   now: Num,
 });
-export const ClaimRefreshResult = Schema.Union([
-  Refusal,
+export const AdmitRefreshResult = Schema.Union([
+  Schema.Struct({ ok: Schema.Literal(true) }),
   Schema.Struct({
     ok: Schema.Literal(false),
-    error: Schema.Literal("temporarily_unavailable"),
+    error: Schema.Literals(["invalid_client", "invalid_target"]),
     description: Str,
-  }),
-  Schema.Struct({
-    ok: Schema.Literal(true),
-    /** This attempt's number: only the attempt that holds the grant can save or end it. */
-    attempt: Num,
-    resource: Str,
-    upstreamRefreshToken: Str,
   }),
 ]);
 
-const leaseHolds = (grant: Grant, now: number) =>
-  grant.refreshStartedAt !== undefined && grant.refreshStartedAt + REFRESH_LEASE_MS > now;
-
 /**
- * The admission of a refresh (RFC 6749 section 6), before the provider is called: the client
- * authenticates, no gate refuses it, the grant is its own and not idle too long, and the client
- * may use the grant's provider now. While another attempt holds the lease, the answer is the
- * retryable `temporarily_unavailable`, never `invalid_grant` (design version 2 item 5). An
- * admitted attempt takes the lease with the next attempt number, and a temporary card lives on.
+ * The admission of a refresh (RFC 6749 section 6), before the hub forwards the client's refresh
+ * token to the provider: the client authenticates, no gate refuses it, and it may use the
+ * provider of `resource` now. An admitted refresh renews a temporary card. The token itself is
+ * the provider's to judge.
  */
-export const claimRefresh = Effect.fnUntraced(function* (
-  args: typeof ClaimRefreshArgs.Type,
-): Effect.fn.Return<typeof ClaimRefreshResult.Type, never, Views> {
-  const tx = yield* ConnectionsTx;
+export const admitRefresh = Effect.fnUntraced(function* (
+  args: typeof AdmitRefreshArgs.Type,
+): Effect.fn.Return<typeof AdmitRefreshResult.Type, never, Views> {
   const card = yield* authenticated(args);
   if (card === undefined || (yield* isStopped(card.doc, args.liveGates))) {
     return { ok: false, error: "invalid_client", description: "Client authentication failed." };
   }
-  const grant = yield* grantOf(args.tokenHash);
-  if (grant === undefined || grant.doc.clientId !== args.clientId) {
-    return { ok: false, error: "invalid_grant", description: "The refresh token is invalid." };
-  }
-  if (grant.doc.expiresAt <= args.now) {
-    yield* tx.delete("connectionGrants", grant.id);
-    return { ok: false, error: "invalid_grant", description: "The grant expired." };
-  }
-  if (args.resource !== undefined && args.resource !== grant.doc.resource) {
-    return {
-      ok: false,
-      error: "invalid_target",
-      description: "The resource does not match the grant.",
-    };
-  }
-  if (!offers(card.doc, grant.doc.resource, args)) {
+  if (!offers(card.doc, args.resource, args)) {
     return {
       ok: false,
       error: "invalid_target",
       description: "This client cannot use that API resource.",
     };
   }
-  if (leaseHolds(grant.doc, args.now)) {
-    return {
-      ok: false,
-      error: "temporarily_unavailable",
-      description: "A refresh is already running. Retry shortly.",
-    };
-  }
-  const attempt = grant.doc.attempt + 1;
-  yield* tx.replace("connectionGrants", grant.id, {
-    ...grant.doc,
-    attempt,
-    refreshStartedAt: args.now,
-  });
-  yield* tx.replace("clients", card.id, used(card.doc, args.now));
-  return {
-    ok: true,
-    attempt,
-    resource: grant.doc.resource,
-    upstreamRefreshToken: grant.doc.upstreamRefreshToken,
-  };
+  yield* (yield* ConnectionsTx).replace("clients", card.id, used(card.doc, args.now));
+  return { ok: true };
 });
 
-/** The grant without its lease: the attempt that held it has ended. */
-const released = (grant: Grant): Grant => ({
-  tokenHash: grant.tokenHash,
-  clientId: grant.clientId,
-  resource: grant.resource,
-  upstreamRefreshToken: grant.upstreamRefreshToken,
-  expiresAt: grant.expiresAt,
-  attempt: grant.attempt,
-});
+// authenticate
 
-// finishRefresh
-
-export const FinishRefreshArgs = Schema.Struct({
-  tokenHash: Str,
-  attempt: Num,
-  /** The provider's new refresh token; absent when the provider kept the old one. */
-  refreshToken: opt(Str),
-  ...hubNow,
-  now: Num,
-});
-export const FinishRefreshResult = Schema.Literals(["released", "refused", "stale", "gone"]);
+export const AuthenticateArgs = Schema.Struct(ClientAuth);
 
 /**
- * The provider answered the attempt with tokens. In one step (design version 2 item 4): the
- * answer is saved only for the attempt that holds the grant now (`stale` otherwise: nothing is
- * written); the provider's rotated refresh token is saved even when the client is now stopped or
- * may no longer use the provider, so an unstop restores the grant; without a new one the prior
- * token stays. Then the step decides whether the access token goes to the client (`released`) or
- * not (`refused`). A deleted or revoked grant stays gone.
+ * The client authentication of a revocation (RFC 7009 section 2.1). A stopped client may still
+ * revoke: a revocation only takes access away.
  */
-export const finishRefresh = Effect.fnUntraced(function* (
-  args: typeof FinishRefreshArgs.Type,
-): Effect.fn.Return<typeof FinishRefreshResult.Type, never, Views> {
-  const grant = yield* grantOf(args.tokenHash);
-  if (grant === undefined) {
-    return "gone";
-  }
-  if (grant.doc.attempt !== args.attempt) {
-    return "stale";
-  }
-  yield* (yield* ConnectionsTx).replace("connectionGrants", grant.id, {
-    ...released(grant.doc),
-    upstreamRefreshToken: args.refreshToken ?? grant.doc.upstreamRefreshToken,
-    expiresAt: args.now + GRANT_IDLE_MS,
-  });
-  return (yield* usableCard(grant.doc.clientId, grant.doc.resource, args)) === undefined
-    ? "refused"
-    : "released";
-});
-
-// failRefresh
-
-export const FailRefreshArgs = Schema.Struct({
-  tokenHash: Str,
-  attempt: Num,
-  /** The provider answered `invalid_grant`: the token the hub holds is dead. */
-  rejected: Schema.Boolean,
-  now: Num,
-});
-export const FailRefreshResult = Schema.Literals(["rejected", "retry", "gone"]);
-
-/**
- * The provider's call failed. Only the provider's `invalid_grant` for the attempt that holds the
- * grant, while its lease holds, deletes the grant (`rejected`). Any other failure of that attempt
- * frees the lease; a stale attempt's failure writes nothing. Both answer the retryable `retry`
- * (design version 2 item 5).
- */
-export const failRefresh = Effect.fnUntraced(function* (
-  args: typeof FailRefreshArgs.Type,
-): Effect.fn.Return<typeof FailRefreshResult.Type, never, Views> {
-  const tx = yield* ConnectionsTx;
-  const grant = yield* grantOf(args.tokenHash);
-  if (grant === undefined) {
-    return "gone";
-  }
-  if (grant.doc.attempt !== args.attempt || grant.doc.refreshStartedAt === undefined) {
-    return "retry";
-  }
-  if (!args.rejected) {
-    yield* tx.replace("connectionGrants", grant.id, released(grant.doc));
-    return "retry";
-  }
-  if (!leaseHolds(grant.doc, args.now)) {
-    return "retry";
-  }
-  yield* tx.delete("connectionGrants", grant.id);
-  return "rejected";
-});
-
-// revoke
-
-export const RevokeArgs = Schema.Struct({ ...ClientAuth, tokenHash: Str });
-
-/**
- * RFC 7009 section 2.1: the authenticated client revokes its own grant. An unknown token, or
- * another client's, changes nothing and also succeeds (section 2.2). A stopped client may still
- * revoke. The provider is not called. False: the client did not authenticate.
- */
-export const revoke = Effect.fnUntraced(function* (args: typeof RevokeArgs.Type) {
-  if ((yield* authenticated(args)) === undefined) {
-    return false;
-  }
-  const grant = yield* grantOf(args.tokenHash);
-  if (grant !== undefined && grant.doc.clientId === args.clientId) {
-    yield* (yield* ConnectionsTx).delete("connectionGrants", grant.id);
-  }
-  return true;
-});
-
-/**
- * Deletes up to `limit` grants of a client, oldest first, and answers how many it deleted. A
- * layer that deletes a card calls it in the same step.
- */
-export const removeClientGrants = Effect.fnUntraced(function* (clientId: string, limit = BATCH) {
-  const tx = yield* ConnectionsTx;
-  const grants = yield* tx.query("connectionGrants", "by_client_id", {
-    eq: [clientId],
-    order: "asc",
-    limit,
-  });
-  for (const grant of grants) {
-    yield* tx.delete("connectionGrants", grant.id);
-  }
-  return grants.length;
+export const authenticate = Effect.fnUntraced(function* (args: typeof AuthenticateArgs.Type) {
+  return (yield* authenticated(args)) !== undefined;
 });
 
 // cleanup
@@ -665,16 +449,13 @@ export const CleanupArgs = Schema.Struct({ now: Num });
 export const CleanupResult = Schema.Struct({
   connectionRequests: Num,
   connectionCodes: Num,
-  connectionGrants: Num,
   /** A category filled its batch: call again with the same arguments. */
   more: Schema.Boolean,
 });
 
 /**
- * One batch of what has run out: expired requests and codes, idle grants, and the grants of the
- * cards that the core's next cleanup batch deletes (the first `BATCH` cards past their removal
- * date, in the core's order). A host runs this until it reports no `more`, then the core's batch,
- * so no grant outlives its card. The cutoff never moves, so the calls end.
+ * One batch of what has run out: expired requests and codes. A host runs it beside the core's
+ * cleanup until it reports no `more`. The cutoff never moves, so the calls end.
  */
 export const cleanup = Effect.fnUntraced(function* (args: typeof CleanupArgs.Type) {
   const tx = yield* ConnectionsTx;
@@ -692,31 +473,9 @@ export const cleanup = Effect.fnUntraced(function* (args: typeof CleanupArgs.Typ
   for (const code of codes) {
     yield* tx.delete("connectionCodes", code.id);
   }
-  const idle = yield* tx.query("connectionGrants", "by_expires_at", expired);
-  for (const grant of idle) {
-    yield* tx.delete("connectionGrants", grant.id);
-  }
-  // The same query as the core's cleanup of cards (src/rules/lifecycle.ts).
-  const cards = yield* tx.query("clients", "by_remove_at", {
-    eq: [],
-    range: [
-      { op: "gt", value: undefined },
-      { op: "lt", value: args.now },
-    ],
-    order: "asc",
-    limit: BATCH,
-  });
-  let ofCards = 0;
-  for (const card of cards) {
-    ofCards += yield* removeClientGrants(card.doc.clientId, BATCH - ofCards);
-    if (ofCards === BATCH) {
-      break;
-    }
-  }
   return {
     connectionRequests: requests.length,
     connectionCodes: codes.length,
-    connectionGrants: idle.length + ofCards,
-    more: [requests.length, codes.length, idle.length, ofCards].some((count) => count === BATCH),
+    more: requests.length === BATCH || codes.length === BATCH,
   };
 });
