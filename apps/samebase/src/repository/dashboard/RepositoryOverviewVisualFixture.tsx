@@ -134,6 +134,114 @@ function fixtureWorkerRow(workerName: string): string {
     .replace('"urls":[]', `"url":"${url}","urls":["${url}"]`);
 }
 
+const DOCS_SITE_ACCOUNT_ID = "0d0c5517e0000000000000000000a11c";
+
+/**
+The Worker `env` bindings as Alchemy beta.87 records them: the env key is the `sid`, and the data
+holds the Cloudflare binding with the same name.
+
+@see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.87/packages/cloudflare/src/Workers/WorkerAsyncBindings.ts#L292-L294
+*/
+const docsSiteBinding = (binding: { type: string; name: string } & Record<string, string>) => ({
+  sid: binding.name,
+  data: { bindings: [binding] },
+});
+
+/** A Worker row of the docs-site stack. */
+const docsSiteWorker = (
+  logicalId: string,
+  url: string | null,
+  bindings: ReturnType<typeof docsSiteBinding>[],
+  downstream: string[],
+) => ({
+  fqn: logicalId,
+  value: JSON.stringify({
+    logicalId,
+    status: "created",
+    resourceType: "Cloudflare.Worker",
+    attr: {
+      workerName: `docs-site-${logicalId.toLowerCase()}-prod`,
+      accountId: DOCS_SITE_ACCOUNT_ID,
+      ...(url === null ? { urls: [] } : { url, urls: [url] }),
+    },
+    bindings,
+    downstream,
+  }),
+});
+
+/** A row of the docs-site stack that a Worker binds. */
+const docsSiteBound = (
+  logicalId: string,
+  resourceType: string,
+  attr: Record<string, string>,
+  downstream: string[],
+) => ({
+  fqn: logicalId,
+  value: JSON.stringify({
+    logicalId,
+    status: "created",
+    resourceType,
+    attr: { ...attr, accountId: DOCS_SITE_ACCOUNT_ID },
+    bindings: [],
+    downstream,
+  }),
+});
+
+/** The shape mirrors a real two-Worker stack: 2 Workers, 2 R2 buckets, 2 D1 databases, 5 bindings. */
+const DOCS_SITE_RESOURCES = [
+  docsSiteWorker(
+    "Reader",
+    "https://docs-site.example.workers.dev",
+    [
+      docsSiteBinding({ type: "r2_bucket", name: "SITE", bucketName: "docs-site-site-pages" }),
+      docsSiteBinding({
+        type: "d1",
+        name: "SEARCH",
+        databaseId: "5e4c0b1d-0000-4000-8000-00000000d0c5",
+      }),
+      docsSiteBinding({ type: "service", name: "INGEST", service: "docs-site-ingest-prod" }),
+    ],
+    [],
+  ),
+  docsSiteWorker(
+    "Ingest",
+    null,
+    [
+      docsSiteBinding({ type: "r2_bucket", name: "RAW", bucketName: "docs-site-raw-pages" }),
+      docsSiteBinding({
+        type: "d1",
+        name: "FETCHES",
+        databaseId: "fe7c4e50-0000-4000-8000-00000000d0c5",
+      }),
+    ],
+    ["Reader"],
+  ),
+  docsSiteBound(
+    "SitePages",
+    "Cloudflare.R2.Bucket",
+    { bucketName: "docs-site-site-pages", jurisdiction: "default" },
+    ["Reader"],
+  ),
+  docsSiteBound(
+    "Search",
+    "Cloudflare.D1Database",
+    { databaseId: "5e4c0b1d-0000-4000-8000-00000000d0c5", databaseName: "docs-site-search" },
+    ["Reader"],
+  ),
+  docsSiteBound(
+    "RawPages",
+    "Cloudflare.R2.Bucket",
+    { bucketName: "docs-site-raw-pages", jurisdiction: "default" },
+    ["Ingest"],
+  ),
+  docsSiteBound(
+    "Fetches",
+    "Cloudflare.D1Database",
+    { databaseId: "fe7c4e50-0000-4000-8000-00000000d0c5", databaseName: "docs-site-fetches" },
+    ["Ingest"],
+  ),
+];
+
 /**
 The stacks of samebase/samebase from the captured rows of its stages `prod` and `pr-1768`: the root
 stack, whose Site deployment serves at its custom domain samebase.com and binds the `mail` component
@@ -231,6 +339,18 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
               { fqn: "Site", value: fixtureWorkerRow("samebase-monorepo-sidebars-example") },
             ],
             output: "{}",
+          },
+        ],
+      },
+      {
+        name: "samebase/samebase/apps/docs-site",
+        store: "convex",
+        stages: [
+          {
+            name: "prod",
+            run: { ...record, stackFile: "apps/docs-site/alchemy.run.ts" },
+            resources: DOCS_SITE_RESOURCES,
+            output: '{"url":"https://docs-site.example.workers.dev"}',
           },
         ],
       },

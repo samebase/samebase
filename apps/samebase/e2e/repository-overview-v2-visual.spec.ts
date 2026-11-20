@@ -201,6 +201,24 @@ test("shows one card per Alchemy stack on desktop, mobile and a narrow pane", as
   }
 });
 
+test("draws the binding lines of a two-Worker stack on desktop and mobile", async ({ page }) => {
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
+    await expect(
+      fixture.getByRole("group", { name: "Alchemy stack samebase/samebase/apps/docs-site" }),
+    ).toHaveScreenshot(`repository-overview-v2-r2-docs-site-${viewport.width}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  }
+});
+
 test("shows the stack card of a pull request preview on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
