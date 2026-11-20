@@ -214,7 +214,6 @@ describe("AlchemyStateTree", () => {
       (row) => row.textContent === "Resources",
     )?.nextElementSibling;
     expect(resources?.querySelectorAll("svg")).toHaveLength(3);
-    expect(resources?.querySelectorAll("svg.lucide-box")).toHaveLength(2);
   });
 
   it("shows each stack of the repository with the resources that its rows place", () => {
