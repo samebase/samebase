@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -10,6 +10,9 @@ import { observedSamebaseStackReply } from "../../convex/repository/fixtures/obs
 import { observedScoutR2Resources } from "../../convex/repository/fixtures/observedScoutR2Resources";
 import type { AlchemyStateObservation } from "../../shared/alchemyStateModel";
 import { AlchemyStateTree } from "@/components/RepositoryAlchemyStateTree";
+import { AlchemyStackViews } from "@/components/AlchemyStackViews";
+import type { AlchemyRouteSearch } from "@/routeSearch/alchemy";
+import { applySearchPatch } from "@/routing/searchFlags";
 
 type AlchemyStage = Extract<
   AlchemyStateObservation,
@@ -107,6 +110,77 @@ function deploymentWith(
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+it("compares the selected stack and stage across views, including stacks with the same name", async () => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const name = "samebase/samebase";
+  const observation = {
+    store: "found",
+    liveDeployments: [],
+    stacks: [
+      { name, store: "github", stages: [{ ...pr1768Stage, name: "prod", resources: [workerRow] }] },
+      {
+        name,
+        store: "convex",
+        stages: [pr1768Stage, { ...pr1768Stage, name: "prod", resources: samebaseProd.resources }],
+      },
+    ],
+  } satisfies AlchemyStateObservation;
+  function Comparison() {
+    const [search, setSearch] = useState<AlchemyRouteSearch>({
+      view: "inventory",
+      stack: "convex:" + name,
+      stage: "pr-1768",
+    });
+    return (
+      <AlchemyStackViews
+        observation={observation}
+        search={search}
+        onChange={(patch) => setSearch((prev) => applySearchPatch(prev, patch))}
+      />
+    );
+  }
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<Comparison />));
+    expect(container.querySelector('table[aria-label="Stage resources"]')?.textContent).toContain(
+      "PreviewComment",
+    );
+    const click = async (label: string) => {
+      const button = Array.from(container.querySelectorAll("button")).find(
+        (b) => b.textContent === label || b.getAttribute("aria-label") === label,
+      );
+      expect(button).toBeDefined();
+      await act(async () => button!.click());
+    };
+    await click("System diagram");
+    expect(container.querySelector('[aria-pressed="true"]')?.textContent).toBe("System diagram");
+    await click("Inspect Site, Convex deployment");
+    const inspector = () => container.querySelector('[aria-label="Selected resource"]');
+    expect(inspector()?.textContent).toContain("Depends onProject");
+    expect(inspector()?.textContent).toContain("Used byPreviewComment");
+    await click("Inventory");
+    await click(name);
+    await click("System diagram");
+    await click("Worker bindings");
+    await click("Inspect Worker, Worker");
+    expect(inspector()?.textContent).toContain("CONVEX_URL");
+    expect(container.querySelector('[aria-label="Stage"]')?.textContent).toContain("prod");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
 });
 
 describe("AlchemyStateTree", () => {

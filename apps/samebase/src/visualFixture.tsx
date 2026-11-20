@@ -45,6 +45,7 @@ import {
   FileViewProsemarkHeightVisualFixture,
   type FileViewProsemarkHeightVisualMode,
 } from "@/repository/editor/FileViewProsemarkHeightVisualFixture";
+import { AlchemyDiagramVisualFixture } from "@/components/AlchemyDiagramVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import { SamebaseAttributionVisualFixture } from "@/components/SamebaseAttributionVisualFixture";
 import {
@@ -112,6 +113,7 @@ type VisualFixtureMode =
   | ProviderConnectionsPageVisualMode
   | RouteUrlEditorVisualMode
   | "public-account-checking-login"
+  | "alchemy-diagram"
   | "button"
   | "samebase-attribution"
   | AppBootFailureStateVisualMode
@@ -249,6 +251,7 @@ const MISC_VISUAL_MODES = [
   "account-deletion-attention",
   "public-account-checking-login",
   ...SIDEBAR_LAYOUT_VISUAL_MODES,
+  "alchemy-diagram",
   "button",
   "samebase-attribution",
   "app-boot-failure-stale",
@@ -356,6 +359,7 @@ function readSelection(modeSearchValue: string | undefined): VisualFixtureSelect
 }
 
 function renderVisualFixture(mode: VisualFixtureMode) {
+  if (mode === "alchemy-diagram") return <AlchemyDiagramVisualFixture />;
   if (
     mode === "account-deletion-queued" ||
     mode === "account-deletion-running" ||
