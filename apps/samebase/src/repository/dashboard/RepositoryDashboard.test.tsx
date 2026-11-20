@@ -26,7 +26,13 @@ import { PullRequestsSection } from "./RepositoryPullRequestsSection";
 import { RepositoryGitHubIdentityNotice } from "./RepositoryGitHubIdentityNotice";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
 import { readRepositoryStackCheck } from "./repositoryStackCheck";
-import { DefaultBranchSection, PullRequestResources } from "./RepositoryEnvironmentTree";
+import {
+  DefaultBranchSection,
+  PullRequestResources,
+  type RepositoryStackViewControl,
+} from "./RepositoryEnvironmentTree";
+
+const DIAGRAM: RepositoryStackViewControl = { view: "diagram", onChange: () => {} };
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
@@ -333,6 +339,7 @@ function renderStackCards(
     <TestRouterProvider initialEntries={[`/repo/${repository.githubRepositoryFullName}`]}>
       <DefaultBranchSection
         filesReadEnabled={false}
+        stackView={DIAGRAM}
         workspace={{
           access: { state: "ready", accessKeys: [] },
           alchemyState: {
@@ -481,6 +488,7 @@ describe("Alchemy stack cards", () => {
           <TestRouterProvider initialEntries={["/repo/acme/app"]}>
             <DefaultBranchSection
               filesReadEnabled={false}
+              stackView={DIAGRAM}
               workspace={{
                 ...makeWorkspace(repository, {
                   state: "loaded",
@@ -953,6 +961,7 @@ describe("Alchemy stack cards", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(
       <PullRequestResources
+        view="diagram"
         resource={{
           state: "loaded",
           // The pull request has a newer head than the deployed commit, so the card has a run line.
@@ -1028,7 +1037,7 @@ describe("the default-branch block without a stack", () => {
       <TestRouterProvider
         initialEntries={[`/repo/${workspace.repository.githubRepositoryFullName}`]}
       >
-        <DefaultBranchSection filesReadEnabled={false} workspace={workspace} />
+        <DefaultBranchSection filesReadEnabled={false} stackView={DIAGRAM} workspace={workspace} />
       </TestRouterProvider>,
     );
     return container;
@@ -1061,7 +1070,11 @@ describe("the default-branch block without a stack", () => {
       await act(async () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
-            <DefaultBranchSection filesReadEnabled={false} workspace={workspace} />
+            <DefaultBranchSection
+              filesReadEnabled={false}
+              stackView={DIAGRAM}
+              workspace={workspace}
+            />
           </TestRouterProvider>,
         );
       });
@@ -1163,9 +1176,11 @@ describe("the default-branch block without a stack", () => {
 
 describe("PullRequestResources", () => {
   it("says that the store could not be read, and shows nothing for a pull request with no stage", () => {
-    const failed = renderToStaticMarkup(<PullRequestResources resource={{ state: "failed" }} />);
+    const failed = renderToStaticMarkup(
+      <PullRequestResources resource={{ state: "failed" }} view="diagram" />,
+    );
     const empty = renderToStaticMarkup(
-      <PullRequestResources resource={{ state: "loaded", stackCards: [] }} />,
+      <PullRequestResources resource={{ state: "loaded", stackCards: [] }} view="diagram" />,
     );
 
     expect(failed).toContain("Could not read the team&#x27;s Alchemy state store.");
@@ -1237,6 +1252,7 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
+              stackView="diagram"
               filesReadEnabled={false}
               pullRequests={pullRequests}
               repository={makeRepositorySettingsBuilderRepository({})}
@@ -1295,6 +1311,7 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
+              stackView="diagram"
               filesReadEnabled={false}
               pullRequests={pullRequests}
               repository={makeRepositorySettingsBuilderRepository({ defaultBranch: "main" })}
@@ -1335,6 +1352,7 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
+              stackView="diagram"
               filesReadEnabled
               pullRequests={pullRequests}
               repository={makeRepositorySettingsBuilderRepository({
@@ -1702,6 +1720,7 @@ describe("RepositoryOverviewPage", () => {
           onOpenDeleteDialog={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryRepositoryDeletion={() => {}}
+          stackView={DIAGRAM}
           workspace={{
             alchemyState: {
               state: "loaded" as const,

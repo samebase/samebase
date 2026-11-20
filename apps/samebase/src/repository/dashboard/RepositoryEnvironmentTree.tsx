@@ -9,12 +9,16 @@ import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDa
 import { StackStateStore, StateStoreProblems } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { AlchemyStageDiagram } from "@/components/AlchemyStageDiagram";
+import { resourceTypePresentation } from "@/components/resourceTypePresentation";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { ReactNode } from "react";
 import type {
   RepositoryEnvironmentAction,
   RepositoryEnvironmentResource,
+  RepositoryEnvironmentWorker,
   RepositoryStackCard,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
+import type { RepositoryStackView } from "../../../convex/userPreferenceModel";
 import type {
   PullRequestResourceState,
   RepositoryPullRequestsState,
@@ -90,6 +94,122 @@ function EnvironmentActionsMenu({
     </DropdownMenu>
   );
 }
+
+function DestinationResource({
+  resource,
+}: {
+  resource: Extract<RepositoryEnvironmentResource, { kind: "destination" }>;
+}) {
+  const presentation = resourceTypePresentation("Convex.Deployment");
+  const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
+
+  return (
+    <div
+      aria-label={`Convex deployment ${resource.label}`}
+      className="grid min-h-10 min-w-0 py-1.5"
+      role="group"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1">
+        <a
+          className="inline-flex min-h-10 min-w-0 items-center gap-2.5 text-foreground no-underline hover:no-underline"
+          href={resource.href}
+          rel="noreferrer noopener"
+          target="_blank"
+          title={resource.title}
+        >
+          <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+            {presentation.icon}
+          </span>
+          <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 max-lines-3">
+            {resource.label}
+          </span>
+          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </a>
+        {region ? (
+          <span className="text-xs" title={region.displayName}>
+            <span aria-hidden="true">{region.icon}</span>
+            <span className="sr-only">{region.displayName}</span>
+          </span>
+        ) : null}
+        {resource.actions.length > 0 ? (
+          <EnvironmentActionsMenu actions={resource.actions} label={resource.label} />
+        ) : null}
+      </div>
+      {resource.components ? (
+        <div className="ml-2.5 grid min-w-0 border-l border-border pl-3">
+          {resource.components.map((component) => (
+            <div
+              key={component.path}
+              aria-label={`Convex component ${component.path}`}
+              className="min-w-0"
+              role="group"
+            >
+              <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-2.5 py-1.5">
+                <span className="min-w-0 max-lines-3 text-sm font-medium leading-5 text-foreground">
+                  {component.path}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">Convex component</span>
+              </div>
+              <div className="ml-2.5 border-l border-border pl-3">
+                {component.resources.map((child) => (
+                  <RepositoryEnvironmentResourceRow
+                    key={`${child.kind}:${child.id}`}
+                    resource={child}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RepositoryEnvironmentResourceRow({
+  resource,
+}: {
+  resource: RepositoryEnvironmentResource;
+}) {
+  switch (resource.kind) {
+    case "destination":
+      return <DestinationResource resource={resource} />;
+    case "cloudflare_worker":
+      return <CloudflareWorkerResource worker={resource.worker} />;
+    case "cloudflare_r2_bucket":
+      return (
+        <div className="flex">
+          <a
+            className="inline-flex min-h-10 min-w-0 items-center gap-2.5 py-1.5 text-foreground no-underline hover:no-underline"
+            href={resource.href}
+            rel="noreferrer noopener"
+            target="_blank"
+            title={`Open R2 bucket ${resource.bucketName}`}
+          >
+            <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+              {resourceTypePresentation("Cloudflare.R2.Bucket").icon}
+            </span>
+            <span className="min-w-0 text-sm font-medium leading-5 underline decoration-border underline-offset-4 max-lines-3">
+              {resource.bucketName}
+            </span>
+            <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+          </a>
+        </div>
+      );
+    case "hub_client":
+      return (
+        <div className="flex min-h-10 items-center py-1.5 text-sm text-muted-foreground">
+          {hubClientLine(resource)}
+        </div>
+      );
+    default:
+      resource satisfies never;
+      return null;
+  }
+}
+
+const hubClientLine = (resource: Extract<RepositoryEnvironmentResource, { kind: "hub_client" }>) =>
+  `Google sign-in: ${resource.status}`;
 
 /**
 What a box of the stage diagram adds from the resource rows, at its top right, by the fqn in the
@@ -198,7 +318,13 @@ function StackRunLine({ run }: { run: NonNullable<RepositoryStackCard["run"]> })
   );
 }
 
-function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[] }) {
+function RepositoryStackCards({
+  cards,
+  view,
+}: {
+  cards: readonly RepositoryStackCard[];
+  view: RepositoryStackView;
+}) {
   if (cards.length === 0) {
     return null;
   }
@@ -232,23 +358,80 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
               </div>
               <StackStateStore store={card.store} />
             </div>
-            <div className="border-t border-border px-3 pt-3 pb-1">
-              <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
-              {card.resources.map((resource) =>
-                resource.kind === "hub_client" ? (
-                  <div
-                    key={resource.id}
-                    className="flex min-h-10 items-center pb-1.5 text-sm text-muted-foreground"
-                  >
-                    Google sign-in: {resource.status}
-                  </div>
-                ) : null,
-              )}
-            </div>
+            {view === "list" ? (
+              <div className="border-t border-border px-3">
+                {card.resources.map((resource) => (
+                  <RepositoryEnvironmentResourceRow
+                    key={`${resource.kind}:${resource.id}`}
+                    resource={resource}
+                  />
+                ))}
+              </div>
+            ) : (
+              <StackDiagram card={card} />
+            )}
           </div>
         );
       })}
     </div>
+  );
+}
+
+/**
+The diagram of a card. The Google sign-in line of a hub client shows in the box that its row folds
+into; a hub client in no box, such as one that connects two boxes, keeps its line below the diagram.
+*/
+function StackDiagram({ card }: { card: RepositoryStackCard }) {
+  const prefix = `alchemy:${card.stack}:`;
+  const folded = new Set(card.diagram.boxes.flatMap((box) => box.folded.map((row) => row.fqn)));
+  const hubClients = card.resources.flatMap((resource) =>
+    resource.kind === "hub_client" ? [resource] : [],
+  );
+  const notes = new Map(
+    hubClients.flatMap((resource) => {
+      const fqn = resource.id.slice(prefix.length);
+      return folded.has(fqn) ? [[fqn, hubClientLine(resource)] as const] : [];
+    }),
+  );
+
+  return (
+    <div className="border-t border-border px-3 pt-3 pb-1">
+      <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} notes={notes} />
+      {hubClients.map((resource) =>
+        notes.has(resource.id.slice(prefix.length)) ? null : (
+          <div
+            key={resource.id}
+            className="flex min-h-10 items-center pb-1.5 text-sm text-muted-foreground"
+          >
+            {hubClientLine(resource)}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}
+
+/** The choice between the resource list and the diagram in the stack cards of the page. */
+export type RepositoryStackViewControl = {
+  view: RepositoryStackView;
+  onChange: (view: RepositoryStackView) => void;
+};
+
+function RepositoryStackViewToggle({ stackView }: { stackView: RepositoryStackViewControl }) {
+  return (
+    <ToggleGroup
+      aria-label="Stack view"
+      size="sm"
+      value={stackView.view}
+      onValueChange={(value) => {
+        if (value === "list" || value === "diagram") {
+          stackView.onChange(value);
+        }
+      }}
+    >
+      <ToggleGroupItem value="list">List</ToggleGroupItem>
+      <ToggleGroupItem value="diagram">Diagram</ToggleGroupItem>
+    </ToggleGroup>
   );
 }
 
@@ -431,9 +614,11 @@ function DefaultBranchCommit({
 
 export function DefaultBranchSection({
   filesReadEnabled,
+  stackView,
   workspace,
 }: {
   filesReadEnabled: boolean;
+  stackView: RepositoryStackViewControl;
   workspace: RepositoryWorkspaceSelected;
 }) {
   const pullRequests = workspace.pullRequests;
@@ -475,7 +660,14 @@ export function DefaultBranchSection({
           <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
         </div>
       ) : (
-        <RepositoryStackCards cards={workspace.productionCards} />
+        <>
+          {workspace.productionCards.length > 0 ? (
+            <div className="mt-3 flex justify-end">
+              <RepositoryStackViewToggle stackView={stackView} />
+            </div>
+          ) : null}
+          <RepositoryStackCards cards={workspace.productionCards} view={stackView.view} />
+        </>
       )}
       {storeNotice ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -503,10 +695,58 @@ export function DefaultBranchSection({
   );
 }
 
+function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWorker }) {
+  const presentation = resourceTypePresentation("Cloudflare.Worker");
+
+  return (
+    <div
+      aria-label={`Cloudflare Worker ${worker.workerName}`}
+      className="grid min-w-0 gap-1.5 py-2.5"
+      role="group"
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-4 w-5 shrink-0 items-center justify-center">
+          {presentation.icon}
+        </span>
+        <span className="min-w-0 max-lines-3 text-sm font-medium leading-5 text-foreground">
+          {worker.workerName}
+        </span>
+      </div>
+      {worker.destination.state !== "absent" || worker.actions.length > 0 ? (
+        <div className="ml-2.5 grid min-w-0 gap-1.5 border-l border-border pl-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm">
+            {worker.destination.state === "available" ? (
+              <a
+                className="inline-flex min-h-10 min-w-0 items-center gap-1.5 text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground @4xl:min-h-8"
+                href={worker.destination.href}
+                rel="noreferrer noopener"
+                target="_blank"
+                title={worker.destination.title}
+              >
+                <span className="min-w-0 max-lines-3 leading-5">{worker.destination.label}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            ) : worker.destination.state === "unlinked" ? (
+              <span className="inline-flex min-h-10 min-w-0 items-center text-muted-foreground @4xl:min-h-8">
+                <span className="min-w-0 max-lines-3 leading-5">{worker.destination.label}</span>
+              </span>
+            ) : null}
+            {worker.actions.length > 0 ? (
+              <EnvironmentActionsMenu actions={worker.actions} label={worker.workerName} />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PullRequestResources({
   resource,
+  view,
 }: {
   resource: PullRequestResourceState | undefined;
+  view: RepositoryStackView;
 }) {
   if (resource?.state === "loading") {
     return (
@@ -522,5 +762,5 @@ export function PullRequestResources({
       </div>
     );
   }
-  return resource ? <RepositoryStackCards cards={resource.stackCards} /> : null;
+  return resource ? <RepositoryStackCards cards={resource.stackCards} view={view} /> : null;
 }

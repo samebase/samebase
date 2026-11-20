@@ -8,11 +8,13 @@ import { isRepositoryBeingCreated } from "@/repository/dashboard/repositoryAlche
 import { rootQueries, unlessAccountGone } from "@/routes/root.queries";
 
 /**
-The pages of `DashboardRoutePage` read these through `useRepositoryWorkspaceModel`. Their route
+The pages of `DashboardRoutePage` read these through `useRepositoryWorkspaceModel`, and the
+repository overview reads `dashboardSettings` through `useRepositoryStackView`. Their route
 loaders fetch them, so the server render has the page's data in its first HTML, and a navigation
 inside the app keeps the current page on screen until they are there.
 */
 export const repositoryDashboardQueries = {
+  dashboardSettings: convexQuery(api.dashboardSettings.getDashboardSettings, {}),
   folderState: convexQuery(api.repository.folders.getRepositoryFolderState, {}),
   organizations: rootQueries.organizations,
   organizationTreeSettings: convexQuery(
@@ -36,6 +38,7 @@ export async function loadRepositoryDashboard({
   }
 
   await Promise.all([
+    queryClient.query(repositoryDashboardQueries.dashboardSettings),
     queryClient.query(repositoryDashboardQueries.folderState),
     queryClient.query(repositoryDashboardQueries.organizations),
     queryClient.query(repositoryDashboardQueries.organizationTreeSettings),

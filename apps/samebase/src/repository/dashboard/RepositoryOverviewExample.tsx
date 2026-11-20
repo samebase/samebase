@@ -16,6 +16,7 @@ import type {
 } from "@/repository/dashboard/useRepositoryPullRequests";
 import type { Id, TableNames } from "../../../convex/_generated/dataModel";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import type { RepositoryStackView } from "../../../convex/userPreferenceModel";
 import { ROLE_ACCESS_GRANTS } from "../../../shared/accessModel";
 import type { AlchemyStateObservation } from "../../../shared/alchemyStateModel";
 import type { RepositoryCheckSummary } from "../../../shared/repositoryChecks";
@@ -335,6 +336,7 @@ export function RepositoryOverviewExample() {
     workspace: pantryWorkspace(Date.now()),
   }));
   const { workspace } = example;
+  const [stackView, setStackView] = useState<RepositoryStackView>("diagram");
 
   return (
     <QueryClientContext.Provider value={example.queryClient}>
@@ -385,6 +387,7 @@ export function RepositoryOverviewExample() {
               onOpenDeleteDialog={() => {}}
               onRetryInfrastructureProvisioning={() => {}}
               onRetryRepositoryDeletion={() => {}}
+              stackView={{ view: stackView, onChange: setStackView }}
             />
           </div>
         </div>

@@ -13,6 +13,8 @@ import {
   RepositoryOverviewSidebarLoading,
 } from "@/repository/dashboard/RepositoryOverviewSidebar";
 import { buildAlchemyStackCards } from "@/repository/dashboard/repositoryEnvironmentRoots";
+import type { RepositoryStackViewControl } from "@/repository/dashboard/RepositoryEnvironmentTree";
+import type { RepositoryStackView } from "../../../convex/userPreferenceModel";
 import type {
   RepositoryFolderState,
   RepositoryOrganizationTreeSettings,
@@ -603,6 +605,9 @@ function fixturePullRequests(
   };
 }
 
+/** The overview of a fixture without stack cards shows no view toggle. */
+const DIAGRAM_STACK_VIEW: RepositoryStackViewControl = { view: "diagram", onChange: () => {} };
+
 const AUTO_PAGINATION_PULL_REQUESTS = [
   ...LIST_SPACING_PULL_REQUESTS.slice(0, 2),
   ...Array.from({ length: 6 }, (_, index) => fixturePullRequest({ index: index + 3 })),
@@ -789,6 +794,7 @@ function RepositoryOverviewProvisioningFixture({
                 onOpenDeleteDialog={() => {}}
                 onRetryInfrastructureProvisioning={() => {}}
                 onRetryRepositoryDeletion={() => {}}
+                stackView={DIAGRAM_STACK_VIEW}
               />
             </QueryClientProvider>
           ),
@@ -865,6 +871,7 @@ function RepositoryOverviewDisconnectBlockedFixture() {
               onOpenDeleteDialog={() => {}}
               onRetryInfrastructureProvisioning={() => {}}
               onRetryRepositoryDeletion={() => {}}
+              stackView={DIAGRAM_STACK_VIEW}
             />
           ),
         }}
@@ -876,6 +883,7 @@ function RepositoryOverviewDisconnectBlockedFixture() {
 
 export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
+  const [stackView, setStackView] = useState<RepositoryStackView>("diagram");
   const [organizationTreeSettings, setOrganizationTreeSettings] =
     useState<RepositoryOrganizationTreeSettings>([]);
   switch (mode) {
@@ -1014,6 +1022,7 @@ export function RepositoryOverviewVisualFixture({ mode }: { mode: RepositoryOver
             onOpenDeleteDialog={() => {}}
             onRetryInfrastructureProvisioning={() => {}}
             onRetryRepositoryDeletion={() => {}}
+            stackView={{ view: stackView, onChange: setStackView }}
           />
         ),
       }}

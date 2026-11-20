@@ -3,6 +3,7 @@ import { GitHubProviderLogo } from "@/components/repository-dashboard/Repository
 import {
   DefaultBranchSection,
   RepositoryOverviewLoadingLines,
+  type RepositoryStackViewControl,
 } from "@/repository/dashboard/RepositoryEnvironmentTree";
 import { PullRequestsSection } from "@/repository/dashboard/RepositoryPullRequestsSection";
 import { RepositoryGitHubIdentityNotice } from "@/repository/dashboard/RepositoryGitHubIdentityNotice";
@@ -20,6 +21,7 @@ type RepositoryOverviewPageProps = {
   onOpenDeleteDialog: () => void;
   onRetryInfrastructureProvisioning: () => void;
   onRetryRepositoryDeletion: () => void;
+  stackView: RepositoryStackViewControl;
   workspace: RepositoryWorkspaceSelected;
 };
 
@@ -187,6 +189,7 @@ export function RepositoryOverviewPage({
   onOpenDeleteDialog,
   onRetryInfrastructureProvisioning,
   onRetryRepositoryDeletion,
+  stackView,
   workspace,
 }: RepositoryOverviewPageProps) {
   const filesReadEnabled =
@@ -238,7 +241,11 @@ export function RepositoryOverviewPage({
         {showRepositoryContent ? (
           <>
             <RepositorySetupStackStatus repository={workspace.repository} />
-            <DefaultBranchSection filesReadEnabled={filesReadEnabled} workspace={workspace} />
+            <DefaultBranchSection
+              filesReadEnabled={filesReadEnabled}
+              stackView={stackView}
+              workspace={workspace}
+            />
           </>
         ) : null}
         {developerToolsVisible ? <RepositoryWorkspaceDataInspector workspace={workspace} /> : null}
@@ -247,6 +254,7 @@ export function RepositoryOverviewPage({
             filesReadEnabled={filesReadEnabled}
             pullRequests={workspace.pullRequests}
             repository={workspace.repository}
+            stackView={stackView.view}
           />
         ) : null}
       </main>

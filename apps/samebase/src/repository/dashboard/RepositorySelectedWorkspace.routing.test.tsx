@@ -34,6 +34,9 @@ vi.mock("./RepositoryDeleteDialog", () => ({
 vi.mock("./RepositoryGitHubIdentityNotice", () => ({
   RepositoryGitHubIdentityNotice: () => null,
 }));
+vi.mock("./useRepositoryStackView", () => ({
+  useRepositoryStackView: () => ({ view: "diagram", onChange: () => {} }),
+}));
 const { act } = React;
 
 function fakeRepositoryId(): Id<"repositories"> {

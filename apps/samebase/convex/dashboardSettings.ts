@@ -2,6 +2,7 @@ import { Infer, v } from "convex/values";
 import { type MutationCtx } from "./_generated/server";
 import { mutation, query } from "./functions";
 import type { Id } from "./_generated/dataModel";
+import { vRepositoryStackView } from "./userPreferenceModel";
 
 const { boolean, literal, object, union } = v;
 
@@ -14,6 +15,7 @@ const vDashboardSettings = object({
   accountPanelOpen: boolean(),
   providersPanelOpen: boolean(),
   pricingBillingCycle: vBillingCycle,
+  repositoryStackView: vRepositoryStackView,
 });
 
 type DashboardSettings = Infer<typeof vDashboardSettings>;
@@ -23,6 +25,7 @@ function getDefaultDashboardSettings(): DashboardSettings {
     accountPanelOpen: false,
     providersPanelOpen: false,
     pricingBillingCycle: DEFAULT_PRICING_BILLING_CYCLE,
+    repositoryStackView: "diagram",
   };
 }
 
@@ -68,7 +71,22 @@ export const getDashboardSettings = query({
       accountPanelOpen: existing?.accountPanelOpen ?? false,
       providersPanelOpen: existing?.providersPanelOpen ?? false,
       pricingBillingCycle,
+      repositoryStackView: existing?.repositoryStackView ?? "diagram",
     };
+  },
+});
+
+export const setRepositoryStackView = mutation({
+  access: "access_dashboard",
+  args: {
+    view: vRepositoryStackView,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await upsertDashboardSettings(ctx, ctx.viewer.userId, {
+      repositoryStackView: args.view,
+    });
+    return null;
   },
 });
 

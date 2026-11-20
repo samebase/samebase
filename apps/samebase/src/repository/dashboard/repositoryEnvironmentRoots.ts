@@ -32,7 +32,7 @@ type RepositoryEnvironmentWorkerDestination =
   | { state: "unlinked"; label: string }
   | { state: "absent" };
 
-type RepositoryEnvironmentWorker = {
+export type RepositoryEnvironmentWorker = {
   workerName: string;
   destination: RepositoryEnvironmentWorkerDestination;
   actions: readonly RepositoryEnvironmentAction[];
@@ -171,8 +171,9 @@ type RepositoryStackCardStage =
 /**
 The stack cards of the default-branch block and of a pull request row, from the stacks of the
 repository in the Alchemy state store: one card for each stack with the stage (`stackCards`), with
-the resource rows of that stage and its stack diagram (`stageDiagram`). The card draws the diagram,
-and the resource rows give the links of its boxes and the Google sign-in line. The store records no
+the resource rows of that stage and its stack diagram (`stageDiagram`). The card draws the rows as a
+list or the diagram, as the viewer picks; in the diagram, the rows give the links of its boxes and
+the Google sign-in line. The store records no
 build, so no build state shows, and the run line of a card names the deployed commit, so a row adds
 no note about it.
 
