@@ -31,12 +31,19 @@ export const secretsStoreConfig = (
     if (typeof value === "string") {
       return Effect.succeed(ConfigProvider.makeValue(value));
     }
-    if (typeof value !== "object" || value === null || !("get" in value)) {
-      return Effect.succeed(undefined);
-    }
-    const { get } = value;
+    // A JS RPC stub answers each property it is asked for, but `in` cannot see them: so the
+    // method is read, never tested with `in`. A name that holds no `get` method fails with what
+    // it holds, never a value.
+    const get =
+      (typeof value === "object" || typeof value === "function") && value !== null
+        ? Reflect.get(value, "get")
+        : undefined;
     if (typeof get !== "function") {
-      return Effect.succeed(undefined);
+      return Effect.fail(
+        new ConfigProvider.SourceError({
+          message: `${name} is bound as ${value === null ? "null" : typeof value}, not as a Secrets Store secret`,
+        }),
+      );
     }
     // The failure carries no cause: it reaches the Worker's start-up error.
     const unreadable = new ConfigProvider.SourceError({

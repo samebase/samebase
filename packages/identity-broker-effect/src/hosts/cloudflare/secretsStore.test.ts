@@ -11,8 +11,11 @@ const rpcMethod = (value: string) =>
     },
   });
 
+// The stub itself answers any property, and `in` sees none of them.
+const rpcStub = (value: string) => new Proxy({}, { get: () => rpcMethod(value), has: () => false });
+
 const env = {
-  STORE_SECRET: { get: rpcMethod("from the store") },
+  STORE_SECRET: rpcStub("from the store"),
   PLAIN_SECRET: "plain",
   OTHER: "not a store name",
 };
