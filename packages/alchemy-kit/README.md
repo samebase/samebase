@@ -272,6 +272,10 @@ parsed from JSON, and gives:
 - `lines`: the boxes that use each other. A line names the Worker bindings between its boxes, and a
   folded row that connects two boxes, such as an `Alchemy.Random` that both use, is a label on it.
 
+`stageTree(diagram)` gives the same boxes as a tree: each box under the box that uses it, with the
+labels of their line, from the boxes that no box uses. A list or a comment draws the hierarchy from
+it.
+
 A row keeps only the fields that the diagram shows. Alchemy state holds secrets in clear text, so
 the result never holds a row's whole `attr` or `props`.
 

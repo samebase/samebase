@@ -9,14 +9,9 @@ import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDa
 import { StackStateStore, StateStoreProblems } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Component, Fragment, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
-import { AlchemyIsometricIcon } from "@/components/AlchemyIsometricIcon";
-import {
-  boxSubtitle,
-  lineSummary,
-  type DiagramBox,
-  type DiagramLine,
-} from "@samebase/alchemy-kit/stack";
+import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { resourceTypePresentation } from "@/components/resourceTypePresentation";
+import { boxSubtitle, stageTree, type StageTreeNode } from "@samebase/alchemy-kit/stack";
 import type {
   RepositoryEnvironmentAction,
   RepositoryEnvironmentResource,
@@ -304,79 +299,86 @@ class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed:
 }
 
 /**
-The List view of a stack card: a row for each box of the stack diagram, with the same name, type,
-link and lines as the diagram, and the same controls (`boxAsides`). The boxes of a namespace follow
-its name.
+The List view of a stack card: the boxes of the stack diagram as a tree (`stageTree`), each under
+the box that uses it, with the same names, links and menus (`boxAsides`) as the diagram. The rows
+that fold into a box show under it.
 */
 function StackList({ card }: { card: RepositoryStackCard }) {
-  const { boxes, lines } = card.diagram;
-  if (boxes.length === 0) {
+  if (card.diagram.boxes.length === 0) {
     return null;
   }
   const asides = boxAsides(card);
-  const rows = (namespace: string) =>
-    boxes
-      .filter((box) => box.namespace.join("/") === namespace)
-      .map((box) => (
-        <StackListRow key={box.id} aside={asides.get(box.id)} box={box} lines={lines} />
-      ));
   return (
-    <div className="border-t border-border px-3 py-1">
-      {[...new Set(boxes.map((box) => box.namespace.join("/")))].map((namespace) =>
-        namespace === "" ? (
-          <Fragment key="">{rows(namespace)}</Fragment>
-        ) : (
-          <div key={namespace} aria-label={`Namespace ${namespace}`} role="group">
-            <p className="py-1.5 font-mono text-xs text-muted-foreground">{namespace}</p>
-            <div className="ml-2.5 border-l border-border pl-3">{rows(namespace)}</div>
-          </div>
-        ),
-      )}
-    </div>
+    <ul className="border-t border-border px-3 py-1.5">
+      {stageTree(card.diagram).map((node) => (
+        <StackListNode key={node.box.id} asides={asides} node={node} />
+      ))}
+    </ul>
   );
 }
 
-function StackListRow({
-  box,
-  lines,
-  aside,
+function StackListNode({
+  node,
+  asides,
 }: {
-  box: DiagramBox;
-  lines: readonly DiagramLine[];
-  aside: ReactNode;
+  node: StageTreeNode;
+  asides: ReadonlyMap<string, ReactNode>;
 }) {
+  const { box, labels, repeated } = node;
+  const below = repeated
+    ? []
+    : [
+        ...node.children.map((child) => (
+          <StackListNode key={`box:${child.box.id}`} asides={asides} node={child} />
+        )),
+        ...box.folded.map((row) => {
+          const { icon, label } = resourceTypePresentation(row.resourceType);
+          return (
+            <li
+              key={`row:${row.fqn}`}
+              className="flex min-w-0 items-center gap-2 py-1 text-xs text-muted-foreground"
+            >
+              {icon}
+              <span className="font-mono">{row.logicalId}</span>
+              <span>{label}</span>
+            </li>
+          );
+        }),
+        ...node.shared.map((text) => (
+          <li key={`shared:${text}`} className="py-1 text-xs text-muted-foreground">
+            {text}
+          </li>
+        )),
+      ];
   return (
-    <div
-      aria-label={`${box.typeName} ${box.name}`}
-      className="flex min-w-0 items-center gap-2.5 py-1.5"
-      role="group"
-    >
-      <AlchemyIsometricIcon
-        resourceType={box.resourceType}
-        category={box.category}
-        icon={box.icon}
-      />
-      <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-        <p className="font-mono text-[13px] font-medium text-foreground max-lines-3">{box.name}</p>
-        <p>{boxSubtitle(box)}</p>
-        {box.link ? (
-          <a
-            className="inline-flex max-w-full items-center gap-1.5 font-mono text-foreground"
-            href={box.link}
-            rel="noreferrer noopener"
-            target="_blank"
-            title={box.link}
-          >
-            <span className="truncate">{new URL(box.link).host}</span>
-            <ExternalLink className="h-3 w-3 shrink-0" />
-          </a>
+    <li>
+      <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-x-2 py-1 text-sm">
+        {resourceTypePresentation(box.resourceType).icon}
+        <span className="min-w-0 font-mono font-medium max-lines-3">{box.name}</span>
+        {labels.length > 0 ? (
+          <span className="font-mono text-xs text-muted-foreground">{labels.join(", ")}</span>
         ) : null}
-        {lineSummary(box, lines).map((text) => (
-          <p key={text}>{text}</p>
-        ))}
+        {repeated ? null : (
+          <>
+            <span className="text-xs text-muted-foreground">{boxSubtitle(box)}</span>
+            {box.link ? (
+              <a
+                className="inline-flex min-w-0 items-center gap-1 font-mono text-xs"
+                href={box.link}
+                rel="noreferrer noopener"
+                target="_blank"
+                title={box.link}
+              >
+                <span className="truncate">{new URL(box.link).host}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            ) : null}
+            {asides.get(box.id)}
+          </>
+        )}
       </div>
-      {aside}
-    </div>
+      {below.length > 0 ? <ul className="ml-2 border-l border-border pl-4">{below}</ul> : null}
+    </li>
   );
 }
 

@@ -198,8 +198,10 @@ describe("renderStackComment", () => {
       repository,
     );
 
-    expect(body).toContain("<br><sub>Worker, Daily at 06:00 UTC</sub>");
-    expect(body).toContain("<br><sub>uses DevelopmentWorkspaceBucket (WORKSPACES)</sub>");
+    // The bucket shows under the Worker that uses it, with the name of the binding.
+    expect(body).toMatch(
+      /Site<\/a> <sub>Worker, Daily at 06:00 UTC<\/sub>.*<ul><li>.*DevelopmentWorkspaceBucket<\/a> <code>WORKSPACES<\/code> <sub>R2 Bucket<\/sub><\/li><\/ul>/,
+    );
     expect(body).not.toContain("token-value");
   });
 });

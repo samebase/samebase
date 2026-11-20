@@ -28,12 +28,13 @@ import * as Schema from "effect/Schema";
 import { RUN_RECORD_KEY, runRecord } from "@samebase/alchemy-kit/run-record";
 import {
   boxSubtitle,
-  lineSummary,
   stageDiagram,
+  stageTree,
   type DiagramBox,
-  type DiagramLine,
   type StageDiagram,
+  type StageTreeNode,
 } from "@samebase/alchemy-kit/stack";
+import { resourceTypeUI } from "@samebase/alchemy-kit/ui";
 
 /** The first text of the comment, which finds it again. */
 const MARKER = "<!-- samebase-stacks -->";
@@ -121,7 +122,7 @@ const boxName = ({ name, resourceType, rows: [first] }: DiagramBox) => {
     icon === undefined
       ? null
       : `<img src="${ICONS}/${icon}.svg" width="16" align="absmiddle" alt="">`;
-  const text = `<b>${escapeHtml(name)}</b>`;
+  const text = escapeHtml(name);
   const href = first.dashboard?.href;
   if (href === undefined) {
     return image === null ? text : `${image} ${text}`;
@@ -130,16 +131,31 @@ const boxName = ({ name, resourceType, rows: [first] }: DiagramBox) => {
 };
 
 /**
-A row of a card: the name of a box, its type and schedule, its link unless it is the stage address,
-and the boxes that it uses.
+A box of the tree: its name with the labels of its line as code, its type and schedule, and its link
+on the next line unless the link is the stage address. Below it, in a list: the boxes that it uses, the rows folded into it, and
+the boxes that share a resource with it. A repeated box has only its name.
 */
-const boxRow = (box: DiagramBox, address: string | null, lines: readonly DiagramLine[]) => {
-  const details = [
-    escapeHtml(boxSubtitle(box)),
-    ...(box.link === null || box.link === address ? [] : [link(box.link, hostOf(box.link))]),
-    ...lineSummary(box, lines).map(escapeHtml),
+const treeNode = (node: StageTreeNode, address: string | null): string => {
+  const { box, labels, repeated } = node;
+  const title = `${boxName(box)}${labels.map((label) => ` <code>${escapeHtml(label)}</code>`).join("")}`;
+  if (repeated) {
+    return title;
+  }
+  const linkLine =
+    box.link === null || box.link === address
+      ? ""
+      : `<br><sub>${link(box.link, hostOf(box.link))}</sub>`;
+  const below = [
+    ...node.children.map((child) => treeNode(child, address)),
+    ...box.folded.map(
+      (row) =>
+        `<sub>${escapeHtml(`${row.logicalId}, ${resourceTypeUI(row.resourceType).name}`)}</sub>`,
+    ),
+    ...node.shared.map((text) => `<sub>${escapeHtml(text)}</sub>`),
   ];
-  return `${boxName(box)}${details.map((text) => `<br><sub>${text}</sub>`).join("")}`;
+  const list =
+    below.length === 0 ? "" : `<ul>${below.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+  return `${title} <sub>${escapeHtml(boxSubtitle(box))}</sub>${linkLine}${list}`;
 };
 
 /** Where a stage serves: its Convex app, else the first box with a link. */
@@ -168,8 +184,8 @@ const renderCard = (card: StackCard, repository: string, alone: boolean) => {
   ].join("");
   const address = addressOf(card.diagram);
   const addressLine = address === null ? "" : `<br>${link(address, hostOf(address))}`;
-  const rows = card.diagram.boxes
-    .map((box) => `<tbody><tr><td>${boxRow(box, address, card.diagram.lines)}</td></tr></tbody>`)
+  const rows = stageTree(card.diagram)
+    .map((node) => `<tbody><tr><td>${treeNode(node, address)}</td></tr></tbody>`)
     .join("\n");
   return `<table>
 <tbody><tr><td>${SPACER}${heading}${addressLine}${runLine(card)}</td></tr></tbody>

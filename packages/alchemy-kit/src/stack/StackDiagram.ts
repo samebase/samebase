@@ -248,24 +248,67 @@ export const boxSubtitle = (box: DiagramBox) =>
     ...box.rows.flatMap((row) => row.facts.filter((fact) => fact.clock).map((fact) => fact.value)),
   ].join(", ");
 
-/**
-The lines of `box` in words: the boxes that it uses, such as `uses Prices (PRICES)`, then the boxes
-that share a folded resource with it, such as `with Site (shared secret)`. A list of the boxes of a
-stage shows each line once, at the box that uses the other.
-*/
-export function lineSummary(box: DiagramBox, lines: readonly DiagramLine[]) {
-  return (["uses", "with"] as const).flatMap((verb) => {
-    const others = lines.flatMap((line) => {
-      const other = line.a === box ? line.b : line.b === box ? line.a : null;
-      const kind = line.from === null ? "with" : line.from === box ? "uses" : null;
-      if (other === null || kind !== verb) {
-        return [];
-      }
-      return [line.labels.length === 0 ? other.name : `${other.name} (${line.labels.join(", ")})`];
-    });
-    return others.length === 0 ? [] : [`${verb} ${others.join(", ")}`];
-  });
+export interface StageTreeNode {
+  box: DiagramBox;
+  /** The labels of the line from the box above, such as the binding name `PRICES`. */
+  labels: string[];
+  /** The boxes that this box uses. A repeated node has none. */
+  children: StageTreeNode[];
+  /** The box shows earlier in the tree, with its children there. */
+  repeated: boolean;
+  /**
+  The boxes that share a folded resource with this box and neither uses the other, in words, such as
+  `with Site (shared secret)`. Each such line shows once, at its first box.
+  */
+  shared: string[];
 }
+
+const withLabels = (name: string, labels: readonly string[]) =>
+  labels.length === 0 ? name : `${name} (${labels.join(", ")})`;
+
+/**
+The boxes of a stage as a tree: each box under the box that uses it, from the boxes that no box uses,
+in box order. A box that more than one box uses shows in full once, then by name. A box in a loop of
+lines that no other box uses starts a tree of its own.
+*/
+export function stageTree({ boxes, lines }: StageDiagram) {
+  const used = new Set(
+    lines.flatMap((line) =>
+      line.from === line.a ? [line.b] : line.from === line.b ? [line.a] : [],
+    ),
+  );
+  const shown = new Set<DiagramBox>();
+  const node = (box: DiagramBox, labels: string[]): StageTreeNode => {
+    if (shown.has(box)) {
+      return { box, labels, children: [], repeated: true, shared: [] };
+    }
+    shown.add(box);
+    const children = lines.flatMap((line) =>
+      line.from !== box ? [] : [{ other: line.a === box ? line.b : line.a, labels: line.labels }],
+    );
+    return {
+      box,
+      labels,
+      children: children.map(({ other, labels: childLabels }) => node(other, childLabels)),
+      repeated: false,
+      shared: lines.flatMap((line) =>
+        line.from === null && line.a === box
+          ? [`with ${withLabels(line.b.name, line.labels)}`]
+          : [],
+      ),
+    };
+  };
+  const roots = boxes.filter((box) => !used.has(box)).map((box) => node(box, []));
+  for (const box of boxes) {
+    if (!shown.has(box)) {
+      roots.push(node(box, []));
+    }
+  }
+  return roots;
+}
+
+/** A tree node's name with the labels of its line, such as `Prices (PRICES)`. */
+export const nodeTitle = (node: StageTreeNode) => withLabels(node.box.name, node.labels);
 
 /** The Worker binding names of `worker` that name a row of `other`, by logical id or R2 bucket. */
 function bindingNames(worker: DiagramBox, other: DiagramBox) {

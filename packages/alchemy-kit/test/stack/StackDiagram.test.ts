@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { stageDiagram } from "../../src/stack/StackDiagram.ts";
+import { stageDiagram, stageTree, type StageTreeNode } from "../../src/stack/StackDiagram.ts";
 
 const SECRET = "s3cr3t-value-of-the-random";
 
@@ -95,6 +95,11 @@ it("gives the boxes and lines of a stage and keeps no secret value", () => {
   ).toEqual([
     ["Site", "Sync", "Site", ["shared secret"]],
     ["Sync", "Prices", "Sync", ["PRICES"]],
+  ]);
+  const names = (nodes: StageTreeNode[]): unknown[] =>
+    nodes.map((node) => [node.box.name, node.labels, names(node.children)]);
+  expect(names(stageTree(diagram))).toEqual([
+    ["Site", [], [["Sync", ["shared secret"], [["Prices", ["PRICES"], []]]]]],
   ]);
   expect(JSON.stringify(diagram.boxes)).not.toContain(SECRET);
 });
