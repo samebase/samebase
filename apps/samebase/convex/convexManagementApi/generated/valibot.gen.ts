@@ -96,7 +96,7 @@ export const vDeleteTeamAccessTokenArgs = v.pipe(
   }),
 );
 
-export const vDeploymentClass = v.picklist(["s16", "s256", "d1024", "d2048"]);
+export const vDeploymentClass = v.picklist(["s16", "s256", "d1024", "d2048", "p256"]);
 
 export const vDeploymentClassMetadata = v.pipe(
   v.unknown(),
@@ -273,6 +273,8 @@ export const vPlatformCreateDeployKeyArgs = v.pipe(
           v.literal("deployment:usageLimits:write"),
           v.literal("deployment:usage:view"),
           v.literal("deployment:aiGateway:use"),
+          v.literal("deployment:backups:configurePeriodic"),
+          v.literal("deployment:backups:disablePeriodic"),
         ]),
       ),
     ),
@@ -360,6 +362,8 @@ export const vPlatformDeployKeyResponse = v.pipe(
         v.literal("deployment:usageLimits:write"),
         v.literal("deployment:usage:view"),
         v.literal("deployment:aiGateway:use"),
+        v.literal("deployment:backups:configurePeriodic"),
+        v.literal("deployment:backups:disablePeriodic"),
       ]),
     ),
   }),
@@ -890,6 +894,7 @@ export const vTeamMember = v.pipe(
     email: v.string(),
     role: vRole,
     customRoles: v.nullish(v.array(vTeamMemberCustomRole)),
+    directoryManaged: v.nullish(v.boolean()),
   }),
 );
 
@@ -898,6 +903,7 @@ export const vPlatformListTeamMembersResponse = v.pipe(
   v.check((input) => !Array.isArray(input)),
   v.object({
     items: v.array(vTeamMember),
+    directorySynced: v.nullish(v.boolean()),
   }),
 );
 
@@ -919,7 +925,7 @@ export const vProjectResponse = v.pipe(
     devDeploymentName: v.nullish(v.string()),
     prodDeploymentReference: v.nullish(v.string()),
     devDeploymentReference: v.nullish(v.string()),
-    tags: v.nullish(v.array(v.string())),
+    tags: v.array(v.string()),
   }),
 );
 
@@ -1268,6 +1274,16 @@ export const vPostProjectsByProjectIdDeletePreviewDeployKeyPath = v.pipe(
   v.check((input) => !Array.isArray(input)),
   v.object({
     project_id: v.string(),
+  }),
+);
+
+export const vPostTeamsByTeamIdDeleteAccessTokenBody = vDeleteTeamAccessTokenArgs;
+
+export const vPostTeamsByTeamIdDeleteAccessTokenPath = v.pipe(
+  v.unknown(),
+  v.check((input) => !Array.isArray(input)),
+  v.object({
+    team_id: v.string(),
   }),
 );
 

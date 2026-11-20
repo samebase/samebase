@@ -112,6 +112,8 @@ export type {
   PostTeamsByTeamIdCreateProjectData,
   PostTeamsByTeamIdCreateProjectResponse,
   PostTeamsByTeamIdCreateProjectResponses,
+  PostTeamsByTeamIdDeleteAccessTokenData,
+  PostTeamsByTeamIdDeleteAccessTokenResponses,
   PreviewDeploymentIdentifier,
   ProjectId,
   ProjectName,

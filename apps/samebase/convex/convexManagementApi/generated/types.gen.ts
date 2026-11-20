@@ -290,7 +290,7 @@ export type DeleteTeamAccessTokenArgs = {
   id: string;
 };
 
-export type DeploymentClass = "s16" | "s256" | "d1024" | "d2048";
+export type DeploymentClass = "s16" | "s256" | "d1024" | "d2048" | "p256";
 
 export type DeploymentClassMetadata = {
   type: DeploymentClass;
@@ -414,6 +414,9 @@ export type PlatformCreateDeployKeyArgs = {
    * Name for the deploy key.
    */
   name: string;
+  /**
+   * Optional list of allowed operations for this deploy key. If omitted, the key is allowed every action the caller is currently allowed to perform on this deployment. Must contain at least one action if provided.
+   */
   allowedActions?: Array<
     | "deployment:deploy"
     | "deployment:env:view"
@@ -441,6 +444,8 @@ export type PlatformCreateDeployKeyArgs = {
     | "deployment:usageLimits:write"
     | "deployment:usage:view"
     | "deployment:aiGateway:use"
+    | "deployment:backups:configurePeriodic"
+    | "deployment:backups:disablePeriodic"
   >;
   /**
    * Timestamp in milliseconds when this deploy key will expire. Must be
@@ -635,6 +640,9 @@ export type PlatformDeployKeyResponse = {
   expiresAt?: number | null;
   creator?: null | MemberId;
   managedBy?: null | ManagedBy;
+  /**
+   * The same operations as `allowedOperations`, in the colon-based action format (e.g. `"deployment:data:view"`). Unlike `allowedOperations`, this is always present: an unrestricted key (where `allowedOperations` is omitted) lists every deployment action here.
+   */
   allowedActions: Array<
     | "deployment:deploy"
     | "deployment:env:view"
@@ -662,6 +670,8 @@ export type PlatformDeployKeyResponse = {
     | "deployment:usageLimits:write"
     | "deployment:usage:view"
     | "deployment:aiGateway:use"
+    | "deployment:backups:configurePeriodic"
+    | "deployment:backups:disablePeriodic"
   >;
 };
 
@@ -796,6 +806,7 @@ export type PlatformListPreviewDeployKeysResponse = {
 
 export type PlatformListTeamMembersResponse = {
   items: Array<TeamMember>;
+  directorySynced?: boolean | null;
 };
 
 export type PlatformPaginatedProjectsResponse = {
@@ -961,7 +972,7 @@ export type ProjectResponse = {
    * "dev/jane-doe").
    */
   devDeploymentReference?: string | null;
-  tags?: Array<string> | null;
+  tags: Array<string>;
 };
 
 export type ProjectSlug = string;
@@ -1168,6 +1179,7 @@ export type TeamMember = {
    * `role` is `custom`.
    */
   customRoles?: Array<TeamMemberCustomRole> | null;
+  directoryManaged?: boolean | null;
 };
 
 /**
@@ -1538,6 +1550,22 @@ export type PostProjectsByProjectIdDeletePreviewDeployKeyData = {
 };
 
 export type PostProjectsByProjectIdDeletePreviewDeployKeyResponses = {
+  200: unknown;
+};
+
+export type PostTeamsByTeamIdDeleteAccessTokenData = {
+  body: DeleteTeamAccessTokenArgs;
+  path: {
+    /**
+     * Team ID
+     */
+    team_id: string;
+  };
+  query?: never;
+  url: "/teams/{team_id}/delete_access_token";
+};
+
+export type PostTeamsByTeamIdDeleteAccessTokenResponses = {
   200: unknown;
 };
 

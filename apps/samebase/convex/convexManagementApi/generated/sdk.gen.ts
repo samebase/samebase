@@ -34,6 +34,8 @@ import type {
   PostProjectsByProjectIdDeleteResponses,
   PostTeamsByTeamIdCreateProjectData,
   PostTeamsByTeamIdCreateProjectResponses,
+  PostTeamsByTeamIdDeleteAccessTokenData,
+  PostTeamsByTeamIdDeleteAccessTokenResponses,
 } from "./types.gen";
 import {
   vGetDeploymentsByDeploymentNameCustomDomainsPath,
@@ -72,6 +74,8 @@ import {
   vPostTeamsByTeamIdCreateProjectBody,
   vPostTeamsByTeamIdCreateProjectPath,
   vPostTeamsByTeamIdCreateProjectResponse,
+  vPostTeamsByTeamIdDeleteAccessTokenBody,
+  vPostTeamsByTeamIdDeleteAccessTokenPath,
 } from "./valibot.gen";
 
 export type Options<
@@ -522,6 +526,56 @@ export class POST {
         },
       ],
       url: "/projects/{project_id}/delete_preview_deploy_key",
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+  }
+
+  /**
+   * Delete a team access token
+   *
+   * Deletes a team access token, identified by its secret value or name.
+   */
+  public static "/teams/{team_id}/delete_access_token"<ThrowOnError extends boolean = true>(
+    options: Options<PostTeamsByTeamIdDeleteAccessTokenData, ThrowOnError>,
+  ): RequestResult<PostTeamsByTeamIdDeleteAccessTokenResponses, unknown, ThrowOnError, "data"> {
+    return options.client.post<
+      PostTeamsByTeamIdDeleteAccessTokenResponses,
+      unknown,
+      ThrowOnError,
+      "data"
+    >({
+      requestValidator: async (data) =>
+        await v.parseAsync(
+          v.object({
+            body: vPostTeamsByTeamIdDeleteAccessTokenBody,
+            path: vPostTeamsByTeamIdDeleteAccessTokenPath,
+            query: v.optional(v.never()),
+          }),
+          data,
+        ),
+      responseStyle: "data",
+      security: [
+        {
+          key: "PAT",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "OAuth Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+        {
+          key: "Team Token",
+          scheme: "bearer",
+          type: "http",
+        },
+      ],
+      url: "/teams/{team_id}/delete_access_token",
       ...options,
       headers: {
         "Content-Type": "application/json",

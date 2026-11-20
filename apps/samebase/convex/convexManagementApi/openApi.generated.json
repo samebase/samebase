@@ -3070,7 +3070,7 @@
       },
       "DeploymentClass": {
         "type": "string",
-        "enum": ["s16", "s256", "d1024", "d2048"]
+        "enum": ["s16", "s256", "d1024", "d2048", "p256"]
       },
       "DeploymentClassMetadata": {
         "type": "object",
@@ -3394,9 +3394,12 @@
                 "deployment:usageLimits:view",
                 "deployment:usageLimits:write",
                 "deployment:usage:view",
-                "deployment:aiGateway:use"
+                "deployment:aiGateway:use",
+                "deployment:backups:configurePeriodic",
+                "deployment:backups:disablePeriodic"
               ]
-            }
+            },
+            "description": "Optional list of allowed operations for this deploy key. If omitted, the key is allowed every action the caller is currently allowed to perform on this deployment. Must contain at least one action if provided."
           },
           "expiresAt": {
             "type": ["integer", "null"],
@@ -3701,9 +3704,12 @@
                 "deployment:usageLimits:view",
                 "deployment:usageLimits:write",
                 "deployment:usage:view",
-                "deployment:aiGateway:use"
+                "deployment:aiGateway:use",
+                "deployment:backups:configurePeriodic",
+                "deployment:backups:disablePeriodic"
               ]
-            }
+            },
+            "description": "The same operations as `allowedOperations`, in the colon-based action format (e.g. `\"deployment:data:view\"`). Unlike `allowedOperations`, this is always present: an unrestricted key (where `allowedOperations` is omitted) lists every deployment action here."
           }
         }
       },
@@ -3926,6 +3932,9 @@
             "items": {
               "$ref": "#/components/schemas/TeamMember"
             }
+          },
+          "directorySynced": {
+            "type": ["boolean", "null"]
           }
         }
       },
@@ -4102,7 +4111,7 @@
       },
       "ProjectResponse": {
         "type": "object",
-        "required": ["id", "name", "slug", "teamId", "teamSlug", "createTime"],
+        "required": ["id", "name", "slug", "teamId", "teamSlug", "createTime", "tags"],
         "properties": {
           "id": {
             "$ref": "#/components/schemas/ProjectId"
@@ -4144,7 +4153,7 @@
             "description": "The reference of the requesting member's default development deployment\nfor this project, if one exists and is a cloud deployment (e.g.\n\"dev/jane-doe\")."
           },
           "tags": {
-            "type": ["array", "null"],
+            "type": "array",
             "items": {
               "type": "string"
             }
@@ -4418,6 +4427,9 @@
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
             "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
+          },
+          "directoryManaged": {
+            "type": ["boolean", "null"]
           }
         }
       },

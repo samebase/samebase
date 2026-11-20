@@ -203,6 +203,19 @@ export async function verifyConvexTeamAccessToken(args: {
   });
 }
 
+/**
+Deletes the token at Convex, so Convex refuses it from then on. The token authorizes its own delete.
+This also covers the team token that a Convex OAuth app gets: Convex has no OAuth revoke endpoint.
+*/
+export async function deleteConvexTeamAccessToken(token: string): Promise<void> {
+  const { teamId } = await fetchConvexTeamTokenDetails(token);
+  await ConvexManagement.POST["/teams/{team_id}/delete_access_token"]({
+    client: createConvexManagementClient({ token }),
+    path: { team_id: teamId },
+    body: { id: token },
+  });
+}
+
 export async function listConvexManagementProjects(args: {
   token: string;
   teamId: string;

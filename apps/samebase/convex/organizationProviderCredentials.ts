@@ -841,6 +841,12 @@ export const disconnectConvex = internalMutation({
     if (!providerAuthMatches(credentials.convex.auth, args.expectedAuth)) {
       throw new Error("Convex credential changed before disconnect completed.");
     }
+    if (credentials.convex.auth.method === "oauth") {
+      await ctx.scheduler.runAfter(0, internal.convexProviderAccess.deleteConvexOAuthToken, {
+        organizationId: organization._id,
+        credential: credentials.convex.auth.credential,
+      });
+    }
     if (credentials.cloudflare === undefined) {
       await ctx.db.delete(credentials._id);
     } else {

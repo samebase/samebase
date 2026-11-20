@@ -1,14 +1,16 @@
 import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
+import { internalAction } from "./_generated/server";
 import { action } from "./functions";
 import {
+  deleteConvexTeamAccessToken,
   listConvexManagementProjects,
   createConvexManagementClient,
 } from "./convexManagementApi/client";
 import { ConvexManagement } from "./convexManagementApi/generated/sdk.gen";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
-import { openSecret } from "./sealedSecret";
+import { openSecret, vSealedSecret } from "./sealedSecret";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -46,6 +48,21 @@ type ConvexProbeResult<Value> =
       state: "error";
       check: ConvexAccessCheck;
     };
+
+/** Runs after a disconnect or an account deletion removed the OAuth credential row. */
+export const deleteConvexOAuthToken = internalAction({
+  args: { organizationId: id("organizations"), credential: vSealedSecret },
+  returns: v.null(),
+  handler: async (_ctx, { organizationId, credential }) => {
+    await deleteConvexTeamAccessToken(
+      await openSecret({
+        sealed: credential,
+        aad: organizationProviderCredentialAad(organizationId, "convex.auth.credential"),
+      }),
+    );
+    return null;
+  },
+});
 
 export const checkConvexConnectionAccess = action({
   access: "access_provider_connections",
