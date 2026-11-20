@@ -15,7 +15,7 @@ export type SecretsStoreSettings = {
 /**
  * The configuration over `fallback` in which each name of `names` reads its value from `env`: a
  * string, or a Secrets Store binding, whose `get()` reads the secret. Every other name reads
- * `fallback`. A name of `names` that `env` holds as anything else is missing.
+ * `fallback`. A name of `names` that `env` holds as anything else fails.
  */
 export const secretsStoreConfig = (
   env: Readonly<Record<string, unknown>>,
@@ -31,13 +31,10 @@ export const secretsStoreConfig = (
     if (typeof value === "string") {
       return Effect.succeed(ConfigProvider.makeValue(value));
     }
-    // A JS RPC stub answers each property it is asked for, but `in` cannot see them: so the
-    // method is read, never tested with `in`. A name that holds no `get` method fails with what
-    // it holds, never a value.
+    // A name bound as anything else, such as a json value, fails with the kind of value it holds,
+    // never the value.
     const get =
-      (typeof value === "object" || typeof value === "function") && value !== null
-        ? Reflect.get(value, "get")
-        : undefined;
+      typeof value === "object" && value !== null && "get" in value ? value.get : undefined;
     if (typeof get !== "function") {
       return Effect.fail(
         new ConfigProvider.SourceError({
