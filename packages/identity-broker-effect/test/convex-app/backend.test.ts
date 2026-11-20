@@ -27,14 +27,17 @@ import {
 } from "../../src/core/testing/harness.ts";
 import { github } from "../../src/layers/github/routes.ts";
 import {
+  connectionCleanup,
   dyingStep,
   edgeStep,
   foundOf,
   longStep,
+  memoryConnection,
   memoryPlayer,
   memorySignIn,
   negativeZero,
   play,
+  playConnection,
   playSignIn,
   sameKey,
   signInCleanup,
@@ -142,6 +145,15 @@ test("a sign-in through the component's run gives the memory host's results", as
   );
   expect(fromConvex).toEqual(memorySignIn());
   expect(fromConvex.at(-1)).toEqual(signInCleanup);
+}, 60_000);
+
+test("a connection and its refresh lease through the component's run give the memory host's results", async () => {
+  emptyComponent();
+  const fromConvex = await playConnection((name, args, now) =>
+    client.mutation(api.ops.command, { name, args, now }),
+  );
+  expect(fromConvex).toEqual(memoryConnection());
+  expect(fromConvex.at(-1)).toEqual(connectionCleanup);
 }, 60_000);
 
 // The hub over HTTP (convex/hub.ts at the site URL), next to the memory host with the same

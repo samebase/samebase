@@ -24,7 +24,7 @@ const requestFields = {
   requestId: Str,
   clientId: Str,
   redirectUri: Str,
-  /** The exact resource URL of the provider (RFC 8707), such as Cloudflare's with its slash. */
+  /** The exact resource URL of the provider (RFC 8707); Cloudflare's keeps its final slash. */
   resource: Str,
   state: opt(Str),
   codeChallenge: Str,

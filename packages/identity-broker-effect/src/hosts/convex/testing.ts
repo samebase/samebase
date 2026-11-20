@@ -551,23 +551,154 @@ export const signInCleanup = {
 
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
+/** The one connection provider of `connectionCommands`, and the hub's state of the moment. */
+const provider = { name: "cloudflare", resource: "https://api.cloudflare.com/client/v4/" };
+const hubNow = { providers: [provider], liveGates: [] };
+const clientAuth = {
+  clientId: "client-2",
+  clientSecretHash: "s",
+  tokenEndpointAuthMethod: "client_secret_post",
+} as const;
+
 /**
- * Runs `signInCommands` through a host's `run` mutation (name, arguments as JSON, step clock `T`;
- * the result as JSON) and returns the decoded results.
+ * A temporary card of the stack layer that may use Cloudflare, a connection through the provider
+ * to the code exchange, a refresh with a contender during its lease and a stale failure after it,
+ * the revocation, the card's self-delete, and the cleanup a day later.
  */
-export const playSignIn = async (
+const connectionCommands: ReadonlyArray<Command> = [
+  {
+    name: "stack.createClient",
+    args: {
+      clientId: "client-2",
+      secretHash: "s",
+      tokenEndpointAuthMethod: "client_secret_post",
+      redirectUris: ["https://app.test/cb"],
+      permanent: false,
+      client: {
+        key: "preview",
+        name: "pr-1",
+        softwareId: "app",
+        softwareVersion: "1",
+        registrationTokenHash: "r",
+        enrollment: ["g"],
+      },
+      configured: ["g"],
+      connections: ["cloudflare"],
+    },
+  },
+  {
+    name: "connections.create",
+    args: {
+      requestId: "c1",
+      clientId: "client-2",
+      redirectUri: "https://app.test/cb",
+      resource: provider.resource,
+      state: "s",
+      codeChallenge: "challenge",
+      txnCookieHash: "cookie",
+      upstreamStateHash: "sh",
+      upstreamCodeVerifier: "v",
+      ...hubNow,
+      now: T,
+      expiresAt: T + 600_000,
+    },
+  },
+  {
+    name: "connections.claim",
+    args: {
+      upstreamStateHash: "sh",
+      resource: provider.resource,
+      txnCookieHashes: ["cookie"],
+      ...hubNow,
+      now: T,
+    },
+  },
+  {
+    name: "connections.complete",
+    args: {
+      requestId: "c1",
+      tokens: { accessToken: "a", scope: "x", expiresAt: T + 3_600_000, refreshToken: "u1" },
+      codeHash: "ch",
+      codeExpiresAt: T + 60_000,
+      ...hubNow,
+      now: T,
+    },
+  },
+  {
+    name: "connections.exchangeCode",
+    args: {
+      ...clientAuth,
+      codeHash: "ch",
+      redirectUri: "https://app.test/cb",
+      codeChallengeOfVerifier: "challenge",
+      refreshTokenHash: "g",
+      ...hubNow,
+      now: T,
+    },
+  },
+  {
+    name: "connections.claimRefresh",
+    args: { ...clientAuth, tokenHash: "g", ...hubNow, now: T },
+  },
+  {
+    name: "connections.claimRefresh",
+    args: { ...clientAuth, tokenHash: "g", ...hubNow, now: T + 1_000 },
+  },
+  {
+    name: "connections.finishRefresh",
+    args: { tokenHash: "g", attempt: 1, refreshToken: "u2", ...hubNow, now: T + 2_000 },
+  },
+  {
+    name: "connections.failRefresh",
+    args: { tokenHash: "g", attempt: 1, rejected: true, now: T + 3_000 },
+  },
+  { name: "connections.revoke", args: { ...clientAuth, tokenHash: "g" } },
+  { name: "stack.remove", args: { clientId: "client-2", registrationTokenHash: "r" } },
+  { name: "connections.cleanup", args: { now: T + DAY } },
+];
+
+/** What the cleanup at the end of `connectionCommands` deletes: the used code. */
+export const connectionCleanup = {
+  connectionRequests: 0,
+  connectionCodes: 1,
+  connectionGrants: 0,
+  more: false,
+};
+
+/**
+ * Runs `commands` through a host's `run` mutation (name, arguments in JSON, step clock `T`; the
+ * result in JSON) and returns the decoded results.
+ */
+const playCommands = async (
+  commands: ReadonlyArray<Command>,
   run: (name: CommandName, args: string, now: number) => Promise<string>,
 ): Promise<ReadonlyArray<unknown>> => {
   const results: Array<unknown> = [];
-  for (const command of signInCommands) {
+  for (const command of commands) {
     const encoded = await run(command.name, JSON.stringify(command.args), T);
     results.push(decodeResult(command.name, parseJson(encoded)));
   }
   return results;
 };
 
-/** `signInCommands` on a fresh memory host. */
-export const memorySignIn = (): ReadonlyArray<unknown> => {
+/** `commands` on a fresh memory host. */
+const memoryCommands = (commands: ReadonlyArray<Command>): ReadonlyArray<unknown> => {
   const host = makeMemoryStore({ now: T });
-  return signInCommands.map((command) => host.run(command.name, command.args));
+  return commands.map((command) => host.run(command.name, command.args));
 };
+
+/** `signInCommands` through a host's `run` mutation. */
+export const playSignIn = (
+  run: (name: CommandName, args: string, now: number) => Promise<string>,
+) => playCommands(signInCommands, run);
+
+/** `signInCommands` on a fresh memory host. */
+export const memorySignIn = () => memoryCommands(signInCommands);
+
+/** `connectionCommands` through a host's `run` mutation. */
+export const playConnection = (
+  run: (name: CommandName, args: string, now: number) => Promise<string>,
+) => playCommands(connectionCommands, run);
+
+/** `connectionCommands` on a fresh memory host. */
+export const memoryConnection = () => memoryCommands(connectionCommands);

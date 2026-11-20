@@ -392,18 +392,28 @@ export default defineConfig({
           name: "identity-broker-effect",
           environment: "node",
           include: ["packages/identity-broker-effect/src/**/*.test.ts"],
-          exclude: ["**/node_modules/**", "**/rules/machine.test.ts"],
+          exclude: [
+            "**/node_modules/**",
+            "**/rules/machine.test.ts",
+            "**/connections/grants.machine.test.ts",
+            "**/connections/refresh.model.test.ts",
+          ],
         },
       },
       {
         // The bounded check of the request machine keeps one core busy for about a minute on a CI
-        // runner. It has its own project, so the package's `check`, which CI runs beside every
-        // other package's, leaves it out; `vp test` runs every project.
+        // runner, and the connections part's bounded check and refresh model take a few seconds
+        // more. They have their own project, so the package's `check`, which CI runs beside every
+        // other package's, leaves them out; `vp test` runs every project.
         extends: true,
         test: {
           name: "identity-broker-effect-machine",
           environment: "node",
-          include: ["packages/identity-broker-effect/src/rules/machine.test.ts"],
+          include: [
+            "packages/identity-broker-effect/src/rules/machine.test.ts",
+            "packages/identity-broker-effect/src/connections/grants.machine.test.ts",
+            "packages/identity-broker-effect/src/connections/refresh.model.test.ts",
+          ],
           exclude: ["**/node_modules/**"],
         },
       },

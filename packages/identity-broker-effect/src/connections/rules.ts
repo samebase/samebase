@@ -8,7 +8,7 @@ import { Effect, Schema } from "effect";
 import { spendBudget } from "../rules/authRequests.ts";
 import { cardRow, isStopped, used } from "../rules/clients.ts";
 import { GateNamespace, Return } from "../rules/schemas.ts";
-import { TokenEndpointAuthMethod, type Tx as CoreTx } from "../rules/tables.ts";
+import { TokenEndpointAuthMethod, type Tx } from "../rules/tables.ts";
 import type { Doc } from "../store/tables.ts";
 import { unique } from "../store/Tx.ts";
 import { ConnectionsTx, ProviderTokens } from "./tables.ts";
@@ -19,7 +19,7 @@ const Strs = Schema.Array(Str);
 const opt = Schema.optionalKey;
 
 /** The views of a step that the part's rules read: cards through the core's, its own tables. */
-type Tx = CoreTx | ConnectionsTx;
+type Views = Tx | ConnectionsTx;
 
 /** A grant ends after 90 days without a refresh, as in the Convex broker. */
 export const GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
@@ -155,7 +155,7 @@ export const CreateResult = Schema.Union([
  */
 export const create = Effect.fnUntraced(function* (
   args: typeof CreateArgs.Type,
-): Effect.fn.Return<typeof CreateResult.Type, never, Tx> {
+): Effect.fn.Return<typeof CreateResult.Type, never, Views> {
   const card = yield* cardRow(args.clientId);
   if (card === undefined) {
     return { ok: false, error: "unknown_client" };
@@ -215,7 +215,7 @@ export const ClaimResult = Schema.Union([
  */
 export const claim = Effect.fnUntraced(function* (
   args: typeof ClaimArgs.Type,
-): Effect.fn.Return<typeof ClaimResult.Type, never, Tx> {
+): Effect.fn.Return<typeof ClaimResult.Type, never, Views> {
   const tx = yield* ConnectionsTx;
   const row = yield* unique(tx, "connectionRequests", "by_upstream_state_hash", [
     args.upstreamStateHash,
@@ -269,7 +269,7 @@ export const CompleteResult = Schema.Union([
  */
 export const complete = Effect.fnUntraced(function* (
   args: typeof CompleteArgs.Type,
-): Effect.fn.Return<typeof CompleteResult.Type, never, Tx> {
+): Effect.fn.Return<typeof CompleteResult.Type, never, Views> {
   const tx = yield* ConnectionsTx;
   const row = yield* requestOf(args.requestId);
   if (row === undefined) {
@@ -368,7 +368,7 @@ const refuse = (
  */
 export const exchangeCode = Effect.fnUntraced(function* (
   args: typeof ExchangeArgs.Type,
-): Effect.fn.Return<ExchangeResult, never, Tx> {
+): Effect.fn.Return<ExchangeResult, never, Views> {
   const tx = yield* ConnectionsTx;
   const code = yield* unique(tx, "connectionCodes", "by_code_hash", [args.codeHash]);
   if (code === undefined) {
@@ -483,7 +483,7 @@ const leaseHolds = (grant: Grant, now: number) =>
  */
 export const claimRefresh = Effect.fnUntraced(function* (
   args: typeof ClaimRefreshArgs.Type,
-): Effect.fn.Return<typeof ClaimRefreshResult.Type, never, Tx> {
+): Effect.fn.Return<typeof ClaimRefreshResult.Type, never, Views> {
   const tx = yield* ConnectionsTx;
   const card = yield* authenticated(args);
   if (card === undefined || (yield* isStopped(card.doc, args.liveGates))) {
@@ -565,7 +565,7 @@ export const FinishRefreshResult = Schema.Literals(["released", "refused", "stal
  */
 export const finishRefresh = Effect.fnUntraced(function* (
   args: typeof FinishRefreshArgs.Type,
-): Effect.fn.Return<typeof FinishRefreshResult.Type, never, Tx> {
+): Effect.fn.Return<typeof FinishRefreshResult.Type, never, Views> {
   const grant = yield* grantOf(args.tokenHash);
   if (grant === undefined) {
     return "gone";
@@ -602,7 +602,7 @@ export const FailRefreshResult = Schema.Literals(["rejected", "retry", "gone"]);
  */
 export const failRefresh = Effect.fnUntraced(function* (
   args: typeof FailRefreshArgs.Type,
-): Effect.fn.Return<typeof FailRefreshResult.Type, never, Tx> {
+): Effect.fn.Return<typeof FailRefreshResult.Type, never, Views> {
   const tx = yield* ConnectionsTx;
   const grant = yield* grantOf(args.tokenHash);
   if (grant === undefined) {
