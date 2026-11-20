@@ -274,14 +274,6 @@ column of single letters.
   --iso-ink: #4a0f3f;
 }
 
-/* The React Flow attribution of the stack diagram sits on the card, in its muted text colour. */
-.alchemy-stage-diagram {
-  --xy-attribution-background-color: transparent;
-}
-.alchemy-stage-diagram .react-flow__attribution a {
-  color: hsl(var(--muted-foreground));
-}
-
 /* Interactive primitives can add cursor utilities after the base layer. Links remain links. */
 a:any-link {
   cursor: pointer;

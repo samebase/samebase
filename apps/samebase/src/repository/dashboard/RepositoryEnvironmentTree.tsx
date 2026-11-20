@@ -417,9 +417,15 @@ class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed:
 }
 
 function StackDiagram({ card }: { card: RepositoryStackCard }) {
+  if (card.diagram.boxes.length === 0) {
+    return null;
+  }
   return (
     <div className="border-t border-border px-3 pt-3 pb-1">
-      <Suspense>
+      {/* While React Flow loads, the card keeps the height of the smallest diagram: one 72px box at
+      zoom 0.6 and the 8px below it. The card then only grows, and its bottom edge does not move
+      through the first screen of a phone. */}
+      <Suspense fallback={<div className="h-[52px]" />}>
         <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
       </Suspense>
     </div>

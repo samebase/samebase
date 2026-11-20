@@ -36,9 +36,6 @@ const FRAME_TITLE = 24;
 /** The smallest zoom of the diagram: below it, a narrow card scrolls the diagram sideways. */
 const MIN_ZOOM = 0.6;
 
-/** The strip below the boxes that holds the React Flow attribution. */
-const ATTRIBUTION_HEIGHT = 18;
-
 type BoxNode = Node<
   { box: DiagramBox; aside: ReactNode; open: boolean; onToggle: () => void },
   "box"
@@ -504,10 +501,9 @@ export function AlchemyStageDiagram({
     <div className="mb-2">
       <div ref={cardRef} className="@container overflow-x-auto">
         <div
-          className="alchemy-stage-diagram"
           style={{
             width: `max(100%, ${Math.ceil(width * MIN_ZOOM) + 2}px)`,
-            height: `calc(clamp(${Math.ceil(height * MIN_ZOOM)}px, ${(height / width) * 100}cqw, ${height + 2}px) + ${ATTRIBUTION_HEIGHT}px)`,
+            height: `clamp(${Math.ceil(height * MIN_ZOOM)}px, ${(height / width) * 100}cqw, ${height + 2}px)`,
           }}
         >
           <ReactFlow
