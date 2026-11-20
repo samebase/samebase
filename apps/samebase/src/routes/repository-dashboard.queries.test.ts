@@ -66,6 +66,7 @@ describe("loadRepositoryDashboard", () => {
 
     expect(new Set(queried)).toEqual(
       new Set([
+        "dashboardSettings:getDashboardSettings",
         "organizations:listForViewer",
         "repository/folders:getRepositoryFolderState",
         "repository/organizationTree:getRepositoryOrganizationTreeSettings",

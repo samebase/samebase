@@ -1,7 +1,7 @@
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import { ChevronRight } from "lucide-react";
-import { Fragment, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, type ReactNode } from "react";
 import {
   ALCHEMY_REDACTED_MARKER,
   groupResourcesByComponent,
@@ -13,6 +13,7 @@ import type {
   AlchemyStateObservation,
 } from "../../shared/alchemyStateModel";
 import { Link } from "@tanstack/react-router";
+import { stageDiagram } from "@/components/alchemyStageDiagramModel";
 import {
   Popover,
   PopoverContent,
@@ -33,6 +34,12 @@ import type { RepositoryAlchemyState } from "@/repository/dashboard/useRepositor
 type AlchemyRunRecord = AlchemyStage["run"];
 
 const { object, string } = v;
+
+/** React Flow and dagre load only when a stage shows its diagram. */
+const AlchemyStageDiagram = lazy(async () => {
+  const module = await import("@/components/AlchemyStageDiagram");
+  return { default: module.AlchemyStageDiagram };
+});
 
 /** `resourceType` names the provider of the resource, such as `Convex.Deployment`. */
 const vResourceState = object({ status: string(), resourceType: string() });
@@ -56,6 +63,23 @@ function outputEntries(output: unknown, path: string): { path: string; value: st
   return Object.entries(output).flatMap(([key, child]) =>
     outputEntries(child, path ? `${path}.${key}` : key),
   );
+}
+
+/**
+The URLs in the stage output that no resource of the stage has, such as a custom domain of a Convex
+deployment, without the run record under `samebase.run`.
+*/
+function outputUrls(output: string, resourceUrls: ReadonlySet<string>) {
+  const urls = outputEntries(JSON.parse(output), "").flatMap(({ path, value }) =>
+    !path.startsWith("samebase.run") &&
+    value &&
+    /^https?:\/\//.test(value) &&
+    URL.canParse(value) &&
+    !resourceUrls.has(value)
+      ? [value]
+      : [],
+  );
+  return [...new Set(urls)];
 }
 
 /**
@@ -368,20 +392,40 @@ export function AlchemyStateTree({
             <StackStateStore store={stack.store} />
           </div>
           <ul className="ml-2.5 border-l border-border pl-3">
-            {stack.stages.map((stage) => (
-              <li key={stage.name}>
-                <details className="group">
-                  <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
-                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
-                    <span className="min-w-0 truncate font-mono">{stage.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
-                    </span>
-                  </summary>
-                  <AlchemyStageDetails stage={stage} />
-                </details>
-              </li>
-            ))}
+            {stack.stages.map((stage) => {
+              const diagram = stageDiagram(stage.resources);
+              return (
+                <li key={stage.name}>
+                  <details className="group">
+                    <summary className="flex min-w-0 cursor-pointer list-none items-center gap-1.5 py-1">
+                      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground group-open:rotate-90" />
+                      <span className="min-w-0 truncate font-mono">{stage.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {`${stage.resources.length} ${stage.resources.length === 1 ? "resource" : "resources"}`}
+                      </span>
+                      {outputUrls(stage.output, diagram.urls).map((url) => (
+                        <a
+                          key={url}
+                          className="min-w-0 truncate font-mono text-xs"
+                          href={url}
+                          title={url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {new URL(url).host}
+                        </a>
+                      ))}
+                    </summary>
+                    <div className="ml-5 pt-1">
+                      <Suspense>
+                        <AlchemyStageDiagram diagram={diagram} />
+                      </Suspense>
+                    </div>
+                    <AlchemyStageDetails stage={stage} />
+                  </details>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}

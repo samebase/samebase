@@ -118,19 +118,6 @@ export const vAlchemyCloudflareR2BucketState = object({
 });
 
 /**
-The state of an `IdentityHub.Client` resource. `attr.status` is `off` for a deployment without a
-client, and `suspended` for a client that the hub suspended. The other attributes hold secrets, and
-a card reads none of them. A row that alchemy-convex 0.36.0 or older saved keeps the type
-`IdentityHub.SharedClient` until its next write; remove that type once no saved row has it.
-
-@see https://github.com/samebase/samebase/blob/main/packages/alchemy-convex/src/IdentityHub.ts
-*/
-export const vAlchemyIdentityHubClientState = object({
-  resourceType: union(literal("IdentityHub.Client"), literal("IdentityHub.SharedClient")),
-  attr: object({ status: union(literal("on"), literal("off"), literal("suspended")) }),
-});
-
-/**
 The path from the repository root of `paths` joined below the directory of the stack file, such as
 `apps/x/convex` for `apps/x/alchemy.run.ts` with `.` and `./convex`, or `.` for the root. Null for an
 absolute path or a path outside the repository.
@@ -208,11 +195,6 @@ export function stageResources(stage: {
     ),
     r2Buckets: states.flatMap(({ fqn, state }) =>
       validate(vAlchemyCloudflareR2BucketState, state, { allowUnknownFields: true })
-        ? [{ fqn, state }]
-        : [],
-    ),
-    hubClients: states.flatMap(({ fqn, state }) =>
-      validate(vAlchemyIdentityHubClientState, state, { allowUnknownFields: true })
         ? [{ fqn, state }]
         : [],
     ),
@@ -345,6 +327,8 @@ export function stackCards({
               : deployment.state.attr.siteUrl,
           addressWorker: addressWorker?.fqn ?? null,
           resources,
+          /** The rows of the stage as the store gives them. */
+          stageRows: stage.resources,
         },
       ];
     })
@@ -369,7 +353,7 @@ chain from the innermost id, such as `{ "Id": "Inbox", "Parent": { "Id": "Mail/S
 @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Namespace.ts#L5-L8
 @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/State/ResourceState.ts#L36-L37
 */
-function namespaceOf(node: unknown): string[] {
+export function namespaceOf(node: unknown): string[] {
   return isRecord(node) && typeof node["Id"] === "string"
     ? [...namespaceOf(node["Parent"]), node["Id"]]
     : [];

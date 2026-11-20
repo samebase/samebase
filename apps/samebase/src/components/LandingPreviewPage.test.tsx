@@ -184,8 +184,6 @@ describe("LandingPage", () => {
       ">pantry</",
       "Group items by shelf",
       "pantry.acme.dev",
-      "tidy-otter-412",
-      "pantry-barcode-lookup",
       "3 open pull requests",
       "Scan a barcode to add an item",
       "Warn three days before food expires",

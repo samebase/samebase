@@ -9,12 +9,15 @@ import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDa
 import { StackStateStore, StateStoreProblems } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
 import type {
   RepositoryEnvironmentAction,
   RepositoryEnvironmentResource,
   RepositoryEnvironmentWorker,
   RepositoryStackCard,
 } from "@/repository/dashboard/repositoryEnvironmentRoots";
+import type { RepositoryStackView } from "../../../convex/userPreferenceModel";
 import type {
   PullRequestResourceState,
   RepositoryPullRequestsState,
@@ -27,6 +30,12 @@ import { ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
+
+/** React Flow and dagre load only when a card shows the diagram. */
+const AlchemyStageDiagram = lazy(async () => {
+  const module = await import("@/components/AlchemyStageDiagram");
+  return { default: module.AlchemyStageDiagram };
+});
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
@@ -192,16 +201,103 @@ function RepositoryEnvironmentResourceRow({
           </a>
         </div>
       );
-    case "hub_client":
-      return (
-        <div className="flex min-h-10 items-center py-1.5 text-sm text-muted-foreground">
-          Google sign-in: {resource.status}
-        </div>
-      );
     default:
       resource satisfies never;
       return null;
   }
+}
+
+/**
+What a box of the stage diagram adds from the resource rows, at its top right, by the fqn in the
+resource id (`alchemy:<stack>:<fqn>`): a Convex deployment's region flag and a menu with its
+dashboard and Samebase routes, a menu with a Worker's dashboard and its URLs and routes other than
+the box link, a menu with an R2 bucket's dashboard, and a menu with the dashboard of any other box
+that `resourceDashboard` names, such as a D1 database. The Worker and R2 bucket rows of a component
+are boxes in the frame of their namespace.
+*/
+function boxAsides(card: RepositoryStackCard) {
+  const prefix = `alchemy:${card.stack}:`;
+  const asides = new Map<string, ReactNode>();
+  const add = (resource: RepositoryEnvironmentResource) => {
+    const fqn = resource.id.slice(prefix.length);
+    const box = card.diagram.boxes.find((candidate) => candidate.id === fqn);
+    switch (resource.kind) {
+      case "destination": {
+        const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
+        asides.set(
+          fqn,
+          <>
+            {region ? (
+              <span className="text-xs" title={region.displayName}>
+                <span aria-hidden="true">{region.icon}</span>
+                <span className="sr-only">{region.displayName}</span>
+              </span>
+            ) : null}
+            <EnvironmentActionsMenu
+              actions={[
+                { destination: "external", href: resource.href, label: resource.label },
+                ...resource.actions,
+              ]}
+              label={resource.label}
+            />
+          </>,
+        );
+        for (const component of resource.components ?? []) {
+          component.resources.forEach(add);
+        }
+        return;
+      }
+      case "cloudflare_worker": {
+        const { destination, actions, workerName } = resource.worker;
+        const dashboard = box?.rows[0].dashboard;
+        const links = [
+          ...(dashboard ? [{ destination: "external" as const, ...dashboard }] : []),
+          ...(destination.state === "available"
+            ? [
+                {
+                  destination: "external" as const,
+                  href: destination.href,
+                  label: destination.label,
+                },
+              ]
+            : destination.state === "unlinked"
+              ? [{ destination: "none" as const, label: destination.label }]
+              : []),
+          ...actions,
+        ].filter((action) => action.destination === "none" || action.href !== box?.link);
+        if (links.length > 0) {
+          asides.set(fqn, <EnvironmentActionsMenu actions={links} label={workerName} />);
+        }
+        return;
+      }
+      case "cloudflare_r2_bucket":
+        asides.set(
+          fqn,
+          <EnvironmentActionsMenu
+            actions={[{ destination: "external", href: resource.href, label: resource.bucketName }]}
+            label={resource.bucketName}
+          />,
+        );
+        return;
+      default:
+        resource satisfies never;
+    }
+  };
+  card.resources.forEach(add);
+  // A box without a resource row, such as a D1 database, links to its dashboard page.
+  for (const box of card.diagram.boxes) {
+    const dashboard = box.rows[0].dashboard;
+    if (dashboard && !asides.has(box.id)) {
+      asides.set(
+        box.id,
+        <EnvironmentActionsMenu
+          actions={[{ destination: "external", ...dashboard }]}
+          label={box.name}
+        />,
+      );
+    }
+  }
+  return asides;
 }
 
 /** The deployed commit of a stack and the time of its run, which links to the run when it has a URL. */
@@ -232,7 +328,13 @@ function StackRunLine({ run }: { run: NonNullable<RepositoryStackCard["run"]> })
   );
 }
 
-function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[] }) {
+function RepositoryStackCards({
+  cards,
+  view,
+}: {
+  cards: readonly RepositoryStackCard[];
+  view: RepositoryStackView;
+}) {
   if (cards.length === 0) {
     return null;
   }
@@ -266,18 +368,91 @@ function RepositoryStackCards({ cards }: { cards: readonly RepositoryStackCard[]
               </div>
               <StackStateStore store={card.store} />
             </div>
-            <div className="border-t border-border px-3">
-              {card.resources.map((resource) => (
-                <RepositoryEnvironmentResourceRow
-                  key={`${resource.kind}:${resource.id}`}
-                  resource={resource}
-                />
-              ))}
-            </div>
+            <StackCardBodyBoundary key={view}>
+              {view === "list" ? (
+                <div className="border-t border-border px-3">
+                  {card.resources.map((resource) => (
+                    <RepositoryEnvironmentResourceRow
+                      key={`${resource.kind}:${resource.id}`}
+                      resource={resource}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <StackDiagram card={card} />
+              )}
+            </StackCardBodyBoundary>
           </div>
         );
       })}
     </div>
+  );
+}
+
+/**
+A card body draws state rows from any store. A row it cannot draw breaks only that card: the
+header with the stack's address stays, and the rest of the page keeps working.
+*/
+class StackCardBodyBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.error("Stack card failed to render", error, errorInfo);
+  }
+
+  override render() {
+    if (this.state.failed) {
+      return (
+        <p className="border-t border-border px-3 py-3 text-sm text-muted-foreground">
+          Could not draw this stack.
+        </p>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function StackDiagram({ card }: { card: RepositoryStackCard }) {
+  if (card.diagram.boxes.length === 0) {
+    return null;
+  }
+  return (
+    <div className="border-t border-border px-3 pt-3 pb-1">
+      {/* While React Flow loads, the card keeps the height of the smallest diagram: one 72px box at
+      zoom 0.6 and the 8px below it. The card then only grows, and its bottom edge does not move
+      through the first screen of a phone. */}
+      <Suspense fallback={<div className="h-[52px]" />}>
+        <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
+      </Suspense>
+    </div>
+  );
+}
+
+/** The choice between the resource list and the diagram in the stack cards of the page. */
+export type RepositoryStackViewControl = {
+  view: RepositoryStackView;
+  onChange: (view: RepositoryStackView) => void;
+};
+
+function RepositoryStackViewToggle({ stackView }: { stackView: RepositoryStackViewControl }) {
+  return (
+    <ToggleGroup
+      aria-label="Stack view"
+      size="sm"
+      value={stackView.view}
+      onValueChange={(value) => {
+        if (value === "list" || value === "diagram") {
+          stackView.onChange(value);
+        }
+      }}
+    >
+      <ToggleGroupItem value="list">List</ToggleGroupItem>
+      <ToggleGroupItem value="diagram">Diagram</ToggleGroupItem>
+    </ToggleGroup>
   );
 }
 
@@ -460,9 +635,11 @@ function DefaultBranchCommit({
 
 export function DefaultBranchSection({
   filesReadEnabled,
+  stackView,
   workspace,
 }: {
   filesReadEnabled: boolean;
+  stackView: RepositoryStackViewControl;
   workspace: RepositoryWorkspaceSelected;
 }) {
   const pullRequests = workspace.pullRequests;
@@ -504,7 +681,14 @@ export function DefaultBranchSection({
           <div className="h-3 w-32 max-w-full bg-muted motion-safe:animate-pulse" />
         </div>
       ) : (
-        <RepositoryStackCards cards={workspace.productionCards} />
+        <>
+          {workspace.productionCards.length > 0 ? (
+            <div className="mt-3 flex justify-end">
+              <RepositoryStackViewToggle stackView={stackView} />
+            </div>
+          ) : null}
+          <RepositoryStackCards cards={workspace.productionCards} view={stackView.view} />
+        </>
       )}
       {storeNotice ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -580,8 +764,10 @@ function CloudflareWorkerResource({ worker }: { worker: RepositoryEnvironmentWor
 
 export function PullRequestResources({
   resource,
+  view,
 }: {
   resource: PullRequestResourceState | undefined;
+  view: RepositoryStackView;
 }) {
   if (resource?.state === "loading") {
     return (
@@ -597,5 +783,5 @@ export function PullRequestResources({
       </div>
     );
   }
-  return resource ? <RepositoryStackCards cards={resource.stackCards} /> : null;
+  return resource ? <RepositoryStackCards cards={resource.stackCards} view={view} /> : null;
 }

@@ -242,28 +242,6 @@ describe("stageResources", () => {
       ["Site", "apps/samebase/convex"],
     ]);
   });
-
-  it("gives an identity hub client with a known status, and leaves out one without it", () => {
-    const hubClient = (fqn: string, attr: object, resourceType = "IdentityHub.Client") => ({
-      fqn,
-      value: JSON.stringify({ resourceType, attr }),
-    });
-
-    const { hubClients } = stageResources({
-      stackFile: "alchemy.run.ts",
-      resources: [
-        hubClient("Client", { status: "suspended", clientId: "cl_1" }),
-        hubClient("Interrupted", {}),
-        // A row that alchemy-convex 0.36.0 or older saved, before its next write.
-        hubClient("Saved", { status: "on", clientId: "cl_2" }, "IdentityHub.SharedClient"),
-      ],
-    });
-
-    expect(hubClients.map(({ fqn, state }) => [fqn, state.attr.status])).toEqual([
-      ["Client", "suspended"],
-      ["Saved", "on"],
-    ]);
-  });
 });
 
 describe("stackCards", () => {
@@ -360,6 +338,7 @@ describe("stackCards", () => {
         run: null,
         address: "https://aware-bobcat-542.convex.site",
         addressWorker: null,
+        stageRows: expect.any(Array),
         deployments: ["aware-bobcat-542"],
       },
     ]);

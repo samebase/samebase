@@ -49,6 +49,11 @@ const expectedPublicPrerenderMetadataByPath = {
       "How Samebase handles personal information, including why it is used, who receives it, how long it is kept, and your rights.",
     robots: "index,follow",
   },
+  "/resource-types": {
+    title: "Resource types | Samebase",
+    description: "Every Alchemy resource type with its name, icon and category.",
+    robots: "index,follow",
+  },
   "/terms": {
     title: "Terms of Service | Samebase",
     description:

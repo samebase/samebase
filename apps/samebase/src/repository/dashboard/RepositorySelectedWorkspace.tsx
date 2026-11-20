@@ -21,6 +21,7 @@ import { RepositoryDeleteDialog } from "./RepositoryDeleteDialog";
 import { RepositoryOverviewPage } from "./RepositoryOverviewPage";
 import type { RepositoryWorkspaceSelected as RepositoryWorkspace } from "./repositoryWorkspaceModel";
 import { RepositoryActionConfirmationDialog } from "./RepositoryActionConfirmationDialog";
+import { useRepositoryStackView } from "./useRepositoryStackView";
 
 type PendingConfirmation = {
   title: string;
@@ -66,6 +67,7 @@ export function RepositorySelectedWorkspace({
   const retryProviderSetup = useAction(api.repository.retryProviderSetup);
   const [isRetryingRepositoryAction, setIsRetryingRepositoryAction] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
+  const stackView = useRepositoryStackView();
   const repository = workspace.repository;
   const deleteModeActive = rootRouteSearch.delete === true;
   const providerActionBlockReason = readRepositoryProviderActionBlockReason(repository);
@@ -170,6 +172,7 @@ export function RepositorySelectedWorkspace({
               void handleRetryRepositoryDeletion(repository.deletion.runId);
             }
           }}
+          stackView={stackView}
         />
         <div aria-hidden="true" className="h-[20svh] min-h-20" />
       </div>

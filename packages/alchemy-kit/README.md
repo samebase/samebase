@@ -230,7 +230,7 @@ to that layer as it is.
 as `Cloudflare.R2.Bucket`. The icon is the Lucide drawing as `[tag, attributes]` pairs for a 24 by
 24 stroked SVG, so any UI framework can draw it. The entry imports no Alchemy, Effect or React. A
 type with no entry of its own gets the segments of its tag after the provider as its name, and the
-`box` icon.
+`box` icon. `resourceTypeTags` lists every tag with an entry.
 
 ```tsx
 import { resourceTypeUI } from "@samebase/alchemy-kit/ui";

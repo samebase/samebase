@@ -228,7 +228,7 @@ and menus. `RepositoryOverviewExample` turns off what the example cannot do.
 function LandingDashboardExample() {
   return (
     <figure
-      aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment and a Cloudflare Worker, the deployed commit with passing checks, and three open pull requests with their preview deployments."
+      aria-label="The Samebase repository page of acme/pantry: the production stack at pantry.acme.dev with its Convex deployment, two Cloudflare Workers, two R2 buckets and a D1 database, the deployed commit with passing checks, and three open pull requests with their preview stages."
       className="mt-10 @3xl:mt-0"
     >
       <figcaption className="mb-1 text-lg font-semibold">This is how it looks.</figcaption>

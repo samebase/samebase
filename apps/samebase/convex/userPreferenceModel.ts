@@ -35,12 +35,18 @@ export const vWorkspaceMobileSurface = union(
 );
 export type WorkspaceMobileSurface = Infer<typeof vWorkspaceMobileSurface>;
 
+/** How the stack cards of a repository overview show their resources: a list or a diagram. */
+export const vRepositoryStackView = union(literal("list"), literal("diagram"));
+export type RepositoryStackView = Infer<typeof vRepositoryStackView>;
+
 export const userPreferenceTables = {
   /** Per-user choices for dashboard panels and billing display. */
   ui_user_settings: defineTable({
     userId: id("users"),
     accountPanelOpen: optional(boolean()),
     providersPanelOpen: boolean(),
+    /** Absent until the user picks a view; the overview then shows the diagram. */
+    repositoryStackView: optional(vRepositoryStackView),
     // TODO: remove this
     pricingBillingCycle: optional(union(literal("monthly"), literal("annual"))),
   }).index("by_user", ["userId"]),

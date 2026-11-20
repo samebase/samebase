@@ -190,9 +190,27 @@ test("shows one card per Alchemy stack on desktop, mobile and a narrow pane", as
     await page.setViewportSize(viewport);
     const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
     await expect(
-      fixture.getByRole("link", { name: "scout-workspaces-prod", exact: true }),
-    ).toBeVisible();
+      fixture.getByRole("button", { name: "Open scout-workspaces-prod actions", exact: true }),
+    ).toBeAttached();
     await expect(fixture).toHaveScreenshot(`repository-overview-v2-r2-${viewport.width}.png`, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  }
+});
+
+test("draws the binding lines of a two-Worker stack on desktop and mobile", async ({ page }) => {
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const fixture = await openRepositoryOverviewV2(page, "repository-overview-v2-r2");
+    await expect(
+      fixture.getByRole("group", { name: "Alchemy stack samebase/samebase/apps/docs-site" }),
+    ).toHaveScreenshot(`repository-overview-v2-r2-docs-site-${viewport.width}.png`, {
       animations: "disabled",
       caret: "hide",
       maxDiffPixelRatio: 0.02,
@@ -496,7 +514,7 @@ test("reproduces the observed new repository provisioning states", async ({ page
     "repository-overview-v2-provisioning-ready",
   );
   await expect(
-    readyFixture.getByRole("link", { name: "dazzling-pheasant-894", exact: true }),
+    readyFixture.getByRole("button", { name: "Open dazzling-pheasant-894 actions", exact: true }),
   ).toBeVisible();
   await expect(readyFixture.getByText(NO_STACK_LINE, { exact: true })).toHaveCount(0);
   await expect(readyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);

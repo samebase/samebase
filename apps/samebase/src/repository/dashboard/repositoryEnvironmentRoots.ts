@@ -1,6 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 import { groupResourcesByComponent, stackCards } from "../../../shared/alchemyState";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
+import { stageDiagram } from "@/components/alchemyStageDiagramModel";
 import {
   buildRepositoryComponentsRoute,
   buildRepositoryDatabaseRoute,
@@ -65,11 +66,6 @@ export type RepositoryEnvironmentResource =
       id: string;
       bucketName: string;
       href: string;
-    }
-  | {
-      kind: "hub_client";
-      id: string;
-      status: "on" | "not set up" | "suspended";
     };
 
 type RepositoryEnvironmentComponentResource = Extract<
@@ -170,8 +166,10 @@ type RepositoryStackCardStage =
 /**
 The stack cards of the default-branch block and of a pull request row, from the stacks of the
 repository in the Alchemy state store: one card for each stack with the stage (`stackCards`), with
-the resource rows of that stage. The store records no build, so no build state shows, and the run
-line of a card names the deployed commit, so a row adds no note about it.
+the resource rows of that stage and its stack diagram (`stageDiagram`). The card draws the rows as a
+list or the diagram, as the viewer picks; in the diagram, the rows give the links of its boxes. The
+store records no build, so no build state shows, and the run line of a card names the deployed
+commit, so a row adds no note about it.
 
 A Worker links to its custom domains and workers.dev URL, `attr.urls`, and without them to its zone
 routes. A route shows its host, such as `e.samebase.com` for `e.samebase.com/*`, with the path when
@@ -201,7 +199,7 @@ export function buildAlchemyStackCards({
     stage: stage.name,
     headCommit: stage.headCommit,
   }).map((card) => {
-    const { convexDeployments, hubClients, workers, r2Buckets } = card.resources;
+    const { convexDeployments, workers, r2Buckets } = card.resources;
     const workerInput = (
       worker: (typeof workers)[number],
     ): RepositoryEnvironmentSortedResource<RepositoryEnvironmentComponentResource> => {
@@ -324,21 +322,12 @@ export function buildAlchemyStackCards({
         };
       }),
       ...r2Buckets.filter((bucket) => !owned.has(bucket)).map(r2BucketInput),
-      ...hubClients.map(({ fqn, state }): RepositoryEnvironmentSortedResource => {
-        const { status } = state.attr;
-        return {
-          sortKey: `3:${fqn}`,
-          resource: {
-            kind: "hub_client",
-            id: `alchemy:${card.stack}:${fqn}`,
-            status: status === "off" ? "not set up" : status,
-          },
-        };
-      }),
     ];
 
+    const { stageRows, ...rest } = card;
     return {
-      ...card,
+      ...rest,
+      diagram: stageDiagram(stageRows),
       address:
         card.address === null
           ? null

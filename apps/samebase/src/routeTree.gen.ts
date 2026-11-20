@@ -18,6 +18,7 @@ import { Route as landingRouteImport } from "./routes/landing";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as privacyRouteImport } from "./routes/privacy";
+import { Route as resourceTypesRouteImport } from "./routes/resource-types";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as xRouteImport } from "./routes/x";
@@ -112,6 +113,11 @@ const logoRoute = logoRouteImport.update({
 const privacyRoute = privacyRouteImport.update({
   id: "/privacy",
   path: "/privacy",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const resourceTypesRoute = resourceTypesRouteImport.update({
+  id: "/resource-types",
+  path: "/resource-types",
   getParentRoute: () => rootRouteImport,
 } as any);
 const termsRoute = termsRouteImport.update({
@@ -384,6 +390,7 @@ export interface FileRoutesByFullPath {
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/privacy": typeof privacyRoute;
+  "/resource-types": typeof resourceTypesRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
@@ -445,6 +452,7 @@ export interface FileRoutesByTo {
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/privacy": typeof privacyRoute;
+  "/resource-types": typeof resourceTypesRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
@@ -508,6 +516,7 @@ export interface FileRoutesById {
   "/landing-preview": typeof landingPreviewRoute;
   "/logo": typeof logoRoute;
   "/privacy": typeof privacyRoute;
+  "/resource-types": typeof resourceTypesRoute;
   "/terms": typeof termsRoute;
   "/visual-fixture": typeof visualFixtureRoute;
   "/x.com": typeof xRoute;
@@ -571,6 +580,7 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/logo"
     | "/privacy"
+    | "/resource-types"
     | "/terms"
     | "/visual-fixture"
     | "/x.com"
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/logo"
     | "/privacy"
+    | "/resource-types"
     | "/terms"
     | "/visual-fixture"
     | "/x.com"
@@ -694,6 +705,7 @@ export interface FileRouteTypes {
     | "/landing-preview"
     | "/logo"
     | "/privacy"
+    | "/resource-types"
     | "/terms"
     | "/visual-fixture"
     | "/x.com"
@@ -757,6 +769,7 @@ export interface RootRouteChildren {
   landingPreviewRoute: typeof landingPreviewRoute;
   logoRoute: typeof logoRoute;
   privacyRoute: typeof privacyRoute;
+  resourceTypesRoute: typeof resourceTypesRoute;
   termsRoute: typeof termsRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
   xRoute: typeof xRoute;
@@ -844,6 +857,13 @@ declare module "@tanstack/react-router" {
       path: "/privacy";
       fullPath: "/privacy";
       preLoaderRoute: typeof privacyRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/resource-types": {
+      id: "/resource-types";
+      path: "/resource-types";
+      fullPath: "/resource-types";
+      preLoaderRoute: typeof resourceTypesRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/terms": {
@@ -1283,6 +1303,7 @@ const rootRouteChildren: RootRouteChildren = {
   landingPreviewRoute: landingPreviewRoute,
   logoRoute: logoRoute,
   privacyRoute: privacyRoute,
+  resourceTypesRoute: resourceTypesRoute,
   termsRoute: termsRoute,
   visualFixtureRoute: visualFixtureRoute,
   xRoute: xRoute,

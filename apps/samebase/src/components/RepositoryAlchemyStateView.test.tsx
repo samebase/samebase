@@ -252,7 +252,7 @@ describe("AlchemyStateTree", () => {
     });
 
     expect(
-      Array.from(container.querySelectorAll(".font-medium"), (name) => name.textContent),
+      Array.from(container.querySelectorAll("span.font-medium"), (name) => name.textContent),
     ).toEqual(["samebase/samebase", "samebase/samebase/apps/sidebars-example"]);
     const [pr1768Details, prodDetails] = stageDetails(container);
     expect(pr1768Details[pr1768Details.indexOf("Convex") + 1]).toBe(
@@ -312,7 +312,7 @@ describe("AlchemyStateTree", () => {
     expect(details[details.indexOf("Workers") + 1]).toBe("tmp-k7m2-rows");
     expect(details[details.indexOf("Resources") + 1]).toBe("Workercreated, Worker");
     expect(
-      container.querySelector('a[href="https://tmp-k7m2-rows.pfp.workers.dev"]')?.textContent,
+      container.querySelector('dl a[href="https://tmp-k7m2-rows.pfp.workers.dev"]')?.textContent,
     ).toBe("tmp-k7m2-rows");
   });
 
@@ -365,7 +365,7 @@ describe("AlchemyStateTree", () => {
       ["Deployment", "updated, Convex Deployment"],
       ["Project", "updated, Convex Project"],
       ["mail"],
-      ["Mail/Bucketunknown", "Mail/Workercreated, Worker"],
+      ["Mail/Bucketcreated, R2 Bucket", "Mail/Workercreated, Worker"],
     ]);
   });
 

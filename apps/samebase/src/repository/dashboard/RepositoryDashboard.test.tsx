@@ -26,7 +26,13 @@ import { PullRequestsSection } from "./RepositoryPullRequestsSection";
 import { RepositoryGitHubIdentityNotice } from "./RepositoryGitHubIdentityNotice";
 import { RepositoryDeleteDialogContent } from "./RepositoryDeleteDialog";
 import { readRepositoryStackCheck } from "./repositoryStackCheck";
-import { DefaultBranchSection, PullRequestResources } from "./RepositoryEnvironmentTree";
+import {
+  DefaultBranchSection,
+  PullRequestResources,
+  type RepositoryStackViewControl,
+} from "./RepositoryEnvironmentTree";
+
+const DIAGRAM: RepositoryStackViewControl = { view: "diagram", onChange: () => {} };
 import { observedAlchemyStackReply } from "../../../convex/repository/fixtures/observedAlchemyState";
 import { observedSamebaseStackReply } from "../../../convex/repository/fixtures/observedSamebaseAlchemyState";
 import { observedScoutR2Resources } from "../../../convex/repository/fixtures/observedScoutR2Resources";
@@ -333,6 +339,7 @@ function renderStackCards(
     <TestRouterProvider initialEntries={[`/repo/${repository.githubRepositoryFullName}`]}>
       <DefaultBranchSection
         filesReadEnabled={false}
+        stackView={DIAGRAM}
         workspace={{
           access: { state: "ready", accessKeys: [] },
           alchemyState: {
@@ -383,6 +390,7 @@ describe("Alchemy stack cards", () => {
           label: "ideal-dolphin-15.convex.site",
         },
         addressWorker: null,
+        diagram: expect.any(Object),
         resources: [
           {
             kind: "destination",
@@ -421,21 +429,15 @@ describe("Alchemy stack cards", () => {
     expect(section.querySelectorAll('[aria-label="Loading default branch commit"]')).toHaveLength(
       1,
     );
-    expect(cards.map((card) => card.textContent)).toEqual([
-      "ideal-dolphin-15.convex.siteideal-dolphin-15🇺🇸US East (N. Virginia)",
+    // The header of a card is its first child, above the diagram.
+    expect(cards.map((card) => card.firstElementChild?.textContent)).toEqual([
+      "ideal-dolphin-15.convex.site",
     ]);
     expect(
-      [...section.querySelectorAll("a")].map((link) => [
-        link.textContent,
-        link.getAttribute("href"),
-      ]),
-    ).toEqual([
-      ["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"],
-      ["ideal-dolphin-15", "https://dashboard.convex.dev/t/nicu/base-alchemy/ideal-dolphin-15"],
-    ]);
-    const region = section.querySelector('[title="US East (N. Virginia)"]');
-    expect(region?.querySelector('[aria-hidden="true"]')?.textContent).toBe("🇺🇸");
-    expect(region?.querySelector(".sr-only")?.textContent).toBe("US East (N. Virginia)");
+      [...section.querySelectorAll('[aria-label^="Alchemy stack "] > :first-child a')].map(
+        (link) => [link.textContent, link.getAttribute("href")],
+      ),
+    ).toEqual([["ideal-dolphin-15.convex.site", "https://ideal-dolphin-15.convex.site"]]);
   });
 
   it("shows the store of each stack, and a stack in both stores as two cards", async () => {
@@ -480,6 +482,7 @@ describe("Alchemy stack cards", () => {
           <TestRouterProvider initialEntries={["/repo/acme/app"]}>
             <DefaultBranchSection
               filesReadEnabled={false}
+              stackView={DIAGRAM}
               workspace={{
                 ...makeWorkspace(repository, {
                   state: "loaded",
@@ -509,22 +512,18 @@ describe("Alchemy stack cards", () => {
     }
   });
 
-  it("shows one card for each stack with its folder and rows without type labels", () => {
+  it("shows one card for each stack with its folder", () => {
     const { cards } = renderStackCards(
       samebaseStacksAfterTheMove(),
       makeRepositorySettingsBuilderRepository({ convexTeamId: "38516" }),
       "1592243a49970f5c5142009b7ca7b2d71d31f104",
     );
 
-    expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      [
-        "Alchemy stack samebase/samebase",
-        "/clear-butterfly-858.convex.sitesamebase-domains*.json.mdsamebase-posthog-proxye.samebase.comclear-butterfly-858",
-      ],
-      [
-        "Alchemy stack samebase/samebase/apps/sidebars-example",
-        "apps/sidebars-examplesamebase-monorepo-sidebars-examplee.samebase.com",
-      ],
+    expect(
+      cards.map((card) => [card.getAttribute("aria-label"), card.firstElementChild?.textContent]),
+    ).toEqual([
+      ["Alchemy stack samebase/samebase", "/clear-butterfly-858.convex.site"],
+      ["Alchemy stack samebase/samebase/apps/sidebars-example", "apps/sidebars-example"],
     ]);
   });
 
@@ -533,71 +532,36 @@ describe("Alchemy stack cards", () => {
     ["infrastructure/alchemy.run.ts", "infrastructure"],
   ])("shows the R2 buckets of %s and links their Cloudflare dashboard", (stackFile, folder) => {
     const stacks = observedBaseAlchemyStack();
-    const { cards } = renderStackCards(
-      {
-        ...stacks,
-        stacks: stacks.stacks.map((stack) => ({
-          name: "samebase/scout",
-          store: stack.store,
-          stages: stack.stages.map((stage) => ({
-            ...stage,
-            run: { ...stage.run, stackFile },
-            resources: observedScoutR2Resources,
-          })),
+    const scoutStacks: RepositoryAlchemyStacks = {
+      ...stacks,
+      stacks: stacks.stacks.map((stack) => ({
+        name: "samebase/scout",
+        store: stack.store,
+        stages: stack.stages.map((stage) => ({
+          ...stage,
+          run: { ...stage.run, stackFile },
+          resources: observedScoutR2Resources,
         })),
-      },
+      })),
+    };
+    const { cards } = renderStackCards(
+      scoutStacks,
       makeRepositorySettingsBuilderRepository({}),
       null,
     );
 
-    expect(cards.map((card) => card.textContent)).toEqual([
-      `${folder}scout-public-mediascout-workspacesscout-workspaces-prod`,
-    ]);
+    expect(cards.map((card) => card.firstElementChild?.textContent)).toEqual([folder]);
+    // Each box has a menu with the dashboard link of its bucket.
     expect(
-      [...cards[0].querySelectorAll('a[title^="Open R2 bucket"]')].map((link) =>
-        link.getAttribute("href"),
+      stackCardsOf(scoutStacks, makeRepositorySettingsBuilderRepository({}), null).flatMap((card) =>
+        card.resources.flatMap((resource) =>
+          resource.kind === "cloudflare_r2_bucket" ? [resource.href] : [],
+        ),
       ),
     ).toEqual([
       "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-public-media",
       "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces",
       "https://dash.cloudflare.com/fe57d01d7ab41f60d00ba1aade20eb33/r2/default/buckets/scout-workspaces-prod",
-    ]);
-  });
-
-  it.each([
-    ["on", "Google sign-in: on"],
-    ["off", "Google sign-in: not set up"],
-    ["suspended", "Google sign-in: suspended"],
-  ])("shows a shared hub client that is %s as the last row of its card", (status, line) => {
-    const stacks = observedBaseAlchemyStack();
-    const { cards } = renderStackCards(
-      {
-        ...stacks,
-        stacks: stacks.stacks.map((stack) => ({
-          name: "samebase/scout",
-          store: stack.store,
-          stages: stack.stages.map((stage) => ({
-            ...stage,
-            run: { ...stage.run, stackFile: "alchemy.run.ts" },
-            resources: [
-              {
-                fqn: "Client",
-                value: JSON.stringify({
-                  resourceType: "IdentityHub.Client",
-                  attr: { status, clientId: "client-id" },
-                }),
-              },
-              ...observedScoutR2Resources,
-            ],
-          })),
-        })),
-      },
-      makeRepositorySettingsBuilderRepository({}),
-      null,
-    );
-
-    expect(cards.map((card) => card.textContent)).toEqual([
-      `scout-public-mediascout-workspacesscout-workspaces-prod${line}`,
     ]);
   });
 
@@ -750,7 +714,7 @@ describe("Alchemy stack cards", () => {
     ]);
   });
 
-  it("shows the URL of a Worker-only stack once, as its address", () => {
+  it("shows the URL of a Worker-only stack as its address", () => {
     // The `main` Worker row measured in research/2026-10-21-alchemy-state-rows-for-workers-and-convex.md.
     const worker =
       '{"status":"created","fqn":"Worker","logicalId":"Worker","instanceId":"4fb5acd8a74d8a46633a8e57084e0bc1","resourceType":"Cloudflare.Worker","props":{"name":"tmp-k7m2-rows","main":"./worker.ts","env":{"CONVEX_URL":"https://modest-guanaco-252.convex.cloud"},"isExternal":true},"attr":{"workerId":"6d2434039c4343a9a02300ba85841b70","workerName":"tmp-k7m2-rows","logpush":false,"url":"https://tmp-k7m2-rows.pfp.workers.dev","urls":["https://tmp-k7m2-rows.pfp.workers.dev"],"tags":["alchemy:stack:samebase/tmp-k7m2-rows","alchemy:stage:main","alchemy:id:Worker"],"durableObjectNamespaces":{},"accountId":"fe57d01d7ab41f60d00ba1aade20eb33","routes":[],"crons":[],"tailConsumers":[],"hash":{"bundle":"b132832cbda33e15a9cffc4ff168139206ddccf97b0a7c2230801d3710200e85","metadata":"6692e8262512d066c344158cd4e091a1287954eb8b43208b87b336715b99bb65"}},"bindings":[{"sid":"CONVEX_URL","data":{"bindings":[{"type":"plain_text","name":"CONVEX_URL","text":"https://modest-guanaco-252.convex.cloud"}]}}],"providerVersion":0,"downstream":[],"removalPolicy":"destroy","providerMode":"live"}';
@@ -785,14 +749,15 @@ describe("Alchemy stack cards", () => {
     const repository = makeRepositorySettingsBuilderRepository({});
     const { cards } = renderStackCards(stacksWith(worker), repository, "b".repeat(40));
 
-    // A run from a development machine has no run URL, so its line links nowhere. The address is
-    // the one URL of the Worker, so the Worker row shows no URL and no build state.
-    expect(cards.map((card) => card.textContent)).toEqual([
-      "tmp-k7m2-rows.pfp.workers.devaaaaaaatmp-k7m2-rows",
+    // A run from a development machine has no run URL, so its line links nowhere.
+    expect(cards.map((card) => card.firstElementChild?.textContent)).toEqual([
+      "tmp-k7m2-rows.pfp.workers.devaaaaaaa",
     ]);
-    expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
-      "https://tmp-k7m2-rows.pfp.workers.dev",
-    ]);
+    expect(
+      [...cards[0].querySelectorAll(":scope > :first-child a")].map((link) =>
+        link.getAttribute("href"),
+      ),
+    ).toEqual(["https://tmp-k7m2-rows.pfp.workers.dev"]);
     // The same row with a custom domain, which Alchemy puts first: the row keeps the other URL.
     expect(
       stackCardsOf(
@@ -825,7 +790,7 @@ describe("Alchemy stack cards", () => {
     ]);
   });
 
-  it("shows the resources of a bound namespace under their component, below its deployment", () => {
+  it("shows the resources of a bound namespace under their component", () => {
     // Like the Mail stack: the captured prod stage of samebase/base-alchemy from
     // apps/mail/alchemy.run.ts, its Deployment row with a `mail` binding in the shape of
     // https://github.com/samebase/alchemy-convex/blob/v0.10.0/test/Component.test.ts#L73-L77, the
@@ -901,17 +866,6 @@ describe("Alchemy stack cards", () => {
         },
       ],
     ]);
-    const { cards } = renderStackCards(mailStacks, repository, null);
-    const deployment = cards[0].querySelector('[aria-label="Convex deployment ideal-dolphin-15"]');
-    expect(deployment?.querySelector('[aria-label="Convex component mail"]')?.textContent).toBe(
-      "mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
-    );
-    expect(
-      deployment?.querySelector('[aria-label="Cloudflare Worker samebase-domains"]'),
-    ).toBeNull();
-    expect(cards.map((card) => card.textContent)).toEqual([
-      "apps/mailideal-dolphin-15.convex.sitesamebase-domains*.json.mdideal-dolphin-15🇺🇸US East (N. Virginia)mailConvex componentsamebase-posthog-proxye.samebase.comscout-workspaces",
-    ]);
   });
 
   it("shows a card in a pull request row for each stack with the stage of the pull request", () => {
@@ -952,6 +906,7 @@ describe("Alchemy stack cards", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToStaticMarkup(
       <PullRequestResources
+        view="diagram"
         resource={{
           state: "loaded",
           // The pull request has a newer head than the deployed commit, so the card has a run line.
@@ -968,18 +923,17 @@ describe("Alchemy stack cards", () => {
     const cards = [...container.querySelectorAll('[aria-label^="Alchemy stack "]')];
 
     // One card at the root shows no folder, and a preview deployment has no live read or route.
-    expect(cards.map((card) => [card.getAttribute("aria-label"), card.textContent])).toEqual([
-      ["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121aware-bobcat-542"],
-    ]);
-    expect([...cards[0].querySelectorAll("a")].map((link) => link.getAttribute("href"))).toEqual([
+    expect(
+      cards.map((card) => [card.getAttribute("aria-label"), card.firstElementChild?.textContent]),
+    ).toEqual([["Alchemy stack samebase/samebase", "/aware-bobcat-542.convex.site429c121"]]);
+    expect(
+      [...cards[0].querySelectorAll(":scope > :first-child a")].map((link) =>
+        link.getAttribute("href"),
+      ),
+    ).toEqual([
       "https://aware-bobcat-542.convex.site",
       "https://github.com/samebase/samebase/actions/runs/39756039340/attempts/1",
-      "https://dashboard.convex.dev/d/aware-bobcat-542",
     ]);
-    // The only button says where the state is: a preview card has no menu.
-    expect(
-      [...cards[0].querySelectorAll("button")].map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Alchemy state in Convex"]);
   });
 });
 
@@ -1024,7 +978,7 @@ describe("the default-branch block without a stack", () => {
       <TestRouterProvider
         initialEntries={[`/repo/${workspace.repository.githubRepositoryFullName}`]}
       >
-        <DefaultBranchSection filesReadEnabled={false} workspace={workspace} />
+        <DefaultBranchSection filesReadEnabled={false} stackView={DIAGRAM} workspace={workspace} />
       </TestRouterProvider>,
     );
     return container;
@@ -1057,7 +1011,11 @@ describe("the default-branch block without a stack", () => {
       await act(async () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
-            <DefaultBranchSection filesReadEnabled={false} workspace={workspace} />
+            <DefaultBranchSection
+              filesReadEnabled={false}
+              stackView={DIAGRAM}
+              workspace={workspace}
+            />
           </TestRouterProvider>,
         );
       });
@@ -1159,9 +1117,11 @@ describe("the default-branch block without a stack", () => {
 
 describe("PullRequestResources", () => {
   it("says that the store could not be read, and shows nothing for a pull request with no stage", () => {
-    const failed = renderToStaticMarkup(<PullRequestResources resource={{ state: "failed" }} />);
+    const failed = renderToStaticMarkup(
+      <PullRequestResources resource={{ state: "failed" }} view="diagram" />,
+    );
     const empty = renderToStaticMarkup(
-      <PullRequestResources resource={{ state: "loaded", stackCards: [] }} />,
+      <PullRequestResources resource={{ state: "loaded", stackCards: [] }} view="diagram" />,
     );
 
     expect(failed).toContain("Could not read the team&#x27;s Alchemy state store.");
@@ -1233,6 +1193,7 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
+              stackView="diagram"
               filesReadEnabled={false}
               pullRequests={pullRequests}
               repository={makeRepositorySettingsBuilderRepository({})}
@@ -1291,6 +1252,7 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
+              stackView="diagram"
               filesReadEnabled={false}
               pullRequests={pullRequests}
               repository={makeRepositorySettingsBuilderRepository({ defaultBranch: "main" })}
@@ -1331,6 +1293,7 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/repo/ada/demo"]}>
             <PullRequestsSection
+              stackView="diagram"
               filesReadEnabled
               pullRequests={pullRequests}
               repository={makeRepositorySettingsBuilderRepository({
@@ -1698,6 +1661,7 @@ describe("RepositoryOverviewPage", () => {
           onOpenDeleteDialog={() => {}}
           onRetryInfrastructureProvisioning={() => {}}
           onRetryRepositoryDeletion={() => {}}
+          stackView={DIAGRAM}
           workspace={{
             alchemyState: {
               state: "loaded" as const,

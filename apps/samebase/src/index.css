@@ -187,6 +187,93 @@ column of single letters.
   }
 }
 
+/* The faces and the mark of the isometric resource icons of the Alchemy stack diagram. */
+.iso-compute {
+  --iso-top: #ffd493;
+  --iso-left: #ef9d54;
+  --iso-right: #c4672c;
+  --iso-ink: #95451d;
+}
+.iso-database {
+  --iso-top: #97d6f5;
+  --iso-left: #499bd6;
+  --iso-right: #316ea9;
+  --iso-ink: #244a75;
+}
+.iso-storage {
+  --iso-top: #97dbcb;
+  --iso-left: #48aa9e;
+  --iso-right: #317f7b;
+  --iso-ink: #245f58;
+}
+.iso-queue {
+  --iso-top: #d6c5f4;
+  --iso-left: #a28bd7;
+  --iso-right: #745aa7;
+  --iso-ink: #513985;
+}
+.iso-email {
+  --iso-top: #f5c4cf;
+  --iso-left: #d98a9d;
+  --iso-right: #a95b70;
+  --iso-ink: #7a3549;
+}
+.iso-other {
+  --iso-top: #aacef1;
+  --iso-left: #6195cb;
+  --iso-right: #416caa;
+  --iso-ink: #2b5087;
+}
+.dark .iso-compute {
+  --iso-top: #f0c27a;
+  --iso-left: #db8a45;
+  --iso-right: #b05a24;
+  --iso-ink: #7a3714;
+}
+.dark .iso-database {
+  --iso-top: #82c2e3;
+  --iso-left: #3f89c2;
+  --iso-right: #2a5f94;
+  --iso-ink: #1c3c61;
+}
+.dark .iso-storage {
+  --iso-top: #82c8b8;
+  --iso-left: #3e978c;
+  --iso-right: #2a6e6a;
+  --iso-ink: #1c4d47;
+}
+.dark .iso-queue {
+  --iso-top: #c3b1e6;
+  --iso-left: #8f78c6;
+  --iso-right: #644b94;
+  --iso-ink: #412c70;
+}
+.dark .iso-email {
+  --iso-top: #e6afbc;
+  --iso-left: #c7778a;
+  --iso-right: #944c60;
+  --iso-ink: #632838;
+}
+.dark .iso-other {
+  --iso-top: #94bde4;
+  --iso-left: #5384bb;
+  --iso-right: #375d97;
+  --iso-ink: #213f70;
+}
+/* Convex's yellow, red and purple, from light to dark like the faces of the other palettes. */
+.iso-convex {
+  --iso-top: #f3b01c;
+  --iso-left: #ee342f;
+  --iso-right: #8d2676;
+  --iso-ink: #5c1450;
+}
+.dark .iso-convex {
+  --iso-top: #dda01a;
+  --iso-left: #d92f2a;
+  --iso-right: #7a2066;
+  --iso-ink: #4a0f3f;
+}
+
 /* Interactive primitives can add cursor utilities after the base layer. Links remain links. */
 a:any-link {
   cursor: pointer;

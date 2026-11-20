@@ -16,6 +16,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { UserRepositoryResult } from "../../../convex/repository/contracts/getUserRepositories";
+import type { RepositoryStackView } from "../../../convex/userPreferenceModel";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -62,11 +63,13 @@ function PullRequestRow({
   pullRequest,
   resource,
   repository,
+  stackView,
 }: {
   filesReadEnabled: boolean;
   pullRequest: RepositoryPullRequest;
   resource: PullRequestResourceState | undefined;
   repository: UserRepositoryResult;
+  stackView: RepositoryStackView;
 }) {
   const [expanded, setExpanded] = useState(false);
   const sameRepository = !pullRequest.isCrossRepository && pullRequest.headRepository !== null;
@@ -161,7 +164,7 @@ function PullRequestRow({
               ))}
             </div>
           ) : null}
-          <PullRequestResources resource={resource} />
+          <PullRequestResources resource={resource} view={stackView} />
         </div>
       ) : null}
     </article>
@@ -172,10 +175,12 @@ export function PullRequestsSection({
   filesReadEnabled,
   pullRequests,
   repository,
+  stackView,
 }: {
   filesReadEnabled: boolean;
   pullRequests: RepositoryPullRequestsState;
   repository: UserRepositoryResult;
+  stackView: RepositoryStackView;
 }) {
   if (pullRequests.state === "not_requested") {
     return null;
@@ -214,6 +219,7 @@ export function PullRequestsSection({
                 pullRequest={pullRequest}
                 resource={pullRequests.resourcesByPullRequestId.get(pullRequest.id)}
                 repository={repository}
+                stackView={stackView}
               />
             ))}
             <RepositoryPullRequestLoadMore state={pullRequests.loadMore} />

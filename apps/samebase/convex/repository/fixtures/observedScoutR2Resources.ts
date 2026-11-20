@@ -1,7 +1,8 @@
 /**
 Scout bucket metadata read through Cloudflare's GET /accounts/{account}/r2/buckets/{bucket}
 on 2026-10-22, mapped to Alchemy beta.83's bucket attributes. These are not captured Alchemy rows.
-Only the attributes used by the repository overview are included.
+Only the attributes used by the repository overview are included, with the row fields that its
+stack diagram reads.
 
 @see https://github.com/alchemy-run/alchemy/blob/v2.0.0-beta.83/packages/alchemy/src/Cloudflare/R2/Bucket.ts#L263-L280
 */
@@ -12,6 +13,9 @@ export const observedScoutR2Resources = [
 ].map(({ fqn, bucketName }) => ({
   fqn,
   value: JSON.stringify({
+    logicalId: fqn,
+    status: "created",
+    downstream: [],
     resourceType: "Cloudflare.R2.Bucket",
     attr: {
       bucketName,
