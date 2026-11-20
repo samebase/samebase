@@ -7,6 +7,7 @@
 // own transaction (rules.ts); every call to the provider is outside a command.
 import { Cause, Clock, Effect, Exit, Result } from "effect";
 import { errorPage } from "../core/html.ts";
+import { logHubEvent } from "../core/hubEvents.ts";
 import {
   readClientAuthentication,
   validateAuthorizeRest,
@@ -27,6 +28,7 @@ import { randomToken, s256Challenge, sha256HexEffect } from "../core/subject.ts"
 import type { Return } from "../rules/schemas.ts";
 import { command } from "./commands.ts";
 import { readProviders, type ConnectionProvider, type ConnectionSettings } from "./providers.ts";
+import type { Refused } from "./rules.ts";
 import type { ProviderTokens } from "./tables.ts";
 import {
   declined,
@@ -108,6 +110,23 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
   });
   const callbackUrl = (hub: HubConfigShape, provider: ConnectionProvider) =>
     `${hub.issuer}/connections/${provider.name}/callback`;
+  /** The provider's name in a `hub_event` line. */
+  const nameOf = (resource: string) => byResource.get(resource)?.name ?? null;
+  /** The `hub_event` line of a refusal that a step's rule returned. */
+  const logRefused = (
+    event: "connection_refused" | "refresh_refused",
+    refused: typeof Refused.Type,
+  ) =>
+    logHubEvent({
+      event,
+      clientId: refused.clientId,
+      ref: refused.ref,
+      connector: nameOf(refused.resource),
+      reason: refused.reason,
+    });
+  /** The reason of a provider failure: its OAuth error code, or `unavailable`. */
+  const providerReason = (error: unknown) =>
+    refusal(error) === undefined ? "unavailable" : failureName(error);
 
   /**
    * The start of a connection. Nobody has continued from a page, so every refusal is an error
@@ -156,6 +175,9 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       expiresAt: now + REQUEST_TTL_MS,
     });
     if (!created.ok) {
+      if (created.refused !== null) {
+        logRefused("connection_refused", created.refused);
+      }
       switch (created.error) {
         case "unknown_client":
           return errorPage(
@@ -235,6 +257,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
         return answer(claim.back, "access_denied", expired);
       }
       if (claim.status === "refused") {
+        logRefused("connection_refused", claim.refused);
         return answer(claim.back, "access_denied", refused);
       }
       const abandon = command("connections.abandon", { requestId: claim.requestId });
@@ -278,6 +301,9 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
           now,
         });
         if (!completed.ok) {
+          if (completed.error === "refused") {
+            logRefused("connection_refused", completed.refused);
+          }
           return answer(
             completed.back,
             "access_denied",
@@ -345,6 +371,9 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       now: yield* Clock.currentTimeMillis,
     });
     if (!admitted.ok) {
+      if (admitted.refused !== null) {
+        logRefused("refresh_refused", admitted.refused);
+      }
       return admitted.error === "invalid_client"
         ? oauthError(401, admitted.error, admitted.description, challenge)
         : oauthError(400, admitted.error, admitted.description);
@@ -356,14 +385,21 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
         catch: (error) => error,
       }),
     );
+    const line = {
+      clientId: clientAuth.value.clientId,
+      ref: admitted.ref,
+      connector: provider.name,
+    };
     if (Result.isFailure(answered)) {
       const error = answered.failure;
       console.error(`Connection "${provider.name}" refresh failed: ${failureName(error)}`);
+      logHubEvent({ event: "refresh_refused", ...line, reason: providerReason(error) });
       const refused = refusal(error);
       return refused === undefined
         ? unavailable()
         : oauthError(400, refused, "The provider refused the refresh.");
     }
+    logHubEvent({ event: "refresh", ...line, reason: null });
     return tokenResponse(answered.success, yield* Clock.currentTimeMillis);
   });
 
@@ -404,15 +440,23 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       now,
     });
     if (!exchange.ok) {
-      switch (exchange.error) {
-        case "not_found":
-          return undefined;
-        case "invalid_client":
-          return oauthError(401, exchange.error, exchange.description, challenge);
-        default:
-          return oauthError(400, exchange.error, exchange.description);
+      if (exchange.error === "not_found") {
+        return undefined;
       }
+      if (exchange.refused !== null) {
+        logRefused("connection_refused", exchange.refused);
+      }
+      return exchange.error === "invalid_client"
+        ? oauthError(401, exchange.error, exchange.description, challenge)
+        : oauthError(400, exchange.error, exchange.description);
     }
+    logHubEvent({
+      event: "connection",
+      clientId: clientAuth.value.clientId,
+      ref: exchange.ref,
+      connector: nameOf(exchange.resource),
+      reason: null,
+    });
     return tokenResponse(exchange.tokens, now);
   });
 
@@ -444,11 +488,21 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     if (provider === undefined) {
       return oauthError(400, "invalid_target", "Request one configured API resource.");
     }
-    if (!(yield* command("connections.authenticate", yield* clientArgs(clientAuth.value)))) {
+    const ref = yield* command("connections.authenticate", yield* clientArgs(clientAuth.value));
+    if (ref === null) {
       return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
     }
+    const logRevoke = (reason: string | null) =>
+      logHubEvent({
+        event: "revoke",
+        clientId: clientAuth.value.clientId,
+        ref,
+        connector: provider.name,
+        reason,
+      });
     const revoked = new Response(null, { status: 200, headers: { "Cache-Control": "no-store" } });
     if (provider.server.revocation_endpoint === undefined) {
+      logRevoke(null);
       return revoked;
     }
     const answered = yield* Effect.result(
@@ -467,12 +521,14 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       console.error(
         `Connection "${provider.name}" revocation failed: ${failureName(answered.failure)}`,
       );
+      logRevoke(providerReason(answered.failure));
       // RFC 7009 section 2.2.1: the provider's refusal, such as `unsupported_token_type`.
       const refused = refusal(answered.failure);
       return refused === undefined
         ? unavailable()
         : oauthError(400, refused, "The provider refused the revocation.");
     }
+    logRevoke(null);
     return revoked;
   });
 

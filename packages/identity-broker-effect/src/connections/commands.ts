@@ -1,6 +1,5 @@
 // The connections part's commands and their typed runner. Each reads cards with the core's view
 // `Tx` and the part's tables with `ConnectionsTx`.
-import { Schema } from "effect";
 import { runCommand } from "../core/command.ts";
 import { command as define, type Command } from "../rules/commands.ts";
 import type { Tx } from "../rules/tables.ts";
@@ -46,7 +45,7 @@ const definitions = {
   }),
   "connections.authenticate": define({
     args: rules.AuthenticateArgs,
-    result: Schema.Boolean,
+    result: rules.AuthenticateResult,
     readOnly: true,
     rule: rules.authenticate,
   }),

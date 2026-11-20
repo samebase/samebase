@@ -39,6 +39,24 @@ const back = Schema.optional(Return);
 
 type ConnectionRequest = Doc<"connectionRequests">;
 
+/**
+ * A refusal of the card, a stop or a gate, the card's `connections`, or a limit, for the route's
+ * `hub_event` line. `ref` is null when the card is gone.
+ */
+export const Refused = Schema.Struct({
+  reason: Schema.Literals(["card", "stopped", "connections", "rate_limited"]),
+  clientId: Str,
+  ref: Schema.NullOr(Str),
+  resource: Str,
+});
+type Refused = typeof Refused.Type;
+
+const refused = (
+  reason: Refused["reason"],
+  card: { readonly clientId: string; readonly ref: string | null },
+  resource: string,
+): Refused => ({ reason, clientId: card.clientId, ref: card.ref, resource });
+
 /** Whether the card may use the provider of `resource`: configured, and in its `connections`. */
 const offers = (card: Doc<"clients">, resource: string, hub: HubNow) => {
   const provider = hub.providers.find((candidate) => candidate.resource === resource);
@@ -46,16 +64,30 @@ const offers = (card: Doc<"clients">, resource: string, hub: HubNow) => {
 };
 
 /**
- * The card of `clientId` when it may use the provider of `resource` now: the card exists, no gate
- * refuses it, and it offers the provider. Undefined otherwise.
+ * Whether `request` may go on now: the card exists and holds the return address, no gate refuses
+ * it, and it offers the provider. `back` is the return address when the card holds it.
  */
-const usableCard = Effect.fnUntraced(function* (clientId: string, resource: string, hub: HubNow) {
-  const card = yield* cardRow(clientId);
-  return card !== undefined &&
-    offers(card.doc, resource, hub) &&
-    !(yield* isStopped(card.doc, hub.liveGates))
-    ? card
-    : undefined;
+const admission = Effect.fnUntraced(function* (request: ConnectionRequest, hub: HubNow) {
+  const back = yield* returnTo(request);
+  const card = yield* cardRow(request.clientId);
+  if (card === undefined) {
+    const gone = { clientId: request.clientId, ref: null };
+    return { ok: false, back, refused: refused("card", gone, request.resource) } as const;
+  }
+  if (back === undefined) {
+    return { ok: false, back, refused: refused("card", card.doc, request.resource) } as const;
+  }
+  if (yield* isStopped(card.doc, hub.liveGates)) {
+    return { ok: false, back, refused: refused("stopped", card.doc, request.resource) } as const;
+  }
+  if (!offers(card.doc, request.resource, hub)) {
+    return {
+      ok: false,
+      back,
+      refused: refused("connections", card.doc, request.resource),
+    } as const;
+  }
+  return { ok: true, back } as const;
 });
 
 /** The request's return address when the card holds it in this step, else undefined. */
@@ -133,6 +165,8 @@ export const CreateResult = Schema.Union([
       "refused",
       "rate_limited",
     ]),
+    /** Null when no card holds the request's client and return address. */
+    refused: Schema.NullOr(Refused),
   }),
 ]);
 
@@ -146,19 +180,27 @@ export const create = Effect.fnUntraced(function* (
 ): Effect.fn.Return<typeof CreateResult.Type, never, Views> {
   const card = yield* cardRow(args.clientId);
   if (card === undefined) {
-    return { ok: false, error: "unknown_client" };
+    return { ok: false, error: "unknown_client", refused: null };
   }
   if (!card.doc.redirectUris.includes(args.redirectUri)) {
-    return { ok: false, error: "redirect_uri" };
+    return { ok: false, error: "redirect_uri", refused: null };
   }
   if (yield* isStopped(card.doc, args.liveGates)) {
-    return { ok: false, error: "stopped" };
+    return { ok: false, error: "stopped", refused: refused("stopped", card.doc, args.resource) };
   }
   if (!offers(card.doc, args.resource, args)) {
-    return { ok: false, error: "refused" };
+    return {
+      ok: false,
+      error: "refused",
+      refused: refused("connections", card.doc, args.resource),
+    };
   }
   if (!(yield* spendBudget(card.doc.budget, args.now))) {
-    return { ok: false, error: "rate_limited" };
+    return {
+      ok: false,
+      error: "rate_limited",
+      refused: refused("rate_limited", card.doc, args.resource),
+    };
   }
   yield* (yield* ConnectionsTx).insert("connectionRequests", {
     status: "upstream",
@@ -190,7 +232,7 @@ export const ClaimResult = Schema.Union([
   Schema.Struct({ status: Schema.Literal("claimed"), requestId: Str, upstreamCodeVerifier: Str }),
   /** The request ran out, or may not go on now; it is deleted. */
   Schema.Struct({ status: Schema.Literal("expired"), requestId: Str, back }),
-  Schema.Struct({ status: Schema.Literal("refused"), requestId: Str, back }),
+  Schema.Struct({ status: Schema.Literal("refused"), requestId: Str, back, refused: Refused }),
   Schema.Struct({ status: Schema.Literal("unbound") }),
   Schema.Struct({ status: Schema.Literal("missing") }),
 ]);
@@ -215,17 +257,19 @@ export const claim = Effect.fnUntraced(function* (
   if (!args.txnCookieHashes.includes(request.txnCookieHash)) {
     return { status: "unbound" };
   }
-  const back = yield* returnTo(request);
+  const admitted = yield* admission(request, args);
   if (request.expiresAt <= args.now) {
     yield* tx.delete("connectionRequests", row.id);
-    return { status: "expired", requestId: request.requestId, back };
+    return { status: "expired", requestId: request.requestId, back: admitted.back };
   }
-  if (
-    back === undefined ||
-    (yield* usableCard(request.clientId, request.resource, args)) === undefined
-  ) {
+  if (!admitted.ok) {
     yield* tx.delete("connectionRequests", row.id);
-    return { status: "refused", requestId: request.requestId, back };
+    return {
+      status: "refused",
+      requestId: request.requestId,
+      back: admitted.back,
+      refused: admitted.refused,
+    };
   }
   yield* tx.replace("connectionRequests", row.id, { status: "claimed", ...baseFields(request) });
   return {
@@ -247,7 +291,13 @@ export const CompleteArgs = Schema.Struct({
 });
 export const CompleteResult = Schema.Union([
   Schema.Struct({ ok: Schema.Literal(true), back: Return }),
-  Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literals(["gone", "refused"]), back }),
+  Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("gone"), back }),
+  Schema.Struct({
+    ok: Schema.Literal(false),
+    error: Schema.Literal("refused"),
+    back,
+    refused: Refused,
+  }),
 ]);
 
 /**
@@ -264,16 +314,13 @@ export const complete = Effect.fnUntraced(function* (
     return { ok: false, error: "gone" };
   }
   const request = row.doc;
-  const back = yield* returnTo(request);
+  const admitted = yield* admission(request, args);
   if (request.status !== "claimed" || request.expiresAt <= args.now) {
-    return { ok: false, error: "gone", back };
+    return { ok: false, error: "gone", back: admitted.back };
   }
-  if (
-    back === undefined ||
-    (yield* usableCard(request.clientId, request.resource, args)) === undefined
-  ) {
+  if (!admitted.ok) {
     yield* tx.delete("connectionRequests", row.id);
-    return { ok: false, error: "refused", back };
+    return { ok: false, error: "refused", back: admitted.back, refused: admitted.refused };
   }
   yield* tx.replace("connectionRequests", row.id, {
     status: "completed",
@@ -288,7 +335,7 @@ export const complete = Effect.fnUntraced(function* (
     clientId: request.clientId,
     expiresAt: args.codeExpiresAt,
   });
-  return { ok: true, back };
+  return { ok: true, back: admitted.back };
 });
 
 // abandon
@@ -323,20 +370,23 @@ const Refusal = Schema.Struct({
   ok: Schema.Literal(false),
   error: Schema.Literals(["invalid_client", "invalid_grant", "invalid_target"]),
   description: Str,
+  /** Null for a refusal of the request itself, such as a wrong verifier. */
+  refused: Schema.NullOr(Refused),
 });
 export const ExchangeResult = Schema.Union([
   /** The code is not a connection's: the core's sign-in redeems it, or refuses it. */
   Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("not_found") }),
   Refusal,
-  /** The provider's tokens, which the hub no longer holds. */
-  Schema.Struct({ ok: Schema.Literal(true), tokens: ProviderTokens }),
+  /** The provider's tokens, which the hub no longer holds, and the card's `ref`. */
+  Schema.Struct({ ok: Schema.Literal(true), tokens: ProviderTokens, ref: Str, resource: Str }),
 ]);
 type ExchangeResult = typeof ExchangeResult.Type;
 
 const refuse = (
   error: "invalid_client" | "invalid_grant" | "invalid_target",
   description: string,
-): ExchangeResult => ({ ok: false, error, description });
+  refusal: Refused | null = null,
+): ExchangeResult => ({ ok: false, error, description, refused: refusal });
 
 /**
  * Redeems a connection's code: single use, bound to the client, its return address and its PKCE
@@ -354,8 +404,17 @@ export const exchangeCode = Effect.fnUntraced(function* (
     return { ok: false, error: "not_found" };
   }
   const card = yield* authenticated(args);
-  if (card === undefined || (yield* isStopped(card.doc, args.liveGates))) {
+  if (card === undefined) {
     return refuse("invalid_client", "Client authentication failed.");
+  }
+  // Read before the stop, which then names the request's provider.
+  const row = yield* requestOf(code.doc.requestId);
+  if (yield* isStopped(card.doc, args.liveGates)) {
+    return refuse(
+      "invalid_client",
+      "Client authentication failed.",
+      row === undefined ? null : refused("stopped", card.doc, row.doc.resource),
+    );
   }
   if (code.doc.clientId !== args.clientId) {
     return refuse("invalid_grant", "The authorization code belongs to another client.");
@@ -363,7 +422,6 @@ export const exchangeCode = Effect.fnUntraced(function* (
   if (code.doc.expiresAt <= args.now) {
     return refuse("invalid_grant", "The authorization code expired.");
   }
-  const row = yield* requestOf(code.doc.requestId);
   if (row === undefined || row.doc.status !== "completed") {
     return refuse("invalid_grant", "The authorization is unavailable.");
   }
@@ -372,7 +430,11 @@ export const exchangeCode = Effect.fnUntraced(function* (
     return refuse("invalid_target", "The resource does not match the authorization.");
   }
   if (!offers(card.doc, request.resource, args)) {
-    return refuse("invalid_target", "This client cannot use that API resource.");
+    return refuse(
+      "invalid_target",
+      "This client cannot use that API resource.",
+      refused("connections", card.doc, request.resource),
+    );
   }
   if (
     args.redirectUri !== request.redirectUri ||
@@ -381,12 +443,16 @@ export const exchangeCode = Effect.fnUntraced(function* (
     return refuse("invalid_grant", "The redirect URI or PKCE verifier does not match.");
   }
   if (!card.doc.redirectUris.includes(request.redirectUri)) {
-    return refuse("invalid_grant", "This client cannot finish this connection now.");
+    return refuse(
+      "invalid_grant",
+      "This client cannot finish this connection now.",
+      refused("card", card.doc, request.resource),
+    );
   }
   yield* tx.delete("connectionCodes", code.id);
   yield* tx.delete("connectionRequests", row.id);
   yield* tx.replace("clients", card.id, used(card.doc, args.now));
-  return { ok: true, tokens: request.tokens };
+  return { ok: true, tokens: request.tokens, ref: card.doc.ref, resource: request.resource };
 });
 
 // admitRefresh
@@ -399,11 +465,13 @@ export const AdmitRefreshArgs = Schema.Struct({
   now: Num,
 });
 export const AdmitRefreshResult = Schema.Union([
-  Schema.Struct({ ok: Schema.Literal(true) }),
+  Schema.Struct({ ok: Schema.Literal(true), ref: Str }),
   Schema.Struct({
     ok: Schema.Literal(false),
     error: Schema.Literals(["invalid_client", "invalid_target"]),
     description: Str,
+    /** Null when the client authentication failed. */
+    refused: Schema.NullOr(Refused),
   }),
 ]);
 
@@ -417,30 +485,42 @@ export const admitRefresh = Effect.fnUntraced(function* (
   args: typeof AdmitRefreshArgs.Type,
 ): Effect.fn.Return<typeof AdmitRefreshResult.Type, never, Views> {
   const card = yield* authenticated(args);
-  if (card === undefined || (yield* isStopped(card.doc, args.liveGates))) {
-    return { ok: false, error: "invalid_client", description: "Client authentication failed." };
+  const failed = "Client authentication failed.";
+  if (card === undefined) {
+    return { ok: false, error: "invalid_client", description: failed, refused: null };
+  }
+  if (yield* isStopped(card.doc, args.liveGates)) {
+    return {
+      ok: false,
+      error: "invalid_client",
+      description: failed,
+      refused: refused("stopped", card.doc, args.resource),
+    };
   }
   if (!offers(card.doc, args.resource, args)) {
     return {
       ok: false,
       error: "invalid_target",
       description: "This client cannot use that API resource.",
+      refused: refused("connections", card.doc, args.resource),
     };
   }
   yield* (yield* ConnectionsTx).replace("clients", card.id, used(card.doc, args.now));
-  return { ok: true };
+  return { ok: true, ref: card.doc.ref };
 });
 
 // authenticate
 
 export const AuthenticateArgs = Schema.Struct(ClientAuth);
+/** The card's `ref`, or null when the client authentication failed. */
+export const AuthenticateResult = Schema.NullOr(Str);
 
 /**
  * The client authentication of a revocation (RFC 7009 section 2.1). A stopped client may still
  * revoke: a revocation only takes access away.
  */
 export const authenticate = Effect.fnUntraced(function* (args: typeof AuthenticateArgs.Type) {
-  return (yield* authenticated(args)) !== undefined;
+  return (yield* authenticated(args))?.doc.ref ?? null;
 });
 
 // cleanup

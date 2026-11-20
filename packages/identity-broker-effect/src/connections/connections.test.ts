@@ -326,6 +326,37 @@ test("a revocation at a provider with no revocation endpoint answers 200 and cal
   expect(h.providers.calls).toHaveLength(calls);
 });
 
+test("a connection, a refresh, a refused refresh and a revocation each log one hub_event line", async () => {
+  const h = await connectionsHub();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+  const initial = await connectCloudflare(h);
+  const renewed = await tokensOf(await refresh(h, testClient(h), initial, cloudflare.resource));
+  const spent = await refresh(h, testClient(h), initial, cloudflare.resource);
+  expect(spent.status).toBe(400);
+  const revoked = await revoke(h, testClient(h), renewed.refresh_token ?? "", cloudflare.resource);
+  expect(revoked.status).toBe(200);
+  const { clientId, ref } = h.client;
+  const line = (event: string, reason: string | null) => [
+    `hub_event ${JSON.stringify({ event, clientId, ref, connector: "cloudflare", reason })}`,
+  ];
+  expect(log.mock.calls).toEqual([
+    line("connection", null),
+    line("refresh", null),
+    line("refresh_refused", "invalid_grant"),
+    line("revoke", null),
+  ]);
+  const secrets = [
+    initial,
+    renewed.refresh_token ?? "",
+    renewed.access_token ?? "",
+    h.client.clientSecret,
+    REDIRECT,
+  ];
+  const logged = JSON.stringify(log.mock.calls);
+  expect(secrets.filter((secret) => logged.includes(secret))).toEqual([]);
+});
+
 describe("/authorize refuses on a page, before any provider call", () => {
   test.each([
     ["an unknown resource", { resource: "https://attacker.example/api" }, 400],
