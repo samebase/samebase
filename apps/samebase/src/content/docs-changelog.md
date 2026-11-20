@@ -5,11 +5,10 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-20
 
-- **v2377: Stack diagram.** Each stage on the Alchemy page of a repository now shows its main
-  resources as boxes, with lines between the resources that use each other. A Worker box links to
-  the Worker, and a Convex box links to the app. Click a box to see its URLs and the resources
-  around it. On the repository page, "List" and "Diagram" switch the stack cards between the
-  resource list and the diagram.
+- **v2378: Stack diagram.** The stack cards of a repository now show each stage's main resources as
+  boxes, with lines between the resources that use each other. A Worker box links to the Worker, and
+  a Convex box links to the app. Click a box to see its URLs and the resources around it. "List" and
+  "Diagram" switch the cards between the resource list and the diagram.
 
 ## 2026-11-18
 
