@@ -11,7 +11,7 @@
 // the class name too.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Clock, Effect, Layer, Schema } from "effect";
+import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import type { ConnectionSettings } from "../../connections/providers.ts";
 import { makeConnections } from "../../connections/routes.ts";
@@ -30,6 +30,7 @@ import {
 import { ensureLayout, sqlTx, type Exec } from "../../store/sql.ts";
 import { Store, StoreUnavailable } from "../../store/Store.ts";
 import { hubSettings, type HubSettings } from "../settings.ts";
+import { secretsStoreConfig, type SecretsStoreSettings } from "./secretsStore.ts";
 
 /**
  * The one object of a hub, by name. The store with the connection tables started with this name: an
@@ -175,7 +176,7 @@ const HubStore = Layer.effect(
 /**
  * One hub. Each secret of its settings is a `Config` read: it declares a secret binding of the
  * Worker at deploy, with the value of the deploying shell's variable of that name, and reads that
- * binding when the Worker starts.
+ * binding when the Worker starts. A name of `secretsStore` reads its Secrets Store secret instead.
  */
 export type HubOptions = Omit<HubSettings, "issuer"> & {
   /** The module whose default export is this hub's Worker: the caller's `import.meta.url`. */
@@ -192,6 +193,11 @@ export type HubOptions = Omit<HubSettings, "issuer"> & {
    * mounts no connection route.
    */
   readonly connections?: ConnectionSettings;
+  /**
+   * The configuration names that the hub reads from the account's Cloudflare Secrets Store. The
+   * deploy binds each secret by name and never reads its value.
+   */
+  readonly secretsStore?: SecretsStoreSettings;
 } & (
     | { readonly issuer: string; readonly domain?: never }
     | {
@@ -239,6 +245,51 @@ export const hubRuntime = <E, R>(
   );
 
 /**
+ * `runtime` with the names of `secretsStore` read from the account's Secrets Store. At deploy each
+ * secret is bound to the Worker by its name in the store of that name. The Init runs there only to
+ * declare bindings and never serves, so each of these names reads as empty. In the Worker each
+ * name reads its binding once, when the Worker starts.
+ */
+const withSecretsStore = <A, E, R>(
+  secretsStore: SecretsStoreSettings | undefined,
+  runtime: Effect.Effect<A, E, R>,
+) =>
+  secretsStore === undefined
+    ? runtime
+    : Effect.gen(function* () {
+        const names = new Set(Object.keys(secretsStore.secrets));
+        const ambient = yield* ConfigProvider.ConfigProvider;
+        if ((yield* Alchemy.ALCHEMY_PHASE) === "runtime") {
+          const env = yield* Cloudflare.WorkerEnvironment;
+          return yield* runtime.pipe(
+            Effect.provideService(
+              ConfigProvider.ConfigProvider,
+              secretsStoreConfig(env, names, ambient),
+            ),
+          );
+        }
+        const store = Cloudflare.SecretsStore.Store.lookup({ name: secretsStore.store });
+        yield* (yield* Cloudflare.Worker).bind("SecretsStore", {
+          env: Object.fromEntries(
+            Object.entries(secretsStore.secrets).map(([name, secret]) => [
+              name,
+              Cloudflare.SecretsStore.Secret.lookup({ storeId: store.storeId, name: secret }),
+            ]),
+          ),
+        });
+        return yield* runtime.pipe(
+          Effect.provideService(
+            ConfigProvider.ConfigProvider,
+            secretsStoreConfig(
+              Object.fromEntries([...names].map((name) => [name, ""])),
+              names,
+              ambient,
+            ),
+          ),
+        );
+      });
+
+/**
  * The Worker of one hub. The module named by `options.main` default-exports it, so the bundle's
  * entry imports this Worker; the bundle exports the object's class `Hub` itself.
  */
@@ -263,6 +314,9 @@ export const hubWorker = (options: HubOptions) => {
       // The object runs the new rules right after a deploy, not up to 5 minutes later.
       codeUpdateStrategy: { mode: "immediate" },
     },
-    hubRuntime(hubSettings({ ...options, issuer }), options.registration, options.connections),
+    withSecretsStore(
+      options.secretsStore,
+      hubRuntime(hubSettings({ ...options, issuer }), options.registration, options.connections),
+    ),
   ) {};
 };
