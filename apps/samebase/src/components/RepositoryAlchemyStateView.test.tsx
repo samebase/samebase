@@ -189,7 +189,7 @@ describe("AlchemyStateTree", () => {
         "Convex",
         "aware-bobcat-542apps/samebase/convex",
         "Resources",
-        "PreviewCommentcreated, GitHub.CommentProjectupdated, Convex.ProjectSitecreated, Convex deployment",
+        "PreviewCommentcreated, GitHub CommentProjectupdated, Convex ProjectSitecreated, Convex Deployment",
         "Output",
         "urlhttps://aware-bobcat-542.convex.site",
       ],
@@ -214,7 +214,6 @@ describe("AlchemyStateTree", () => {
       (row) => row.textContent === "Resources",
     )?.nextElementSibling;
     expect(resources?.querySelectorAll("svg")).toHaveLength(3);
-    expect(resources?.querySelectorAll("svg.lucide-box")).toHaveLength(2);
   });
 
   it("shows each stack of the repository with the resources that its rows place", () => {
@@ -363,8 +362,8 @@ describe("AlchemyStateTree", () => {
         Array.from(row.children, (part) => part.textContent),
       ),
     ).toEqual([
-      ["Deployment", "updated, Convex deployment"],
-      ["Project", "updated, Convex.Project"],
+      ["Deployment", "updated, Convex Deployment"],
+      ["Project", "updated, Convex Project"],
       ["mail"],
       ["Mail/Bucketunknown", "Mail/Workercreated, Worker"],
     ]);

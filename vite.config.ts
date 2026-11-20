@@ -88,6 +88,8 @@ export default defineConfig({
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
       "packages/alchemy-kit/test/run-record/fixtures/**",
+      // One resource type or icon per line, written by scripts/ui/generate.ts.
+      "packages/alchemy-kit/src/ui/*.generated.ts",
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",

@@ -10,6 +10,7 @@ the part that it imports.
 | ----------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------- |
 | [GitHub state store](#github-state-store) | `@samebase/alchemy-kit/github-state` | The state of a stack on a branch of its GitHub repository, secrets sealed. |
 | [Run record](#run-record)                 | `@samebase/alchemy-kit/run-record`   | A record of the run in each stage output, over any state layer.            |
+| [Resource type UI](#resource-type-ui)     | `@samebase/alchemy-kit/ui`           | A name, a Lucide icon, a colour and a category for each resource type.     |
 
 > The source is in
 > [`packages/alchemy-kit`](https://github.com/samebase/samebase/tree/main/packages/alchemy-kit) of
@@ -222,3 +223,37 @@ to that layer as it is.
   is, with a warning in the log. A value that the stack itself put under the key stays.
 - Alchemy writes the output only after a full successful apply, so the record names the last full
   successful deploy of the stage. It holds no secret.
+
+## Resource type UI
+
+`resourceTypeUI(type)` gives the `name`, `icon`, `color` and `category` of a resource type tag such
+as `Cloudflare.R2.Bucket`. The icon is the Lucide drawing as `[tag, attributes]` pairs for a 24 by
+24 stroked SVG, so any UI framework can draw it. The entry imports no Alchemy, Effect or React. A
+type with no entry of its own gets the segments of its tag after the provider as its name, and the
+`box` icon.
+
+```tsx
+import { resourceTypeUI } from "@samebase/alchemy-kit/ui";
+import { createElement } from "react";
+
+function ResourceTypeIcon({ type }: { type: string }) {
+  const { name, icon, color } = resourceTypeUI(type);
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke={color ?? "currentColor"} strokeWidth={2}>
+      <title>{name}</title>
+      {icon.map(([tag, attributes], index) => createElement(tag, { key: index, ...attributes }))}
+    </svg>
+  );
+}
+```
+
+`pnpm run ui:check` reads the Alchemy source at the tag of the pinned `alchemy` version, lists each
+type that `Resource(...)` or `Platform(...)` declares there and in our own packages, and fails with
+the list of types that have no entry. A weekly workflow runs it against the latest `alchemy` on npm
+and opens an issue with the new types.
+
+When it fails, add each type to `scripts/ui/resourceTypes.input.ts`: an entry in
+`resourceTypeEntries` with a name, a Lucide icon, a colour and a category, one entry per line, or
+its tag in `defaultResourceTypes` to use the default. Then run `pnpm run ui:generate`.
+`scripts/ui/resourceTypes.haiku.input.ts` holds the entries that Claude Haiku picked for the types
+that had no entry before.

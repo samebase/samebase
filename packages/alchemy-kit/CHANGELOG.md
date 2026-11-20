@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- New entry `@samebase/alchemy-kit/ui`: `resourceTypeUI(type)` gives a name, a Lucide icon, a colour
+  and a category for each Alchemy resource type, from alchemy-run/alchemy pull request #1441. It
+  imports no Alchemy, Effect or React.
+
 ## 0.3.0
 
 - Breaking: needs `alchemy@2.0.0-beta.87` (was `2.0.0-beta.85`) and `effect` 4.1.4 or later.
