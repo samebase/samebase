@@ -152,7 +152,10 @@ export async function revokeConnection(args: {
 export const refusal = (error: unknown) =>
   error instanceof oauth.ResponseBodyError && error.status === 400 ? error.error : undefined;
 
-/** The error codes of RFC 6749 sections 4.1.2.1 and 5.2, which a log line may name. */
+/**
+ * The error codes of RFC 6749 sections 4.1.2.1 and 5.2, and of RFC 7009 section 2.2.1, which a
+ * log line may name.
+ */
 const OAUTH_ERRORS = new Set([
   "invalid_request",
   "invalid_client",
@@ -163,6 +166,7 @@ const OAUTH_ERRORS = new Set([
   "access_denied",
   "server_error",
   "temporarily_unavailable",
+  "unsupported_token_type",
 ]);
 
 /**
