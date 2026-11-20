@@ -1,7 +1,9 @@
-// The one table catalog of a hub: the core's tables (src/rules/tables.ts) and each layer's, with
-// each layer's fields and indexes added to the card. The adapters, the hosts and the Convex schema
+// The one table catalog of a hub: the core's tables (src/rules/tables.ts), each layer's, with
+// each layer's fields and indexes added to the card, and the connections part's
+// (src/connections/tables.ts). The adapters, the hosts and the Convex schema
 // read this declaration; the core's rules read only their own part through their `Tx`.
 import { Schema } from "effect";
+import { connectionTables } from "../connections/tables.ts";
 import * as github from "../layers/github/tables.ts";
 import * as stack from "../layers/stack/tables.ts";
 import { cardFields, cardIndexes, coreTables } from "../rules/tables.ts";
@@ -14,6 +16,7 @@ export const tables = {
     indexes: { ...cardIndexes, ...github.cardIndexes },
   },
   ...github.githubTables,
+  ...connectionTables,
 } as const;
 
 export type Tables = typeof tables;
@@ -35,6 +38,8 @@ export const tableNames = [
   "events",
   "initialAccessTokens",
   "rateLimits",
+  "connectionRequests",
+  "connectionCodes",
 ] as const satisfies ReadonlyArray<TableName>;
 
 /** Fails to compile when a table is missing from `tableNames`. */

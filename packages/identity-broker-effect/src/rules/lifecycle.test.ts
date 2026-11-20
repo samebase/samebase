@@ -22,6 +22,7 @@ const cardOf = (fields: {
   tokenEndpointAuthMethod: "client_secret_post",
   secretHash: "hash",
   connectors: ["fake"],
+  connections: [],
   gates: [],
   confirm: true,
   budget: "test:app",

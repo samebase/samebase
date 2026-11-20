@@ -16,6 +16,9 @@ import {
 } from "convex/server";
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
+import { command as connectionsCommand } from "../../connections/commands.ts";
+import type { ConnectionSettings } from "../../connections/providers.ts";
+import { makeConnections } from "../../connections/routes.ts";
 import { command } from "../../core/command.ts";
 import { hubLogger, makeHandle, type Registration } from "../../core/router.ts";
 import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
@@ -84,14 +87,23 @@ export const convexStore = (ctx: Runner, run: RunCommand) =>
  * mounts, from that layer's module. Each key of the stack layer
  * (`stack({ keys })` of src/layers/stack/routes.ts) is the deployment variable that its `Config`
  * names, such as `Config.Redacted("HUB_PREVIEW_KEY")`, read when a registration arrives: the app's
- * stack sets it in the `env` of the hub's `Convex.Deployment`.
+ * stack sets it in the `env` of the hub's `Convex.Deployment`. `connections` names the hub's
+ * connection providers (src/connections/providers.ts), whose secrets are read in each request as
+ * the settings are; without it the hub mounts no connection route.
  */
 export const convexHub = <E>(
   component: ComponentApi,
   settings: Layer.Layer<HubConfig | SignInPage, E>,
   registration: Registration,
+  connections?: ConnectionSettings,
 ) => {
-  const handle = makeHandle(registration);
+  const handle =
+    connections === undefined
+      ? Effect.succeed(makeHandle(registration))
+      : makeConnections(connections).pipe(
+          Effect.orDie,
+          Effect.map((part) => makeHandle(registration, part)),
+        );
 
   /**
    * Every request of the hub. The core takes the Web `Request` and gives the Web `Response`, which
@@ -100,7 +112,7 @@ export const convexHub = <E>(
    */
   const fetch = httpActionGeneric((ctx, request) =>
     Effect.runPromise(
-      handle(request).pipe(
+      Effect.flatMap(handle, (run) => run(request)).pipe(
         Effect.provide(
           Layer.mergeAll(
             settings,
@@ -129,10 +141,10 @@ export const convexHub = <E>(
     },
 
     /**
-     * The daily cleanup, for the app's cron: batches of `lifecycle.cleanup` with one cutoff, the
-     * time it starts, until a batch reports no `more`. The cutoff never moves, so the batches end.
-     * Each batch is its own transaction; a failed batch fails the action, and the next day's run
-     * deletes what is left.
+     * The daily cleanup, for the app's cron: batches of `connections.cleanup` and
+     * `lifecycle.cleanup` with one cutoff, the time it starts, until a batch reports no `more`.
+     * The cutoff never moves, so the batches end. Each batch is its own transaction; a failed batch fails the
+     * action, and the next day's run deletes what is left.
      */
     cleanup: internalActionGeneric({
       args: {},
@@ -143,10 +155,12 @@ export const convexHub = <E>(
             const cutoff = yield* Clock.currentTimeMillis;
             let more = true;
             while (more) {
-              ({ more } = yield* command("lifecycle.cleanup", {
-                now: cutoff,
-                signInRetentionMs: SIGN_IN_RETENTION_MS,
-              }));
+              more =
+                (yield* connectionsCommand("connections.cleanup", { now: cutoff })).more ||
+                (yield* command("lifecycle.cleanup", {
+                  now: cutoff,
+                  signInRetentionMs: SIGN_IN_RETENTION_MS,
+                })).more;
             }
             return null;
           }).pipe(Effect.provideService(Store, convexStore(ctx, component.commands.run))),

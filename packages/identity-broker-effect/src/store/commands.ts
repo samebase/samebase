@@ -1,7 +1,10 @@
-// The one command catalog of a hub: the core's commands (src/rules/commands.ts) and each layer's.
+// The one command catalog of a hub: the core's commands (src/rules/commands.ts), each layer's, and
+// the connections part's.
 // A host runs a command of this closed list by name, as one step over a `Tx` of src/store/tables.ts
 // that serves the core's view and each layer's view.
 import { Effect, Schema } from "effect";
+import { connectionsCommands } from "../connections/commands.ts";
+import { ConnectionsTx } from "../connections/tables.ts";
 import { githubCommands } from "../layers/github/commands.ts";
 import { GithubTx } from "../layers/github/tables.ts";
 import { stackCommands } from "../layers/stack/commands.ts";
@@ -12,7 +15,12 @@ import { microtaskScheduler } from "./Store.ts";
 import type { Tables } from "./tables.ts";
 import type { TxShape } from "./Tx.ts";
 
-const definitions = { ...coreCommands, ...githubCommands, ...stackCommands };
+const definitions = {
+  ...coreCommands,
+  ...githubCommands,
+  ...stackCommands,
+  ...connectionsCommands,
+};
 
 type Definitions = typeof definitions;
 export type CommandName = keyof Definitions;
@@ -21,7 +29,7 @@ export type Result<N extends CommandName> = Definitions[N]["result"]["Type"];
 
 /** The registry, typed so that `commands[name]` keeps the argument and result types of `name`. */
 export const commands: {
-  readonly [N in CommandName]: Command<Args<N>, Result<N>, Tx | GithubTx | StackTx>;
+  readonly [N in CommandName]: Command<Args<N>, Result<N>, Tx | GithubTx | StackTx | ConnectionsTx>;
 } = definitions;
 
 export const commandNames = [
@@ -44,6 +52,14 @@ export const commandNames = [
   "stack.createClient",
   "stack.renew",
   "stack.remove",
+  "connections.create",
+  "connections.claim",
+  "connections.complete",
+  "connections.abandon",
+  "connections.exchangeCode",
+  "connections.admitRefresh",
+  "connections.authenticate",
+  "connections.cleanup",
 ] as const satisfies ReadonlyArray<CommandName>;
 
 /** Fails to compile when a command is missing from `commandNames`. */
@@ -91,6 +107,7 @@ const ruleOver = <N extends CommandName>(
     .pipe(
       Effect.provideService(GithubTx, tx),
       Effect.provideService(StackTx, tx),
+      Effect.provideService(ConnectionsTx, tx),
       Effect.provideService(Tx, coreView(tx)),
     );
 

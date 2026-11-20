@@ -31,6 +31,11 @@ export type StackKey = {
   readonly key: Config.Config<Redacted.Redacted<string>>;
   /** Clients of this key may be permanent: production clients, with no removal date. */
   readonly permanent?: boolean;
+  /**
+   * The connection providers that clients of this key may use, such as `["cloudflare"]`: their
+   * cards' `connections`. None without it.
+   */
+  readonly connections?: ReadonlyArray<string>;
 };
 
 export type StackSettings = {
@@ -55,6 +60,7 @@ const configuredKeys = (settings: StackSettings) =>
             {
               name,
               permanent: entry.permanent === true,
+              connections: [...new Set(entry.connections ?? [])].sort(),
               digest: yield* sha256HexEffect(Redacted.value(value.value)),
             },
           ];
@@ -116,6 +122,7 @@ const registerClient = (settings: StackSettings) =>
       permanent,
       client,
       configured: hub.configured,
+      connections: key.connections,
     });
     return json(
       newClient({ issuer: hub.issuer, terms: hub.service.terms }, credentials, {
@@ -142,7 +149,10 @@ const readClient = (settings: StackSettings) =>
     const result = yield* command("stack.renew", {
       clientId: target.clientId,
       registrationTokenHash: target.registrationTokenHash,
-      keys: (yield* configuredKeys(settings)).map((key) => key.name),
+      keys: (yield* configuredKeys(settings)).map((key) => ({
+        name: key.name,
+        connections: key.connections,
+      })),
       configured: hub.configured,
     });
     if (!result.ok) {

@@ -33,6 +33,7 @@ const card = (expires: boolean): Doc<"clients"> => ({
   tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
   secretHash: cl.clientSecretHash,
   connectors: CONNECTORS,
+  connections: [],
   gates: GATES,
   confirm: true,
   budget: "layer:1",

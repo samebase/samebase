@@ -109,6 +109,7 @@ const card = (clientId: string, secretHash: string): Doc<"clients"> => ({
   tokenEndpointAuthMethod: "client_secret_post",
   secretHash,
   connectors: CONNECTORS,
+  connections: [],
   gates: GATES,
   confirm: true,
   budget: "test:app",
