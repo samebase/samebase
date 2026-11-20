@@ -129,7 +129,7 @@ async function revokeUncommittedGitHubUserTokens(tokens: {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
   }
-  await revokeHubRefreshToken(tokens.refreshToken);
+  await revokeHubRefreshToken("github", tokens.refreshToken);
 }
 
 /**

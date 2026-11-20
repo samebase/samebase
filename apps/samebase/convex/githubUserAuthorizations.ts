@@ -665,6 +665,7 @@ async function revokeGitHubUserAuthorizationAtProvider(
     throw new Error("Failed to revoke GitHub user authorization.");
   }
   await revokeHubRefreshToken(
+    "github",
     await openSecret({
       sealed: authorization.refreshToken,
       aad: githubUserAuthorizationAad(userId, "refreshToken"),

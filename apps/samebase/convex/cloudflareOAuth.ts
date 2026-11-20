@@ -687,7 +687,7 @@ export async function completeCloudflareOAuth(
     });
   } finally {
     if (unsavedRefreshToken !== undefined) {
-      await revokeHubRefreshToken(unsavedRefreshToken);
+      await revokeHubRefreshToken("cloudflare", unsavedRefreshToken);
     }
   }
 
