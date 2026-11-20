@@ -15,7 +15,7 @@ export type SecretsStoreSettings = {
 /**
  * The configuration over `fallback` in which each name of `names` reads its value from `env`: a
  * string, or a Secrets Store binding, whose `get()` reads the secret. Every other name reads
- * `fallback`. A name of `names` that `env` holds as anything else is missing.
+ * `fallback`. A name of `names` that `env` holds as anything else fails.
  */
 export const secretsStoreConfig = (
   env: Readonly<Record<string, unknown>>,
@@ -31,12 +31,16 @@ export const secretsStoreConfig = (
     if (typeof value === "string") {
       return Effect.succeed(ConfigProvider.makeValue(value));
     }
-    if (typeof value !== "object" || value === null || !("get" in value)) {
-      return Effect.succeed(undefined);
-    }
-    const { get } = value;
+    // A name bound as anything else, such as a json value, fails with the kind of value it holds,
+    // never the value.
+    const get =
+      typeof value === "object" && value !== null && "get" in value ? value.get : undefined;
     if (typeof get !== "function") {
-      return Effect.succeed(undefined);
+      return Effect.fail(
+        new ConfigProvider.SourceError({
+          message: `${name} is bound as ${value === null ? "null" : typeof value}, not as a Secrets Store secret`,
+        }),
+      );
     }
     // The failure carries no cause: it reaches the Worker's start-up error.
     const unreadable = new ConfigProvider.SourceError({

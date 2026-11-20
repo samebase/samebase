@@ -281,13 +281,21 @@ const withSecretsStore = <A, E, R>(
           );
         }
         const store = Cloudflare.SecretsStore.Store.lookup({ name: secretsStore.store });
+        // Each name gets its own `secrets_store_secret` binding. A secret given through `env`
+        // would deploy as a plain json value, with no `get()`.
         yield* (yield* Cloudflare.Worker).bind("SecretsStore", {
-          env: Object.fromEntries(
-            Object.entries(secretsStore.secrets).map(([name, secret]) => [
+          bindings: Object.entries(secretsStore.secrets).map(([name, secretName]) => {
+            const secret = Cloudflare.SecretsStore.Secret.lookup({
+              storeId: store.storeId,
+              name: secretName,
+            });
+            return {
+              type: "secrets_store_secret" as const,
               name,
-              Cloudflare.SecretsStore.Secret.lookup({ storeId: store.storeId, name: secret }),
-            ]),
-          ),
+              secretName: secret.secretName,
+              storeId: secret.storeId,
+            };
+          }),
         });
         return yield* runtime.pipe(
           Effect.provideService(
