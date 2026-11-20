@@ -2,6 +2,7 @@ import { notEmpty } from "@samebase/dependent";
 import { resourceTypeUI, type IconNode, type ResourceCategory } from "@samebase/alchemy-kit/ui";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
+import { resourceDashboard, resourceFacts } from "./alchemyResourceFacts";
 import { asRecord, readString } from "../../convex/jsonUtils";
 import { namespaceOf } from "../../shared/alchemyState";
 import type { AlchemyStage } from "../../shared/alchemyStateModel";
@@ -52,6 +53,8 @@ function readRow({ fqn, value }: AlchemyStage["resources"][number]) {
       downstream: state.downstream,
       namespace: namespaceOf(record["namespace"]),
       attr,
+      facts: resourceFacts(state.resourceType, { attr, props: asRecord(record["props"]) }),
+      dashboard: resourceDashboard(state.resourceType, attr) ?? null,
       /**
       A Worker keeps each binding as `{ sid, data: { bindings: [...] } }`, and an R2 binding names its
       bucket in `bucketName`. Only these identifiers are read: plain text and secret bindings hold

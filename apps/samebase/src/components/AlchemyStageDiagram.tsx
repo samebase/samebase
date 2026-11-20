@@ -15,7 +15,9 @@ import {
   type Node,
   type NodeProps,
 } from "@xyflow/react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Clock } from "lucide-react";
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useElementSize } from "@/hooks/useElementSize";
 import { AlchemyIsometricIcon } from "@/components/AlchemyIsometricIcon";
 import type { DiagramBox, StageDiagram } from "@/components/alchemyStageDiagramModel";
 
@@ -41,19 +43,26 @@ type BoxNode = Node<
 type NamespaceNode = Node<{ name: string }, "namespace">;
 type LineEdge = Edge<{ labels: string[]; dim: boolean }, "line">;
 
+/** The Alchemy statuses of a row after its last apply finished. */
+const SETTLED = new Set(["created", "updated"]);
+
 /**
-Positions from dagre, left to right: a line between a box with a URL and a box without one starts
-at the box with the URL, so boxes with a URL come first. A namespace is a dagre cluster, drawn as a frame around its boxes. The arrow of a line
-points at the box that the other box depends on.
+Positions from dagre, left to right (`LR`) or top to bottom (`TB`): a line between a box with a URL
+and a box without one starts at the box with the URL, so boxes with a URL come first. A namespace is
+a dagre cluster, drawn as a frame around its boxes. The arrow of a line points at the box that the
+other box depends on.
 */
-function layoutDiagram({ boxes, edges }: StageDiagram) {
+function layoutDiagram({ boxes, edges }: StageDiagram, rankdir: "LR" | "TB") {
   const graph = new Graph<GraphLabel, NodeLabel, EdgeLabel>({ compound: true });
-  const widestLabel = Math.max(0, ...edges.flatMap((edge) => edge.labels.map((l) => l.length)));
+  const labels = edges.map((edge) => edge.labels);
   graph.setGraph({
-    rankdir: "LR",
+    rankdir,
     nodesep: 32,
-    // A label is 11px monospace text, about 6.7px for each character.
-    ranksep: Math.max(72, widestLabel * 6.7 + 48),
+    // A label is 11px monospace text, about 6.7px for each character and 14px for each line.
+    ranksep:
+      rankdir === "LR"
+        ? Math.max(72, Math.max(0, ...labels.flat().map((label) => label.length)) * 6.7 + 48)
+        : Math.max(56, Math.max(0, ...labels.map((lines) => lines.length)) * 14 + 32),
   });
   for (const box of boxes) {
     graph.setNode(box.id, { width: BOX_WIDTH, height: boxHeight(box) });
@@ -129,12 +138,20 @@ function layoutDiagram({ boxes, edges }: StageDiagram) {
   };
 }
 
-function BoxNodeView({ data: { box, aside, open, onToggle } }: NodeProps<BoxNode>) {
+function BoxNodeView({
+  data: { box, aside, open, onToggle },
+  sourcePosition = Position.Right,
+  targetPosition = Position.Left,
+}: NodeProps<BoxNode>) {
+  const schedule = box.rows.flatMap((row) => row.facts).find((fact) => fact.clock)?.value;
+  const unsettled = [
+    ...new Set(box.rows.map((row) => row.status).filter((status) => !SETTLED.has(status))),
+  ];
   return (
     <div
       className={`relative flex h-full flex-col border bg-background p-2.5 ${open ? "border-foreground" : ""}`}
     >
-      <Handle type="target" position={Position.Left} isConnectable={false} className="invisible" />
+      <Handle type="target" position={targetPosition} isConnectable={false} className="invisible" />
       <div className="flex h-[50px] items-center gap-2.5">
         <AlchemyIsometricIcon
           resourceType={box.resourceType}
@@ -150,7 +167,20 @@ function BoxNodeView({ data: { box, aside, open, onToggle } }: NodeProps<BoxNode
           >
             <span className="max-lines-2">{box.name}</span>
           </button>
-          <div className="truncate text-xs text-muted-foreground">{box.typeName}</div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="truncate">{box.typeName}</span>
+            {schedule ? (
+              <span className="shrink-0" title={schedule}>
+                <Clock aria-hidden="true" className="size-3" />
+                <span className="sr-only">{schedule}</span>
+              </span>
+            ) : null}
+            {unsettled.length > 0 ? (
+              <span className="shrink-0 text-amber-700 dark:text-amber-300">
+                {unsettled.join(", ")}
+              </span>
+            ) : null}
+          </div>
         </div>
         {aside ? <div className="relative -mr-1.5 flex shrink-0 items-center">{aside}</div> : null}
       </div>
@@ -170,7 +200,7 @@ function BoxNodeView({ data: { box, aside, open, onToggle } }: NodeProps<BoxNode
           {box.folded.length} more
         </span>
       )}
-      <Handle type="source" position={Position.Right} isConnectable={false} className="invisible" />
+      <Handle type="source" position={sourcePosition} isConnectable={false} className="invisible" />
     </div>
   );
 }
@@ -237,6 +267,21 @@ function DiagramBoxDetails({ box }: { box: DiagramBox }) {
       <dd>{box.typeName}</dd>
       <dt className="text-muted-foreground">Status</dt>
       <dd>{[...new Set(box.rows.map((row) => row.status))].join(", ")}</dd>
+      {box.rows
+        .filter((row) => row.facts.length > 0)
+        .map((row) => (
+          <Fragment key={row.fqn}>
+            {box.rows.length > 1 ? (
+              <dt className="col-span-2 mt-1 break-all font-mono">{row.logicalId}</dt>
+            ) : null}
+            {row.facts.map((fact) => (
+              <Fragment key={fact.label}>
+                <dt className="text-muted-foreground">{fact.label}</dt>
+                <dd className="break-words">{fact.value}</dd>
+              </Fragment>
+            ))}
+          </Fragment>
+        ))}
       {box.urls.length === 0 ? null : (
         <>
           <dt className="text-muted-foreground">URLs</dt>
@@ -280,8 +325,12 @@ or Convex app, and a click on the box opens its details below the diagram. Hover
 dims the boxes and lines that do not touch it.
 
 The diagram fits the width of its card, between `MIN_ZOOM` and full size, and its height follows.
-A plain wheel or swipe scrolls the page: the diagram neither pans nor zooms, and a card too narrow
-for `MIN_ZOOM` scrolls the diagram sideways.
+A plain wheel or swipe scrolls the page: the diagram neither pans nor zooms. A card too narrow for
+the left to right diagram at `MIN_ZOOM` draws it top to bottom, and scrolls it sideways when that is
+still too wide.
+
+A box shows a clock when a row has a schedule, and the status of a row whose apply has not finished,
+such as `updating`. Its details list the facts of its rows (`resourceFacts`).
 
 `asides` are controls at the top right of a box, by box id, such as a menu of more links.
 */
@@ -294,7 +343,18 @@ export function AlchemyStageDiagram({
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  const { placed, frames, lines, width, height } = useMemo(() => layoutDiagram(diagram), [diagram]);
+  const [cardWidth, setCardWidth] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useElementSize(cardRef, ({ widthPx }) => setCardWidth(widthPx));
+  const wide = useMemo(() => layoutDiagram(diagram, "LR"), [diagram]);
+  // A card too narrow for the left to right diagram at `MIN_ZOOM`, such as on a phone, stacks the
+  // boxes top to bottom instead.
+  const narrow = cardWidth !== null && cardWidth < wide.width * MIN_ZOOM + 2;
+  const tall = useMemo(() => (narrow ? layoutDiagram(diagram, "TB") : null), [diagram, narrow]);
+  const { placed, frames, lines, width, height } = tall ?? wide;
+  const [targetPosition, sourcePosition] = tall
+    ? [Position.Top, Position.Bottom]
+    : [Position.Left, Position.Right];
 
   const active = hovered ?? selected;
   const touches = (line: { source: string; target: string }) =>
@@ -317,6 +377,8 @@ export function AlchemyStageDiagram({
       position: { x, y },
       width: w,
       height: h,
+      sourcePosition,
+      targetPosition,
       className: `transition-opacity ${dim(box.id) ? "opacity-40" : ""}`,
       data: {
         box,
@@ -353,7 +415,7 @@ export function AlchemyStageDiagram({
 
   return (
     <div className="mb-2">
-      <div className="@container overflow-x-auto">
+      <div ref={cardRef} className="@container overflow-x-auto">
         <div
           className="alchemy-stage-diagram"
           style={{

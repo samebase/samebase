@@ -210,16 +210,17 @@ function RepositoryEnvironmentResourceRow({
 /**
 What a box of the stage diagram adds from the resource rows, at its top right, by the fqn in the
 resource id (`alchemy:<stack>:<fqn>`): a Convex deployment's region flag and a menu with its
-dashboard and Samebase routes, a menu with a Worker's URLs and routes other than the box link, a
-menu with an R2 bucket's dashboard. The Worker and R2 bucket rows of a component are boxes in the
-frame of their namespace.
+dashboard and Samebase routes, a menu with a Worker's dashboard and its URLs and routes other than
+the box link, a menu with an R2 bucket's dashboard, and a menu with the dashboard of any other box
+that `resourceDashboard` names, such as a D1 database. The Worker and R2 bucket rows of a component
+are boxes in the frame of their namespace.
 */
 function boxAsides(card: RepositoryStackCard) {
   const prefix = `alchemy:${card.stack}:`;
   const asides = new Map<string, ReactNode>();
   const add = (resource: RepositoryEnvironmentResource) => {
     const fqn = resource.id.slice(prefix.length);
-    const link = card.diagram.boxes.find((box) => box.id === fqn)?.link;
+    const box = card.diagram.boxes.find((candidate) => candidate.id === fqn);
     switch (resource.kind) {
       case "destination": {
         const region = resource.region ? convexDeploymentRegionDetails[resource.region] : undefined;
@@ -248,7 +249,9 @@ function boxAsides(card: RepositoryStackCard) {
       }
       case "cloudflare_worker": {
         const { destination, actions, workerName } = resource.worker;
+        const dashboard = box?.rows[0].dashboard;
         const links = [
+          ...(dashboard ? [{ destination: "external" as const, ...dashboard }] : []),
           ...(destination.state === "available"
             ? [
                 {
@@ -261,7 +264,7 @@ function boxAsides(card: RepositoryStackCard) {
               ? [{ destination: "none" as const, label: destination.label }]
               : []),
           ...actions,
-        ].filter((action) => action.destination === "none" || action.href !== link);
+        ].filter((action) => action.destination === "none" || action.href !== box?.link);
         if (links.length > 0) {
           asides.set(fqn, <EnvironmentActionsMenu actions={links} label={workerName} />);
         }
@@ -281,6 +284,19 @@ function boxAsides(card: RepositoryStackCard) {
     }
   };
   card.resources.forEach(add);
+  // A box without a resource row, such as a D1 database, links to its dashboard page.
+  for (const box of card.diagram.boxes) {
+    const dashboard = box.rows[0].dashboard;
+    if (dashboard && !asides.has(box.id)) {
+      asides.set(
+        box.id,
+        <EnvironmentActionsMenu
+          actions={[{ destination: "external", ...dashboard }]}
+          label={box.name}
+        />,
+      );
+    }
+  }
   return asides;
 }
 

@@ -153,6 +153,7 @@ const docsSiteWorker = (
   url: string | null,
   bindings: ReturnType<typeof docsSiteBinding>[],
   downstream: string[],
+  more: { attr: Record<string, unknown>; props: Record<string, unknown> },
 ) => ({
   fqn: logicalId,
   value: JSON.stringify({
@@ -163,7 +164,9 @@ const docsSiteWorker = (
       workerName: `docs-site-${logicalId.toLowerCase()}-prod`,
       accountId: DOCS_SITE_ACCOUNT_ID,
       ...(url === null ? { urls: [] } : { url, urls: [url] }),
+      ...more.attr,
     },
+    props: more.props,
     bindings,
     downstream,
   }),
@@ -174,6 +177,7 @@ const docsSiteBound = (
   logicalId: string,
   resourceType: string,
   attr: Record<string, string>,
+  props: Record<string, string>,
   downstream: string[],
 ) => ({
   fqn: logicalId,
@@ -182,6 +186,7 @@ const docsSiteBound = (
     status: "created",
     resourceType,
     attr: { ...attr, accountId: DOCS_SITE_ACCOUNT_ID },
+    props,
     bindings: [],
     downstream,
   }),
@@ -202,6 +207,13 @@ const DOCS_SITE_RESOURCES = [
       docsSiteBinding({ type: "service", name: "INGEST", service: "docs-site-ingest-prod" }),
     ],
     [],
+    {
+      attr: {
+        urls: ["https://docs-site.example.workers.dev", "https://docs.example.com"],
+        domain: { name: "docs.example.com", aliases: [], redirects: [] },
+      },
+      props: { compatibility: { date: "2026-10-01" } },
+    },
   ),
   docsSiteWorker(
     "Ingest",
@@ -215,29 +227,46 @@ const DOCS_SITE_RESOURCES = [
       }),
     ],
     ["Reader"],
+    {
+      attr: { crons: ["0 3 * * *"] },
+      props: { crons: ["0 3 * * *"], compatibility: { date: "2026-10-01" } },
+    },
   ),
   docsSiteBound(
     "SitePages",
     "Cloudflare.R2.Bucket",
-    { bucketName: "docs-site-site-pages", jurisdiction: "default" },
+    {
+      bucketName: "docs-site-site-pages",
+      jurisdiction: "default",
+      location: "weur",
+      storageClass: "Standard",
+    },
+    {},
     ["Reader"],
   ),
   docsSiteBound(
     "Search",
     "Cloudflare.D1Database",
-    { databaseId: "5e4c0b1d-0000-4000-8000-00000000d0c5", databaseName: "docs-site-search" },
+    {
+      databaseId: "5e4c0b1d-0000-4000-8000-00000000d0c5",
+      databaseName: "docs-site-search",
+      jurisdiction: "default",
+    },
+    { primaryLocationHint: "weur" },
     ["Reader"],
   ),
   docsSiteBound(
     "RawPages",
     "Cloudflare.R2.Bucket",
     { bucketName: "docs-site-raw-pages", jurisdiction: "default" },
+    {},
     ["Ingest"],
   ),
   docsSiteBound(
     "Fetches",
     "Cloudflare.D1Database",
     { databaseId: "fe7c4e50-0000-4000-8000-00000000d0c5", databaseName: "docs-site-fetches" },
+    {},
     ["Ingest"],
   ),
 ];
