@@ -11,6 +11,7 @@ the part that it imports.
 | [GitHub state store](#github-state-store) | `@samebase/alchemy-kit/github-state` | The state of a stack on a branch of its GitHub repository, secrets sealed. |
 | [Run record](#run-record)                 | `@samebase/alchemy-kit/run-record`   | A record of the run in each stage output, over any state layer.            |
 | [Resource type UI](#resource-type-ui)     | `@samebase/alchemy-kit/ui`           | A name, a Lucide icon, a colour and a category for each resource type.     |
+| [Stack diagram](#stack-diagram)           | `@samebase/alchemy-kit/stack`        | The main resources of a stage as boxes, with the lines between them.       |
 
 > The source is in
 > [`packages/alchemy-kit`](https://github.com/samebase/samebase/tree/main/packages/alchemy-kit) of
@@ -257,3 +258,29 @@ When it fails, add each type to `scripts/ui/resourceTypes.input.ts`: an entry in
 its tag in `defaultResourceTypes` to use the default. Then run `pnpm run ui:generate`.
 `scripts/ui/resourceTypes.haiku.input.ts` holds the entries that Claude Haiku picked for the types
 that had no entry before.
+
+## Stack diagram
+
+`stageDiagram(rows)` takes the state rows of one stage, each as `{ fqn, state }` with the state
+parsed from JSON, and gives:
+
+- `boxes`: the main resources (compute, storage, databases, queues, email, AI, media and CDN). Each
+  box has its name, type name, category, Lucide icon, link and URLs. Convex deployments with the
+  same URL are one box.
+- `folded` on each box: the other rows that connect to it through `downstream`, such as a
+  `Convex.Project` under its deployment.
+- `lines`: the boxes that use each other. A line names the Worker bindings between its boxes, and a
+  folded row that connects two boxes, such as an `Alchemy.Random` that both use, is a label on it.
+
+A row keeps only the fields that the diagram shows. Alchemy state holds secrets in clear text, so
+the result never holds a row's whole `attr` or `props`.
+
+```ts
+import { stageDiagram } from "@samebase/alchemy-kit/stack";
+
+const { boxes, lines } = stageDiagram(rows.map((row) => ({ fqn: row.fqn, state: row })));
+for (const { a, b, from, labels } of lines) {
+  const other = from === a ? b : a;
+  console.log(from ? `${from.name} uses ${other.name}` : `${a.name} and ${b.name}`, labels);
+}
+```

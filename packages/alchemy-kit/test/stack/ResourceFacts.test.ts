@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { cronInWords } from "./alchemyResourceFacts";
+import { cronInWords } from "../../src/stack/StackDiagram.ts";
 
 it("writes simple crons in words and keeps every other cron as it is", () => {
   expect(

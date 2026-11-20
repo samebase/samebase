@@ -1,7 +1,7 @@
 import type { api } from "../../../convex/_generated/api";
 import { groupResourcesByComponent, stackCards } from "../../../shared/alchemyState";
 import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
-import { stageDiagram } from "@/components/alchemyStageDiagramModel";
+import { stageDiagram } from "@samebase/alchemy-kit/stack";
 import {
   buildRepositoryComponentsRoute,
   buildRepositoryDatabaseRoute,

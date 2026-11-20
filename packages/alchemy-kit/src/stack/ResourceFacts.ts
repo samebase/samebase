@@ -1,5 +1,4 @@
-import { notEmpty } from "@samebase/dependent";
-import { asRecord, readString, type JsonRecord } from "../../convex/jsonUtils";
+import { asRecord, list, readString, type JsonRecord } from "./json.ts";
 
 /**
 A fact about a resource from its state row, for the details of a stack diagram box. `clock` marks
@@ -9,8 +8,13 @@ export type ResourceFact = { label: string; value: string; clock?: true };
 
 type StateFields = { attr: JsonRecord; props: JsonRecord };
 
-const strings = (value: unknown) =>
-  (Array.isArray(value) ? value : []).filter((item) => typeof item === "string");
+const strings = (value: unknown) => list(value).filter((item) => typeof item === "string");
+
+/** The string `key` of each object in the array `value`, such as the patterns of a Worker's routes. */
+const fieldOfEach = (value: unknown, key: string) =>
+  list(value)
+    .map((item) => readString(asRecord(item), key))
+    .filter((item) => item !== undefined);
 
 /**
 The location hints of R2 buckets and D1 databases.
@@ -51,11 +55,15 @@ A Cloudflare cron trigger in words, in UTC as Cloudflare runs them: `0 3 * * *` 
 UTC", `5 * * * *` "Hourly at :05", `*\/15 * * * *` "Every 15 minutes". Any other cron stays as it is.
 */
 export function cronInWords(cron: string) {
-  const fields = cron.trim().split(/\s+/);
-  if (fields.length !== 5 || fields.slice(2).some((field) => field !== "*")) {
+  const [minuteField, hourField, ...days] = cron.trim().split(/\s+/);
+  if (
+    minuteField === undefined ||
+    hourField === undefined ||
+    days.length !== 3 ||
+    days.some((field) => field !== "*")
+  ) {
     return cron;
   }
-  const [minuteField, hourField] = fields;
   const minute = whole(minuteField, 60);
   const hour = whole(hourField, 24);
   if (minute !== undefined && hour !== undefined) {
@@ -89,12 +97,7 @@ const FACTS = new Map<string, (row: StateFields) => ResourceFact[]>([
           : [
               { label: "Schedule", value: crons.map(cronInWords).join(", "), clock: true as const },
             ]),
-        ...listFact(
-          "Routes",
-          (Array.isArray(attr["routes"]) ? attr["routes"] : [])
-            .map((route) => readString(asRecord(route), "pattern"))
-            .filter(notEmpty),
-        ),
+        ...listFact("Routes", fieldOfEach(attr["routes"], "pattern")),
         ...fact("Compatibility date", readString(asRecord(props["compatibility"]), "date")),
       ];
     },
@@ -112,12 +115,7 @@ const FACTS = new Map<string, (row: StateFields) => ResourceFact[]>([
           "Public access",
           readString(attr, "publicDomain") ?? (props["publicAccess"] === true ? "On" : undefined),
         ),
-        ...listFact(
-          "Custom domains",
-          (Array.isArray(attr["domains"]) ? attr["domains"] : [])
-            .map((domain) => readString(asRecord(domain), "domain"))
-            .filter(notEmpty),
-        ),
+        ...listFact("Custom domains", fieldOfEach(attr["domains"], "domain")),
       ];
     },
   ],
