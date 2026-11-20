@@ -27,6 +27,9 @@ const ICON_PALETTES = {
   other: "iso-other",
 } satisfies Record<ResourceCategory, string>;
 
+/** The palette of each provider prefix in `index.css`. It takes precedence over the category. */
+const PROVIDER_PALETTES = [["Convex.", "iso-convex"]] as const;
+
 const COS = Math.cos(Math.PI / 6);
 
 /** The isometric projection of a point: x to the lower right, y to the lower left, z up. */
@@ -159,6 +162,9 @@ function Mark({
 /** The solid of a box: slabs for compute, queues and email, a cylinder for data, a block otherwise. */
 function IsometricIcon({ box }: { box: DiagramBox }) {
   const id = useId();
+  const palette =
+    PROVIDER_PALETTES.find(([prefix]) => box.resourceType.startsWith(prefix))?.[1] ??
+    ICON_PALETTES[box.category];
   const solid =
     box.category === "compute" ? (
       box.convex ? (
@@ -207,7 +213,7 @@ function IsometricIcon({ box }: { box: DiagramBox }) {
     <svg
       aria-hidden="true"
       viewBox="-11.5 -10 23 22"
-      className={`h-[43px] w-11 shrink-0 ${ICON_PALETTES[box.category]}`}
+      className={`h-[43px] w-11 shrink-0 ${palette}`}
     >
       {solid}
     </svg>

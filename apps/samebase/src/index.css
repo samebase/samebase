@@ -260,6 +260,19 @@ column of single letters.
   --iso-right: #375d97;
   --iso-ink: #213f70;
 }
+/* Convex's yellow, red and purple, from light to dark like the faces of the other palettes. */
+.iso-convex {
+  --iso-top: #f3b01c;
+  --iso-left: #ee342f;
+  --iso-right: #8d2676;
+  --iso-ink: #5c1450;
+}
+.dark .iso-convex {
+  --iso-top: #dda01a;
+  --iso-left: #d92f2a;
+  --iso-right: #7a2066;
+  --iso-ink: #4a0f3f;
+}
 
 /* Interactive primitives can add cursor utilities after the base layer. Links remain links. */
 a:any-link {

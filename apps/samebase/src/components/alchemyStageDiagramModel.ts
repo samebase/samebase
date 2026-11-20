@@ -96,6 +96,8 @@ export type DiagramBox = {
   id: string;
   name: string;
   typeName: string;
+  /** The resource type of the first row. */
+  resourceType: string;
   category: ResourceCategory;
   icon: IconNode;
   /** A Convex deployment, drawn as three slabs. */
@@ -147,6 +149,7 @@ export function stageDiagram(resources: AlchemyStage["resources"]) {
       id: first.fqn,
       name: email ? "Email" : members.map((row) => row.logicalId).join(", "),
       typeName: email ? "Cloudflare Email" : ui.name,
+      resourceType: first.resourceType,
       category: email ? "email" : categoryOf(first.resourceType),
       // The envelope of Email Routing stands for the whole group.
       icon: email ? resourceTypeUI("Cloudflare.Email.Routing").icon : ui.icon,
