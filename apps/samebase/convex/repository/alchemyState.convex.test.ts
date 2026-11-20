@@ -89,6 +89,11 @@ function withProdRun(change: (run: Record<string, unknown>) => void) {
   });
 }
 
+/** The captured reply as the stack of samebase/samebase: its prod run record names samebase/samebase. */
+const samebaseStackReply = withProdRun((run) => {
+  run["repository"] = "samebase/samebase";
+});
+
 /**
 What Samebase reads from the captured store for samebase/base-alchemy: the outputs of `pr-24` and
 `pr-25` have no run record, so only `prod` is a stage of the repository.
@@ -305,6 +310,20 @@ function installAlchemyStateFetchStub(args: {
           );
         }
         const functionArgs = body["args"];
+        if (body["path"] === "state:getOutput" && isRecord(functionArgs)) {
+          const reply = stackReplies[String(functionArgs["stack"])];
+          const stages =
+            isRecord(reply) && isRecord(reply["value"]) && Array.isArray(reply["value"]["stages"])
+              ? reply["value"]["stages"]
+              : [];
+          const stage: unknown = stages.find(
+            (candidate) => isRecord(candidate) && candidate["name"] === functionArgs["stage"],
+          );
+          return jsonResponse({
+            status: "success",
+            value: isRecord(stage) && typeof stage["output"] === "string" ? stage["output"] : null,
+          });
+        }
         return jsonResponse(
           body["path"] === "state:stacks"
             ? { status: "success", value: Object.keys(stackReplies).sort() }
@@ -580,6 +599,12 @@ describe("the stack check before a GitHub repository deletion", () => {
   // stops at the rule of the deletion plan.
   const passedTheCheck = "Existing repository removal cannot remove the GitHub repository.";
 
+  it("refuses while the store holds a stack of another name whose prod run record names the repository", async () => {
+    await expect(
+      requestDeletion({ "samebase/old-name": observedAlchemyStackReply }, [storeProject]),
+    ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
+  });
+
   it("passes when the store holds only the stack of another repository", async () => {
     await expect(
       requestDeletion({ "samebase/samebase": undefined }, [storeProject]),
@@ -837,7 +862,7 @@ describe("the setup status of a repository_actions repository", () => {
       name: "the store holds no stack of the repository",
       store: {
         storeReply: observedAlchemyStackReply,
-        stackReplies: { "samebase/samebase": observedAlchemyStackReply },
+        stackReplies: { "samebase/samebase": samebaseStackReply },
         teamProjects: [storeProject],
       },
     },
@@ -1019,7 +1044,7 @@ describe("the setup status of a repository_actions repository", () => {
     installAlchemyStateFetchStub({
       requests: [],
       storeReply: observedAlchemyStackReply,
-      stackReplies: { "samebase/samebase": observedAlchemyStackReply },
+      stackReplies: { "samebase/samebase": samebaseStackReply },
       teamProjects: [storeProject],
     });
 
@@ -1094,6 +1119,25 @@ describe("the setup status of a repository_actions repository", () => {
 });
 
 describe("readAlchemyStacks", () => {
+  it("reads a stack of another name whose prod run record names the repository, as after a rename", async () => {
+    installAlchemyStateFetchStub({
+      requests: [],
+      storeReply: observedAlchemyStackReply,
+      stackReplies: {
+        "samebase/old-name": observedAlchemyStackReply,
+        "samebase/samebase": { status: "success", value: { stages: [] } },
+      },
+      teamProjects: [appProject, storeProject],
+    });
+
+    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
+
+    expect(observation).toEqual({
+      ...deployedBaseAlchemy,
+      stacks: [{ ...deployedBaseAlchemy.stacks[0], name: "samebase/old-name" }],
+    });
+  });
+
   it("lists the stacks and reads only the stack of the repository with a revoked inspection key", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
     const requests: RecordedRequest[] = [];
@@ -1107,13 +1151,22 @@ describe("readAlchemyStacks", () => {
 
     expect(observation).toEqual(deployedBaseAlchemy);
 
-    // The stack of another repository is listed but not read.
+    // The stack of another repository is listed, and only the output of its prod stage is read.
     const storeRequests = requests.filter((request) => request.url.endsWith("/api/function"));
     expect(storeRequests).toEqual([
       {
         url: "https://brave-heron-201.convex.cloud/api/function",
         authorization: "Convex prod:brave-heron-201|alchemy-state-secret",
         body: { path: "state:stacks", args: {}, format: "json" },
+      },
+      {
+        url: "https://brave-heron-201.convex.cloud/api/function",
+        authorization: "Convex prod:brave-heron-201|alchemy-state-secret",
+        body: {
+          path: "state:getOutput",
+          args: { stack: "samebase/samebase", stage: "prod" },
+          format: "json",
+        },
       },
       {
         url: "https://brave-heron-201.convex.cloud/api/function",
@@ -1193,7 +1246,7 @@ describe("readAlchemyStacks", () => {
     installAlchemyStateFetchStub({
       requests,
       storeReply: observedAlchemyStackReply,
-      stackReplies: { "samebase/samebase": observedAlchemyStackReply },
+      stackReplies: { "samebase/samebase": samebaseStackReply },
       teamProjects: [storeProject],
     });
 
@@ -1223,7 +1276,9 @@ describe("readAlchemyStacks", () => {
       stackReplies: {
         "samebase/base-alchemy/apps/web": folderReply,
         "samebase/base-alchemy/apps/other": otherRepositoryReply,
-        "samebase/base-alchemy-two": observedAlchemyStackReply,
+        "samebase/base-alchemy-two": withProdRun((run) => {
+          run["repository"] = "samebase/base-alchemy-two";
+        }),
       },
       teamProjects: [storeProject],
     });

@@ -40,6 +40,7 @@ import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
 import { action } from "../functions";
 import { readRepositoryCloudflareStacks } from "./cloudflareStateStore";
 import { readRepositoryGitHubStacks } from "./githubStateStore";
+import { limiter } from "./requestLimiter";
 import {
   CONVEX_CONNECTION_REQUIRED,
   fetchConvexDeploymentJson,
@@ -81,6 +82,17 @@ const vStoreStackReply = object({
   value: object({ stages: array(vAlchemyStoredStage) }),
 });
 
+/**
+The reply of `state:getOutput` `{ stack, stage }`: the JSON text of the stage's output, opened when
+it is sealed, null when the stage has none.
+
+@see https://github.com/samebase/samebase/blob/db7ab89017a6b8e6fbcfd2fa41f9b4ee1a3bb4e2/packages/alchemy-convex/src/store/convex/state.ts#L165-L173
+*/
+const vStoreOutputReply = object({ status: literal("success"), value: union(string(), v.null()) });
+
+/** At most this many reads of the store at once. */
+const STORE_REQUEST_LIMIT = 16;
+
 /** A stored stage without secret values, as `reader:repository` gives it. */
 function withoutSecretValues(stage: AlchemyStoredStage): AlchemyStoredStage {
   return {
@@ -104,28 +116,56 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
     : null;
 }
 
-/** The stacks of the store named `owner/name` or `owner/name/<folder>`, in name order. */
+/**
+The stacks of the repository in the store, in name order: each stack named `owner/name` or
+`owner/name/<folder>`, and each stack of another name whose `prod` output has a run record that
+names the repository. A repository renamed after its first deploy keeps its stack's first name,
+because the names of the stack's resources follow it, and its next deploy writes the new name in the
+run record. Each stack of another name costs one read of its `prod` output.
+*/
 async function readRepositoryStackNames(args: {
   deployKey: string;
   deploymentUrl: string;
   repository: string;
 }) {
-  return parse(
-    vStoreStacksReply,
+  const call = async (body: { path: string; args: Record<string, string> }) =>
     await fetchConvexDeploymentJson({
       authorization: `Convex ${args.deployKey}`,
       deploymentUrl: args.deploymentUrl,
       path: "/api/function",
-      body: { path: "state:stacks", args: {}, format: "json" },
+      body: { path: body.path, args: body.args, format: "json" },
+    });
+  const names = parse(vStoreStacksReply, await call({ path: "state:stacks", args: {} })).value;
+  const limited = limiter(STORE_REQUEST_LIMIT);
+  const belongs = await Promise.all(
+    names.map(async (name) => {
+      if (name === args.repository || name.startsWith(`${args.repository}/`)) {
+        return true;
+      }
+      const output = parse(
+        vStoreOutputReply,
+        await limited(
+          async () => await call({ path: "state:getOutput", args: { stack: name, stage: "prod" } }),
+        ),
+      ).value;
+      return (
+        readDeployedStacks(
+          [{ name, stages: [{ name: "prod", resources: [], output }] }],
+          args.repository,
+          "convex",
+        ).length > 0
+      );
     }),
-  ).value.filter((name) => name === args.repository || name.startsWith(`${args.repository}/`));
+  );
+  return names.filter((_, index) => belongs[index]);
 }
 
 /**
 Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
 deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack`
-for each stack named `owner/name` or `owner/name/<folder>`. The secret values are removed first, and
-`readDeployedStacks` keeps the stages that Samebase shows. Other stacks of the team are not read.
+for each stack of the repository (`readRepositoryStackNames`). The secret values are removed first,
+and `readDeployedStacks` keeps the stages that Samebase shows. Of the other stacks of the team, only
+the output of `prod` is read.
 */
 export async function readAlchemyStacks(args: {
   /** The GitHub `owner/name` of the repository. */
@@ -205,10 +245,11 @@ async function readStoreTarget(
 }
 
 /**
-Throws unless the team's store holds no stack named for the repository: deleting the GitHub
-repository deletes the Destroy app workflow and leaves the stack running. This reads names, so it
-also counts a stack that `readAlchemyStacks` drops, such as one whose deploys never completed or
-whose outputs hold no run record. The store of the organization's Cloudflare account is checked
+Throws unless the team's store holds no stack of the repository (`readRepositoryStackNames`):
+deleting the GitHub repository deletes the Destroy app workflow and leaves the stack running. A stack
+named for the repository counts by its name alone, so this also counts a stack that
+`readAlchemyStacks` drops, such as one whose deploys never completed or whose outputs hold no run
+record. The store of the organization's Cloudflare account is checked
 first, by the same names and also by run record, since a stack there can have any name. A Cloudflare
 store that Samebase cannot read throws: it could hold a stack. Only no connection, an MCP connection,
 and an account without a store leave the decision to the next store. The branch
