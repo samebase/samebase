@@ -19,7 +19,8 @@ import { createUrlSearchParams } from "../shared/urlSearchParams";
 import { openSecret, vSealedSecret } from "./sealedSecret";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 
-const resources = {
+/** The API resource that the hub grants for each provider, sent as `resource`. */
+export const resources = {
   convex: "https://api.convex.dev",
   cloudflare: "https://api.cloudflare.com/client/v4/",
   github: "https://api.github.com",
@@ -27,6 +28,13 @@ const resources = {
 
 /** How long the hub keeps an unused refresh grant (`REFRESH_IDLE_MS` in the broker). */
 export const HUB_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+A code exchange or a refresh at the hub. auth2.samebase.com waits up to 30 s for the provider
+(`FORWARD_TIMEOUT_MS` in packages/identity-broker-effect), and a provider that answers late has
+already rotated its refresh token: an earlier abort here would lose the only copy of the new one.
+*/
+const HUB_TOKEN_TIMEOUT_MS = 35_000;
 
 type ResourceProvider = keyof typeof resources;
 
@@ -122,7 +130,7 @@ export async function exchangeResourceOAuthCode(args: {
       code_verifier: args.codeVerifier,
       resource: resources[args.provider],
     },
-    { signal: AbortSignal.timeout(10_000) },
+    { signal: AbortSignal.timeout(HUB_TOKEN_TIMEOUT_MS) },
   );
   return await oauth.processGenericTokenEndpointResponse(authorizationServer, client, response);
 }
@@ -136,7 +144,7 @@ export async function refreshResourceOAuthToken(provider: ResourceProvider, refr
     refreshToken,
     {
       additionalParameters: { resource: resources[provider] },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(HUB_TOKEN_TIMEOUT_MS),
     },
   );
   return await oauth.processRefreshTokenResponse(authorizationServer, client, response);

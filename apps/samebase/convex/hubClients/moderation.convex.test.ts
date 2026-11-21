@@ -5,7 +5,9 @@ import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.se
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-const HUB_ISSUER = "https://hub.example.test";
+const HUB_ISSUER = "https://auth.samebase.com";
+/** Sign-in and connections may use another hub; moderation stays on HUB_ISSUER. */
+const SIGN_IN_HUB_ISSUER = "https://auth2.samebase.com";
 const MODERATION_KEY = "moderation-key";
 const PUBLIC_HUB_ISSUER = "https://public-hub.example.test";
 const PUBLIC_MODERATION_KEY = "public-moderation-key";
@@ -215,7 +217,7 @@ async function viewerWith(t: ConvexTest, email: string) {
 }
 
 function turnModerationOn() {
-  vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+  vi.stubEnv("IDENTITY_HUB_ISSUER", SIGN_IN_HUB_ISSUER);
   vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
 }
 
@@ -275,7 +277,7 @@ describe("hub client moderation", () => {
 
   it("says that moderation is off without the key, and calls no hub", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("IDENTITY_HUB_ISSUER", SIGN_IN_HUB_ISSUER);
     vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", " ");
     const requests = stubHub();
     const admin = await viewerWith(t, "nicu@samebase.com");
@@ -857,7 +859,7 @@ describe("an organization's hub clients", () => {
 
   it("says that moderation is off without the key, and calls no hub", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("IDENTITY_HUB_ISSUER", SIGN_IN_HUB_ISSUER);
     vi.stubEnv("IDENTITY_HUB_MODERATION_KEY", " ");
     const requests = stubHub();
     const { member, organizationId } = await organizationWithMember(t);

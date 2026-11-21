@@ -4,7 +4,7 @@
 //   which serves samebase.com through convex-hosting, the account API token that production sends
 //   email with, the PostHog proxy Worker of the app, so its route and settings are code instead
 //   of settings in the Cloudflare dashboard, and the new identity hub at auth2.samebase.com
-//   (identity-hub/index.ts) with its preview key.
+//   (identity-hub/index.ts) with its preview and production keys.
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
 //   slug and creates no Workers. Its hub client is on auth2.samebase.com, with the preview key
@@ -76,6 +76,11 @@ follows from the hub's domain there; this file names it and does not import it.
 const PREVIEW_HUB = { issuer: "https://auth2.samebase.com" };
 /** The resource id of the new hub's preview key, which `prod` makes and the previews read. */
 const PREVIEW_KEY = "HubPreviewKey";
+/**
+The resource id of the new hub's production key, which `prod` makes. Its clients are permanent. No
+client registers with it yet: production stays on HUB until its move to the new hub.
+*/
+const PRODUCTION_KEY = "HubProductionKey";
 
 /**
 The commit of this checkout. The build puts it and its number into the app (vite.config.ts), so it is
@@ -250,12 +255,16 @@ export default Alchemy.Stack(
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
-    // The new hub and its preview key, which the previews read from this stage's state. The hub
-    // binds its other secrets from the account's Secrets Store itself (identity-hub/index.ts).
+    // The new hub and its keys: the preview key, which the previews read from this stage's state,
+    // and the production key. The hub binds its other secrets from the account's Secrets Store
+    // itself (identity-hub/index.ts).
     const newHub = yield* Hub;
     yield* newHub.bind("RegistrationKeys", {
       env: {
         SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
+          stage: "prod",
+        }),
+        SAMEBASE_HUB_PRODUCTION_KEY: yield* IdentityHub.registrationKey(PRODUCTION_KEY, {
           stage: "prod",
         }),
       },
