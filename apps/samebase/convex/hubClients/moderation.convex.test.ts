@@ -1,3 +1,13 @@
+import {
+  BlockList,
+  ClientList,
+  ConnectorGrantList,
+  Counts,
+  InvalidToken,
+  OwnerChanged,
+  SignInPageList,
+  UnknownConnector,
+} from "@samebase/identity-broker/moderation/api";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
@@ -9,19 +19,22 @@ const HUB_ISSUER = "https://public-hub.example.test";
 const MODERATION_KEY = "moderation-key";
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
 
-const jsonResponse = (value: unknown, status = 200) =>
+const jsonResponse = (value: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(value), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
   });
 
-const counts = { day: { count: 1, atLeast: false }, week: { count: 1_000, atLeast: true } };
+// The hub's answers, typed by the declaration that the hub serves, so a change to it fails here.
+const counts: typeof Counts.Encoded = {
+  day: { count: 1, atLeast: false },
+  week: { count: 1_000, atLeast: true },
+};
 
-const blockList = {
+const blockList: typeof BlockList.Encoded = {
   blocks: [
     {
       kind: "owner",
@@ -43,7 +56,7 @@ const blockList = {
   ],
 };
 
-const clientList = {
+const clientList: typeof ClientList.Encoded = {
   clients: [
     {
       clientId: "cl_preview",
@@ -124,12 +137,12 @@ const clientList = {
   limitReached: false,
 };
 
-const signInPage = {
+const signInPage: typeof SignInPageList.Encoded = {
   everyApp: null,
   repositories: [{ repositoryId: "74", ownerId: "65", active: true, reason: "A team we know" }],
 };
 
-const connectorGrants = {
+const connectorGrants: typeof ConnectorGrantList.Encoded = {
   connectors: ["google", "github", "google-apps", "github-apps"],
   grants: [
     {
@@ -154,47 +167,63 @@ const gitHubRepository = {
   html_url: "https://github.com/octocat/Hello-World",
 };
 
-/** The hub's moderation endpoints, as src/client/moderation.ts of identity-broker 0.34.0 answers them. */
+/** The hub's refusals as its README lists them: `{ error, error_description }`. */
+const ownerChanged: typeof OwnerChanged.Encoded = {
+  error: "owner_changed",
+  error_description: "The hub records another owner of the repository.",
+};
+const unknownConnector: typeof UnknownConnector.Encoded = {
+  error: "unknown_connector",
+  error_description: "The hub has no connector of this name.",
+};
+const invalidToken: typeof InvalidToken.Encoded = {
+  error: "invalid_token",
+  error_description: "The token is invalid.",
+};
+
+type Sent = { url: string; method: string; authorization: string | null; body: unknown };
+let route: (request: Request) => Promise<Response> = async () => Response.error();
+// Effect's FetchHttpClient keeps the first global `fetch` it reads, so one stub serves every test.
+vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+  return await route(new Request(input, init));
+});
+
+/** The hub's moderation endpoints, answered with the fixtures above or by `answer`. */
 function stubHub(answer?: (request: Request) => Response) {
-  const requests: { url: string; method: string; authorization: string | null; body: unknown }[] =
-    [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const request = new Request(input, init);
-      const text = await request.text();
-      requests.push({
-        url: request.url,
-        method: request.method,
-        authorization: request.headers.get("Authorization"),
-        body: text === "" ? undefined : JSON.parse(text),
-      });
-      if (answer !== undefined) {
-        return answer(request);
-      }
-      const { pathname } = new URL(request.url);
-      switch (pathname) {
-        case "/moderation/counts":
-          return jsonResponse(counts);
-        case "/moderation/blocks":
-          return jsonResponse(request.method === "GET" ? blockList : { changed: true });
-        case "/moderation/clients":
-          return jsonResponse(
-            new URL(request.url).searchParams.has("owner")
-              ? { ...clientList, owner: new URL(request.url).searchParams.get("owner") }
-              : clientList,
-          );
-        case "/moderation/sign-in-page":
-          return jsonResponse(request.method === "GET" ? signInPage : { changed: true });
-        case "/moderation/connector-grants":
-          return jsonResponse(request.method === "GET" ? connectorGrants : { changed: true });
-        default:
-          return request.method === "DELETE" && pathname.startsWith("/moderation/clients/")
-            ? jsonResponse({ changed: true })
-            : new Response("Not Found", { status: 404 });
-      }
-    }),
-  );
+  const requests: Sent[] = [];
+  route = async (request) => {
+    const text = await request.clone().text();
+    requests.push({
+      url: request.url,
+      method: request.method,
+      authorization: request.headers.get("Authorization"),
+      body: text === "" ? undefined : JSON.parse(text),
+    });
+    if (answer !== undefined) {
+      return answer(request);
+    }
+    const { pathname } = new URL(request.url);
+    switch (pathname) {
+      case "/moderation/counts":
+        return jsonResponse(counts);
+      case "/moderation/blocks":
+        return jsonResponse(request.method === "GET" ? blockList : { changed: true });
+      case "/moderation/clients":
+        return jsonResponse(
+          new URL(request.url).searchParams.has("owner")
+            ? { ...clientList, owner: new URL(request.url).searchParams.get("owner") }
+            : clientList,
+        );
+      case "/moderation/sign-in-page":
+        return jsonResponse(request.method === "GET" ? signInPage : { changed: true });
+      case "/moderation/connector-grants":
+        return jsonResponse(request.method === "GET" ? connectorGrants : { changed: true });
+      default:
+        return request.method === "DELETE" && pathname.startsWith("/moderation/clients/")
+          ? jsonResponse({ changed: true })
+          : new Response(null, { status: 404 });
+    }
+  };
   return requests;
 }
 
@@ -426,7 +455,7 @@ describe("hub client moderation", () => {
     });
   });
 
-  it("grants a connector to a repository in the name of the signed-in admin, and says when the hub refuses", async () => {
+  it("grants a connector to a repository, and says when the hub refuses", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
@@ -449,17 +478,17 @@ describe("hub client moderation", () => {
         url: `${HUB_ISSUER}/moderation/connector-grants`,
         method: "POST",
         authorization: `Bearer ${MODERATION_KEY}`,
-        body: { ...change, adminEmail: "nicu@samebase.com" },
+        body: change,
       },
     ]);
 
-    stubHub(() => jsonResponse({ error: "owner_changed" }, 409));
+    stubHub(() => jsonResponse(ownerChanged, 409));
     expect(await changeGrant()).toEqual({ status: "on", result: "owner_changed" });
-    stubHub(() => jsonResponse({ error: "unknown_connector" }, 400));
+    stubHub(() => jsonResponse(unknownConnector, 400));
     expect(await changeGrant()).toEqual({ status: "on", result: "unknown_connector" });
   });
 
-  it("skips the sign-in page for a repository in the name of the signed-in admin", async () => {
+  it("skips the sign-in page for a repository", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const requests = stubHub();
@@ -480,11 +509,11 @@ describe("hub client moderation", () => {
         url: `${HUB_ISSUER}/moderation/sign-in-page`,
         method: "POST",
         authorization: `Bearer ${MODERATION_KEY}`,
-        body: { ...change, adminEmail: "nicu@samebase.com" },
+        body: change,
       },
     ]);
 
-    stubHub(() => jsonResponse({ error: "owner_changed" }, 409));
+    stubHub(() => jsonResponse(ownerChanged, 409));
     expect(await changePage()).toEqual({ status: "on", result: "owner_changed" });
   });
 
@@ -518,18 +547,16 @@ describe("hub client moderation", () => {
     ]);
   });
 
-  it.each([
-    ["a refusal", () => jsonResponse({ error: "invalid_request" }, 400)],
-    ["a wrong key", () => jsonResponse({ error: "invalid_token" }, 401)],
-    ["an answer of another shape", () => jsonResponse({ day: 1 })],
-  ])("fails on %s from the hub", async (_, answer) => {
+  it("fails when the hub refuses the key", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    stubHub(answer);
+    stubHub(() =>
+      jsonResponse(invalidToken, 401, { "WWW-Authenticate": 'Bearer error="invalid_token"' }),
+    );
     const admin = await viewerWith(t, "nicu@samebase.com");
 
     await expect(admin.action(api.hubClients.moderation.readOverview, {})).rejects.toThrow(
-      "The identity hub answered",
+      InvalidToken,
     );
   });
 });
