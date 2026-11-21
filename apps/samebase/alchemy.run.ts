@@ -3,11 +3,11 @@
 // - Stage `prod`, on each push to main: the Convex project `samebase-com`, its production deployment,
 //   which serves samebase.com through convex-hosting, the account API token that production sends
 //   email with, the PostHog proxy Worker of the app, so its route and settings are code instead
-//   of settings in the Cloudflare dashboard, and the new identity hub at auth2.samebase.com
-//   (identity-hub/index.ts) with its preview and production keys.
+//   of settings in the Cloudflare dashboard, and the identity hub at auth.samebase.com
+//   (identity-hub/index.ts) with its preview, development and production keys.
 // - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
 //   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
-//   slug and creates no Workers. Its hub client is on auth2.samebase.com, with the preview key
+//   slug and creates no Workers. Its hub client is on auth.samebase.com, with the preview key
 //   from the state of `prod`.
 // - Stage `dev-<name>`, in development at each `pnpm run dev`: the two hub clients of the folder's
 //   logged-in Convex local deployment and their six variables. `<name>` is the user name in the
@@ -25,7 +25,7 @@
 //
 // Each deployment has one client of the identity hub (RFC 134, 137), with two return addresses: the
 // sign-in with GitHub and Google comes back to Convex Auth's route, a provider connection to our own
-// (convex/http.ts). Each stage asks auth2.samebase.com at `POST /register` with its key: production
+// (convex/http.ts). Each stage asks auth.samebase.com at `POST /register` with its key: production
 // with the production key, a preview with the preview key, a development stage with the development
 // key; `prod` makes the three keys. The production and development clients are `required`: a
 // deploy fails rather than ship guest sign-in or a client that the hub stopped. Before `prod` made
@@ -68,7 +68,7 @@ const CONNECTORS = ["google", "github"];
 The identity hub (identity-hub/index.ts), where every stage registers. The issuer follows from the
 hub's domain there; this file names it and does not import it.
 */
-const HUB = { issuer: "https://auth2.samebase.com" };
+const HUB = { issuer: "https://auth.samebase.com" };
 /** The resource id of the hub's preview key, which `prod` makes and the previews read. */
 const PREVIEW_KEY = "HubPreviewKey";
 /** The resource id of the hub's development key, which `prod` makes and the development stages read. */

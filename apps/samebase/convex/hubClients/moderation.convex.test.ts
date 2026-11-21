@@ -5,9 +5,9 @@ import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.se
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-const HUB_ISSUER = "https://auth.samebase.com";
-/** Sign-in and connections may use another hub; moderation stays on HUB_ISSUER. */
-const SIGN_IN_HUB_ISSUER = "https://auth2.samebase.com";
+const HUB_ISSUER = "https://secret-chickadee-10.convex.site";
+/** Sign-in and connections use another hub; moderation stays on HUB_ISSUER. */
+const SIGN_IN_HUB_ISSUER = "https://auth.samebase.com";
 const MODERATION_KEY = "moderation-key";
 const PUBLIC_HUB_ISSUER = "https://public-hub.example.test";
 const PUBLIC_MODERATION_KEY = "public-moderation-key";
