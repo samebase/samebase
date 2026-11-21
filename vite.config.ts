@@ -83,8 +83,7 @@ export default defineConfig({
       "**/.agents/**",
       "**/convex/_generated/**",
       "packages/git-editor/src/component/_generated/**",
-      "packages/identity-broker/src/component/_generated/**",
-      "packages/identity-broker-effect/src/hosts/convex/component/_generated/**",
+      "packages/identity-broker/src/hosts/convex/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
       "packages/alchemy-kit/test/run-record/fixtures/**",
@@ -113,8 +112,7 @@ export default defineConfig({
       "**/.agents/**",
       "**/convex/_generated",
       "packages/git-editor/src/component/_generated/**",
-      "packages/identity-broker/src/component/_generated/**",
-      "packages/identity-broker-effect/src/hosts/convex/component/_generated/**",
+      "packages/identity-broker/src/hosts/convex/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
       // Hey API owns these SDK and validator files.
@@ -253,8 +251,8 @@ export default defineConfig({
         // The identity hub's core reads only client cards: no rule or handler of it may import a
         // layer (src/layers), which writes the cards.
         files: [
-          "packages/identity-broker-effect/src/core/**/*.ts",
-          "packages/identity-broker-effect/src/rules/**/*.ts",
+          "packages/identity-broker/src/core/**/*.ts",
+          "packages/identity-broker/src/rules/**/*.ts",
         ],
         rules: {
           "no-restricted-imports": [
@@ -268,19 +266,6 @@ export default defineConfig({
               ],
             },
           ],
-        },
-      },
-      {
-        files: ["packages/identity-broker/src/component/**/*.ts"],
-        rules: {
-          "@convex-dev/no-old-registered-function-syntax": "error",
-          "@convex-dev/require-args-validator": "error",
-          "@convex-dev/explicit-table-ids": "error",
-          "@convex-dev/no-filter-in-query": "warn",
-          "@convex-dev/no-top-of-hour-crons": "warn",
-          "@convex-dev/no-schema-import-cycle": "error",
-          "@convex-dev/no-duplicate-indexes": "error",
-          "@convex-dev/no-process-env": "error",
         },
       },
       {
@@ -345,7 +330,6 @@ export default defineConfig({
             "apps/samebase/convex/**/*.convex.test.ts",
             "apps/identity-broker-effect-example/**",
             "packages/identity-broker/**",
-            "packages/identity-broker-effect/**",
             "packages/alchemy-convex/**",
             "packages/alchemy-kit/**",
           ],
@@ -381,18 +365,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: "identity-broker",
-          environment: "edge-runtime",
-          include: ["packages/identity-broker/src/**/*.test.ts"],
-          // `*.pages.test.ts` are the broker's Playwright screenshots (its playwright.config.ts).
-          exclude: ["**/node_modules/**", "dist", "dev-dist", "**/*.pages.test.ts"],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: "identity-broker-effect",
           environment: "node",
-          include: ["packages/identity-broker-effect/src/**/*.test.ts"],
+          include: ["packages/identity-broker/src/**/*.test.ts"],
           exclude: ["**/node_modules/**", "**/rules/machine.test.ts"],
         },
       },
@@ -402,9 +376,9 @@ export default defineConfig({
         // other package's, leaves it out; `vp test` runs every project.
         extends: true,
         test: {
-          name: "identity-broker-effect-machine",
+          name: "identity-broker-machine",
           environment: "node",
-          include: ["packages/identity-broker-effect/src/rules/machine.test.ts"],
+          include: ["packages/identity-broker/src/rules/machine.test.ts"],
           exclude: ["**/node_modules/**"],
         },
       },

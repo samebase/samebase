@@ -1,4 +1,4 @@
-// The example app against the hub's real core (packages/identity-broker-effect) on the memory
+// The example app against the hub's real core (packages/identity-broker) on the memory
 // Store, with no network: the hub, on the stack layer with the app's two keys, registers the app's
 // preview client for the preview key, then a browser signs in through the hub's page and a fake
 // Google. The app's services get test Layers: the client's values as plain values, and every hub
@@ -10,12 +10,8 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { TestClock } from "effect/testing";
-import {
-  createBroker,
-  fakeOidcUpstream,
-  stubFetch,
-} from "@samebase/identity-broker-effect/testing";
-import { stack } from "@samebase/identity-broker-effect/stack";
+import { createBroker, fakeOidcUpstream, stubFetch } from "@samebase/identity-broker/testing";
+import { stack } from "@samebase/identity-broker/stack";
 import { app } from "./app.ts";
 import { HubClient } from "./hub-client.ts";
 import { Session } from "./session.ts";

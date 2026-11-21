@@ -30,7 +30,7 @@ type HubIdentity = {
 /**
 The sign-in that a hub method hands to the user callbacks: the profile mapping of convex/auth.ts
 applied to id_token claims. The claims have the shape of `signIdToken` in
-`packages/identity-broker/src/client/jwt.ts`: the public subject `<connector>:<account id>`.
+`packages/identity-broker/src/core/jwt.ts`: the public subject `<connector>:<account id>`.
 */
 function hubProvider(connector: "github" | "google", identity: HubIdentity) {
   const subject = `${connector}:${identity.id}`;

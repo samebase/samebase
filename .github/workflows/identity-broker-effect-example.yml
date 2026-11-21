@@ -1,4 +1,4 @@
-# Deploys the example app of the identity broker in Effect, the Alchemy stack in
+# Deploys the example app of the identity broker, the Alchemy stack in
 # apps/identity-broker-effect-example/alchemy.run.ts: at the stage `prod` on a push to main, and at
 # the stage `pr-<number>` of each pull request from this repository, when the push or the pull
 # request changes the app, the broker, the hub client resource of packages/alchemy-convex (which
@@ -21,7 +21,7 @@ on:
     branches: [main]
     paths: &paths
       - apps/identity-broker-effect-example/**
-      - packages/identity-broker-effect/**
+      - packages/identity-broker/**
       - packages/alchemy-convex/**
       - .github/workflows/identity-broker-effect-example.yml
   pull_request:

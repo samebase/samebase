@@ -1,70 +1,99 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.34.0",
-  "description": "An OpenID Provider for Convex that holds a team's upstream sign-in connections once and keeps no user accounts.",
+  "version": "0.35.0",
+  "description": "An OpenID Provider for Convex and Cloudflare that holds a team's upstream sign-in connections once and keeps no user accounts.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/samebase/samebase.git",
     "directory": "packages/identity-broker"
   },
-  "bin": {
-    "identity-broker": "./dist/cli/index.js"
-  },
   "files": [
     "dist",
-    "src/test.ts",
-    "src/component",
-    "!src/component/**/*.test.ts",
     "LICENSE",
     "NOTICE",
     "README.md"
   ],
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/client/index.d.ts",
-      "samebase-source": "./src/client/index.ts",
-      "default": "./dist/client/index.js"
+    "./convex.config": "./src/hosts/convex/component/convex.config.ts",
+    "./_generated/component.js": "./src/hosts/convex/component/_generated/component.ts",
+    "./convex": "./src/hosts/convex/hub.ts",
+    "./cloudflare": "./src/hosts/cloudflare/hub.ts",
+    "./stack": "./src/layers/stack/routes.ts",
+    "./testing": "./src/core/testing/harness.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      "./convex.config": {
+        "types": "./dist/hosts/convex/component/convex.config.d.ts",
+        "default": "./dist/hosts/convex/component/convex.config.js"
+      },
+      "./_generated/component.js": {
+        "types": "./dist/hosts/convex/component/_generated/component.d.ts"
+      },
+      "./convex": {
+        "types": "./dist/hosts/convex/hub.d.ts",
+        "default": "./dist/hosts/convex/hub.js"
+      },
+      "./cloudflare": {
+        "types": "./dist/hosts/cloudflare/hub.d.ts",
+        "default": "./dist/hosts/cloudflare/hub.js"
+      },
+      "./stack": {
+        "types": "./dist/layers/stack/routes.d.ts",
+        "default": "./dist/layers/stack/routes.js"
+      },
+      "./testing": {
+        "types": "./dist/core/testing/harness.d.ts",
+        "default": "./dist/core/testing/harness.js"
+      }
     },
-    "./convex.config": {
-      "types": "./dist/component/convex.config.d.ts",
-      "default": "./dist/component/convex.config.js"
-    },
-    "./_generated/component.js": {
-      "types": "./dist/component/_generated/component.d.ts"
-    },
-    "./test": "./src/test.ts"
+    "access": "public"
   },
   "scripts": {
-    "build": "tsc --build ./tsconfig.build.json --force",
-    "codegen": "convex codegen --component-dir ./src/component",
+    "build": "tsc --project tsconfig.build.json",
     "prepack": "pnpm run build",
-    "typecheck": "tsc --noEmit",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.json --report-unused-disable-directives packages/identity-broker/src",
-    "test": "pnpm --dir ../.. exec vp test run --project identity-broker",
-    "pages": "node --watch ./scripts/pages.ts",
-    "test:pages": "node ../../scripts/playwright-linux-docker.ts --package packages/identity-broker",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build && node ./dist/client/index.js"
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.node.json --report-unused-disable-directives packages/identity-broker/src packages/identity-broker/alchemy.run.ts packages/identity-broker/test",
+    "conformance": "node test/conformance/run.ts",
+    "test": "pnpm --dir ../.. exec vp test run --project identity-broker --project identity-broker-machine",
+    "test:quick": "pnpm --dir ../.. exec vp test run --project identity-broker",
+    "test:convex": "vp test run test/convex-app",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test:quick && pnpm run build",
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy"
   },
   "dependencies": {
-    "@convex-dev/rate-limiter": "0.4.2",
-    "convex-helpers": "0.1.128",
     "jose": "6.2.13",
     "oauth4webapi": "3.8.8"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@cloudflare/workers-types": "5.20261028.1",
     "@types/node": "24.19.2",
+    "alchemy": "2.0.0-beta.87",
     "convex": "1.48.0",
     "convex-test": "0.0.61",
+    "effect": "4.1.4",
     "fast-check": "4.10.2",
     "openid-client": "6.8.8",
     "typescript": "7.0.2",
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
-    "convex": "^1.47.0"
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "alchemy": "2.0.0-beta.87",
+    "convex": "^1.48.0",
+    "effect": "^4.1.4"
+  },
+  "peerDependenciesMeta": {
+    "@alchemy.run/cloudflare": {
+      "optional": true
+    },
+    "alchemy": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=24.11.0"

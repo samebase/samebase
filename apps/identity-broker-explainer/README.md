@@ -70,7 +70,7 @@ not about one provider.
   hub.
 - Each deployment is an ordinary client of the hub with its own exact redirect URI. It registers at
   deploy time with the hub's deploy key, so this is not a wildcard in another place. See the
-  [consumer docs](../../packages/identity-broker/docs/consumers.md).
+  [package README](../../packages/identity-broker/README.md).
 - "Any provider" means any OpenID Connect provider, through an `OidcConnector` object, and any OAuth
   2.0 provider with RFC 8414 metadata, through an `OauthConnector` object.
 
