@@ -339,6 +339,13 @@ export default defineSchema({
      * deployment that wants another set registers a new client.
      */
     connectors: array(string()),
+    /**
+     * When the hub's administrator froze the client with `clients.freeze`, for a move of its grants
+     * to another hub. Never cleared. From then on its refreshes and revocations answer
+     * `temporarily_unavailable`, nothing deletes the client or its grants, and
+     * `resourceRequests.exportGrant` hands out each grant's provider token. Absent: not frozen.
+     */
+    frozenAt: optional(number()),
   })
     .index("by_client_id", ["clientId"])
     // eslint-disable-next-line @convex-dev/no-duplicate-indexes -- The lists read an app's newest client by creation time.

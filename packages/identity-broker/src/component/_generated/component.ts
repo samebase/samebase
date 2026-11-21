@@ -360,6 +360,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               connectors: Array<string>;
               createdAt: number;
               deploymentType: "production" | "development" | "preview";
+              frozenAt?: number;
               lastSignInAt?: number;
               redirectUris: Array<string>;
               registeredBy:
@@ -427,6 +428,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             connectors: Array<string>;
             createdAt: number;
             deploymentType: "production" | "development" | "preview";
+            frozenAt?: number;
             lastSignInAt?: number;
             redirectUris: Array<string>;
             registeredBy:
@@ -466,6 +468,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         } | null,
         Name
       >;
+      freeze: FunctionReference<
+        "mutation",
+        "internal",
+        { clientId: string; now: number },
+        { frozenAt: number },
+        Name
+      >;
       get: FunctionReference<
         "query",
         "internal",
@@ -478,6 +487,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connectors: Array<string>;
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
+          frozenAt?: number;
           lastSignInAt?: number;
           redirectUris: Array<string>;
           registeredBy:
@@ -516,6 +526,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           connectors: Array<string>;
           createdAt: number;
           deploymentType: "production" | "development" | "preview";
+          frozenAt?: number;
           lastSignInAt?: number;
           redirectUris: Array<string>;
           registeredBy:
@@ -569,6 +580,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             connectors: Array<string>;
             createdAt: number;
             deploymentType: "production" | "development" | "preview";
+            frozenAt?: number;
             lastSignInAt?: number;
             redirectUris: Array<string>;
             registeredBy:
@@ -963,7 +975,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         { clientId: string; registrationTokenHash: string },
-        { ok: true } | { error: "invalid_token" | "production"; ok: false },
+        | { ok: true }
+        | { error: "invalid_token" | "production" | "frozen"; ok: false },
         Name
       >;
       renew: FunctionReference<
@@ -1108,6 +1121,42 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         boolean,
         Name
       >;
+      drainStatus: FunctionReference<
+        "query",
+        "internal",
+        { clientId: string; now: number },
+        { expired: number; grants: number; refreshStarted: number },
+        Name
+      >;
+      exportGrant: FunctionReference<
+        "query",
+        "internal",
+        {
+          clientId: string;
+          clientSecretHash: string;
+          now: number;
+          policy: {
+            configured: Array<string>;
+            connectors: Array<string>;
+            ownerId?: string;
+            paused: boolean;
+            resources: Array<string>;
+          };
+          tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
+          tokenHash: string;
+        },
+        | { ok: true; resource: string; upstreamRefreshToken: string }
+        | {
+            error:
+              | "invalid_client"
+              | "not_frozen"
+              | "invalid_grant"
+              | "invalid_target"
+              | "refresh_in_progress";
+            ok: false;
+          },
+        Name
+      >;
       failRefresh: FunctionReference<
         "mutation",
         "internal",
@@ -1148,7 +1197,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
           tokenHash: string;
         },
-        boolean,
+        "revoked" | "invalid_client" | "frozen",
         Name
       >;
     };

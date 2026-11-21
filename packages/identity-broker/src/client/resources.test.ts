@@ -387,6 +387,48 @@ test("RFC 7009 revocation authenticates the owner and keeps unknown or another c
   ).toHaveLength(0);
 });
 
+test("a frozen client's refresh and revocation answer 503, and the export hands it the provider token with no provider call", async () => {
+  const args = await setup();
+  const { start, proof } = await authorize(args, cloudflare.resource);
+  const finished = await complete(args.h, start);
+  const response = await redeem(args, finished.url.searchParams.get("code") ?? "", proof.verifier);
+  const initial: { refresh_token: string } = await response.json();
+  const post = (path: string, body: Record<string, string>) =>
+    args.h.fetchBroker(`${ISSUER}${path}`, {
+      method: "POST",
+      body: new URLSearchParams({
+        client_id: args.registered.clientId,
+        client_secret: args.registered.clientSecret,
+        ...body,
+      }),
+    });
+  const exportGrant = () => post("/migration/export", { refresh_token: initial.refresh_token });
+
+  expect((await exportGrant()).status).toBe(403);
+  await args.h.t.mutation(api.clients.freeze, { clientId: args.registered.clientId, now: 0 });
+  const providerCalls = args.tokenCalls.length;
+  for (const refused of [
+    await post("/token", { grant_type: "refresh_token", refresh_token: initial.refresh_token }),
+    await post("/revoke", { token: initial.refresh_token }),
+  ]) {
+    expect(refused.status).toBe(503);
+    expect(await refused.json()).toMatchObject({ error: "temporarily_unavailable" });
+  }
+  // A repeat gives the same answer.
+  for (const exported of [await exportGrant(), await exportGrant()]) {
+    expect(exported.status).toBe(200);
+    expect(exported.headers.get("cache-control")).toBe("no-store");
+    expect(await exported.json()).toEqual({
+      refresh_token: oauthToken.refresh_token,
+      resource: cloudflare.resource,
+    });
+  }
+  expect(args.tokenCalls).toHaveLength(providerCalls);
+  const unknown = await post("/migration/export", { refresh_token: "unknown-token" });
+  expect(unknown.status).toBe(400);
+  expect(await unknown.json()).toMatchObject({ error: "invalid_grant" });
+});
+
 test("authorization refuses an unknown resource on a page, before contacting a provider", async () => {
   const args = await setup();
   const { start } = await authorize(args, "https://attacker.example/api");

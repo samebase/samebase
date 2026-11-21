@@ -3,7 +3,8 @@ import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component functions are called only by the host's authenticated OAuth endpoints.
-import { mutation, internalMutation, type MutationCtx } from "./_generated/server";
+import { mutation, internalMutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { isSuspended } from "./apps";
 import { refusalOf, vPolicyDecision } from "./policy";
 import { used } from "./registration";
@@ -18,17 +19,14 @@ const CLEANUP_BATCH = 200;
 
 /** The client and its app, when the client authenticates and its app exists. */
 async function authenticate(
-  ctx: MutationCtx,
+  ctx: QueryCtx,
   args: {
     clientId: string;
     clientSecretHash: string;
     tokenEndpointAuthMethod: Infer<typeof vTokenEndpointAuthMethod>;
   },
 ) {
-  const client = await ctx.db
-    .query("clients")
-    .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
-    .unique();
+  const client = await clientRow(ctx, args.clientId);
   if (
     client === null ||
     client.secretHash !== args.clientSecretHash ||
@@ -42,12 +40,16 @@ async function authenticate(
   return app === null ? null : { client, app };
 }
 
-/** The app of a client, for the policy's tenant check; null when either is gone. */
-async function appOfClient(ctx: MutationCtx, clientId: string) {
-  const client = await ctx.db
+async function clientRow(ctx: QueryCtx, clientId: string) {
+  return await ctx.db
     .query("clients")
     .withIndex("by_client_id", (q) => q.eq("clientId", clientId))
     .unique();
+}
+
+/** The app of a client, for the policy's tenant check; null when either is gone. */
+async function appOfClient(ctx: MutationCtx, clientId: string) {
+  const client = await clientRow(ctx, clientId);
   return client === null
     ? null
     : await ctx.db
@@ -326,9 +328,10 @@ const vRefreshClaim = union(
 );
 
 /**
- * The admission of a refresh: the client authenticates, its tenant is not stopped, the policy
- * still applies and keeps the grant's resource, and no other attempt holds the grant. Every
- * refusal is before the provider is called and writes nothing but an expired grant's deletion.
+ * The admission of a refresh: the client authenticates, its tenant is not stopped, the client is
+ * not frozen, the policy still applies and keeps the grant's resource, and no other attempt holds
+ * the grant. Every refusal is before the provider is called and writes nothing but an expired
+ * grant's deletion. The freeze is read in this transaction, so no attempt starts after it commits.
  */
 export const claimRefresh = mutation({
   args: {
@@ -351,6 +354,13 @@ export const claimRefresh = mutation({
     )
       return { ok: false, error: "invalid_client", description: "Client authentication failed." };
     const { client } = authenticated;
+    // Before the grant lookup: a frozen client learns nothing of its tokens here.
+    if (client.frozenAt !== undefined)
+      return {
+        ok: false,
+        error: "temporarily_unavailable",
+        description: "Refresh is paused. Retry later.",
+      };
     const grant = await ctx.db
       .query("refreshGrants")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
@@ -434,20 +444,28 @@ export const finishRefresh = mutation({
   },
 });
 
-/** Ends this attempt after a provider error. An attempt whose claim was taken over changes nothing. */
+/**
+ * Ends this attempt after a provider error. An attempt whose claim was taken over changes nothing.
+ * Nor does the attempt of a client frozen since its claim: a timeout can follow a rotation that the
+ * hub never saw, so the grant keeps its claim, which the drain reports and the export refuses.
+ */
 export const failRefresh = mutation({
   args: { grantId: v.id("refreshGrants"), attempt: number(), rejected: boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const grant = await ctx.db.get("refreshGrants", args.grantId);
     if (grant === null || grant.refreshStartedAt !== args.attempt) return null;
+    if ((await clientRow(ctx, grant.clientId))?.frozenAt !== undefined) return null;
     if (args.rejected) await ctx.db.delete("refreshGrants", grant._id);
     else await ctx.db.patch("refreshGrants", grant._id, { refreshStartedAt: undefined });
     return null;
   },
 });
 
-/** RFC 7009: only the authenticating client can revoke its token; unknown tokens also succeed. */
+/**
+ * RFC 7009: only the authenticating client can revoke its token; unknown tokens also succeed.
+ * `frozen`: the client is frozen, so its grants stay, and the revocation can be retried later.
+ */
 export const revoke = mutation({
   args: {
     clientId: string(),
@@ -455,18 +473,92 @@ export const revoke = mutation({
     tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
     tokenHash: string(),
   },
-  returns: boolean(),
+  returns: union(literal("revoked"), literal("invalid_client"), literal("frozen")),
   handler: async (ctx, args) => {
     // A blocked client can still revoke its own token.
     const authenticated = await authenticate(ctx, args);
-    if (authenticated === null) return false;
+    if (authenticated === null) return "invalid_client" as const;
+    if (authenticated.client.frozenAt !== undefined) return "frozen" as const;
     const grant = await ctx.db
       .query("refreshGrants")
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
       .unique();
     if (grant !== null && grant.clientId === authenticated.client.clientId)
       await ctx.db.delete("refreshGrants", grant._id);
-    return true;
+    return "revoked" as const;
+  },
+});
+
+const vExport = union(
+  object({ ok: literal(true), upstreamRefreshToken: string(), resource: string() }),
+  object({
+    ok: literal(false),
+    error: union(
+      literal("invalid_client"),
+      literal("not_frozen"),
+      literal("invalid_grant"),
+      literal("invalid_target"),
+      literal("refresh_in_progress"),
+    ),
+  }),
+);
+
+/**
+ * The provider refresh token of a frozen client's grant, for its move to another hub. The checks of
+ * `claimRefresh` (authentication, suspension, policy, resource), then: the client is frozen, the
+ * grant is the client's and unexpired, and no attempt holds it. A held grant may have been spent by
+ * an attempt that never saved its answer, so it is refused, also once the attempt timed out. The
+ * freeze stops every change to the grant, so a repeat gives the same answer.
+ */
+export const exportGrant = query({
+  args: {
+    clientId: string(),
+    clientSecretHash: string(),
+    tokenEndpointAuthMethod: vTokenEndpointAuthMethod,
+    tokenHash: string(),
+    policy: vPolicyDecision,
+    now: number(),
+  },
+  returns: vExport,
+  handler: async (ctx, args): Promise<Infer<typeof vExport>> => {
+    const authenticated = await authenticate(ctx, args);
+    if (
+      authenticated === null ||
+      (await isSuspended(ctx, authenticated.app.tenantId)) ||
+      (await refusalOf(ctx, args.policy, authenticated.app.tenantId)) !== null
+    )
+      return { ok: false, error: "invalid_client" };
+    if (authenticated.client.frozenAt === undefined) return { ok: false, error: "not_frozen" };
+    const grant = await ctx.db
+      .query("refreshGrants")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
+      .unique();
+    if (grant === null || grant.clientId !== args.clientId || grant.expiresAt <= args.now)
+      return { ok: false, error: "invalid_grant" };
+    if (!args.policy.resources.includes(grant.resource))
+      return { ok: false, error: "invalid_target" };
+    if (grant.refreshStartedAt !== undefined) return { ok: false, error: "refresh_in_progress" };
+    return { ok: true, upstreamRefreshToken: grant.upstreamRefreshToken, resource: grant.resource };
+  },
+});
+
+/**
+ * Counts of a client's grants, for the drain before an export: every grant, those an attempt
+ * holds (running, or ended with no saved answer), and those past their idle expiry.
+ */
+export const drainStatus = query({
+  args: { clientId: string(), now: number() },
+  returns: object({ grants: number(), refreshStarted: number(), expired: number() }),
+  handler: async (ctx, args) => {
+    const counts = { grants: 0, refreshStarted: 0, expired: 0 };
+    for await (const grant of ctx.db
+      .query("refreshGrants")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))) {
+      counts.grants += 1;
+      if (grant.refreshStartedAt !== undefined) counts.refreshStarted += 1;
+      if (grant.expiresAt <= args.now) counts.expired += 1;
+    }
+    return counts;
   },
 });
 

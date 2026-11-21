@@ -342,7 +342,7 @@ test("a blocked client can still revoke its own token", async () => {
   await setBlock(t, "repository", "1", true);
   expect(
     await t.mutation(api.resourceRequests.revoke, { ...auth, tokenHash: refresh.tokenHash }),
-  ).toBe(true);
+  ).toBe("revoked");
   await setBlock(t, "repository", "1", false);
   expect(await t.mutation(api.resourceRequests.claimRefresh, refresh)).toMatchObject({
     error: "invalid_grant",
@@ -528,4 +528,142 @@ test("cleanup removes expired resource requests and idle refresh secrets", async
     }),
   ).toMatchObject({ resourceRequests: 1, refreshGrants: 1 });
   expect(await t.run(async (ctx) => await ctx.db.query("refreshGrants").collect())).toHaveLength(0);
+});
+
+const exportArgs = { ...auth, tokenHash: refresh.tokenHash, policy, now: NOW };
+
+async function freeze(t: Test, clientId: string = auth.clientId) {
+  await t.mutation(api.clients.freeze, { clientId, now: NOW });
+}
+
+test("a frozen client starts no refresh, also for an unknown token, and revokes nothing", async () => {
+  const { t } = await grant();
+  await freeze(t);
+  for (const tokenHash of [refresh.tokenHash, "unknown-hash"]) {
+    expect(
+      await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, tokenHash }),
+    ).toMatchObject({ ok: false, error: "temporarily_unavailable" });
+  }
+  expect(
+    await t.mutation(api.resourceRequests.revoke, { ...auth, tokenHash: refresh.tokenHash }),
+  ).toBe("frozen");
+  expect(await t.query(api.resourceRequests.exportGrant, exportArgs)).toEqual({
+    ok: true,
+    upstreamRefreshToken: "upstream-refresh",
+    resource: RESOURCE,
+  });
+});
+
+test("an attempt that started before the freeze holds the grant until it saves the provider's answer", async () => {
+  const { t } = await grant();
+  const claim = await t.mutation(api.resourceRequests.claimRefresh, refresh);
+  if (!claim.ok) throw new Error("Expected a claim");
+  await freeze(t);
+  // An expired claim is not taken over, and a failure, even a rejection, leaves the grant held.
+  expect(
+    await t.mutation(api.resourceRequests.claimRefresh, { ...refresh, now: NOW + 60_001 }),
+  ).toMatchObject({ error: "temporarily_unavailable" });
+  await t.mutation(api.resourceRequests.failRefresh, {
+    grantId: claim.grantId,
+    attempt: claim.attempt,
+    rejected: true,
+  });
+  expect(
+    await t.query(api.resourceRequests.drainStatus, { clientId: auth.clientId, now: NOW }),
+  ).toEqual({ grants: 1, refreshStarted: 1, expired: 0 });
+  expect(await t.query(api.resourceRequests.exportGrant, exportArgs)).toEqual({
+    ok: false,
+    error: "refresh_in_progress",
+  });
+  // A saved answer frees the grant, and the export hands out the rotated token.
+  expect(
+    await t.mutation(api.resourceRequests.finishRefresh, {
+      grantId: claim.grantId,
+      attempt: claim.attempt,
+      tokens: { accessToken: "new-access", scope: "", refreshToken: "rotated" },
+      policy,
+      now: NOW + 1,
+    }),
+  ).toBe("released");
+  expect(await t.query(api.resourceRequests.exportGrant, exportArgs)).toMatchObject({
+    ok: true,
+    upstreamRefreshToken: "rotated",
+  });
+});
+
+test("cleanup, a code replay, and a client delete keep a frozen client and its expired grant", async () => {
+  const { t, exchange } = await grant();
+  await freeze(t);
+  const later = NOW + 91 * DAY;
+  expect(
+    await t.mutation(api.lifecycle.cleanup, {
+      now: later,
+      previewClientMaxAgeMs: DAY,
+      signInRetentionMs: 90 * DAY,
+    }),
+  ).toMatchObject({ previewClients: 0, refreshGrants: 0 });
+  expect(await t.mutation(api.authRequests.exchangeCode, exchange)).toMatchObject({
+    error: "invalid_grant",
+  });
+  expect(await t.mutation(api.clients.remove, { clientId: auth.clientId })).toEqual({
+    changed: false,
+  });
+  expect(
+    await t.query(api.resourceRequests.drainStatus, { clientId: auth.clientId, now: later }),
+  ).toEqual({ grants: 1, refreshStarted: 0, expired: 1 });
+  expect(await t.query(api.resourceRequests.exportGrant, { ...exportArgs, now: later })).toEqual({
+    ok: false,
+    error: "invalid_grant",
+  });
+});
+
+test("the export answers only the frozen client that owns the grant, under the refresh checks", async () => {
+  const { t } = await grant();
+  await t.run(async (ctx) => {
+    await ctx.db.insert("clients", {
+      clientId: "other-client",
+      appId: "app",
+      secretHash: auth.clientSecretHash,
+      registrationTokenHash: "other-token-hash",
+      tokenEndpointAuthMethod: auth.tokenEndpointAuthMethod,
+      redirectUris: ["https://other.example/cb"],
+      deploymentType: "preview",
+      clientName: "other",
+      softwareVersion: "test",
+      createdAt: NOW,
+      renewedAt: NOW,
+      ...testClientRecord,
+    });
+  });
+  const refused = (error: string) => ({ ok: false, error });
+  expect(await t.query(api.resourceRequests.exportGrant, exportArgs)).toEqual(
+    refused("not_frozen"),
+  );
+  await freeze(t);
+  await freeze(t, "other-client");
+  expect(
+    await t.query(api.resourceRequests.exportGrant, { ...exportArgs, clientId: "other-client" }),
+  ).toEqual(refused("invalid_grant"));
+  expect(
+    await t.query(api.resourceRequests.exportGrant, { ...exportArgs, tokenHash: "unknown-hash" }),
+  ).toEqual(refused("invalid_grant"));
+  expect(
+    await t.query(api.resourceRequests.exportGrant, { ...exportArgs, clientSecretHash: "wrong" }),
+  ).toEqual(refused("invalid_client"));
+  expect(
+    await t.query(api.resourceRequests.exportGrant, {
+      ...exportArgs,
+      policy: { ...policy, paused: true },
+    }),
+  ).toEqual(refused("invalid_client"));
+  expect(
+    await t.query(api.resourceRequests.exportGrant, {
+      ...exportArgs,
+      policy: { ...policy, resources: [] },
+    }),
+  ).toEqual(refused("invalid_target"));
+  await setBlock(t, "repository", "1", true);
+  expect(await t.query(api.resourceRequests.exportGrant, exportArgs)).toEqual(
+    refused("invalid_client"),
+  );
 });
