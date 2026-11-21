@@ -1,4 +1,4 @@
-// The app's own identity hub (packages/identity-broker-effect), deployed by the stage `prod` of
+// The app's own identity hub (packages/identity-broker), deployed by the stage `prod` of
 // alchemy.run.ts. Every stage's client names its issuer (src/hub-client.ts). Google accepts only
 // exact callback addresses, so the app has this one hub, at one fixed address, for all its stages.
 //
@@ -7,8 +7,8 @@
 // `prod`, the preview key only clients with a removal date. The Google client and the signing keys
 // (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import { Config } from "effect";
-import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
-import { stack } from "@samebase/identity-broker-effect/stack";
+import { hubWorker } from "@samebase/identity-broker/cloudflare";
+import { stack } from "@samebase/identity-broker/stack";
 
 export default hubWorker({
   main: import.meta.url,

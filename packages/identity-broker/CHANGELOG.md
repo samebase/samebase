@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.35.0
+
+- A new implementation in Effect replaces the package, with two hosts: a Convex component
+  (`./convex.config` and `convexHub` of `./convex`) and a Cloudflare Worker (`hubWorker` of
+  `./cloudflare`). A hub mounts one registration layer: `github` of `./convex`, or `stack` of
+  `./stack`. The README shows how to mount each.
+- Gone: `defineIdentityBroker`, the component's tables, the moderation API, the
+  `identity-broker keys` command, and `@samebase/identity-broker/test`. No data moves to the new
+  tables, so each client registers again. The README shows how to make `IDENTITY_BROKER_KEYS`.
+- `convex`, `effect`, and for the Cloudflare host `alchemy` and `@alchemy.run/cloudflare`, are peer
+  dependencies.
+
 ## 0.34.0
 
 - `cloudflareConnection` takes `scopes`, the Cloudflare API scopes that your apps need, and adds

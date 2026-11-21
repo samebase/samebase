@@ -154,7 +154,7 @@ const gitHubRepository = {
   html_url: "https://github.com/octocat/Hello-World",
 };
 
-/** The hub's moderation endpoints, as packages/identity-broker/src/client/moderation.ts answers them. */
+/** The hub's moderation endpoints, as src/client/moderation.ts of identity-broker 0.34.0 answers them. */
 function stubHub(answer?: (request: Request) => Response) {
   const requests: { url: string; method: string; authorization: string | null; body: unknown }[] =
     [];

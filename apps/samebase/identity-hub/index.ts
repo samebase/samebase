@@ -1,4 +1,4 @@
-// samebase.com's identity hub (packages/identity-broker-effect) at https://auth.samebase.com,
+// samebase.com's identity hub (packages/identity-broker) at https://auth.samebase.com,
 // which the stage `prod` of alchemy.run.ts deploys. Production, the previews of pull requests and
 // the development stages register on it, each with its own key.
 //
@@ -7,8 +7,8 @@
 // alchemy.run.ts makes. Each provider must list the callback of its connector or connection:
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import { Config } from "effect";
-import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
-import { stack } from "@samebase/identity-broker-effect/stack";
+import { hubWorker } from "@samebase/identity-broker/cloudflare";
+import { stack } from "@samebase/identity-broker/stack";
 
 export default hubWorker({
   main: import.meta.url,

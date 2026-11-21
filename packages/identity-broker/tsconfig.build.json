@@ -1,5 +1,25 @@
 {
+  // The published build: each entry of `publishConfig.exports`, the component's modules, and what they import.
   "extends": "./tsconfig.json",
-  "include": ["src/**/*"],
-  "exclude": ["src/**/*.test.*", "src/test.ts"]
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": [],
+  "files": [
+    "src/hosts/convex/component/convex.config.ts",
+    "src/hosts/convex/component/commands.ts",
+    "src/hosts/convex/component/schema.ts",
+    "src/hosts/convex/component/_generated/api.ts",
+    "src/hosts/convex/component/_generated/component.ts",
+    "src/hosts/convex/component/_generated/dataModel.ts",
+    "src/hosts/convex/component/_generated/server.ts",
+    "src/hosts/convex/hub.ts",
+    "src/hosts/cloudflare/hub.ts",
+    "src/layers/stack/routes.ts",
+    "src/core/testing/harness.ts"
+  ]
 }

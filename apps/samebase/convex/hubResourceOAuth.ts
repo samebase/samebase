@@ -31,7 +31,7 @@ export const HUB_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
 A code exchange or a refresh at the hub. The hub waits up to 30 s for the provider
-(`FORWARD_TIMEOUT_MS` in packages/identity-broker-effect), and a provider that answers late has
+(`FORWARD_TIMEOUT_MS` in packages/identity-broker), and a provider that answers late has
 already rotated its refresh token: an earlier abort here would lose the only copy of the new one.
 */
 const HUB_TOKEN_TIMEOUT_MS = 35_000;

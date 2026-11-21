@@ -66,7 +66,8 @@ jobs:
         if: steps.version.outputs.publish == 'true'
         run: pnpm --filter @samebase/identity-broker run check
 
-      # pnpm pack replaces catalog: versions with real ones, and prepack builds.
+      # pnpm pack replaces catalog: versions with real ones and `exports` with the dist paths of
+      # `publishConfig.exports`, and prepack builds.
       - name: Publish the release
         if: steps.version.outputs.publish == 'true'
         run: |
