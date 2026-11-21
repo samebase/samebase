@@ -25,12 +25,11 @@
 //
 // Each deployment has one client of the identity hub (RFC 134, 137), with two return addresses: the
 // sign-in with GitHub and Google comes back to Convex Auth's route, a provider connection to our own
-// (convex/http.ts). Production asks auth2.samebase.com at `POST /register` with the production key,
-// and a preview with the preview key; `prod` makes both keys. A development stage asks
-// auth.samebase.com with the initial access token that production's old client saved. The
-// production and development clients are `required`: a deploy fails rather than ship guest sign-in
-// or a client that the hub stopped. Before `prod` made the preview key, a preview gets the off
-// values and guest sign-in.
+// (convex/http.ts). Each stage asks auth2.samebase.com at `POST /register` with its key: production
+// with the production key, a preview with the preview key, a development stage with the development
+// key; `prod` makes the three keys. The production and development clients are `required`: a
+// deploy fails rather than ship guest sign-in or a client that the hub stopped. Before `prod` made
+// the preview key, a preview gets the off values and guest sign-in.
 //   npx alchemy plan --stage prod --no-input
 import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
@@ -60,25 +59,21 @@ const callbacks = (siteUrl: string) => [
 ];
 /**
 The app of this repository on the identity hub, named before the default (the stack's path,
-`apps/samebase`) existed. The name groups the clients and the initial access token that a
-development stage reads from `prod`; it plays no part in user ids.
+`apps/samebase`) existed. The name groups the clients; it plays no part in user ids.
 */
 const APP = "samebase";
 /** The hub's connectors that the sign-in buttons name (convex/auth.ts). */
 const CONNECTORS = ["google", "github"];
 /**
-The old identity hub, where the development clients register. Production's old client stays
-registered there: the development stages read its initial access token.
+The identity hub (identity-hub/index.ts), where every stage registers. The issuer follows from the
+hub's domain there; this file names it and does not import it.
 */
-const HUB = { issuer: "https://auth.samebase.com" };
-/**
-The new identity hub (identity-hub/index.ts), where production and the previews register. The
-issuer follows from the hub's domain there; this file names it and does not import it.
-*/
-const NEW_HUB = { issuer: "https://auth2.samebase.com" };
-/** The resource id of the new hub's preview key, which `prod` makes and the previews read. */
+const HUB = { issuer: "https://auth2.samebase.com" };
+/** The resource id of the hub's preview key, which `prod` makes and the previews read. */
 const PREVIEW_KEY = "HubPreviewKey";
-/** The resource id of the new hub's production key, which `prod` makes. Its clients are permanent. */
+/** The resource id of the hub's development key, which `prod` makes and the development stages read. */
+const DEVELOPMENT_KEY = "HubDevelopmentKey";
+/** The resource id of the hub's production key, which `prod` makes. Its clients are permanent. */
 const PRODUCTION_KEY = "HubProductionKey";
 
 /**
@@ -102,8 +97,8 @@ export default Alchemy.Stack(
       // A development checkout: the logged-in local deployment of this folder, which `convex dev`
       // runs and pushes. `pnpm run dev` runs this stage once the backend answers. The client is a
       // development client on the backend's site port, which stays fixed for the folder, and it
-      // asks the hub with the initial access token that production's registration saved in the
-      // state of `prod`. "Site" only writes the three variables.
+      // asks the hub with the development key from the state of `prod`. The hub removes it 14 days
+      // after its last run. "Site" only writes the three variables.
       const local = Convex.LocalDeployment.of();
       const hub = IdentityHub.Client.variables(
         yield* IdentityHub.Client("HubClient", {
@@ -112,8 +107,7 @@ export default Alchemy.Stack(
           connectors: CONNECTORS,
           redirectUris: callbacks(local.siteUrl),
           deploymentType: "development",
-          initialAccessToken: IdentityHub.Client.read("HubClient", { stage: "prod" })
-            .initialAccessToken,
+          key: yield* IdentityHub.registrationKey(DEVELOPMENT_KEY, { stage: "prod" }),
           softwareVersion: commit,
           required: true,
         }),
@@ -155,7 +149,7 @@ export default Alchemy.Stack(
       const hub = IdentityHub.Client.variables(
         yield* IdentityHub.Client("HubClient", {
           app: APP,
-          hub: NEW_HUB,
+          hub: HUB,
           connectors: CONNECTORS,
           redirectUris: Output.map(preview.siteUrl, callbacks),
           deploymentType: "preview",
@@ -186,26 +180,14 @@ export default Alchemy.Stack(
       Alchemy.RemovalPolicy.retain(),
     );
 
-    // Production's old client on auth.samebase.com. samebase.com no longer uses it; it stays for
-    // the initial access token that the development stages read. A destroy leaves it on the hub.
-    yield* IdentityHub.Client("HubClient", {
-      app: APP,
-      hub: HUB,
-      connectors: CONNECTORS,
-      redirectUris: callbacks(PRODUCTION_SITE_URL),
-      deploymentType: "production",
-      softwareVersion: commit,
-      required: true,
-    });
-
-    // The production client on auth2.samebase.com, on the callbacks of samebase.com. It registers
+    // The production client, on the callbacks of samebase.com. It registers
     // before "Site" pushes, and "Site" keeps every variable it owned before. The production key
     // makes it permanent.
     const productionKey = yield* IdentityHub.registrationKey(PRODUCTION_KEY, { stage: "prod" });
     const hub = IdentityHub.Client.variables(
       yield* IdentityHub.Client("Hub2Client", {
         app: APP,
-        hub: NEW_HUB,
+        hub: HUB,
         connectors: CONNECTORS,
         redirectUris: callbacks(PRODUCTION_SITE_URL),
         deploymentType: "production",
@@ -268,13 +250,16 @@ export default Alchemy.Stack(
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
-    // The new hub and its keys: the preview key, which the previews read from this stage's state,
-    // and the production key. The hub binds its other secrets from the account's Secrets Store
-    // itself (identity-hub/index.ts).
-    const newHub = yield* Hub;
-    yield* newHub.bind("RegistrationKeys", {
+    // The hub and its keys: the preview and development keys, which the other stages read from
+    // this stage's state, and the production key. The hub binds its other secrets from the
+    // account's Secrets Store itself (identity-hub/index.ts).
+    const hubWorker = yield* Hub;
+    yield* hubWorker.bind("RegistrationKeys", {
       env: {
         SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
+          stage: "prod",
+        }),
+        SAMEBASE_HUB_DEVELOPMENT_KEY: yield* IdentityHub.registrationKey(DEVELOPMENT_KEY, {
           stage: "prod",
         }),
         SAMEBASE_HUB_PRODUCTION_KEY: productionKey,

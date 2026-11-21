@@ -1,12 +1,10 @@
-// samebase.com's new identity hub (packages/identity-broker-effect) at https://auth2.samebase.com,
-// which the stage `prod` of alchemy.run.ts deploys. The previews of pull requests register on it
-// with the preview key. The production key is there for production's move from
-// https://auth.samebase.com; until then no client registers with it. Development stays on
-// https://auth.samebase.com.
+// samebase.com's identity hub (packages/identity-broker-effect) at https://auth2.samebase.com,
+// which the stage `prod` of alchemy.run.ts deploys. Production, the previews of pull requests and
+// the development stages register on it, each with its own key.
 //
 // The provider clients and the signing keys are secrets of the account's Cloudflare Secrets Store,
-// bound to the Worker by name (`secretsStore` below). The preview and production keys are the
-// bindings that alchemy.run.ts makes. Each provider must list the callback of its connector or connection:
+// bound to the Worker by name (`secretsStore` below). The three keys are the bindings that
+// alchemy.run.ts makes. Each provider must list the callback of its connector or connection:
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import { Config } from "effect";
 import { hubWorker } from "@samebase/identity-broker-effect/cloudflare";
@@ -72,12 +70,16 @@ export default hubWorker({
       IDENTITY_BROKER_KEYS: "SAMEBASE_HUB_IDENTITY_BROKER_KEYS",
     },
   },
-  // Two keys, each for clients that may use the three connections: a preview client has a removal
-  // date, a production client is permanent.
+  // Three keys, each for clients that may use the three connections: a preview or development
+  // client has a removal date, a production client is permanent.
   registration: stack({
     keys: {
       preview: {
         key: Config.Redacted("SAMEBASE_HUB_PREVIEW_KEY"),
+        connections: ["convex", "cloudflare", "github"],
+      },
+      development: {
+        key: Config.Redacted("SAMEBASE_HUB_DEVELOPMENT_KEY"),
         connections: ["convex", "cloudflare", "github"],
       },
       production: {
