@@ -97,7 +97,7 @@
       "post": {
         "operationId": "account-creation",
         "summary": "Create an Account",
-        "description": "Create an Account. To create the Account within an Organization, provide `unit.id` and omit `standalone`. To create a standalone Free Account, provide `standalone: true` and omit `unit`. Providing both fields is invalid. If you omit both fields, Cloudflare can determine the destination only when the User is an administrator of exactly one Organization. Cloudflare creates the Account in that Organization; otherwise, the request returns an error.",
+        "description": "Create an Account. To create the Account within an Organization, provide `unit.id` and omit `standalone`. To create a standalone Free Account, provide `standalone: true` and omit `unit`. Providing both fields is invalid. If you omit both fields, Cloudflare can determine the destination only when the User is an administrator of exactly one Organization. Cloudflare creates the Account in that Organization; otherwise, the request returns an error. Account names are limited to 65 UTF-8 bytes.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -519,8 +519,7 @@
         "x-fern-availability": "generally-available",
         "x-fern-ignore": true,
         "x-fern-sdk-group-name": "builds.latest",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/builds/repos/{provider_type}/{provider_account_id}/{repo_id}/config_autofill": {
@@ -613,8 +612,7 @@
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.repos.config-autofill",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/accounts/{account_id}/builds/repos/connections": {
@@ -677,8 +675,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.repos.connections",
-        "x-fern-sdk-method-name": "upsert",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "upsert"
       }
     },
     "/accounts/{account_id}/builds/repos/connections/{repo_connection_uuid}": {
@@ -718,8 +715,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.repos.connections",
-        "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "delete"
       }
     },
     "/accounts/{account_id}/builds/tokens": {
@@ -845,8 +841,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.tokens",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/builds/tokens/{build_token_uuid}": {
@@ -891,8 +886,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.tokens",
-        "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "delete"
       }
     },
     "/accounts/{account_id}/builds/triggers": {
@@ -955,8 +949,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}": {
@@ -997,7 +990,6 @@
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true,
         "x-forge-require-confirmation": "This operation deletes the build trigger and cancels its unfinished builds."
       },
       "patch": {
@@ -1065,8 +1057,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds": {
@@ -1132,8 +1123,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables": {
@@ -1189,8 +1179,7 @@
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers.environment-variables",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       },
       "patch": {
         "operationId": "upsertEnvironmentVariables",
@@ -1257,8 +1246,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers.environment-variables",
-        "x-fern-sdk-method-name": "upsert",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "upsert"
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables/{environment_variable_key}": {
@@ -1306,8 +1294,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers.environment-variables",
-        "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "delete"
       }
     },
     "/accounts/{account_id}/builds/triggers/{trigger_uuid}/purge_build_cache": {
@@ -1348,7 +1335,6 @@
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers.cache",
         "x-fern-sdk-method-name": "purge",
-        "x-forge-hidden": true,
         "x-forge-require-confirmation": "This operation purges the build cache for a Workers Builds trigger."
       }
     },
@@ -1590,8 +1576,7 @@
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "builds.triggers",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks": {
@@ -2198,8 +2183,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-builds.workers",
-        "x-fern-sdk-method-name": "migrate-to-previews",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "migrate-to-previews"
       }
     },
     "/accounts/{account_id}/builds/workers/{script_tag}/previews": {
@@ -2267,8 +2251,7 @@
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-builds.workers.previews",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       }
     },
     "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}": {
@@ -2330,8 +2313,7 @@
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-builds.workers.previews",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "patch": {
         "operationId": "updateWorkerPreview",
@@ -2413,8 +2395,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-builds.workers.previews",
-        "x-fern-sdk-method-name": "edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "edit"
       }
     },
     "/accounts/{account_id}/builds/workers/{script_tag}/previews/{preview_id}/builds": {
@@ -2488,8 +2469,7 @@
         "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-builds.workers.previews",
-        "x-fern-sdk-method-name": "list-builds",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list-builds"
       },
       "post": {
         "operationId": "createPreviewBuild",
@@ -2562,8 +2542,7 @@
         "x-api-token-group": ["Workers CI Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "workers-builds.workers.previews",
-        "x-fern-sdk-method-name": "create-build",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create-build"
       }
     },
     "/accounts/{account_id}/workers/account-settings": {
@@ -26531,6 +26510,21 @@
                 "example": "Demo Parent Organization",
                 "readOnly": true,
                 "x-auditable": true
+              },
+              "root_org_id": {
+                "description": "ID of the root Organization, if one exists",
+                "type": "string",
+                "example": "46f0a1ce86ec3d91fae00db3b8b48cee",
+                "maxLength": 32,
+                "readOnly": true,
+                "x-auditable": true
+              },
+              "should_display_parent_orgs": {
+                "description": "Indicates whether the parent Organization hierarchy should be displayed",
+                "type": "boolean",
+                "example": true,
+                "readOnly": true,
+                "x-auditable": true
               }
             }
           },
@@ -26538,7 +26532,6 @@
             "description": "Account name",
             "type": "string",
             "example": "Demo Account",
-            "maxLength": 100,
             "x-auditable": true
           },
           "settings": {
@@ -26620,7 +26613,7 @@
         "type": "object",
         "properties": {
           "name": {
-            "description": "Account name",
+            "description": "Account name, limited to 65 UTF-8 bytes.",
             "type": "string"
           },
           "standalone": {
@@ -27838,12 +27831,10 @@
         "type": "object",
         "properties": {
           "build_caching_enabled": {
-            "default": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/builds_build_caching_enabled"
-              }
-            ]
+            "description": "Whether builds reuse cached dependencies and build artifacts.",
+            "type": "boolean",
+            "example": true,
+            "default": true
           },
           "build_command": {
             "$ref": "#/components/schemas/builds_build_command"
@@ -29402,6 +29393,19 @@
               "cache_options": {
                 "$ref": "#/components/schemas/workers_cache_options"
               },
+              "code_update_strategy": {
+                "description": "Choose whether to apply Durable Object code updates immediately or defer them. When omitted, the default strategy applies.",
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/workers_code_update_strategy"
+                  },
+                  {
+                    "enum": [null],
+                    "nullable": true,
+                    "type": "object"
+                  }
+                ]
+              },
               "compatibility_date": {
                 "$ref": "#/components/schemas/workers_compatibility_date"
               },
@@ -30756,7 +30760,7 @@
         "type": "object",
         "properties": {
           "identity": {
-            "description": "Enables Gateway identity for the binding. Requires network_id to be \"cf1:network\" and cannot be combined with tunnel_id.\n",
+            "description": "Enables Gateway identity for the binding. Requires network_id to be \"cf1:network\" and cannot be combined with tunnel_id or an explicit \"cf1:vnet:<UUID>\" network_id.\n",
             "type": "string",
             "enum": ["runtime-email-alpha"],
             "x-auditable": true
@@ -30765,7 +30769,7 @@
             "$ref": "#/components/schemas/workers_binding_name"
           },
           "network_id": {
-            "description": "Identifier of the network to bind to. Only \"cf1:network\" is currently supported. Mutually exclusive with tunnel_id.\n",
+            "description": "Identifier of the network to bind to. Use \"cf1:network\" to select the account's default virtual network at runtime, or \"cf1:vnet:<UUID>\" to select an explicit virtual network in the Worker's account. Mutually exclusive with tunnel_id.\n",
             "type": "string",
             "example": "cf1:network",
             "x-auditable": true
@@ -30784,6 +30788,43 @@
           }
         },
         "required": ["name", "type"]
+      },
+      "workers_code_update_strategy": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "description": "Apply Durable Object code updates immediately.",
+                "type": "string",
+                "enum": ["immediate"]
+              }
+            },
+            "required": ["mode"],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "max_delay": {
+                "description": "Set the maximum number of seconds to wait before forcing the update. When omitted, the default maximum delay applies.",
+                "type": "number",
+                "maximum": 86400,
+                "minimum": 0,
+                "multipleOf": 0.001,
+                "nullable": true
+              },
+              "mode": {
+                "description": "Allow active Durable Objects to hibernate before updating their code.",
+                "type": "string",
+                "enum": ["deferred"]
+              }
+            },
+            "required": ["mode"],
+            "type": "object"
+          }
+        ],
+        "x-auditable": true
       },
       "workers_exports_reconciliation_result": {
         "description": "Summary of what the declarative exports reconciliation did on this\nupload. Present only on uploads that included an `exports` block.\nReconciliation acts on Durable Object entries; `type: worker`\nentries in the same map do not participate. Every array is always\npresent (possibly empty) so clients can iterate unconditionally.\nClients should surface `warnings` prominently, render `info` at\nlower visibility, and use `removable_entries` as the \"safe to\ndelete from your config\" hint.\n",
@@ -33556,6 +33597,15 @@
                 "description": "Human-readable name for this span.",
                 "type": "string"
               },
+              "spanStatus": {
+                "description": "OpenTelemetry span status. Present only on spans. `unset` when the span did not set a status, including spans recorded before status was captured.",
+                "type": "string",
+                "enum": ["unset", "ok", "error"]
+              },
+              "spanStatusMessage": {
+                "description": "OpenTelemetry span status message. Present only on spans when the status is `error` and a message was set.",
+                "type": "string"
+              },
               "stackId": {
                 "description": "Stack / deployment identifier.",
                 "type": "string"
@@ -34109,6 +34159,21 @@
             "type": "string",
             "format": "email",
             "readOnly": true,
+            "x-auditable": true
+          },
+          "code_update_strategy": {
+            "description": "Choose whether to apply Durable Object code updates immediately or defer them. When omitted, the default strategy applies.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/workers_code_update_strategy"
+              },
+              {
+                "enum": [null],
+                "nullable": true,
+                "type": "object"
+              }
+            ],
+            "writeOnly": true,
             "x-auditable": true
           },
           "created_on": {
@@ -36776,19 +36841,23 @@
         "description": "Authentication required",
         "content": {
           "application/json": {
-            "example": {
-              "errors": [
-                {
-                  "code": 12005,
-                  "message": "Missing token from authorization header"
-                }
-              ],
-              "messages": [],
-              "result": null,
-              "success": false
-            },
             "schema": {
-              "$ref": "#/components/schemas/builds_ErrorResponse"
+              "example": {
+                "errors": [
+                  {
+                    "code": 12005,
+                    "message": "Missing token from authorization header"
+                  }
+                ],
+                "messages": [],
+                "result": null,
+                "success": false
+              },
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/builds_ErrorResponse"
+                }
+              ]
             }
           }
         }
@@ -36797,19 +36866,23 @@
         "description": "Resource not found",
         "content": {
           "application/json": {
-            "example": {
-              "errors": [
-                {
-                  "code": 12000,
-                  "message": "Not found"
-                }
-              ],
-              "messages": [],
-              "result": null,
-              "success": false
-            },
             "schema": {
-              "$ref": "#/components/schemas/builds_ErrorResponse"
+              "example": {
+                "errors": [
+                  {
+                    "code": 12000,
+                    "message": "Not found"
+                  }
+                ],
+                "messages": [],
+                "result": null,
+                "success": false
+              },
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/builds_ErrorResponse"
+                }
+              ]
             }
           }
         }
@@ -36834,19 +36907,23 @@
         "description": "Invalid request",
         "content": {
           "application/json": {
-            "example": {
-              "errors": [
-                {
-                  "code": 12002,
-                  "message": "Invalid request body"
-                }
-              ],
-              "messages": [],
-              "result": null,
-              "success": false
-            },
             "schema": {
-              "$ref": "#/components/schemas/builds_ErrorResponse"
+              "example": {
+                "errors": [
+                  {
+                    "code": 12002,
+                    "message": "Invalid request body"
+                  }
+                ],
+                "messages": [],
+                "result": null,
+                "success": false
+              },
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/builds_ErrorResponse"
+                }
+              ]
             }
           }
         }
@@ -36855,19 +36932,23 @@
         "description": "Conflict - duplicate resource",
         "content": {
           "application/json": {
-            "example": {
-              "errors": [
-                {
-                  "code": 12049,
-                  "message": "Resource already exists"
-                }
-              ],
-              "messages": [],
-              "result": null,
-              "success": false
-            },
             "schema": {
-              "$ref": "#/components/schemas/builds_ErrorResponse"
+              "example": {
+                "errors": [
+                  {
+                    "code": 12049,
+                    "message": "Resource already exists"
+                  }
+                ],
+                "messages": [],
+                "result": null,
+                "success": false
+              },
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/builds_ErrorResponse"
+                }
+              ]
             }
           }
         }
