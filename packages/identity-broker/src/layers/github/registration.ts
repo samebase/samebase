@@ -263,6 +263,7 @@ export const createClient = Effect.fnUntraced(function* (
     githubOwnerId: args.githubOwnerId,
     at: now,
   });
+  yield* tx.insert("registrations", { at: now });
   if (args.deployment.type === "production") {
     const previous = tokens.find(
       (token) => token.doc.app === args.app && token.doc.githubOwnerId === args.githubOwnerId,
@@ -375,5 +376,6 @@ export const createDevelopmentClient = Effect.fnUntraced(function* (
     githubOwnerId: token.doc.githubOwnerId,
     at: now,
   });
+  yield* tx.insert("registrations", { at: now });
   return { ok: true as const, createdAt: now, clientName: "development", tenantId };
 });

@@ -16,9 +16,10 @@ Worker with one Durable Object.
 
 ![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
-0.35.0 replaces the implementation of 0.34.0 and earlier. Their tables, their moderation API and the
+0.35.0 replaces the implementation of 0.34.0 and earlier. Their tables and the
 `identity-broker keys` command are gone, and no data moves: each client registers again on its next
-deploy.
+deploy. The moderation API is back since 0.37.0 ([Moderation](#moderation)), with the same requests
+and answers, and the errors of RFC 6750.
 
 ## Registration
 
@@ -26,8 +27,12 @@ A hub mounts one registration layer, which decides who may register a client:
 
 Both are exports of `@samebase/identity-broker`.
 
-- `github(allowList)`: a GitHub Actions workflow of an allowed repository registers with its OIDC
-  token. Each entry is `{ repositoryId, ownerId }`, GitHub's numeric ids.
+- `github(allowList, options)`: a GitHub Actions workflow registers with its OIDC token. The
+  allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric ids: an entry
+  without `repositoryId` covers every repository of that owner. A repository it covers gets every
+  connector of the hub; another one gets only what a connector grant gives it
+  ([Moderation](#moderation)). `options.paused`, a `Config<boolean>` read in each request, refuses
+  every registration and every sign-in step while it is `true`.
 - `stack({ keys })`: a client registers with one of the hub's keys, as `IdentityHub.Client` of
   [`@samebase/alchemy-convex`](https://www.npmjs.com/package/@samebase/alchemy-convex) does. A key
   with `permanent: true` may make production clients; the clients of other keys get a removal date.
@@ -156,6 +161,86 @@ export default Alchemy.Stack(
 
 `alchemy deploy` deploys the Worker. The Worker's name, the object's class `Hub` and its one
 instance are the address of all the hub's data: a new name starts with empty storage.
+
+## Moderation
+
+The GitHub layer can mount the moderation API, for the hub's administrator page. Every request needs
+the moderation key as a Bearer token.
+
+```ts
+import { Config } from "effect";
+import { github } from "@samebase/identity-broker";
+import { moderation } from "@samebase/identity-broker/moderation";
+
+const registration = github("any", {
+  moderation: moderation({ key: Config.Redacted("IDENTITY_HUB_MODERATION_KEY") }),
+});
+```
+
+Give `registration` to `convexHub` or `hubWorker`. A hub without `moderation` has no `/moderation`
+route. The hub reads the key in each request, and refuses every request while it is unset or empty.
+On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound, or name it in
+`secretsStore`.
+
+| Request                                    | Answer                                                               |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| `GET /moderation/counts`                   | The registrations of the last day and of the last week               |
+| `GET`, `POST /moderation/blocks`           | The blocks and their history; block or unblock a repository or owner |
+| `GET`, `POST /moderation/sign-in-page`     | The exemptions from the sign-in page; set or remove one              |
+| `GET`, `POST /moderation/connector-grants` | The connector grants; grant or revoke one                            |
+| `GET /moderation/clients`                  | The newest clients, or with `?owner=` those of one GitHub owner      |
+| `DELETE /moderation/clients/<client id>`   | Deletes one client                                                   |
+
+A change applies at once: a block refuses the next step of each sign-in, and a grant or an exemption
+rewrites the clients it covers.
+
+`@samebase/identity-broker/moderation/api` declares the API with `HttpApi` of `effect/http-api` and
+imports no server code, so a browser or a Convex action can import it alone. The same declaration
+gives a typed client and the OpenAPI document:
+
+```ts
+import { Effect } from "effect";
+import { FetchHttpClient, HttpClientRequest } from "effect/http";
+import { HttpApiClient, HttpApiMiddleware, OpenApi } from "effect/http-api";
+import { ModerationApi, ModerationKey } from "@samebase/identity-broker/moderation/api";
+
+const blockRepository = (key: string, repositoryId: string) =>
+  Effect.gen(function* () {
+    const { moderation } = yield* HttpApiClient.make(ModerationApi, {
+      baseUrl: "https://auth.example.com",
+    });
+    return yield* moderation.changeBlock({
+      payload: {
+        action: "block",
+        kind: "repository",
+        githubId: repositoryId,
+        reason: "Spam",
+        adminEmail: "admin@example.com",
+      },
+    });
+  }).pipe(
+    Effect.provide(
+      HttpApiMiddleware.layerClient(ModerationKey, ({ next, request }) =>
+        next(HttpClientRequest.bearerToken(request, key)),
+      ),
+    ),
+    Effect.provide(FetchHttpClient.layer),
+  );
+
+const openApi = OpenApi.fromApi(ModerationApi);
+```
+
+An error answer is a JSON object with `error` and `error_description`
+([RFC 6749 section 5.2](https://www.rfc-editor.org/rfc/rfc6749.html#section-5.2)), and every answer
+has `Cache-Control: no-store`. The typed client fails with the error's class.
+
+| Status | `error`             | When                                                                                       |
+| ------ | ------------------- | ------------------------------------------------------------------------------------------ |
+| 401    |                     | No Bearer token: no body, and `WWW-Authenticate: Bearer realm="moderation"`                |
+| 401    | `invalid_token`     | Not the key, with `WWW-Authenticate: Bearer error="invalid_token"` (RFC 6750 section 3.1)  |
+| 400    | `invalid_request`   | A path, query or body that does not decode                                                 |
+| 400    | `unknown_connector` | A grant of a connector that the hub does not have                                          |
+| 409    | `owner_changed`     | A grant or an exemption for an owner while the hub records another owner of the repository |
 
 ## Write your own host
 

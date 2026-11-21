@@ -1,5 +1,6 @@
 // The argument and result schemas of the GitHub layer's commands. Plain JSON on both sides.
 import { Schema } from "effect";
+import { ConnectorGrantChange, SignInPageChange } from "../../moderation/api.ts";
 import { TokenEndpointAuthMethod } from "../../rules/tables.ts";
 
 const Str = Schema.String;
@@ -7,8 +8,14 @@ const Num = Schema.Finite;
 const Strs = Schema.Array(Str);
 const opt = Schema.optionalKey;
 
-/** The settings' allow-list, given whole to each command that writes a card. */
-export const AllowList = Schema.Array(Schema.Struct({ repositoryId: Str, ownerId: Str }));
+/**
+ * The settings' allow-list, given whole to each command that writes a card: `"any"`, or entries of
+ * an owner, each for one repository of that owner or, without `repositoryId`, for every one.
+ */
+export const AllowList = Schema.Union([
+  Schema.Literal("any"),
+  Schema.Array(Schema.Struct({ ownerId: Str, repositoryId: opt(Str) })),
+]);
 
 /** What a command that writes a card reads of the hub's settings. */
 const settings = {
@@ -146,6 +153,27 @@ export const RenewResult = Schema.Union([
     error: Schema.Literals(["invalid_token", "suspended"]),
   }),
 ]);
+
+export const ConnectorGrantsArgs = Schema.Struct({ configured: Strs });
+
+/** A change of a grant or an exemption, refused while the hub records another owner. */
+export const OwnerChangeResult = Schema.Union([
+  Schema.Struct({ ok: Schema.Literal(true), changed: Schema.Boolean }),
+  Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("owner_changed") }),
+]);
+
+export const ChangeSignInPageArgs = Schema.Struct({ ...SignInPageChange.fields, ...settings });
+
+export const ChangeConnectorGrantArgs = Schema.Struct({
+  ...ConnectorGrantChange.fields,
+  ...settings,
+});
+
+/** Every client, or with `owner` those of the repositories whose recorded owner it is. */
+export const ClientsArgs = Schema.Struct({ owner: opt(Str), ...settings });
+
+/** With `owner`, only while the client's repository is recorded under that owner. */
+export const DeleteClientArgs = Schema.Struct({ clientId: Str, owner: opt(Str) });
 
 export const RemoveArgs = Schema.Struct({ clientId: Str, registrationTokenHash: Str });
 export const RemoveResult = Schema.Union([

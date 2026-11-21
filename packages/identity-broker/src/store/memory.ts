@@ -43,6 +43,10 @@ const copyRows = (rows: Rows | undefined): Rows => ({
   rateLimits: new Map(rows?.rateLimits),
   connectionRequests: new Map(rows?.connectionRequests),
   connectionCodes: new Map(rows?.connectionCodes),
+  registrations: new Map(rows?.registrations),
+  blocks: new Map(rows?.blocks),
+  blockEvents: new Map(rows?.blockEvents),
+  everyAppExemptions: new Map(rows?.everyAppExemptions),
 });
 
 const keysOf = (table: TableName, doc: unknown): Record<string, ReadonlyArray<IndexValue>> => {
@@ -138,6 +142,10 @@ export class MemoryDb {
       rateLimits: docs("rateLimits"),
       connectionRequests: docs("connectionRequests"),
       connectionCodes: docs("connectionCodes"),
+      registrations: docs("registrations"),
+      blocks: docs("blocks"),
+      blockEvents: docs("blockEvents"),
+      everyAppExemptions: docs("everyAppExemptions"),
     };
   }
 

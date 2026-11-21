@@ -11,6 +11,7 @@ import {
   TEST_ISSUER,
   txnCookie,
 } from "../../../core/testing/harness.ts";
+import type { Route } from "../../../core/router.ts";
 import { first } from "../../../store/Tx.ts";
 import { ownerStop, refOf, repositoryStop, tenantIdOf } from "../clients.ts";
 import { githubRoutes } from "../routes.ts";
@@ -51,7 +52,12 @@ export const TEST_ALLOW_LIST: typeof AllowList.Type = TEST_REPOSITORIES.flatMap(
  * changes for the next command. The clock starts at `EPOCH`.
  */
 export async function createHub(
-  options: { allowList?: typeof AllowList.Type; seed?: number } = {},
+  options: {
+    allowList?: typeof AllowList.Type;
+    seed?: number;
+    /** The routes of `moderation` (src/moderation/server.ts), mounted as `github` does. */
+    moderation?: ReadonlyArray<Route<GithubSettings>>;
+  } = {},
 ) {
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
@@ -62,11 +68,13 @@ export async function createHub(
     ...(options.seed === undefined ? {} : { seed: options.seed }),
     // Each request reads the allow-list of that moment, as a host reads its settings.
     registration: {
-      routes: githubRoutes.map((route) => ({
+      routes: [...githubRoutes, ...(options.moderation ?? [])].map((route) => ({
         ...route,
         handler: (request: Request) =>
           Effect.suspend(() =>
-            route.handler(request).pipe(Effect.provideService(GithubSettings, { allowList })),
+            route
+              .handler(request)
+              .pipe(Effect.provideService(GithubSettings, { allowList, paused: false })),
           ),
       })),
     },

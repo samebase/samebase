@@ -1,6 +1,7 @@
-import { Effect } from "effect";
+import { Config, Effect, Layer } from "effect";
 import type { Registration, Route } from "../../core/router.ts";
 import { updateClient } from "../clientRegistration.ts";
+import { GATE_PREFIX } from "./clients.ts";
 import { deleteClient, readClient } from "./manage.ts";
 import { registerClient } from "./register.ts";
 import { GithubSettings } from "./settings.ts";
@@ -42,14 +43,37 @@ export const githubRoutes: ReadonlyArray<Route<GithubSettings>> = [
   },
 ];
 
+export type GithubOptions = {
+  /**
+   * `true` refuses every registration and every sign-in step of the layer's clients, such as
+   * `Config.boolean("APPS_PAUSED").pipe(Config.withDefault(false))`. Read in each request.
+   */
+  readonly paused?: Config.Config<boolean>;
+  /** The moderation API (`moderation` of `@samebase/identity-broker/moderation`). */
+  readonly moderation?: ReadonlyArray<Route<GithubSettings>>;
+};
+
 /**
  * The GitHub layer as a hub's one registration layer: its routes with the allow-list, the
- * repositories whose cards get every configured connector while the named owner owns them.
+ * repositories whose cards get every configured connector while the named owner owns them. While
+ * the hub is paused, its gates refuse every card of the layer.
  */
-export const github = (allowList: typeof AllowList.Type): Registration => ({
-  routes: githubRoutes.map((route) => ({
-    ...route,
-    handler: (request: Request) =>
-      route.handler(request).pipe(Effect.provide(GithubSettings.layer(allowList))),
-  })),
-});
+export const github = (
+  allowList: typeof AllowList.Type,
+  options: GithubOptions = {},
+): Registration => {
+  const paused = Effect.gen(function* () {
+    return options.paused === undefined ? false : yield* options.paused;
+  }).pipe(Effect.orDie);
+  const settings = Layer.effect(
+    GithubSettings,
+    Effect.map(paused, (value) => GithubSettings.of({ allowList, paused: value })),
+  );
+  return {
+    routes: [...githubRoutes, ...(options.moderation ?? [])].map((route) => ({
+      ...route,
+      handler: (request: Request) => route.handler(request).pipe(Effect.provide(settings)),
+    })),
+    liveGates: Effect.map(paused, (value) => (value ? [{ prefix: GATE_PREFIX, live: [] }] : [])),
+  };
+};

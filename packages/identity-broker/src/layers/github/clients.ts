@@ -7,7 +7,7 @@ import { LEASE_MS } from "../../rules/clients.ts";
 import type { Step } from "../../rules/commands.ts";
 import type { Doc, Tables } from "../../store/tables.ts";
 import { allBelow, first, unique, type Row } from "../../store/Tx.ts";
-import type { RemoveArgs, RenewArgs } from "./schemas.ts";
+import type { AllowList as AllowListSchema, RemoveArgs, RenewArgs } from "./schemas.ts";
 import { GithubTx } from "./tables.ts";
 
 /** The clients of one app in each of its two budgets: production, and previews with development servers. */
@@ -29,18 +29,29 @@ export const tenantIdOf = (githubRepositoryDatabaseId: string) =>
   `gh-${githubRepositoryDatabaseId}`;
 
 /** The GitHub repository id of a tenant `gh-<id>`. */
-const repositoryIdOf = (tenantId: string) => tenantId.slice("gh-".length);
+export const repositoryIdOf = (tenantId: string) => tenantId.slice("gh-".length);
 
 /** A card's `ref` and `budget`: the tenant, so every client of a repository shares one budget. */
 export const refOf = (tenantId: string) => `github:${tenantId}`;
 
+/** The start of every gate of the layer's cards: a live gate namespace of it pauses them all. */
+export const GATE_PREFIX = "github:";
+
 /** The keys of `stops` that refuse a repository and an owner. */
 export const repositoryStop = (githubRepositoryDatabaseId: string) =>
-  `github:repository:${githubRepositoryDatabaseId}`;
-export const ownerStop = (githubOwnerId: string) => `github:owner:${githubOwnerId}`;
+  `${GATE_PREFIX}repository:${githubRepositoryDatabaseId}`;
+export const ownerStop = (githubOwnerId: string) => `${GATE_PREFIX}owner:${githubOwnerId}`;
 
-/** The repositories whose cards get every configured connector while the named owner owns them. */
-export type AllowList = ReadonlyArray<{ readonly repositoryId: string; readonly ownerId: string }>;
+export type AllowList = typeof AllowListSchema.Type;
+
+/** Whether the allow-list gives every configured connector to the repository under `ownerId`. */
+export const allowListed = (allowList: AllowList, repositoryId: string, ownerId: string) =>
+  allowList === "any" ||
+  allowList.some(
+    (entry) =>
+      entry.ownerId === ownerId &&
+      (entry.repositoryId === undefined || entry.repositoryId === repositoryId),
+  );
 
 export const tenantRow = Effect.fnUntraced(function* (tenantId: string) {
   return yield* unique(yield* GithubTx, "tenants", "by_tenant_id", [tenantId]);
@@ -72,12 +83,7 @@ export const allowedConnectors = Effect.fnUntraced(function* (args: {
   readonly allowList: AllowList;
   readonly configured: ReadonlyArray<string>;
 }) {
-  const repositoryId = repositoryIdOf(args.tenantId);
-  if (
-    args.allowList.some(
-      (entry) => entry.repositoryId === repositoryId && entry.ownerId === args.currentOwnerId,
-    )
-  ) {
+  if (allowListed(args.allowList, repositoryIdOf(args.tenantId), args.currentOwnerId)) {
     return [...args.configured];
   }
   if (args.currentOwnerId !== args.clientOwnerId) {
@@ -96,8 +102,7 @@ export const allowedConnectors = Effect.fnUntraced(function* (args: {
 /**
  * The fields of a card that the layer computes, from the rows of this step: `connectors` is the
  * enrollment of those allowed now (`allowedConnectors`); `connections` is none; the gates are the repository's key and
- * the current owner's; `confirm` is false only while an exemption row of the current owner covers
- * the repository and that owner registered the client.
+ * the current owner's; `confirm` is false only while an exemption covers the client (`exemptionOf`).
  */
 export const computedFields = Effect.fnUntraced(function* (args: {
   readonly tenantId: string;
@@ -114,28 +119,49 @@ export const computedFields = Effect.fnUntraced(function* (args: {
     allowList: args.allowList,
     configured: args.configured,
   });
-  const exempt =
-    args.currentOwnerId === clientOwnerId &&
-    (yield* unique(yield* GithubTx, "signInPageExemptions", "by_tenant_id_and_owner_id", [
-      args.tenantId,
-      clientOwnerId,
-    ])) !== undefined;
+  const exemption = yield* exemptionOf({
+    tenantId: args.tenantId,
+    currentOwnerId: args.currentOwnerId,
+    clientOwnerId,
+  });
   return {
     connectors: args.client.enrollment.filter((name) => allowed.includes(name)),
     // The public hub offers no connection provider.
     connections: [],
     gates: [repositoryStop(repositoryIdOf(args.tenantId)), ownerStop(args.currentOwnerId)],
-    confirm: !exempt,
+    confirm: exemption === "shown",
     budget: refOf(args.tenantId),
     ref: refOf(args.tenantId),
   };
 });
 
 /**
- * Rewrites every card of the tenant from the rows of this step, after its owner changed. The caps
- * bound the count, so this is one step.
+ * What decides the sign-in page of a client: the "every app" row, or else a row of the repository
+ * while the tenant's current owner is the row's owner and registered the client.
  */
-const rewriteCards = Effect.fnUntraced(function* (args: {
+export const exemptionOf = Effect.fnUntraced(function* (args: {
+  readonly tenantId: string;
+  readonly currentOwnerId: string;
+  readonly clientOwnerId: string;
+}) {
+  const tx = yield* GithubTx;
+  if ((yield* unique(tx, "everyAppExemptions", "by_reason", [])) !== undefined) {
+    return "every_app" as const;
+  }
+  return args.currentOwnerId === args.clientOwnerId &&
+    (yield* unique(tx, "signInPageExemptions", "by_tenant_id_and_owner_id", [
+      args.tenantId,
+      args.clientOwnerId,
+    ])) !== undefined
+    ? ("repository" as const)
+    : ("shown" as const);
+});
+
+/**
+ * Rewrites every card of the tenant from the rows of this step, after its owner, a grant or an
+ * exemption changed. The caps bound the count, so this is one step.
+ */
+export const rewriteCards = Effect.fnUntraced(function* (args: {
   readonly tenantId: string;
   readonly currentOwnerId: string;
   readonly allowList: AllowList;

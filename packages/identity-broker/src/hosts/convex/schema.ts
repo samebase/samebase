@@ -6,7 +6,9 @@
 import { defineTable, type TableDefinition } from "convex/server";
 import { v, type Validator } from "convex/values";
 import { SchemaAST } from "effect";
-import { tableNames, tables, type IndexField, type TableName } from "../../index.ts";
+// The table catalog alone: a Convex schema may not import what the commands import.
+import { tableNames, tables, type TableName } from "../../store/tables.ts";
+import type { IndexField } from "../../store/Tx.ts";
 
 type Value = Validator<unknown, "required", string>;
 

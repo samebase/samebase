@@ -297,6 +297,10 @@ const contentsOf = (store: Pick<TestStore, "withTx">) => () =>
         rateLimits: yield* all("rateLimits", "by_scope_and_github_id"),
         connectionRequests: yield* all("connectionRequests", "by_request_id"),
         connectionCodes: yield* all("connectionCodes", "by_code_hash"),
+        registrations: yield* all("registrations", "by_at"),
+        blocks: yield* all("blocks", "by_kind_and_github_id"),
+        blockEvents: yield* all("blockEvents", "by_at"),
+        everyAppExemptions: yield* all("everyAppExemptions", "by_reason"),
       };
     }),
   );
@@ -444,7 +448,7 @@ export async function createBroker(
     },
   };
 
-  async function fetchBroker(input: string | URL, init?: RequestInit): Promise<Response> {
+  async function fetchBroker(input: string | URL | Request, init?: RequestInit): Promise<Response> {
     return await Effect.runPromise(handle(new Request(input, init)).pipe(Effect.provide(layer)));
   }
 

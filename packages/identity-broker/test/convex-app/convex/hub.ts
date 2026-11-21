@@ -6,6 +6,7 @@
 import { Config, Effect, Layer, Redacted } from "effect";
 import { convexHub } from "../../../src/hosts/convex/hub.ts";
 import { github, HubConfig, SignInPage } from "../../../src/index.ts";
+import { moderation } from "../../../src/moderation/server.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";
 
@@ -62,7 +63,9 @@ const settings = Layer.unwrap(
 export const hub = convexHub(
   components.identityBroker,
   settings,
-  github([{ repositoryId: "1", ownerId: "65" }]),
+  github([{ repositoryId: "1", ownerId: "65" }], {
+    moderation: moderation({ key: Config.Redacted("MODERATION_KEY") }),
+  }),
 );
 
 export const cleanup = hub.cleanup;

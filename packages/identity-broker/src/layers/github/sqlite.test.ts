@@ -7,3 +7,4 @@ useTestStore((now) => sqliteTestStore(new DatabaseSync(":memory:"), now));
 
 await import("./connectorGrants.test.ts");
 await import("./signInPage.test.ts");
+await import("../../moderation/moderation.test.ts");

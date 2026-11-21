@@ -75,6 +75,7 @@ const unverifiedHost = (reason: VerificationRefusal) =>
 /** The sentence of each rule that refuses a good token. */
 const DENIALS = {
   run_not_allowed: "Only a pull request or a run of main may register a client.",
+  paused: "Registration is paused.",
   blocked: "This repository or its owner is blocked.",
   stale_proof: "A newer token of this repository has registered a client.",
   app_mismatch: "The initial access token is for another app.",
@@ -400,10 +401,11 @@ const appIdOf = (repositoryId: string, app: string) =>
 /** What the handlers read of the hub's settings and the layer's. */
 const hubSettings = Effect.gen(function* () {
   const config = yield* HubConfig;
-  const { allowList } = yield* GithubSettings;
+  const { allowList, paused } = yield* GithubSettings;
   return {
     issuer: config.issuer,
     terms: config.service.terms,
+    paused,
     /** Given whole to each command that checks an enrollment or writes a card. */
     settings: { allowList, configured: config.configured },
   };
@@ -411,16 +413,19 @@ const hubSettings = Effect.gen(function* () {
 type HubSettings = Effect.Success<typeof hubSettings>;
 
 /**
- * The enrollment of an admitted request, or the answer that refuses it: a stopped repository or
- * owner, a set that is empty or outside what the allow-list and the repository's grants give (with
- * the names allowed), or a limit. It counts an admitted request in the repository and owner
- * windows; a refused one counts nowhere.
+ * The enrollment of an admitted request, or the answer that refuses it: a paused hub, a stopped
+ * repository or owner, a set that is empty or outside what the allow-list and the repository's
+ * grants give (with the names allowed), or a limit. It counts an admitted request in the
+ * repository and owner windows; a refused one counts nowhere.
  */
 const admit = Effect.fn("admit")(function* (
   hub: HubSettings,
   facts: Facts,
   connectors: readonly string[] | undefined,
 ) {
+  if (hub.paused) {
+    return denied("paused");
+  }
   const admission = yield* command("github.admit", {
     githubRepositoryDatabaseId: facts.repositoryId,
     githubOwnerId: facts.ownerId,
