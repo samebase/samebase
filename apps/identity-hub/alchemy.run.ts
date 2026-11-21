@@ -8,8 +8,9 @@
 // The stack name is the repository and the folder of this file: the stack of the repository root is
 // named samebase/samebase, and a stack in a folder samebase/samebase/<folder>. The stacks that this
 // hub had in its own repository are not read. The project and the deployment exist already, and
-// this stack did not create them, so both are adopted and retained. Adoption changes the variables
-// of `env` and the code; it leaves every other variable, the data, and the project as they are.
+// this stack did not create them, so both are adopted. Adoption changes the variables of `env` and
+// the code; it leaves every other variable, the data, and the project as they are. The hub is being
+// removed: both resources are `destroy`, so the run after they leave this stack deletes them.
 //
 // Every run needs the team token CONVEX_ACCESS_TOKEN, or a Convex CLI login (`npx convex login`)
 // on a development machine; it mints the deploy key itself. Every run also reads the Google and
@@ -79,14 +80,14 @@ export default Alchemy.Stack(
     };
     const project = yield* Convex.Project("Project", { name: "identity-hub" }).pipe(
       adopt(true),
-      RemovalPolicy.retain(),
+      RemovalPolicy.destroy(),
     );
     const deployment = yield* Convex.Deployment("Deployment", {
       project,
       type: "prod",
       source,
       env,
-    }).pipe(adopt(true), RemovalPolicy.retain());
+    }).pipe(adopt(true), RemovalPolicy.destroy());
     return { url: deployment.siteUrl };
   }),
 );
