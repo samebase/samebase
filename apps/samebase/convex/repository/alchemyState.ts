@@ -128,9 +128,10 @@ function isNamedForRepository(name: string, repository: AlchemyRepository) {
 /**
 The stacks of the repository in the store, in name order: each stack named `owner/name` or
 `owner/name/<folder>`, and each stack of another name whose `prod` output has a run record that
-matches the repository (`readDeployedStacks`). A repository renamed after its first deploy keeps its
-stack's first name, because the names of the stack's resources follow it, and its next deploy writes
-the new name in the run record. Each stack of another name costs one read of its `prod` output.
+matches the repository (`readDeployedStacks`), or, when it has no `prod` output, any stage that does.
+A repository renamed after its first deploy keeps its stack's first name, because the names of the
+stack's resources follow it, and its next deploy writes the new name in the run record. Each stack
+of another name costs one read of its `prod` output, and one read of the stack when it has none.
 */
 async function readRepositoryStackNames(args: {
   deployKey: string;
@@ -157,13 +158,17 @@ async function readRepositoryStackNames(args: {
           async () => await call({ path: "state:getOutput", args: { stack: name, stage: "prod" } }),
         ),
       ).value;
-      return (
-        readDeployedStacks(
-          [{ name, stages: [{ name: "prod", resources: [], output }] }],
-          args.repository,
-          "convex",
-        ).length > 0
-      );
+      // A stack with no `prod` output can hold a preview stage of the repository.
+      const stages =
+        output === null
+          ? parse(
+              vStoreStackReply,
+              await limited(
+                async () => await call({ path: "state:readStack", args: { stack: name } }),
+              ),
+            ).value.stages
+          : [{ name: "prod", resources: [], output }];
+      return readDeployedStacks([{ name, stages }], args.repository, "convex").length > 0;
     }),
   );
   return names.filter((_, index) => belongs[index]);
@@ -174,7 +179,7 @@ Reads the stacks of a repository from the Alchemy state store of a Convex team, 
 deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack`
 for each stack of the repository (`readRepositoryStackNames`) that `keep` accepts. The secret values
 are removed first, and `readDeployedStacks` keeps the stages that Samebase shows. Of the other stacks
-of the team, only the output of `prod` is read.
+of the team, only the run records are used.
 */
 async function readStoreStacks(args: {
   repository: AlchemyRepository;

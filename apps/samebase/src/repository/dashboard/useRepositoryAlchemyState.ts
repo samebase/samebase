@@ -153,7 +153,14 @@ export function useRepositoryAlchemyState(
     retry: false,
   });
   const otherNames = useCachedQuery({
-    queryKey: ["repository-alchemy-other-name-stacks", convexRepositoryId, userId],
+    // The repository name and the team are in the key: a rename or a new team changes the answer.
+    queryKey: [
+      "repository-alchemy-other-name-stacks",
+      convexRepositoryId,
+      userId,
+      convexTeamId,
+      repository,
+    ],
     queryFn: async () =>
       convexRepositoryId
         ? await readOtherNameStacks({ repositoryId: convexRepositoryId })
@@ -384,7 +391,8 @@ const CLOUDFLARE_PROBLEMS = {
 The Convex read with the reads of the Cloudflare store, the GitHub branch, and the Convex stacks
 under another name (`otherNames`). Nothing flashes:
 stacks show as soon as a read gives them, and a page without a stack waits for every read. A read
-that throws counts as failed, and a failed `otherNames` read gives no stack. A failed Convex read
+that throws counts as failed, and a page without a stack shows a failed `otherNames` read as the
+failure: the stack of a renamed repository could be there. A failed Convex read
 shows the stacks of the other stores with `refreshFailed`, whose Retry reads every store again, and
 shows the failure while the other reads run or find no stack.
 */
@@ -400,9 +408,8 @@ function withOtherStoreReads(
     queries.cloudflare.data ?? (queries.cloudflare.isError ? { state: "failed" } : undefined);
   const githubRead: GitHubStacksRead | undefined =
     queries.github.data ?? (queries.github.isError ? { state: "failed" } : undefined);
-  const otherNamesRead: OtherNameStacksRead | undefined =
-    queries.otherNames.data ??
-    (queries.otherNames.isError ? { stacks: [], liveDeployments: [] } : undefined);
+  const otherNamesRead = queries.otherNames.data;
+  const otherNamesFailed = !otherNamesRead && queries.otherNames.isError;
   const others = [
     ...[cloudflareRead, githubRead].flatMap((read) => (read?.state === "found" ? [read] : [])),
     ...(otherNamesRead ? [otherNamesRead] : []),
@@ -422,11 +429,17 @@ function withOtherStoreReads(
       : convex;
   }
   const reads = convex.observation.store === "found" ? [convex.observation, ...others] : others;
-  if (
-    (!cloudflareRead || !githubRead || !otherNamesRead) &&
-    !reads.some((read) => read.stacks.length > 0)
-  ) {
-    return { state: "loading" };
+  if (!reads.some((read) => read.stacks.length > 0)) {
+    if (!cloudflareRead || !githubRead || (!otherNamesRead && !otherNamesFailed)) {
+      return { state: "loading" };
+    }
+    if (otherNamesFailed) {
+      return {
+        state: "failed",
+        error: new Error("Could not read Alchemy state."),
+        reload: convex.reload,
+      };
+    }
   }
 
   return {

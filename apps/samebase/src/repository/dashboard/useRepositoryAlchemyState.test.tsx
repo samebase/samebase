@@ -660,6 +660,18 @@ describe("useRepositoryAlchemyState with the Cloudflare store and the GitHub bra
     });
   });
 
+  it("shows a failure, not an empty store, when the read of stacks under another name fails and no store has a stack", async () => {
+    mocks.connect.mockResolvedValue({ store: "missing" });
+    mocks.otherNames.mockRejectedValue(new Error("Server Error"));
+    await render();
+    await flush();
+    expect(latest).toEqual({
+      state: "failed",
+      error: new Error("Could not read Alchemy state."),
+      reload: expect.any(Function),
+    });
+  });
+
   it("shows the GitHub stacks when the Convex read fails, and reads the branch again on reload", async () => {
     mocks.connect.mockRejectedValue(new ConvexError("Access denied."));
     mocks.github.mockResolvedValue({ state: "found", stacks: [githubStack], liveDeployments: [] });

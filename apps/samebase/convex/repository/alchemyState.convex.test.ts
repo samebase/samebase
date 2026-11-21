@@ -609,9 +609,20 @@ describe("the stack check before a GitHub repository deletion", () => {
     ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
   });
 
+  it("refuses while a stack of another name holds only a preview stage whose run record names the repository", async () => {
+    const previewOnly = withProdStage((stage) => {
+      stage.name = "pr-26";
+    });
+    await expect(
+      requestDeletion({ "samebase/old-name": previewOnly }, [storeProject]),
+    ).rejects.toMatchObject({ data: "Destroy your Alchemy stack first." });
+  });
+
   it("passes when the store holds only the stack of another repository", async () => {
     await expect(
-      requestDeletion({ "samebase/samebase": undefined }, [storeProject]),
+      requestDeletion({ "samebase/samebase": { status: "success", value: { stages: [] } } }, [
+        storeProject,
+      ]),
     ).rejects.toThrow(passedTheCheck);
   });
 
@@ -1180,7 +1191,7 @@ describe("readAlchemyStacks", () => {
 
     expect(observation).toEqual(deployedBaseAlchemy);
 
-    // The stack of another repository is listed, and only the output of its prod stage is read.
+    // The stack of another repository has no prod output, so its stages are read for a run record.
     const storeRequests = requests.filter((request) => request.url.endsWith("/api/function"));
     expect(storeRequests).toEqual([
       {
@@ -1196,6 +1207,11 @@ describe("readAlchemyStacks", () => {
           args: { stack: "samebase/samebase", stage: "prod" },
           format: "json",
         },
+      },
+      {
+        url: "https://brave-heron-201.convex.cloud/api/function",
+        authorization: "Convex prod:brave-heron-201|alchemy-state-secret",
+        body: { path: "state:readStack", args: { stack: "samebase/samebase" }, format: "json" },
       },
       {
         url: "https://brave-heron-201.convex.cloud/api/function",
