@@ -1,7 +1,7 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.35.0",
-  "description": "An OpenID Provider for Convex and Cloudflare that holds a team's upstream sign-in connections once and keeps no user accounts.",
+  "version": "0.36.0",
+  "description": "An OpenID Provider that holds a team's upstream sign-in connections once and keeps no user accounts. It runs on any platform with your own storage, with ready hosts for Convex and Cloudflare.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -16,15 +16,19 @@
   ],
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./convex.config": "./src/hosts/convex/component/convex.config.ts",
     "./_generated/component.js": "./src/hosts/convex/component/_generated/component.ts",
     "./convex": "./src/hosts/convex/hub.ts",
     "./cloudflare": "./src/hosts/cloudflare/hub.ts",
-    "./stack": "./src/layers/stack/routes.ts",
     "./testing": "./src/core/testing/harness.ts"
   },
   "publishConfig": {
     "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
       "./convex.config": {
         "types": "./dist/hosts/convex/component/convex.config.d.ts",
         "default": "./dist/hosts/convex/component/convex.config.js"
@@ -39,10 +43,6 @@
       "./cloudflare": {
         "types": "./dist/hosts/cloudflare/hub.d.ts",
         "default": "./dist/hosts/cloudflare/hub.js"
-      },
-      "./stack": {
-        "types": "./dist/layers/stack/routes.d.ts",
-        "default": "./dist/layers/stack/routes.js"
       },
       "./testing": {
         "types": "./dist/core/testing/harness.d.ts",
@@ -85,13 +85,20 @@
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "alchemy": "2.0.0-beta.87",
     "convex": "^1.48.0",
-    "effect": "^4.1.4"
+    "effect": "^4.1.4",
+    "fast-check": "^4.10.2"
   },
   "peerDependenciesMeta": {
     "@alchemy.run/cloudflare": {
       "optional": true
     },
     "alchemy": {
+      "optional": true
+    },
+    "convex": {
+      "optional": true
+    },
+    "fast-check": {
       "optional": true
     }
   },

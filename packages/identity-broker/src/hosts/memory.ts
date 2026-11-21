@@ -1,12 +1,9 @@
 // The memory host, for tests: a `Store` over the memory adapter with a settable step clock.
 import { Effect, Layer } from "effect";
 import {
-  decodeArgs,
-  decodeName,
+  decodeCommand,
   decodeResult,
   encodeArgs,
-  isReadOnly,
-  runStep,
   type Args,
   type CommandName,
   type Result,
@@ -21,10 +18,9 @@ export const makeMemoryStore = (options: { readonly now: number } = { now: 0 }) 
   let now = options.now;
 
   /** Runs one command as one step, from its encoded arguments to its encoded result. */
-  const runEncoded = (input: string, args: unknown): unknown => {
-    const name = decodeName(input);
-    const decoded = decodeArgs(name, args);
-    return db.step((tx) => runStep(name, decoded, now, tx), { readOnly: isReadOnly(name) });
+  const runEncoded = (name: string, args: unknown): unknown => {
+    const command = decodeCommand(name, args);
+    return db.step((tx) => command.run(now, tx), { readOnly: command.readOnly });
   };
 
   const store = Store.of({ run: (name, args) => Effect.sync(() => runEncoded(name, args)) });

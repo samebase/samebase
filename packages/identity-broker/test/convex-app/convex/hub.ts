@@ -4,9 +4,8 @@
 // that provider and sets the environment variables of the local deployment: the signing keys and
 // `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
 import { Config, Effect, Layer, Redacted } from "effect";
-import { HubConfig, SignInPage } from "../../../src/core/services.ts";
 import { convexHub } from "../../../src/hosts/convex/hub.ts";
-import { github } from "../../../src/layers/github/routes.ts";
+import { github, HubConfig, SignInPage } from "../../../src/index.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";
 

@@ -1,11 +1,13 @@
-// Test support for the Convex host, shared by the adapter tests (convex-test) and the test on a
-// real Convex backend: random step lists, the loop that plays them on one adapter, the memory
-// adapter as a player, and a short sign-in as a list of commands.
+// The storage contract that every host passes, as data and players: random step lists, steps at
+// the edges, the loop that plays them on one adapter, the memory adapter as a player, and a short
+// sign-in and connection as lists of commands. `checkStore` of src/core/testing/harness.ts runs
+// them against a host; the test on a real Convex backend plays them itself.
 import { Effect, Schema } from "effect";
 import fc from "fast-check";
-import { decodeResult, type Args, type CommandName } from "../../store/commands.ts";
-import { MemoryDb } from "../../store/memory.ts";
-import { tables, type Doc } from "../../store/tables.ts";
+import { makeMemoryStore } from "../hosts/memory.ts";
+import { decodeResult, type Args, type CommandName } from "./commands.ts";
+import { MemoryDb } from "./memory.ts";
+import { tables, type Doc } from "./tables.ts";
 import {
   indexNames,
   playStep,
@@ -14,9 +16,8 @@ import {
   type Ref,
   type StepInput,
   type StepOutput,
-} from "../../store/testing.ts";
-import type { IndexField } from "../../store/Tx.ts";
-import { makeMemoryStore } from "../memory.ts";
+} from "./testing.ts";
+import type { IndexField } from "./Tx.ts";
 
 const strings = fc.oneof(
   fc.constantFrom("", "a", "b", "ab", "é", "\u{1F600}", "�", "", "￿", "\u{10000}", "a\u0000"),

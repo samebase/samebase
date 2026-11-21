@@ -8,7 +8,7 @@
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import { Config } from "effect";
 import { hubWorker } from "@samebase/identity-broker/cloudflare";
-import { stack } from "@samebase/identity-broker/stack";
+import { stack } from "@samebase/identity-broker";
 
 export default hubWorker({
   main: import.meta.url,

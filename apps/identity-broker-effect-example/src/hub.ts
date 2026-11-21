@@ -8,7 +8,7 @@
 // (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import { Config } from "effect";
 import { hubWorker } from "@samebase/identity-broker/cloudflare";
-import { stack } from "@samebase/identity-broker/stack";
+import { stack } from "@samebase/identity-broker";
 
 export default hubWorker({
   main: import.meta.url,

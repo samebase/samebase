@@ -6,8 +6,7 @@
 import { defineTable, type TableDefinition } from "convex/server";
 import { v, type Validator } from "convex/values";
 import { SchemaAST } from "effect";
-import { tableNames, tables, type TableName } from "../../store/tables.ts";
-import type { IndexField } from "../../store/Tx.ts";
+import { tableNames, tables, type IndexField, type TableName } from "../../index.ts";
 
 type Value = Validator<unknown, "required", string>;
 

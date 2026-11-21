@@ -10,6 +10,7 @@
   },
   "include": [],
   "files": [
+    "src/index.ts",
     "src/hosts/convex/component/convex.config.ts",
     "src/hosts/convex/component/commands.ts",
     "src/hosts/convex/component/schema.ts",
@@ -19,7 +20,6 @@
     "src/hosts/convex/component/_generated/server.ts",
     "src/hosts/convex/hub.ts",
     "src/hosts/cloudflare/hub.ts",
-    "src/layers/stack/routes.ts",
     "src/core/testing/harness.ts"
   ]
 }

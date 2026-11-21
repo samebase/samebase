@@ -11,7 +11,7 @@ import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { TestClock } from "effect/testing";
 import { createBroker, fakeOidcUpstream, stubFetch } from "@samebase/identity-broker/testing";
-import { stack } from "@samebase/identity-broker/stack";
+import { stack } from "@samebase/identity-broker";
 import { app } from "./app.ts";
 import { HubClient } from "./hub-client.ts";
 import { Session } from "./session.ts";

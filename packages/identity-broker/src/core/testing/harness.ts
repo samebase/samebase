@@ -2,11 +2,29 @@
 // registration tests. No test framework import: a helper returns values and records, and the
 // test asserts.
 import { Clock, Effect, Layer, Redacted, Schema } from "effect";
+import fc from "fast-check";
 import { base64url, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { calculatePKCECodeChallenge } from "oauth4webapi";
 import { makeMemoryStore } from "../../hosts/memory.ts";
 import { makeSqliteStore, type SqliteDatabase } from "../../hosts/nodeSqlite.ts";
 import type { Args, CommandName, Result } from "../../store/commands.ts";
+import {
+  dyingStep,
+  edgeStep,
+  foundOf,
+  longStep,
+  memoryConnection,
+  memoryPlayer,
+  memorySignIn,
+  negativeZero,
+  play,
+  playConnection,
+  playSignIn,
+  sameKey,
+  stepLists,
+  type Player,
+} from "../../store/contract.ts";
+import { playStep } from "../../store/testing.ts";
 import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
@@ -294,6 +312,93 @@ export function sqliteTestStore(database: SqliteDatabase, now: number): TestStor
     seed: async (body) => sqlite.withTx(body),
     db: { contents: contentsOf(sqlite) },
   };
+}
+
+/** A host's storage for `checkStore`: one fresh, empty store. */
+export type HostUnderTest = {
+  /** Runs `body` as one transaction. A `body` that dies rejects, and its transaction writes nothing. */
+  readonly transaction: <A>(body: (tx: TxShape<Tables>) => Effect.Effect<A>) => Promise<A>;
+  /** The host's `Store` over the same storage. A command's step clock is Effect's `Clock`. */
+  readonly store: Store["Service"];
+};
+
+const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Unknown));
+const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+
+/** Equal by content: object keys in any order, and a member that is `undefined` is absent. */
+const sameData = (a: unknown, b: unknown): boolean => {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, at) => sameData(item, b[at]))
+    );
+  }
+  if (isRecord(a) && isRecord(b)) {
+    const keysA = Object.keys(a).filter((key) => a[key] !== undefined);
+    const keysB = Object.keys(b).filter((key) => b[key] !== undefined);
+    return keysA.length === keysB.length && keysA.every((key) => sameData(a[key], b[key]));
+  }
+  return a === b;
+};
+
+const same = (check: string, host: unknown, memory: unknown) => {
+  if (!sameData(host, memory)) {
+    throw new Error(
+      `${check}: the host gave ${JSON.stringify(host)}, the memory host ${JSON.stringify(memory)}`,
+    );
+  }
+};
+
+/**
+ * Checks a host's storage against the memory host: random steps of inserts, replaces, deletes and
+ * index queries, steps at the edges of index order, a step that dies, and a sign-in and a
+ * connection through the host's `Store`. `make` gives a fresh, empty store on each call. Rejects
+ * with the first difference.
+ */
+export async function checkStore(
+  make: () => HostUnderTest | Promise<HostUnderTest>,
+  options: { readonly runs?: number } = {},
+): Promise<void> {
+  const player = async (): Promise<Player> => {
+    const host = await make();
+    return (input) => host.transaction((tx) => playStep(tx, input));
+  };
+  const rolledBack = (after: unknown, before: unknown) =>
+    same("A step that died changed the state", after, before);
+  await fc.assert(
+    fc.asyncProperty(stepLists, async (steps) =>
+      same(
+        "Random steps",
+        await play(steps, await player(), rolledBack),
+        await play(steps, memoryPlayer(), rolledBack),
+      ),
+    ),
+    { numRuns: options.runs ?? 100 },
+  );
+  same("Equal index keys", (await (await player())(sameKey.step)).log, sameKey.log);
+  const edges = [longStep, edgeStep, dyingStep];
+  const fromHost = await play(edges, await player(), rolledBack);
+  same("Steps at the edges", fromHost, await play(edges, memoryPlayer(), rolledBack));
+  same("A step that died", fromHost.at(-2), "rolled back");
+  same("-0 and 0", foundOf(await (await player())(negativeZero.step)), negativeZero.found);
+  const scripts = [
+    { check: "A sign-in", play: playSignIn, memory: memorySignIn() },
+    { check: "A connection", play: playConnection, memory: memoryConnection() },
+  ];
+  for (const script of scripts) {
+    const { store } = await make();
+    const results = await script.play((name, args, now) =>
+      Effect.runPromise(
+        store.run(name, parseJson(args)).pipe(
+          Effect.map((result) => JSON.stringify(result)),
+          Effect.provideService(Clock.Clock, testClock(now).clock),
+        ),
+      ),
+    );
+    same(script.check, results, script.memory);
+  }
 }
 
 /**

@@ -46,8 +46,6 @@ const CODE_TTL_MS = 60 * 1000;
 const AUTH_TIME_SKEW_SECONDS = 60;
 /** The scopes the broker grants; any other requested scope is dropped. */
 const SCOPES = ["openid", "email", "profile"];
-/** How long `cleanup` keeps an audit row of an issued id_token. */
-export const SIGN_IN_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** The configured connectors of these names, in this order. A name no longer configured is skipped. */
 const connectorsNamed = (hub: HubConfigShape, names: ReadonlyArray<string>): Connector[] =>
