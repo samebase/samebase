@@ -557,12 +557,15 @@ describe("useRepositoryAlchemyState with the Cloudflare store and the GitHub bra
     expect(latest).toEqual({ state: "loading" });
 
     await answerCloudflare({ state: "not_connected" });
-    expect(latest).toEqual({
-      state: "loaded",
-      observation: { store: "no_connection" },
-      refreshFailed: false,
-      reload: expect.any(Function),
-    });
+    // The read of other stack names settles on its own, so wait for it by result.
+    await vi.waitFor(() =>
+      expect(latest).toEqual({
+        state: "loaded",
+        observation: { store: "no_connection" },
+        refreshFailed: false,
+        reload: expect.any(Function),
+      }),
+    );
   });
 
   it("names a Cloudflare reconnect next to Convex stacks too, and reads again on reload", async () => {
