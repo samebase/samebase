@@ -2,12 +2,14 @@
 // the function API of the store deployment, and the fake Convex CLI for the
 // push of the store. Every reply is a recorded payload with only the value
 // changed.
+import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { type CreatedResourceState, State } from "alchemy/State";
+import { type CreatedResourceState, encodeState, State } from "alchemy/State";
+import { StateEncryption, type StateEncryptionService } from "alchemy/State/StateEncryption";
 import * as Cause from "effect/Cause";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -100,7 +102,7 @@ const open = (accessToken = TOKEN) =>
     const api = yield* ManagementApi;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const scope = yield* Scope.make();
-    const service = yield* makeConvexState({ api, spawner, scope, store });
+    const service = yield* makeConvexState({ api, spawner, scope, store, encryption: undefined });
     /** The read that Samebase makes: a key with the query action only, straight to the function API. */
     const read = (deployment: string, path: string, args: Record<string, string>) =>
       createDeployKey(api, deployment, "reader", ["deployment:functions:runInternalQueries"]).pipe(
@@ -196,7 +198,6 @@ describe("Convex.state", () => {
     expect(fake.functionCalls.filter((line) => !line.endsWith("state:version"))).toEqual([
       `${deployment} state:sealing`,
       `${deployment} state:chooseKey`,
-      `${deployment} state:reseal`,
       `${deployment} state:set`,
       `${deployment} state:setOutput`,
       `${deployment} state:list`,
@@ -222,10 +223,9 @@ describe("Convex.state", () => {
     expect(keyCalls(fake)).toHaveLength(1);
     expect(await run(runs())).toEqual([]);
     expect(await run(service.listStacks())).toEqual([]);
-    // A sealed store: no key, no reseal, and no key of a push.
+    // A store with a key: no new key, and no key of a push.
     expect(fake.variables.get(deployment)).toBeUndefined();
     expect(fake.functionCalls).toContain(`${deployment} state:sealing`);
-    expect(fake.functionCalls).not.toContain(`${deployment} state:reseal`);
     expect(fake.functionCalls).not.toContain(`${deployment} state:chooseKey`);
   });
 
@@ -249,40 +249,48 @@ describe("Convex.state", () => {
 
     await run(open());
     expect(keyVariable(fake, deployment)).toEqual(key);
-    expect(fake.functionCalls.filter((line) => line.endsWith("state:reseal"))).toHaveLength(1);
+    expect(fake.functionCalls.filter((line) => line.endsWith("state:chooseKey"))).toHaveLength(1);
   });
 
-  it("finishes a run that stopped after the push, with no push of its own", async () => {
+  it("gives a store a key after a run that stopped after the push, with no push of its own", async () => {
     const fake = new FakeConvex().install();
     const deployment =
       fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
         ?.prodDeploymentName ?? "";
-    // The store has the current version, no key, and rows in clear text.
     const store = fake.addStore(deployment, STORE_VERSION);
     store.keyId = null;
-    store.sealed = false;
     await run(open());
     expect(await run(runs())).toEqual([]);
     const { name } = keyVariable(fake, deployment);
     expect(fake.stores.get(deployment)?.keyId).toBe(name.replace("STATE_KEY_", ""));
-    expect(fake.stores.get(deployment)?.sealed).toBe(true);
   });
 
-  it("finishes a reseal that stopped halfway, and keeps the key", async () => {
+  it("seals a secret before it leaves the run, with one data key for each stage", async () => {
     const fake = new FakeConvex().install();
-    const deployment =
-      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
-        ?.prodDeploymentName ?? "";
-    const store = fake.addStore(deployment, STORE_VERSION);
-    store.sealed = false;
-    await run(open());
-    expect(fake.functionCalls).toContain(`${deployment} state:reseal`);
-    expect(store.keyId).toBe("fake-key");
-    expect(fake.variables.get(deployment)).toBeUndefined();
-    expect(store.sealed).toBe(true);
+    const { service } = await run(open());
+    const project = fake.projects.find((row) => row["name"] === STORE_PROJECT_NAME);
+    const deployment = String(project?.["prodDeploymentName"]);
+    const secret = {
+      ...created("Project"),
+      attr: { projectId: 1, deployKey: Redacted.make("secret-deploy-key") },
+    };
+    await run(service.set({ ...stack, fqn: "Project", value: secret }));
+    await run(service.setOutput({ ...stack, value: { key: Redacted.make("secret-output") } }));
+    expect(JSON.stringify(fake.sent)).not.toContain("secret-");
+    expect(fake.functionCalls.filter((line) => line.endsWith("state:newDataKey"))).toHaveLength(1);
 
-    await run(open());
-    expect(fake.functionCalls.filter((line) => line.endsWith("state:reseal"))).toHaveLength(1);
+    // Another run opens the rows with the data key that the store wraps.
+    const other = await run(open());
+    // `encodeState` shows the value of each secret, which a Redacted value hides from `toEqual`.
+    expect(encodeState(await run(other.service.get({ ...stack, fqn: "Project" })))).toEqual(
+      encodeState(secret),
+    );
+    expect(encodeState(await run(other.service.getOutput(stack)))).toEqual({
+      key: { __redacted__: "secret-output" },
+    });
+    expect(
+      fake.functionCalls.filter((line) => line === `${deployment} state:openDataKey`),
+    ).toHaveLength(1);
   });
 
   it("never reads a key back, and sends no key through a state function", async () => {
@@ -295,34 +303,6 @@ describe("Convex.state", () => {
     expect(calls.length).toBeGreaterThan(0);
     expect(JSON.stringify(calls)).not.toContain(value);
     expect(fake.lines().filter((line) => line.includes("list_environment_variables"))).toEqual([]);
-  });
-
-  it("stops the run when the reseal fails, and the next run tries again", async () => {
-    const fake = new FakeConvex().install();
-    const deployment =
-      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
-        ?.prodDeploymentName ?? "";
-    const store = fake.addStore(deployment, STORE_VERSION);
-    store.sealed = false;
-    store.resealError = "reseal failed";
-    expect(await failureOf(open())).toContain("reseal failed");
-
-    store.resealError = undefined;
-    await run(open());
-    expect(store.sealed).toBe(true);
-  });
-
-  it("goes on when the reseal names a row that cannot open", async () => {
-    const fake = new FakeConvex().install();
-    const deployment =
-      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
-        ?.prodDeploymentName ?? "";
-    const store = fake.addStore(deployment, STORE_VERSION);
-    store.sealed = false;
-    store.resealFailed = ["samebase/app/main/Lost"];
-    const { service } = await run(open());
-    expect(await run(service.listStacks())).toEqual([]);
-    expect(store.sealed).toBe(false);
   });
 
   it("keeps the stacks of two repositories apart in one store", async () => {
@@ -548,5 +528,41 @@ describe("Convex.state", () => {
     );
     expect(service.id).toBe("convex");
     expect(fake.sent[0]?.authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("seals with a StateEncryption that the stack provides, in place of the store's keys", async () => {
+    const fake = new FakeConvex().install();
+    const deployment =
+      fake.project(fake.addProject({ name: STORE_PROJECT_NAME, teamId: TEAM }))
+        ?.prodDeploymentName ?? "";
+    const store = fake.addStore(deployment, STORE_VERSION);
+    const key = randomBytes(32);
+    const own: StateEncryptionService = {
+      id: "own-keys",
+      generate: () => Effect.succeed({ plaintext: key, wrapped: "own-wrapped" }),
+      unwrap: () => Effect.succeed(key),
+    };
+    const secret = {
+      ...created("Project"),
+      attr: { projectId: 1, deployKey: Redacted.make("secret-deploy-key") },
+    };
+    const found = await run(
+      Effect.gen(function* () {
+        const service = yield* yield* State;
+        yield* service.set({ ...stack, fqn: "Project", value: secret });
+        return yield* service.get({ ...stack, fqn: "Project" });
+      }).pipe(
+        Effect.provide(state().pipe(Layer.provide(Layer.succeed(StateEncryption, own)))),
+        Effect.provide(NodeServices.layer),
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnvRecord({ CONVEX_ACCESS_TOKEN: TOKEN })),
+        ),
+        Effect.scoped,
+      ),
+    );
+    expect(encodeState(found)).toEqual(encodeState(secret));
+    expect(store.rows[0]?.value).toContain('"__alchemy_sealed__":{"by":"own-keys"');
+    expect(JSON.stringify(fake.sent)).not.toContain("secret-");
+    expect(fake.functionCalls.filter((line) => line.includes("DataKey"))).toEqual([]);
   });
 });

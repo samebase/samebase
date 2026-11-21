@@ -31,13 +31,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         string,
         Name
       >;
-      markSealed: FunctionReference<
-        "mutation",
-        "internal",
-        { generation: number },
-        null,
-        Name
-      >;
       rotate: FunctionReference<
         "mutation",
         "internal",
@@ -49,7 +42,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         {},
-        { current: string | null; generation: number; sealed: boolean },
+        { current: string | null },
         Name
       >;
     };
@@ -94,17 +87,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Array<string>,
         Name
       >;
-      outputPage: FunctionReference<
-        "query",
-        "internal",
-        { cursor: string | null },
-        {
-          continueCursor: string;
-          isDone: boolean;
-          page: Array<{ stack: string; stage: string; value: string }>;
-        },
-        Name
-      >;
       readStack: FunctionReference<
         "query",
         "internal",
@@ -137,49 +119,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         { stack: string; stage: string },
         Array<{ fqn: string; value: string }>,
-        Name
-      >;
-      replaceOutput: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          expected: string;
-          generation: number;
-          stack: string;
-          stage: string;
-          value: string;
-        },
-        "replaced" | "changed" | "stale",
-        Name
-      >;
-      replaceResource: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          expected: string;
-          fqn: string;
-          generation: number;
-          stack: string;
-          stage: string;
-          value: string;
-        },
-        "replaced" | "changed" | "stale",
-        Name
-      >;
-      resourcePage: FunctionReference<
-        "query",
-        "internal",
-        { cursor: string | null },
-        {
-          continueCursor: string;
-          isDone: boolean;
-          page: Array<{
-            fqn: string;
-            stack: string;
-            stage: string;
-            value: string;
-          }>;
-        },
         Name
       >;
       set: FunctionReference<

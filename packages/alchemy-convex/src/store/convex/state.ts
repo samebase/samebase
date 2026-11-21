@@ -11,63 +11,28 @@
 // reads `stacks`, `getOutput`, and `readStack` by name: a renamed function is
 // a version bump of the store and of Samebase.
 //
-// The rows hold their secrets sealed (see sealing.ts): `set` and `setOutput`
-// are actions that seal and then write, and `get`, `replaced`, and `getOutput`
-// open them for the run. `readStack` gives the rows as they are stored.
-import type { FunctionReturnType } from "convex/server";
+// The client seals each secret before `set` and `setOutput`, with data keys from `newDataKey` and
+// `openDataKey` (see sealing.ts), and the writes refuse a secret in clear text. `get`, `replaced`,
+// and `getOutput` give the text that the client wrote, and open a row of store version 7.
+// `readStack` gives the rows without their secrets.
 import { v } from "convex/values";
+import { newKey } from "../sealedSecret.ts";
 import { stackReply } from "../component/state.ts";
-import { components, internal } from "./_generated/api.js";
+import { components } from "./_generated/api.js";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server.js";
 import {
-  type ActionCtx,
-  internalAction,
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-} from "./_generated/server.js";
-import {
-  hasSecret,
   openText,
   outputAad,
+  refuseClearSecrets,
   requireKey,
-  resealText,
   resourceAad,
-  sealText,
+  unwrapDataKey,
+  wrapDataKey,
 } from "./sealing.ts";
 import { STORE_VERSION } from "./version.ts";
 
 const state = components.alchemyState.state;
 const keys = components.alchemyState.keys;
-
-const NO_KEY = "The store has no key yet.";
-
-const currentKey = async (ctx: ActionCtx) => {
-  const { current } = await ctx.runQuery(keys.sealing, {});
-  if (current === null) throw new Error(NO_KEY);
-  return current;
-};
-
-/**
- * Seals a text and writes it. A write that sealed under a key that stopped being the current key
- * does not commit, so it cannot land after the reseal of a rotation: it seals again.
- */
-const sealedWrite = async (
-  ctx: ActionCtx,
-  text: string,
-  aad: string,
-  write: (value: string, keyId: string | null) => Promise<boolean>,
-): Promise<null> => {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const keyId = hasSecret(text) ? await currentKey(ctx) : null;
-    const value = keyId === null ? text : await sealText(text, aad, keyId);
-    if (await write(value, keyId)) return null;
-  }
-  throw new Error("The current key of the store changed during three writes in a row.");
-};
-
-/** True when a value sealed under `keyId` must not commit. A text with no secret has no key. */
-const isStale = async (ctx: MutationCtx, keyId: string | null) =>
-  keyId !== null && (await ctx.runQuery(keys.sealing, {})).current !== keyId;
 
 /** The wire version of this store, compared with the client's STORE_VERSION. */
 export const version = internalQuery({
@@ -120,30 +85,17 @@ export const replaced = internalQuery({
   },
 });
 
-const setArgs = { stack: v.string(), stage: v.string(), fqn: v.string(), value: v.string() };
-
-export const set = internalAction({
-  args: setArgs,
+export const set = internalMutation({
+  args: { stack: v.string(), stage: v.string(), fqn: v.string(), value: v.string() },
   returns: v.null(),
-  handler: (ctx, args): Promise<null> =>
-    sealedWrite(ctx, args.value, resourceAad(args), (value, keyId) =>
-      ctx.runMutation(internal.state.writeResource, { ...args, value, keyId }),
-    ),
-});
-
-/** The write of `set`. It answers false when `keyId` is no longer the current key. */
-export const writeResource = internalMutation({
-  args: { ...setArgs, keyId: v.union(v.string(), v.null()) },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    if (await isStale(ctx, args.keyId)) return false;
-    await ctx.runMutation(state.set, {
+  handler: (ctx, args) => {
+    refuseClearSecrets(args.value);
+    return ctx.runMutation(state.set, {
       stack: args.stack,
       stage: args.stage,
       fqn: args.fqn,
       value: args.value,
     });
-    return true;
   },
 });
 
@@ -172,47 +124,52 @@ export const getOutput = internalQuery({
   },
 });
 
-const setOutputArgs = { stack: v.string(), stage: v.string(), value: v.string() };
-
-export const setOutput = internalAction({
-  args: setOutputArgs,
+export const setOutput = internalMutation({
+  args: { stack: v.string(), stage: v.string(), value: v.string() },
   returns: v.null(),
-  handler: (ctx, args): Promise<null> =>
-    sealedWrite(ctx, args.value, outputAad(args), (value, keyId) =>
-      ctx.runMutation(internal.state.writeOutput, { ...args, value, keyId }),
-    ),
-});
-
-/** The write of `setOutput`. It answers false when `keyId` is no longer the current key. */
-export const writeOutput = internalMutation({
-  args: { ...setOutputArgs, keyId: v.union(v.string(), v.null()) },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    if (await isStale(ctx, args.keyId)) return false;
-    await ctx.runMutation(state.setOutput, {
+  handler: (ctx, args) => {
+    refuseClearSecrets(args.value);
+    return ctx.runMutation(state.setOutput, {
       stack: args.stack,
       stage: args.stage,
       value: args.value,
     });
-    return true;
   },
 });
 
-/** Every stage of a stack with its resources and output, in one call. Since store version 2. */
+/** Every stage of a stack with its resources and output, without secrets, in one call. */
 export const readStack = internalQuery({
   args: { stack: v.string() },
   returns: stackReply,
   handler: (ctx, args) => ctx.runQuery(state.readStack, { stack: args.stack }),
 });
 
-/** The current key, and true when every secret is sealed under it. A run reads this each time. */
+/**
+ * A new data key of one stage, and its copy wrapped under the current key. An action: in a query or
+ * a mutation `crypto.getRandomValues` is seeded.
+ */
+export const newDataKey = internalAction({
+  args: { stack: v.string(), stage: v.string() },
+  returns: v.object({ plaintext: v.string(), wrapped: v.string() }),
+  handler: async (ctx, args) => {
+    const { current } = await ctx.runQuery(keys.sealing, {});
+    if (current === null) throw new Error("The store has no key yet.");
+    const plaintext = newKey();
+    return { plaintext, wrapped: await wrapDataKey(plaintext, args, current) };
+  },
+});
+
+/** The data key of a wrapped copy that `newDataKey` made for this stack and stage. */
+export const openDataKey = internalQuery({
+  args: { stack: v.string(), stage: v.string(), wrapped: v.string() },
+  returns: v.string(),
+  handler: (_ctx, args) => unwrapDataKey(args.wrapped, { stack: args.stack, stage: args.stage }),
+});
+
+/** The current key, which wraps new data keys. A run reads this each time. */
 export const sealing = internalQuery({
   args: {},
-  returns: v.object({
-    current: v.union(v.string(), v.null()),
-    generation: v.number(),
-    sealed: v.boolean(),
-  }),
+  returns: v.object({ current: v.union(v.string(), v.null()) }),
   handler: (ctx) => ctx.runQuery(keys.sealing, {}),
 });
 
@@ -225,108 +182,19 @@ export const chooseKey = internalMutation({
   returns: v.string(),
   handler: (ctx, args) => {
     requireKey(args.keyId);
-    return ctx.runMutation(keys.choose, args);
+    return ctx.runMutation(keys.choose, { keyId: args.keyId });
   },
 });
 
-/** Makes `keyId`, a key that the deployment holds, the current key. See `reseal`. */
+/**
+ * Makes `keyId`, a key that the deployment holds, the current key for new data keys. A data key
+ * that an older key wrapped still opens while its variable stays.
+ */
 export const rotateKey = internalMutation({
   args: { keyId: v.string() },
   returns: v.null(),
   handler: (ctx, args) => {
     requireKey(args.keyId);
-    return ctx.runMutation(keys.rotate, args);
-  },
-});
-
-/**
- * Seals every secret of the store under the current key, one row at a time, through bounded pages.
- * A run calls it until one finishes, so a run that stops only leaves work for the next one, and the
- * rows that it sealed stay sealed. A row that fails, because a key is gone or a write limit was hit,
- * is named in `failed`, and the others go on. A row that changed during the sweep is left: the write
- * that changed it sealed it. A sweep
- * stops when the current key changes: the sweep of the new key does the work, and this one must not
- * put the older key back.
- */
-export const reseal = internalAction({
-  args: {},
-  returns: v.object({
-    resealed: v.number(),
-    skippedChanged: v.number(),
-    failed: v.array(v.string()),
-  }),
-  handler: async (ctx) => {
-    const { current: keyId, generation } = await ctx.runQuery(keys.sealing, {});
-    if (keyId === null) throw new Error(NO_KEY);
-    let resealed = 0;
-    let skippedChanged = 0;
-    const failed: string[] = [];
-    /** Reseals one row, and answers true when the sweep must stop. */
-    const sweep = async (
-      name: string,
-      aad: string,
-      expected: string,
-      replace: (value: string) => Promise<"replaced" | "changed" | "stale">,
-    ) => {
-      try {
-        const value = await resealText(expected, aad, keyId);
-        if (value === expected) return false;
-        const result = await replace(value);
-        if (result === "replaced") resealed += 1;
-        if (result === "changed") skippedChanged += 1;
-        return result === "stale";
-      } catch {
-        // The row name is enough: an error can name a key id, and it adds nothing to find the row.
-        failed.push(name);
-        return false;
-      }
-    };
-    const done = () => ({ resealed, skippedChanged, failed });
-
-    let cursor: string | null = null;
-    for (;;) {
-      const { page, continueCursor, isDone }: FunctionReturnType<typeof state.resourcePage> =
-        await ctx.runQuery(state.resourcePage, { cursor });
-      for (const { stack, stage, fqn, value: expected } of page) {
-        const stale = await sweep(
-          `${stack}/${stage}/${fqn}`,
-          resourceAad({ stack, stage, fqn }),
-          expected,
-          (value) =>
-            ctx.runMutation(state.replaceResource, {
-              stack,
-              stage,
-              fqn,
-              expected,
-              value,
-              generation,
-            }),
-        );
-        if (stale) return done();
-      }
-      if (isDone) break;
-      cursor = continueCursor;
-    }
-
-    cursor = null;
-    for (;;) {
-      const { page, continueCursor, isDone }: FunctionReturnType<typeof state.outputPage> =
-        await ctx.runQuery(state.outputPage, { cursor });
-      for (const { stack, stage, value: expected } of page) {
-        const stale = await sweep(
-          `${stack}/${stage} output`,
-          outputAad({ stack, stage }),
-          expected,
-          (value) =>
-            ctx.runMutation(state.replaceOutput, { stack, stage, expected, value, generation }),
-        );
-        if (stale) return done();
-      }
-      if (isDone) break;
-      cursor = continueCursor;
-    }
-
-    if (failed.length === 0) await ctx.runMutation(keys.markSealed, { generation });
-    return done();
+    return ctx.runMutation(keys.rotate, { keyId: args.keyId });
   },
 });

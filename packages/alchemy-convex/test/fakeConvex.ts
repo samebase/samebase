@@ -4,7 +4,7 @@
 // (https://<deployment>.convex.cloud/api/v1). Every response body is a
 // recorded payload from fixtures/management with only the fields that a
 // scenario needs changed.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import * as Schema from "effect/Schema";
 import { vi } from "vitest";
@@ -67,12 +67,8 @@ export interface Store {
   readonly outputs: Map<string, string>;
   /** The current key, or null for a store with no key. */
   keyId: string | null;
-  /** True when a reseal finished under the current key. */
-  sealed: boolean;
-  /** The rows that a reseal names as failed. */
-  resealFailed: string[];
-  /** The error of a reseal, or undefined for one that finishes. */
-  resealError: string | undefined;
+  /** Each data key that `newDataKey` made, by its wrapped copy: its stage and its plaintext. */
+  readonly dataKeys: Map<string, { readonly stage: string; readonly plaintext: string }>;
 }
 
 /** The internal functions of the store that a query key runs, and those that need a mutation key. */
@@ -86,15 +82,17 @@ const STORE_QUERIES = [
   "replaced",
   "getOutput",
   "readStack",
+  "openDataKey",
 ];
-const STORE_MUTATIONS = ["remove", "removeStack", "chooseKey"];
-const STORE_ACTIONS = ["set", "setOutput", "reseal"];
+const STORE_MUTATIONS = ["set", "setOutput", "remove", "removeStack", "chooseKey"];
+const STORE_ACTIONS = ["newDataKey"];
 /** The store version that added a function; every other function is in version 1 (0.6.0). */
 const STORE_FUNCTION_SINCE: Record<string, number> = {
   readStack: 2,
   sealing: 5,
   chooseKey: 5,
-  reseal: 5,
+  newDataKey: 8,
+  openDataKey: 8,
 };
 const FunctionCall = Schema.Struct({
   path: Schema.String,
@@ -104,6 +102,7 @@ const FunctionCall = Schema.Struct({
     fqn: Schema.optionalKey(Schema.String),
     value: Schema.optionalKey(Schema.String),
     keyId: Schema.optionalKey(Schema.String),
+    wrapped: Schema.optionalKey(Schema.String),
   }),
 });
 /** One line of the fake CLI log: the hash of the key that the push got. */
@@ -237,9 +236,7 @@ export class FakeConvex {
       rows: [],
       outputs: new Map(),
       keyId: "fake-key",
-      sealed: true,
-      resealFailed: [],
-      resealError: undefined,
+      dataKeys: new Map(),
     };
     this.stores.set(deployment, store);
     return store;
@@ -528,7 +525,6 @@ export class FakeConvex {
         const store = pushed ?? this.addStore(deployment, STORE_VERSION);
         store.version = STORE_VERSION;
         store.keyId = null;
-        store.sealed = false;
       }
     }
     const store = this.stores.get(deployment);
@@ -615,14 +611,23 @@ export class FakeConvex {
         store.outputs.set(output, value);
         return reply(null);
       case "sealing":
-        return reply({ current: store.keyId, generation: 1, sealed: store.sealed });
+        return reply({ current: store.keyId });
       case "chooseKey":
         store.keyId ??= args.keyId ?? null;
         return reply(store.keyId);
-      case "reseal":
-        if (store.resealError !== undefined) return error(store.resealError);
-        store.sealed = store.resealFailed.length === 0;
-        return reply({ resealed: 0, skippedChanged: 0, failed: store.resealFailed });
+      case "newDataKey": {
+        if (store.keyId === null) return error("The store has no key yet.");
+        const plaintext = randomBytes(32).toString("base64");
+        const wrapped = randomBytes(12).toString("base64");
+        store.dataKeys.set(wrapped, { stage: output, plaintext });
+        return reply({ plaintext, wrapped });
+      }
+      case "openDataKey": {
+        const found = store.dataKeys.get(args.wrapped ?? "");
+        return found?.stage === output
+          ? reply(found.plaintext)
+          : error("This is not a data key of the store.");
+      }
       case "readStack": {
         const stages = [
           ...new Set([
