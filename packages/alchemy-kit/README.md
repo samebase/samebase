@@ -182,14 +182,16 @@ that the state writes, under the key `samebase.run`:
 {
   "url": "https://my-app.example.workers.dev",
   "samebase.run": {
-    "version": 1,
-    "repository": "my-org/my-app",
+    "version": 2,
+    "source": "github-actions",
+    "repositoryId": "123456789",
+    "repositoryOwnerId": "987654321",
+    "repositoryName": "my-org/my-app",
     "stackFile": "alchemy.run.ts",
     "branch": "feature",
     "pullRequest": 42,
     "headCommit": "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83",
     "runUrl": "https://github.com/my-org/my-app/actions/runs/12345678901/attempts/1",
-    "source": "github-actions",
     "recordedAt": "2026-10-21T10:00:00.000Z"
   }
 }
@@ -214,12 +216,25 @@ to that layer as it is.
 
 - **Where the values come from.** On GitHub Actions, from the variables of the run and the event
   payload: on a pull request, the head branch and the head commit. Else from git in the checkout,
-  which needs a branch and an `origin` remote with `owner/name`. `source` says which.
+  which needs a branch and a github.com `origin` remote. `source` says which. Only github.com is
+  supported.
+- **The repository** is its GitHub id, which a rename keeps, the id of its owner, and its name
+  `owner/name` for display. On GitHub Actions they are `GITHUB_REPOSITORY_ID`,
+  `GITHUB_REPOSITORY_OWNER_ID`, and `GITHUB_REPOSITORY`. A checkout gets them with one request
+  `GET https://api.github.com/repos/{owner}/{name}` for the `origin` remote, which gives the current
+  name after a rename. The request uses `GITHUB_TOKEN`, else `GH_TOKEN`, else the token of
+  `gh auth login`, else no token, which is sufficient for a public repository.
 - **The stack file** is the working directory of the run, from the repository root, plus
   `alchemy.run.ts`.
-- **A checkout that gives no record still deploys.** A tarball without git, a checkout without
-  `origin`, or a detached HEAD still reads, plans, and destroys. Its outputs are written without the
-  record, and the log says why.
+- **A new stack of a repository that has a stack stops.** At the first deploy of a stack that has no
+  stage, the run stops when the `prod` output of another stack has a version 2 record with the same
+  `repositoryId` and `stackFile`, such as after a rename of the repository. The error names the
+  other stack: write that name as the stack name in the stack file.
+- **A run that gives no record still deploys.** A tarball without git, a checkout without a
+  github.com `origin`, a detached HEAD, or a failed GitHub request still reads, plans, and destroys.
+  Its outputs are written without the record, and the log says why.
+- **Version 1 records** come from earlier releases. They have `repository` (`owner/name`) and no
+  ids.
 - **An output with no place for the key**, such as a string, an array, or a Date, is stored as it
   is, with a warning in the log. A value that the stack itself put under the key stays.
 - Alchemy writes the output only after a full successful apply, so the record names the last full

@@ -10,11 +10,12 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Redacted from "effect/Redacted";
 import * as TestClock from "effect/testing/TestClock";
-import { inMemoryState, State } from "alchemy/State";
+import { inMemoryState, State, StateStoreError } from "alchemy/State";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   outputWithRunRecord,
   RUN_RECORD_KEY,
+  renamedStack,
   type RunRecord,
   runRecord,
   withRunRecord,
@@ -45,16 +46,30 @@ beforeEach(() => {
   writeFileSync(join(checkout, "apps", "site", "alchemy.run.ts"), "export default 1;\n");
   git(checkout, "add", ".");
   git(checkout, "commit", "--quiet", "--message", "stack");
-  git(checkout, "remote", "add", "origin", "git@github.com:samebase/tmp-run-record.git");
+  git(checkout, "remote", "add", "origin", "git@github.com:octo-org/shop.git");
+  stubGitHub(200, { id: 4242, owner: { id: 9100 }, full_name: "octo-org/store" });
 });
 
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
+  vi.unstubAllGlobals();
 });
+
+/** The GitHub API answers every request with `status` and `body`. GitHub redirects a renamed repository, so the name in the body can differ. */
+const stubGitHub = (status: number, body: unknown) => {
+  const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json(body, { status }));
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+};
+
+/** A checkout with a token, so the GitHub CLI is not asked for one. */
+const laptop = { GITHUB_TOKEN: "test-token" };
 
 const actions = {
   GITHUB_ACTIONS: "true",
   GITHUB_REPOSITORY: "samebase/tmp-run-record",
+  GITHUB_REPOSITORY_ID: "700100200",
+  GITHUB_REPOSITORY_OWNER_ID: "9100200",
   GITHUB_REF_NAME: "main",
   GITHUB_SHA: MERGE_SHA,
   GITHUB_SERVER_URL: "https://github.com",
@@ -85,8 +100,10 @@ describe("runRecord", () => {
       GITHUB_EVENT_PATH: PULL_REQUEST_EVENT,
     });
     expect(record).toEqual({
-      version: 1,
-      repository: "samebase/tmp-run-record",
+      version: 2,
+      repositoryId: "700100200",
+      repositoryOwnerId: "9100200",
+      repositoryName: "samebase/tmp-run-record",
       stackFile: "apps/site/alchemy.run.ts",
       branch: "team-token",
       pullRequest: 19,
@@ -107,7 +124,7 @@ describe("runRecord", () => {
       GITHUB_EVENT_PATH: payload,
     });
     expect(record).toMatchObject({
-      repository: "samebase/tmp-run-record",
+      repositoryName: "samebase/tmp-run-record",
       stackFile: "alchemy.run.ts",
       branch: "main",
       pullRequest: null,
@@ -129,19 +146,36 @@ describe("runRecord", () => {
     expect(record).toMatchObject({ branch: "feature", pullRequest: 7, headCommit: MERGE_SHA });
   });
 
-  it("fails on GitHub Actions without a variable", async () => {
+  it("fails on GitHub Actions without a variable, with an id that is not digits, or off github.com", async () => {
     const { GITHUB_RUN_ID: _unset, ...rest } = actions;
     expect(await failureOf(checkout, rest)).toContain("GITHUB_RUN_ID is not set");
+    const { GITHUB_REPOSITORY_ID: _noId, ...noId } = actions;
+    expect(await failureOf(checkout, noId)).toContain("GITHUB_REPOSITORY_ID is not set");
+    expect(
+      await failureOf(checkout, { ...actions, GITHUB_REPOSITORY_OWNER_ID: "octo-org" }),
+    ).toContain("GITHUB_REPOSITORY_OWNER_ID is not a GitHub id");
+    expect(
+      await failureOf(checkout, { ...actions, GITHUB_SERVER_URL: "https://ghe.example.com" }),
+    ).toContain("only https://github.com is supported");
     expect(
       await failureOf(checkout, { ...actions, GITHUB_EVENT_PATH: join(dir, "absent") }),
     ).toContain("cannot be read");
   });
 
-  it("records a checkout from git", async () => {
-    const record = await at(join(checkout, "apps", "site"), {});
+  it("records a checkout from git and the current name and ids from the GitHub API", async () => {
+    const fetch = stubGitHub(200, { id: 4242, owner: { id: 9100 }, full_name: "octo-org/store" });
+    const record = await at(join(checkout, "apps", "site"), laptop);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.github.com/repos/octo-org/shop",
+      expect.objectContaining({
+        headers: expect.objectContaining({ authorization: "Bearer test-token" }),
+      }),
+    );
     expect(record).toEqual({
-      version: 1,
-      repository: "samebase/tmp-run-record",
+      version: 2,
+      repositoryId: "4242",
+      repositoryOwnerId: "9100",
+      repositoryName: "octo-org/store",
       stackFile: "apps/site/alchemy.run.ts",
       branch: "main",
       pullRequest: null,
@@ -152,34 +186,51 @@ describe("runRecord", () => {
     } satisfies RunRecord);
   });
 
-  it("reads the https, ssh, and scp forms of the origin URL", async () => {
+  it("reads the https, ssh, and scp forms of a github.com origin URL", async () => {
+    const fetch = stubGitHub(200, { id: 4242, owner: { id: 9100 }, full_name: "octo-org/shop" });
     for (const url of [
-      "https://github.com/samebase/tmp-run-record.git",
-      "https://github.com/samebase/tmp-run-record",
-      "ssh://git@github.com/samebase/tmp-run-record.git",
-      "git@github.com:samebase/tmp-run-record.git",
+      "https://github.com/octo-org/shop.git",
+      "https://github.com/octo-org/shop",
+      "ssh://git@github.com/octo-org/shop.git",
+      "git@github.com:octo-org/shop.git",
     ]) {
       git(checkout, "remote", "set-url", "origin", url);
-      expect((await at(checkout, {})).repository).toBe("samebase/tmp-run-record");
+      await at(checkout, laptop);
+      expect(fetch).toHaveBeenLastCalledWith(
+        "https://api.github.com/repos/octo-org/shop",
+        expect.anything(),
+      );
     }
   });
 
-  it("fails outside a checkout, without origin, with a path remote, or on no branch", async () => {
-    expect(await failureOf(dir, {})).toContain("git remote get-url origin failed");
+  it("fails outside a checkout, without a github.com origin, or on no branch", async () => {
+    expect(await failureOf(dir, laptop)).toContain("git remote get-url origin failed");
     git(checkout, "remote", "remove", "origin");
-    expect(await failureOf(checkout, {})).toContain("git remote get-url origin failed");
-    git(checkout, "remote", "add", "origin", "/srv/git/tmp-run-record.git");
-    expect(await failureOf(checkout, {})).toContain("is not a git URL with a host");
-    git(checkout, "remote", "set-url", "origin", "git@github.com:samebase/tmp-run-record.git");
+    expect(await failureOf(checkout, laptop)).toContain("git remote get-url origin failed");
+    git(checkout, "remote", "add", "origin", "/srv/git/shop.git");
+    expect(await failureOf(checkout, laptop)).toContain("is not a github.com URL");
+    git(checkout, "remote", "set-url", "origin", "git@gitlab.com:octo-org/shop.git");
+    expect(await failureOf(checkout, laptop)).toContain("is not a github.com URL");
+    git(checkout, "remote", "set-url", "origin", "git@github.com:octo-org/shop.git");
     git(checkout, "checkout", "--quiet", "--detach");
-    expect(await failureOf(checkout, {})).toContain("detached HEAD");
+    expect(await failureOf(checkout, laptop)).toContain("detached HEAD");
+  });
+
+  it("fails when the GitHub API does not give the repository, and keeps the token out of the reason", async () => {
+    stubGitHub(404, { message: "Not Found" });
+    const failure = await failureOf(checkout, laptop);
+    expect(failure).toContain("GitHub GET /repos/octo-org/shop answered 404");
+    expect(failure).toContain("gh auth login");
+    expect(failure).not.toContain("test-token");
   });
 });
 
 describe("outputWithRunRecord", () => {
   const record: RunRecord = {
-    version: 1,
-    repository: "samebase/app",
+    version: 2,
+    repositoryId: "4242",
+    repositoryOwnerId: "9100",
+    repositoryName: "octo-org/store",
     stackFile: "alchemy.run.ts",
     branch: "main",
     pullRequest: null,
@@ -212,17 +263,53 @@ describe("outputWithRunRecord", () => {
   });
 });
 
+describe("renamedStack", () => {
+  const run = { repositoryId: "4242", stackFile: "alchemy.run.ts" };
+
+  it("names the other stack only for a version 2 record of the same id and stack file", () => {
+    const records = {
+      "same id": { version: 2, repositoryId: "4242", repositoryName: "octo-org/shop" },
+      "another id": { version: 2, repositoryId: "5151", repositoryName: "octo-org/store" },
+      "version 1": { version: 1, repository: "octo-org/shop", repositoryId: "4242" },
+      "no record": undefined,
+    };
+    const blocking = [];
+    for (const [kind, record] of Object.entries(records)) {
+      for (const stackFile of ["alchemy.run.ts", "apps/site/alchemy.run.ts"]) {
+        const prodOutput =
+          record === undefined
+            ? { url: "u" }
+            : { url: "u", [RUN_RECORD_KEY]: { ...record, stackFile } };
+        const found = renamedStack("octo-org/store", run, [{ stack: "octo-org/shop", prodOutput }]);
+        if (found !== undefined) blocking.push({ kind, stackFile, found });
+      }
+    }
+    expect(blocking).toEqual([
+      { kind: "same id", stackFile: "alchemy.run.ts", found: "octo-org/shop" },
+    ]);
+  });
+});
+
 describe("withRunRecord", () => {
-  /** The state of `withRunRecord` over an in-memory state, first used in `cwd` outside GitHub Actions. */
-  const open = async (cwd: string) => {
+  /**
+   * The state of `withRunRecord` over an in-memory state with `stacks` and `outputs`, first used in
+   * `cwd` with `env`, by default outside GitHub Actions.
+   */
+  const open = async (
+    cwd: string,
+    env: Record<string, string> = {},
+    stacks: Parameters<typeof inMemoryState>[0] = {},
+    outputs: Parameters<typeof inMemoryState>[1] = {},
+  ) => {
     // CI sets GITHUB_ACTIONS.
     vi.stubEnv("GITHUB_ACTIONS", "");
+    for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
     const before = process.cwd();
     process.chdir(cwd);
     try {
       return await Effect.gen(function* () {
         return yield* yield* State;
-      }).pipe(Effect.provide(withRunRecord(inMemoryState())), Effect.runPromise);
+      }).pipe(Effect.provide(withRunRecord(inMemoryState(stacks, outputs))), Effect.runPromise);
     } finally {
       process.chdir(before);
       vi.unstubAllEnvs();
@@ -231,14 +318,19 @@ describe("withRunRecord", () => {
   const stage = { stack: "samebase/tmp-run-record/apps/site", stage: "main" };
 
   it("adds the record of the run to each output, and passes every other call to the state", async () => {
-    const state = await open(join(checkout, "apps", "site"));
+    const fetch = stubGitHub(200, { id: 4242, owner: { id: 9100 }, full_name: "octo-org/store" });
+    const state = await open(join(checkout, "apps", "site"), laptop);
     expect(state.id).toBe("inmemory");
+    // The GitHub API is asked once, at the first output write.
+    expect(fetch).not.toHaveBeenCalled();
     const stored = await Effect.runPromise(state.setOutput({ ...stage, value: { url: "u" } }));
     expect(stored).toEqual({
       url: "u",
       [RUN_RECORD_KEY]: {
-        version: 1,
-        repository: "samebase/tmp-run-record",
+        version: 2,
+        repositoryId: "4242",
+        repositoryOwnerId: "9100",
+        repositoryName: "octo-org/store",
         stackFile: "apps/site/alchemy.run.ts",
         branch: "main",
         pullRequest: null,
@@ -251,6 +343,73 @@ describe("withRunRecord", () => {
     expect(await Effect.runPromise(state.getOutput(stage))).toEqual(stored);
     // An output with no place for the key is stored as it is.
     expect(await Effect.runPromise(state.setOutput({ ...stage, value: "u" }))).toBe("u");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  describe("after a rename of the repository", () => {
+    const renamedRun = {
+      ...actions,
+      GITHUB_REPOSITORY: "octo-org/store",
+      GITHUB_REPOSITORY_ID: "4242",
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_HEAD_REF: "",
+      GITHUB_EVENT_PATH: "",
+    };
+    const oldProd = () => ({
+      "octo-org/shop": {
+        prod: {
+          url: "u",
+          [RUN_RECORD_KEY]: {
+            version: 2,
+            repositoryId: "4242",
+            repositoryName: "octo-org/shop",
+            stackFile: "apps/site/alchemy.run.ts",
+          },
+        },
+      },
+    });
+
+    it("stops the first deploy of a stack under the new name", async () => {
+      const state = await open(
+        join(checkout, "apps", "site"),
+        renamedRun,
+        { "octo-org/shop": { prod: {} } },
+        oldProd(),
+      );
+      const exit = await Effect.runPromiseExit(
+        state.list({ stack: "octo-org/store", stage: "prod" }),
+      );
+      expect(exit).toEqual(
+        Exit.fail(
+          new StateStoreError({
+            message:
+              'The stack of this repository for apps/site/alchemy.run.ts is "octo-org/shop". This run would start a new stack "octo-org/store": write "octo-org/shop" as the stack name in apps/site/alchemy.run.ts.',
+          }),
+        ),
+      );
+    });
+
+    it("passes a stack that has a stage, and a run without a record", async () => {
+      const withStage = await open(
+        join(checkout, "apps", "site"),
+        renamedRun,
+        { "octo-org/shop": { prod: {} }, "octo-org/store": { prod: {} } },
+        oldProd(),
+      );
+      expect(
+        await Effect.runPromise(withStage.list({ stack: "octo-org/store", stage: "pr-1" })),
+      ).toEqual([]);
+      const { GITHUB_REPOSITORY_ID: _unset, ...withoutId } = renamedRun;
+      const noId = await open(
+        join(checkout, "apps", "site"),
+        withoutId,
+        { "octo-org/shop": { prod: {} } },
+        oldProd(),
+      );
+      expect(
+        await Effect.runPromise(noId.list({ stack: "octo-org/store", stage: "prod" })),
+      ).toEqual([]);
+    });
   });
 
   it("writes the outputs without a record when the checkout gives none", async () => {
