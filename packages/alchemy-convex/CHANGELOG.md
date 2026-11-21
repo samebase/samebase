@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.44.0
+
+- Takes `@samebase/alchemy-kit` 0.6.0. `withRunRecord` adds `repositoryId` to the run record and
+  stops the first deploy of a new stack when the repository was renamed and its stack has the old
+  name. The error names the stack to write in the stack file. The store version does not change.
+
 ## 0.43.0
 
 - The pull request comment of `alchemy-convex stack-comment` shows the main resources of a stage, of

@@ -184,6 +184,7 @@ that the state writes, under the key `samebase.run`:
   "samebase.run": {
     "version": 1,
     "repository": "my-org/my-app",
+    "repositoryId": "123456789",
     "stackFile": "alchemy.run.ts",
     "branch": "feature",
     "pullRequest": 42,
@@ -217,6 +218,10 @@ to that layer as it is.
   which needs a branch and an `origin` remote with `owner/name`. `source` says which.
 - **The stack file** is the working directory of the run, from the repository root, plus
   `alchemy.run.ts`.
+- **`repositoryId`** is `GITHUB_REPOSITORY_ID`, which a rename of the repository keeps. A checkout
+  has none. A run with it stops at the first deploy of a new stack when the `prod` output of another
+  stack has a record with the same `repositoryId` and `stackFile` and the old repository name. The
+  error names the old stack: write that name as the stack name in the stack file.
 - **A checkout that gives no record still deploys.** A tarball without git, a checkout without
   `origin`, or a detached HEAD still reads, plans, and destroys. Its outputs are written without the
   record, and the log says why.

@@ -16,10 +16,11 @@ Every repository of the team deploys the same way. The reference implementation 
    pages need to show the stage. Never `Cloudflare.state()`, never a local `.alchemy/` directory in
    CI, never a state artifact.
 3. **Stack name = repository full name**, `owner/name`, from `GITHUB_REPOSITORY` in Actions or the
-   origin remote on a development machine. That name is how the Samebase repository pages find the
-   stack. A stack in a folder of a repository is `owner/name/<folder>`. The identity hub names the
-   stack's app the same way: `<folder>`, or `app` for a stack named after the repository, unless
-   `IdentityHub.Client` gets an explicit `app`.
+   origin remote on a development machine, at its first deploy. A stack keeps that name for life, so
+   after a rename the stack file writes the old name as a literal; the Samebase repository pages
+   find the stack by the repository id in its run record. A stack in a folder of a repository is
+   `owner/name/<folder>`. The identity hub names the stack's app the same way: `<folder>`, or `app`
+   for a stack named after the repository, unless `IdentityHub.Client` gets an explicit `app`.
 4. **One secret**: `CONVEX_ACCESS_TOKEN`, a team access token, or the organization's OAuth token in
    a repository that Samebase created. The run mints every deploy key itself, and the keys never
    leave the run. An OAuth token comes back as its own key, with no limits. The identity hub needs

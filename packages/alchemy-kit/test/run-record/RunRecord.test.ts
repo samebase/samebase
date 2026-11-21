@@ -10,11 +10,12 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Redacted from "effect/Redacted";
 import * as TestClock from "effect/testing/TestClock";
-import { inMemoryState, State } from "alchemy/State";
+import { inMemoryState, State, StateStoreError } from "alchemy/State";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   outputWithRunRecord,
   RUN_RECORD_KEY,
+  renamedStack,
   type RunRecord,
   runRecord,
   withRunRecord,
@@ -83,10 +84,12 @@ describe("runRecord", () => {
       GITHUB_REF_NAME: "19/merge",
       GITHUB_HEAD_REF: "team-token",
       GITHUB_EVENT_PATH: PULL_REQUEST_EVENT,
+      GITHUB_REPOSITORY_ID: "700100200",
     });
     expect(record).toEqual({
       version: 1,
       repository: "samebase/tmp-run-record",
+      repositoryId: "700100200",
       stackFile: "apps/site/alchemy.run.ts",
       branch: "team-token",
       pullRequest: 19,
@@ -114,6 +117,7 @@ describe("runRecord", () => {
       headCommit: MERGE_SHA,
       source: "github-actions",
     });
+    expect(record).not.toHaveProperty("repositoryId");
   });
 
   it("takes the pull request number from GITHUB_REF when the payload has none", async () => {
@@ -212,17 +216,55 @@ describe("outputWithRunRecord", () => {
   });
 });
 
+describe("renamedStack", () => {
+  const run = { repository: "octo-org/store", repositoryId: "4242", stackFile: "alchemy.run.ts" };
+
+  it("names the other stack only for the same id and stack file under another repository name", () => {
+    const blocking = [];
+    for (const repositoryId of ["4242", "5151", undefined]) {
+      for (const stackFile of ["alchemy.run.ts", "apps/site/alchemy.run.ts"]) {
+        for (const repository of ["octo-org/store", "octo-org/shop"]) {
+          const record = { version: 1, repository, stackFile };
+          const prodOutput = {
+            url: "u",
+            [RUN_RECORD_KEY]: repositoryId === undefined ? record : { ...record, repositoryId },
+          };
+          const found = renamedStack(run, [{ stack: "octo-org/shop", prodOutput }]);
+          if (found !== undefined) blocking.push({ repositoryId, stackFile, repository, found });
+        }
+      }
+    }
+    expect(blocking).toEqual([
+      {
+        repositoryId: "4242",
+        stackFile: "alchemy.run.ts",
+        repository: "octo-org/shop",
+        found: { stack: "octo-org/shop", oldRepository: "octo-org/shop" },
+      },
+    ]);
+  });
+});
+
 describe("withRunRecord", () => {
-  /** The state of `withRunRecord` over an in-memory state, first used in `cwd` outside GitHub Actions. */
-  const open = async (cwd: string) => {
+  /**
+   * The state of `withRunRecord` over an in-memory state with `stacks` and `outputs`, first used in
+   * `cwd` with `env`, by default outside GitHub Actions.
+   */
+  const open = async (
+    cwd: string,
+    env: Record<string, string> = {},
+    stacks: Parameters<typeof inMemoryState>[0] = {},
+    outputs: Parameters<typeof inMemoryState>[1] = {},
+  ) => {
     // CI sets GITHUB_ACTIONS.
     vi.stubEnv("GITHUB_ACTIONS", "");
+    for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
     const before = process.cwd();
     process.chdir(cwd);
     try {
       return await Effect.gen(function* () {
         return yield* yield* State;
-      }).pipe(Effect.provide(withRunRecord(inMemoryState())), Effect.runPromise);
+      }).pipe(Effect.provide(withRunRecord(inMemoryState(stacks, outputs))), Effect.runPromise);
     } finally {
       process.chdir(before);
       vi.unstubAllEnvs();
@@ -251,6 +293,72 @@ describe("withRunRecord", () => {
     expect(await Effect.runPromise(state.getOutput(stage))).toEqual(stored);
     // An output with no place for the key is stored as it is.
     expect(await Effect.runPromise(state.setOutput({ ...stage, value: "u" }))).toBe("u");
+  });
+
+  describe("after a rename of the repository", () => {
+    const renamedRun = {
+      ...actions,
+      GITHUB_REPOSITORY: "octo-org/store",
+      GITHUB_REPOSITORY_ID: "4242",
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_HEAD_REF: "",
+      GITHUB_EVENT_PATH: "",
+    };
+    const oldProd = () => ({
+      "octo-org/shop": {
+        prod: {
+          url: "u",
+          [RUN_RECORD_KEY]: {
+            version: 1,
+            repository: "octo-org/shop",
+            repositoryId: "4242",
+            stackFile: "apps/site/alchemy.run.ts",
+          },
+        },
+      },
+    });
+
+    it("stops the first deploy of a stack under the new name", async () => {
+      const state = await open(
+        join(checkout, "apps", "site"),
+        renamedRun,
+        { "octo-org/shop": { prod: {} } },
+        oldProd(),
+      );
+      const exit = await Effect.runPromiseExit(
+        state.list({ stack: "octo-org/store", stage: "prod" }),
+      );
+      expect(exit).toEqual(
+        Exit.fail(
+          new StateStoreError({
+            message:
+              'This repository was renamed from octo-org/shop to octo-org/store. Its stack is still "octo-org/shop", and a stack keeps its first name: write "octo-org/shop" as the stack name in apps/site/alchemy.run.ts.',
+          }),
+        ),
+      );
+    });
+
+    it("passes a stack that has a stage, and a run without a repository id", async () => {
+      const withStage = await open(
+        join(checkout, "apps", "site"),
+        renamedRun,
+        { "octo-org/shop": { prod: {} }, "octo-org/store": { prod: {} } },
+        oldProd(),
+      );
+      expect(
+        await Effect.runPromise(withStage.list({ stack: "octo-org/store", stage: "pr-1" })),
+      ).toEqual([]);
+      const { GITHUB_REPOSITORY_ID: _unset, ...withoutId } = renamedRun;
+      const noId = await open(
+        join(checkout, "apps", "site"),
+        withoutId,
+        { "octo-org/shop": { prod: {} } },
+        oldProd(),
+      );
+      expect(
+        await Effect.runPromise(noId.list({ stack: "octo-org/store", stage: "prod" })),
+      ).toEqual([]);
+    });
   });
 
   it("writes the outputs without a record when the checkout gives none", async () => {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+- The run record has `repositoryId`, from `GITHUB_REPOSITORY_ID`, which a rename of the repository
+  keeps. A record of a checkout, or of a run without the variable, has none. `version` stays 1.
+- A deploy can now stop. `withRunRecord` stops a run with a `repositoryId` at the first `list` of a
+  stack that has no stage when the `prod` output of another stack has a record with the same
+  `repositoryId` and `stackFile` and another repository name: the repository was renamed, and the
+  run would make a second, empty app. The error names the old stack. Write that name as the stack
+  name in the stack file. `renamedStack` is the check without a store.
+
 ## 0.5.0
 
 - New entry `@samebase/alchemy-kit/stack`: `stageDiagram(rows)` reads the state rows of a stage and

@@ -95,7 +95,7 @@ section follows). The engine writes the stage output once, after a full successf
   as it is, with a warning in the log. The record needs no store function, so this part keeps the
   wire names of version 1.
 - The record, version 1:
-  `{ version: 1, repository, stackFile, branch, pullRequest, headCommit, runUrl, source, recordedAt }`,
+  `{ version: 1, repository, repositoryId?, stackFile, branch, pullRequest, headCommit, runUrl, source, recordedAt }`,
   no secret. `@samebase/alchemy-kit/run-record` derives it with no Convex dependency, so any state
   layer can add it. The derivation runs once, at the first use of the state; `recordedAt` is the
   time of the write. A checkout that gives no record (a tarball without git, no `origin` remote, a
@@ -103,15 +103,16 @@ section follows). The engine writes the stage output once, after a full successf
   that run carry no record. A reader treats a missing `samebase.run` as an unknown run, which it
   does for every output written before 0.7.0 anyway.
 
-| Field         | GitHub Actions (`GITHUB_ACTIONS` is `true`)                                                                              | A checkout outside GitHub Actions                                                    |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `repository`  | `GITHUB_REPOSITORY`                                                                                                      | `git remote get-url origin`, the last two path segments of an https, ssh, or scp URL |
-| `stackFile`   | the working directory below `git rev-parse --show-toplevel`, plus `alchemy.run.ts`                                       | the same                                                                             |
-| `branch`      | `GITHUB_HEAD_REF` when set (pull request events), else `GITHUB_REF_NAME`                                                 | `git rev-parse --abbrev-ref HEAD`; a detached HEAD fails                             |
-| `pullRequest` | `pull_request.number` of the payload at `GITHUB_EVENT_PATH`, else `<n>` of `GITHUB_REF` `refs/pull/<n>/merge`, else null | null                                                                                 |
-| `headCommit`  | `pull_request.head.sha` of the payload, else `GITHUB_SHA`                                                                | `git rev-parse HEAD`                                                                 |
-| `runUrl`      | `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}`                 | null                                                                                 |
-| `source`      | `github-actions`                                                                                                         | `checkout`                                                                           |
+| Field          | GitHub Actions (`GITHUB_ACTIONS` is `true`)                                                                              | A checkout outside GitHub Actions                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `repository`   | `GITHUB_REPOSITORY`                                                                                                      | `git remote get-url origin`, the last two path segments of an https, ssh, or scp URL |
+| `repositoryId` | `GITHUB_REPOSITORY_ID`, left out when it is not set                                                                      | left out                                                                             |
+| `stackFile`    | the working directory below `git rev-parse --show-toplevel`, plus `alchemy.run.ts`                                       | the same                                                                             |
+| `branch`       | `GITHUB_HEAD_REF` when set (pull request events), else `GITHUB_REF_NAME`                                                 | `git rev-parse --abbrev-ref HEAD`; a detached HEAD fails                             |
+| `pullRequest`  | `pull_request.number` of the payload at `GITHUB_EVENT_PATH`, else `<n>` of `GITHUB_REF` `refs/pull/<n>/merge`, else null | null                                                                                 |
+| `headCommit`   | `pull_request.head.sha` of the payload, else `GITHUB_SHA`                                                                | `git rev-parse HEAD`                                                                 |
+| `runUrl`       | `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}`                 | null                                                                                 |
+| `source`       | `github-actions`                                                                                                         | `checkout`                                                                           |
 
 - `headCommit` on a pull request event is the head of the pull request, not `GITHUB_SHA`, which is
   the merge commit that no branch holds: the head is what GitHub's run reports as `head_sha` and

@@ -10,10 +10,11 @@ import { execFile } from "node:child_process";
 import { readFile, realpath } from "node:fs/promises";
 import { relative, sep } from "node:path";
 import { promisify } from "node:util";
-import { State, type StateService } from "alchemy/State";
+import { State, StateStoreError, type StateService } from "alchemy/State";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 /** The key of the record in the stage output document. */
@@ -27,6 +28,8 @@ export interface RunRecord {
   readonly version: 1;
   /** GitHub `owner/name`. */
   readonly repository: string;
+  /** The GitHub repository id, which a rename keeps: GITHUB_REPOSITORY_ID. A checkout has none. */
+  readonly repositoryId?: string;
   /** Path of the stack file from the repository root, POSIX separators, such as `apps/samebase/alchemy.run.ts`. */
   readonly stackFile: string;
   /** The branch that was deployed: the head branch of a pull request, else the pushed branch. */
@@ -143,9 +146,11 @@ const fromGitHubActions = (where: RunEnvironment) =>
     const headRef = env["GITHUB_HEAD_REF"];
     const mergeRef = /^refs\/pull\/(\d+)\/merge$/.exec(env["GITHUB_REF"] ?? "");
     const stackFile = yield* stackFileOf(where.cwd);
+    const repositoryId = env["GITHUB_REPOSITORY_ID"];
     const record: RunRecord = {
       version: 1,
       repository,
+      ...(repositoryId === undefined || repositoryId === "" ? {} : { repositoryId }),
       stackFile,
       branch: headRef === undefined || headRef === "" ? refName : headRef,
       pullRequest: pullRequest?.number ?? (mergeRef === null ? null : Number(mergeRef[1])),
@@ -217,6 +222,40 @@ export const outputWithRunRecord = (output: unknown, record: RunRecord): object 
       : { ...output, [RUN_RECORD_KEY]: record }
     : undefined;
 
+/** The part of another stack's output that the rename check reads. Any other shape is no record. */
+const RecordOfOutput = Schema.Struct({
+  [RUN_RECORD_KEY]: Schema.Struct({
+    repositoryId: Schema.String,
+    repository: Schema.String,
+    stackFile: Schema.String,
+  }),
+});
+
+/**
+ * The stack that this run must keep using because its repository was renamed: another stack whose
+ * `prod` output has a record with the same `repositoryId` and `stackFile` as `run` and another
+ * `repository` name. Undefined when there is none, or when `run` has no `repositoryId`.
+ */
+export const renamedStack = (
+  run: Pick<RunRecord, "repository" | "repositoryId" | "stackFile">,
+  others: ReadonlyArray<{ readonly stack: string; readonly prodOutput: unknown }>,
+) => {
+  if (run.repositoryId === undefined) return undefined;
+  for (const { stack, prodOutput } of others) {
+    const decoded = Schema.decodeUnknownOption(RecordOfOutput)(prodOutput);
+    if (Option.isNone(decoded)) continue;
+    const record = decoded.value[RUN_RECORD_KEY];
+    if (
+      record.repositoryId === run.repositoryId &&
+      record.stackFile === run.stackFile &&
+      record.repository !== run.repository
+    ) {
+      return { stack, oldRepository: record.repository };
+    }
+  }
+  return undefined;
+};
+
 /**
  * The state of `inner`, with the record of this run in each stage output that it writes, under
  * {@link RUN_RECORD_KEY}: `state: withRunRecord(Convex.state())`, or the same over another state
@@ -227,6 +266,9 @@ export const outputWithRunRecord = (output: unknown, record: RunRecord): object 
  * `origin`, or a detached HEAD, still reads, plans, and destroys: its outputs are written without
  * the record, and the log says why. The engine writes the output only after a full successful
  * apply, so the record names the last full successful deploy of the stage.
+ *
+ * A run with a `repositoryId` stops at the first `list` of a new stack when {@link renamedStack}
+ * finds the stack of the same repository and stack file under its old repository name.
  */
 export const withRunRecord = <E, R>(inner: Layer.Layer<State, E, R>): Layer.Layer<State, E, R> =>
   Layer.effect(
@@ -256,8 +298,47 @@ export const withRunRecord = <E, R>(inner: Layer.Layer<State, E, R>): Layer.Laye
               );
               return request.value;
             });
+          const renameCheck = (stack: string, current: RunRecord) =>
+            Effect.gen(function* () {
+              if ((yield* service.listStages(stack)).length > 0) return;
+              const stacks = (yield* service.listStacks()).filter((other) => other !== stack);
+              const others = yield* Effect.forEach(
+                stacks.toSorted(),
+                (other) =>
+                  service
+                    .getOutput({ stack: other, stage: "prod" })
+                    .pipe(Effect.map((prodOutput) => ({ stack: other, prodOutput }))),
+                { concurrency: 8 },
+              );
+              const found = renamedStack(current, others);
+              if (found === undefined) return;
+              return yield* Effect.fail(
+                new StateStoreError({
+                  message: `This repository was renamed from ${found.oldRepository} to ${current.repository}. Its stack is still "${found.stack}", and a stack keeps its first name: write "${found.stack}" as the stack name in ${current.stackFile}.`,
+                }),
+              );
+            });
+          const verdicts = new Map<string, Effect.Effect<void, StateStoreError>>();
           const wrapped: StateService = {
             ...service,
+            // Plan, deploy and destroy list the stack they work on before any provider call; a stack read through a reference uses get and getOutput.
+            list: (request) =>
+              service.list(request).pipe(
+                Effect.tap((fqns) =>
+                  Effect.gen(function* () {
+                    if (run?.repositoryId === undefined) return;
+                    let verdict = verdicts.get(request.stack);
+                    if (verdict === undefined) {
+                      verdict =
+                        fqns.length > 0
+                          ? Effect.void
+                          : yield* Effect.cached(renameCheck(request.stack, run));
+                      verdicts.set(request.stack, verdict);
+                    }
+                    yield* verdict;
+                  }),
+                ),
+              ),
             setOutput: (request) =>
               documentOf(request).pipe(
                 Effect.flatMap((value) =>
