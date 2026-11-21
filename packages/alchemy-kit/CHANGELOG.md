@@ -2,13 +2,17 @@
 
 ## 0.6.0
 
-- The run record has `repositoryId`, from `GITHUB_REPOSITORY_ID`, which a rename of the repository
-  keeps. A record of a checkout, or of a run without the variable, has none. `version` stays 1.
-- A deploy can now stop. `withRunRecord` stops a run with a `repositoryId` at the first `list` of a
-  stack that has no stage when the `prod` output of another stack has a record with the same
-  `repositoryId` and `stackFile` and another repository name: the repository was renamed, and the
-  run would make a second, empty app. The error names the old stack. Write that name as the stack
-  name in the stack file. `renamedStack` is the check without a store.
+- The run record is version 2: `repositoryId` and `repositoryOwnerId`, the GitHub ids as digits, and
+  `repositoryName` in place of `repository`. A rename of the repository keeps the ids. On GitHub
+  Actions they come from `GITHUB_REPOSITORY_ID` and `GITHUB_REPOSITORY_OWNER_ID`. A checkout gets
+  them, and the current name, from one request to the GitHub API, with `GITHUB_TOKEN`, `GH_TOKEN`,
+  the `gh` login, or no token. Only github.com is supported. A run that cannot get the ids writes no
+  record. Samebase must accept version 2 before an app deploys with this release.
+- A deploy can now stop. `withRunRecord` stops a run at the first `list` of a stack that has no
+  stage when the `prod` output of another stack has a version 2 record with the same `repositoryId`
+  and `stackFile`: the repository was renamed, and the run would make a second, empty app. The error
+  names the other stack. Write that name as the stack name in the stack file. `renamedStack` is the
+  check without a store.
 
 ## 0.5.0
 
