@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.37.0
+
+- The moderation API is back: `moderation({ key })` of `./moderation`, mounted with
+  `github(allowList, { moderation })`. It has the nine requests of 0.34.0 under `/moderation/`, with
+  the same success answers. Its errors follow RFC 6750: no token answers 401 with a bare
+  `WWW-Authenticate: Bearer` challenge, a wrong token `invalid_token`, and a request that does not
+  decode `invalid_request` (400), each with `Cache-Control: no-store`.
+- `./moderation/api` declares the API with Effect's `HttpApi`, for a typed client and the OpenAPI
+  document. It imports no server code.
+- `github` takes `"any"`, or entries `{ ownerId, repositoryId? }`: an entry without `repositoryId`
+  covers every repository of that owner. `{ paused }` refuses every registration and sign-in step of
+  the layer's clients, as `paused` of 0.34.0's policy did.
+- Four new tables: `registrations`, `blocks`, `blockEvents` and `everyAppExemptions`. A SQLite store
+  of 0.36.0 gets them when it opens and keeps its rows; any other change of a stored layout is still
+  refused.
+
 ## 0.36.0
 
 - The main export, `@samebase/identity-broker`, is the hub with no platform: `makeHandle`, the
