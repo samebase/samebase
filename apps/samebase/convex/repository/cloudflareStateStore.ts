@@ -1,7 +1,11 @@
 import { isRecord, notEmpty } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
-import { parseWithoutSecretValues, readDeployedStacks } from "../../shared/alchemyState";
+import {
+  parseWithoutSecretValues,
+  readDeployedStacks,
+  type AlchemyRepository,
+} from "../../shared/alchemyState";
 import type { AlchemyStack, CloudflareStacksRead } from "../../shared/alchemyStateModel";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -216,7 +220,7 @@ async function readStoreToken(args: Parameters<typeof readStoreTokenOnce>[0]) {
 /**
 The stacks of `repository` in the store, as `readDeployedStacks` keeps them: the stack name does not
 count, only the run record in the output of a stage. Stacks and stages are in name order, resources
-in fqn order. The resources of a stage are read only when its run record names the repository, and
+in fqn order. The resources of a stage are read only when its run record matches the repository, and
 a resource that a deploy removed during the read is left out. Each row and output has its secret
 values removed as soon as it arrives, the same as a read of the Convex store, so no secret value
 leaves this function. A request that fails stops the whole read: a partial read could hide a stack.
@@ -226,9 +230,10 @@ repository answers it from the list of stack names alone.
 async function readStacks(
   storeUrl: string,
   bearer: string,
-  args: { repository: string; stopAtNamedStack: boolean },
+  args: { repository: AlchemyRepository; stopAtNamedStack: boolean },
 ): Promise<Extract<CloudflareStoreRead, { state: "found" }>> {
   const { repository } = args;
+  const fullName = repository.githubRepositoryFullName;
   const limited = limiter(STORE_REQUEST_LIMIT);
   const get = async (path: string) =>
     await limited(async () => {
@@ -264,7 +269,7 @@ async function readStacks(
     (name) => name !== LEGACY_BOOTSTRAP_STACK,
   );
   const namedStack = stackNames.some(
-    (name) => name === repository || name.startsWith(`${repository}/`),
+    (name) => name === fullName || name.startsWith(`${fullName}/`),
   );
   if (namedStack && args.stopAtNamedStack) {
     return { state: "found", namedStack, stacks: [] };
@@ -303,14 +308,14 @@ async function readStacks(
 }
 
 /**
-Reads the stacks of `repository` (GitHub `owner/name`) from the Alchemy state store of a Cloudflare
+Reads the stacks of `repository` from the Alchemy state store of a Cloudflare
 account with an API token or an OAuth access token. It needs Workers Scripts Edit and Secrets Store
 Edit: Cloudflare binds a Secrets Store secret only with Edit. The store token stays in this function.
 */
 export async function readCloudflareStateStore(args: {
   token: string;
   accountId: string;
-  repository: string;
+  repository: AlchemyRepository;
   stopAtNamedStack: boolean;
 }): Promise<CloudflareStoreRead> {
   try {
@@ -373,16 +378,24 @@ export async function readCloudflareStateStore(args: {
   }
 }
 
-/** The organization and GitHub `owner/name` of a repository that the user can read. */
+/** The organization, GitHub id and GitHub `owner/name` of a repository that the user can read. */
 export const readTarget = internalQuery({
   args: { repositoryId: id("repositories"), userId: id("users") },
-  returns: object({ organizationId: id("organizations"), githubRepositoryFullName: string() }),
+  returns: object({
+    organizationId: id("organizations"),
+    githubRepositoryDatabaseId: string(),
+    githubRepositoryFullName: string(),
+  }),
   handler: async (ctx, args) => {
     const { repository, githubRepositoryFullName } = await requireLiveRepositoryForUser(
       ctx.db,
       args,
     );
-    return { organizationId: repository.organizationId, githubRepositoryFullName };
+    return {
+      organizationId: repository.organizationId,
+      githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
+      githubRepositoryFullName,
+    };
   },
 });
 
@@ -394,10 +407,11 @@ export async function readRepositoryCloudflareStacks(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users">; stopAtNamedStack: boolean },
 ): Promise<CloudflareStoreRead> {
-  const { organizationId, githubRepositoryFullName } = await ctx.runQuery(
-    internal.repository.cloudflareStateStore.readTarget,
-    { repositoryId: args.repositoryId, userId: args.userId },
-  );
+  const { organizationId, githubRepositoryDatabaseId, githubRepositoryFullName } =
+    await ctx.runQuery(internal.repository.cloudflareStateStore.readTarget, {
+      repositoryId: args.repositoryId,
+      userId: args.userId,
+    });
   let connection: ResolvedCloudflareConnection | null;
   try {
     connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
@@ -432,7 +446,7 @@ export async function readRepositoryCloudflareStacks(
   return await readCloudflareStateStore({
     token,
     accountId: connection.account.accountId,
-    repository: githubRepositoryFullName,
+    repository: { githubRepositoryDatabaseId, githubRepositoryFullName },
     stopAtNamedStack: args.stopAtNamedStack,
   });
 }

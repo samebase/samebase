@@ -207,10 +207,17 @@ export function stageResources(stage: {
   };
 }
 
+/** A GitHub repository: its numeric id, undefined when Samebase does not know it, and `owner/name`. */
+export type AlchemyRepository = {
+  githubRepositoryDatabaseId: string | undefined;
+  githubRepositoryFullName: string;
+};
+
 /**
 The stacks of `repository` that Samebase shows, from the stages that the store gives. Samebase shows
 a stage only after its first full successful deploy: its output is a JSON object whose run record,
-under `samebase.run`, names `repository`. A stage while its first deploy runs, a stage whose deploys
+under `samebase.run`, matches `repository`: by GitHub id when the record and `repository` both have
+one, else by `owner/name`. A stage while its first deploy runs, a stage whose deploys
 did not complete, and a stage that an older stack wrote without a run record have no such output.
 The `output` of a stage is the JSON of its output without the run record. A stack without a stage
 that Samebase shows is left out. Stacks and stages keep the order of the store. A store read on the
@@ -218,9 +225,10 @@ server removes the secret values before it calls this. `store` is the store that
 */
 export function readDeployedStacks(
   stacks: readonly { name: string; stages: readonly AlchemyStoredStage[] }[],
-  repository: string,
+  repository: AlchemyRepository,
   store: AlchemyStack["store"],
 ): AlchemyStack[] {
+  const { githubRepositoryDatabaseId, githubRepositoryFullName } = repository;
   return stacks.flatMap((stack) => {
     const stages = stack.stages.flatMap((stage) => {
       const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
@@ -228,7 +236,10 @@ export function readDeployedStacks(
         return [];
       }
       const { [RUN_RECORD_KEY]: run, ...stackOutput } = output;
-      return validate(vAlchemyRunRecord, run) && run.repository === repository
+      return validate(vAlchemyRunRecord, run) &&
+        (run.repositoryId !== undefined && githubRepositoryDatabaseId !== undefined
+          ? run.repositoryId === githubRepositoryDatabaseId
+          : run.repository === githubRepositoryFullName)
         ? [
             {
               name: stage.name,
@@ -244,16 +255,12 @@ export function readDeployedStacks(
 }
 
 /**
-The setup status of a repository_actions repository. A stage of the repository has the run record of
-a completed deploy, so a `prod` stage of the stack with the repository's name is a completed
+The setup status of a repository_actions repository from its stacks. A stage of the repository has
+the run record of a completed deploy, so a `prod` stage of any of its stacks is a completed
 production deploy.
 */
-export function readAlchemySetupStatus(
-  stacks: readonly AlchemyStack[],
-  repository: string,
-): AlchemySetupStatus {
-  const stack = stacks.find((candidate) => candidate.name === repository);
-  return stack?.stages.some((stage) => stage.name === "prod")
+export function readAlchemySetupStatus(stacks: readonly AlchemyStack[]): AlchemySetupStatus {
+  return stacks.some((stack) => stack.stages.some((stage) => stage.name === "prod"))
     ? { state: "done" }
     : { state: "no_successful_deployment" };
 }

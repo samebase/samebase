@@ -77,7 +77,7 @@ const read = async (stopAtNamedStack = false) =>
   await readCloudflareStateStore({
     token: "oauth-token",
     accountId,
-    repository: "acme/app",
+    repository: { githubRepositoryDatabaseId: undefined, githubRepositoryFullName: "acme/app" },
     stopAtNamedStack,
   });
 

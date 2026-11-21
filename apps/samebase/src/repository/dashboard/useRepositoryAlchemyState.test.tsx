@@ -24,6 +24,7 @@ type DeploymentMetadata =
   (typeof api.repository.alchemyState.readDeploymentMetadata)["_returnType"];
 type CloudflareRead = (typeof api.repository.alchemyState.readCloudflareStacks)["_returnType"];
 type GitHubRead = (typeof api.repository.alchemyState.readGitHubStacks)["_returnType"];
+type OtherNamesRead = (typeof api.repository.alchemyState.readOtherNameStacks)["_returnType"];
 /** A stack of the Cloudflare store whose name is not `owner/name`. The server filtered it. */
 const cloudflareStack = {
   name: "web",
@@ -95,7 +96,11 @@ const liveRead = withProdRows(observedSamebaseRepositoryReply, (row) =>
     : row.value,
 );
 /** The stacks of `liveRead` that the page shows: the deploy of `pr-1756` wrote no output. */
-const liveStacks = readDeployedStacks(liveRead.stacks, "samebase/samebase", "convex");
+const liveStacks = readDeployedStacks(
+  liveRead.stacks,
+  { githubRepositoryDatabaseId: undefined, githubRepositoryFullName: "samebase/samebase" },
+  "convex",
+);
 type ClientState = {
   value: ((value: unknown) => void) | undefined;
   error: ((error: Error) => void) | undefined;
@@ -111,6 +116,7 @@ const mocks = vi.hoisted(() => {
     metadata: vi.fn<() => Promise<DeploymentMetadata>>(),
     cloudflare: vi.fn<() => Promise<CloudflareRead>>(),
     github: vi.fn<() => Promise<GitHubRead>>(),
+    otherNames: vi.fn<() => Promise<OtherNamesRead>>(),
     clients,
     userId: "user-a",
     authenticated: true,
@@ -130,6 +136,7 @@ vi.mock("convex/react", () => ({
       "repository/alchemyState:connect": mocks.connect,
       "repository/alchemyState:readCloudflareStacks": mocks.cloudflare,
       "repository/alchemyState:readGitHubStacks": mocks.github,
+      "repository/alchemyState:readOtherNameStacks": mocks.otherNames,
     })[getFunctionName(reference)] ?? mocks.metadata,
 }));
 vi.mock("convex/browser", () => ({
@@ -169,7 +176,7 @@ let repositoryId: Id<"repositories">;
 let teamId: string;
 
 function Probe() {
-  latest = useRepositoryAlchemyState(repositoryId, teamId, "samebase/samebase");
+  latest = useRepositoryAlchemyState(repositoryId, teamId, "samebase/samebase", undefined);
   return null;
 }
 async function render() {
@@ -206,6 +213,8 @@ beforeEach(() => {
   mocks.cloudflare.mockResolvedValue({ state: "not_connected" });
   mocks.github.mockReset();
   mocks.github.mockResolvedValue({ state: "no_store" });
+  mocks.otherNames.mockReset();
+  mocks.otherNames.mockResolvedValue({ stacks: [], liveDeployments: [] });
   // @ts-expect-error Convex ids are strings at runtime; this test needs stable repository identity.
   repositoryId = "repository-a";
   teamId = "team-a";
@@ -580,16 +589,18 @@ describe("useRepositoryAlchemyState with the Cloudflare store and the GitHub bra
     expect(latest).toMatchObject({ state: "failed", error: { data: "Access denied." } });
 
     await answerCloudflare(cloudflareFound);
-    expect(latest).toEqual({
-      state: "loaded",
-      observation: {
-        store: "found",
-        stacks: [cloudflareStack],
-        liveDeployments: cloudflareDeployments,
-      },
-      refreshFailed: true,
-      reload: expect.any(Function),
-    });
+    await vi.waitFor(() =>
+      expect(latest).toEqual({
+        state: "loaded",
+        observation: {
+          store: "found",
+          stacks: [cloudflareStack],
+          liveDeployments: cloudflareDeployments,
+        },
+        refreshFailed: true,
+        reload: expect.any(Function),
+      }),
+    );
 
     const connects = mocks.connect.mock.calls.length;
     const reads = mocks.cloudflare.mock.calls.length;

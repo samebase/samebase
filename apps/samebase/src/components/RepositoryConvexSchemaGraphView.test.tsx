@@ -64,7 +64,7 @@ const stacks = readDeployedStacks(
         : stage,
     ),
   })),
-  "samebase/samebase",
+  { githubRepositoryDatabaseId: undefined, githubRepositoryFullName: "samebase/samebase" },
   "convex",
 );
 const foundStacks: RepositoryAlchemyState = {

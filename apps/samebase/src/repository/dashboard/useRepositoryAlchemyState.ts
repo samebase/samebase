@@ -16,6 +16,7 @@ import {
   type AlchemyStateObservation,
   type CloudflareStacksRead,
   type GitHubStacksRead,
+  type OtherNameStacksRead,
 } from "../../../shared/alchemyStateModel";
 
 const repositoryQuery = makeFunctionReference<"query", Record<string, never>, unknown>(
@@ -71,19 +72,22 @@ One connection for the selected repository to the store of its Convex team. Clea
 results belong to its target. The loader's read stands until the first subscription result, and the
 connection starts with its token, so the page has the stacks before any request of the browser. A
 reload connects again and reads the other stores again. `repository` is the GitHub `owner/name` of
-the repository: the run record of each stage that the page shows names it.
+the repository and `githubRepositoryDatabaseId` its GitHub id: the run record of each stage that the
+page shows matches them (`readDeployedStacks`).
 
 The store of the organization's Cloudflare account and the branch `alchemy-state-store` of the
 repository are read once when the page opens, in the browser: the Cloudflare read takes some seconds
 and uploads an edge preview at Cloudflare, and the branch read makes one GitHub request per file.
-Their stacks join the Convex stacks in one observation, and while a read runs, a page with no stack
-yet shows its loading state. When the Convex read fails, the page shows the stacks of the other
-stores with `refreshFailed`, and without them it shows the failure.
+The stacks of the Convex store under another name, which the subscription does not give, are read
+once too. Their stacks join the Convex stacks in one observation, and while a read runs, a page with
+no stack yet shows its loading state. When the Convex read fails, the page shows the stacks of the
+other stores with `refreshFailed`, and without them it shows the failure.
 */
 export function useRepositoryAlchemyState(
   repositoryId: Id<"repositories"> | null,
   convexTeamId: string | undefined,
   repository: string | undefined,
+  githubRepositoryDatabaseId: string | undefined,
 ): RepositoryAlchemyState {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
@@ -91,6 +95,7 @@ export function useRepositoryAlchemyState(
   const readDeploymentMetadata = useAction(api.repository.alchemyState.readDeploymentMetadata);
   const readCloudflareStacks = useAction(api.repository.alchemyState.readCloudflareStacks);
   const readGitHubStacks = useAction(api.repository.alchemyState.readGitHubStacks);
+  const readOtherNameStacks = useAction(api.repository.alchemyState.readOtherNameStacks);
   const loaderRead = useLoaderRead(repositoryId, convexTeamId);
   const [attempt, setAttempt] = useState(0);
   const [reloadedRead, setReloadedRead] = useState<typeof loaderRead>();
@@ -101,9 +106,24 @@ export function useRepositoryAlchemyState(
   const target = useMemo(
     () =>
       convexRepositoryId && repository && userId
-        ? { repositoryId: convexRepositoryId, repository, userId, convexTeamId, attempt, firstRead }
+        ? {
+            repositoryId: convexRepositoryId,
+            repository: { githubRepositoryDatabaseId, githubRepositoryFullName: repository },
+            userId,
+            convexTeamId,
+            attempt,
+            firstRead,
+          }
         : null,
-    [convexRepositoryId, repository, userId, convexTeamId, attempt, firstRead],
+    [
+      convexRepositoryId,
+      repository,
+      githubRepositoryDatabaseId,
+      userId,
+      convexTeamId,
+      attempt,
+      firstRead,
+    ],
   );
   const [result, setResult] = useState<{ target: typeof target; value: StoreResult }>();
   // The Cloudflare store and the GitHub branch need no Convex team.
@@ -132,14 +152,25 @@ export function useRepositoryAlchemyState(
     refetchOnWindowFocus: false,
     retry: false,
   });
+  const otherNames = useCachedQuery({
+    queryKey: ["repository-alchemy-other-name-stacks", convexRepositoryId, userId],
+    queryFn: async () =>
+      convexRepositoryId
+        ? await readOtherNameStacks({ repositoryId: convexRepositoryId })
+        : { stacks: [], liveDeployments: [] },
+    enabled: otherStoresEnabled,
+    retry: false,
+  });
   const { refetch: refetchCloudflare } = cloudflare;
   const { refetch: refetchGitHub } = github;
+  const { refetch: refetchOtherNames } = otherNames;
   const reload = useCallback(() => {
     setReloadedRead(loaderRead);
     setAttempt((current) => current + 1);
     void refetchCloudflare();
     void refetchGitHub();
-  }, [loaderRead, refetchCloudflare, refetchGitHub]);
+    void refetchOtherNames();
+  }, [loaderRead, refetchCloudflare, refetchGitHub, refetchOtherNames]);
   const firstResult = useMemo((): StoreResult | undefined => {
     if (!firstRead) return undefined;
     if (firstRead.state === "failed")
@@ -324,8 +355,9 @@ export function useRepositoryAlchemyState(
     ? current
     : { state: "loaded" as const, read: { store: "no_connection" as const } };
   if (!convex) return { state: "loading" };
+  const queries = { cloudflare, github, otherNames };
   if (convex.state === "failed") {
-    return withOtherStoreReads({ ...convex, reload }, { cloudflare, github });
+    return withOtherStoreReads({ ...convex, reload }, queries);
   }
   const observation: AlchemyStateObservation =
     convex.read.store === "found"
@@ -333,7 +365,7 @@ export function useRepositoryAlchemyState(
       : convex.read;
   return withOtherStoreReads(
     { state: "loaded", observation, refreshFailed: metadata.isError, reload },
-    { cloudflare, github },
+    queries,
   );
 }
 
@@ -349,26 +381,32 @@ const CLOUDFLARE_PROBLEMS = {
 } satisfies Record<CloudflareStacksRead["state"], "reconnect" | "unreadable" | undefined>;
 
 /**
-The Convex read with the reads of the Cloudflare store and the GitHub branch. Nothing flashes:
+The Convex read with the reads of the Cloudflare store, the GitHub branch, and the Convex stacks
+under another name (`otherNames`). Nothing flashes:
 stacks show as soon as a read gives them, and a page without a stack waits for every read. A read
-that throws counts as failed. A failed Convex read shows the stacks of the other stores with
-`refreshFailed`, whose Retry reads every store again, and shows the failure while the other reads
-run or find no stack.
+that throws counts as failed, and a failed `otherNames` read gives no stack. A failed Convex read
+shows the stacks of the other stores with `refreshFailed`, whose Retry reads every store again, and
+shows the failure while the other reads run or find no stack.
 */
 function withOtherStoreReads(
   convex: Exclude<RepositoryAlchemyState, { state: "loading" }>,
   queries: {
     cloudflare: Pick<UseQueryResult<CloudflareStacksRead>, "data" | "isError">;
     github: Pick<UseQueryResult<GitHubStacksRead>, "data" | "isError">;
+    otherNames: Pick<UseQueryResult<OtherNameStacksRead>, "data" | "isError">;
   },
 ): RepositoryAlchemyState {
   const cloudflareRead: CloudflareStacksRead | undefined =
     queries.cloudflare.data ?? (queries.cloudflare.isError ? { state: "failed" } : undefined);
   const githubRead: GitHubStacksRead | undefined =
     queries.github.data ?? (queries.github.isError ? { state: "failed" } : undefined);
-  const others = [cloudflareRead, githubRead].flatMap((read) =>
-    read?.state === "found" && read.stacks.length > 0 ? [read] : [],
-  );
+  const otherNamesRead: OtherNameStacksRead | undefined =
+    queries.otherNames.data ??
+    (queries.otherNames.isError ? { stacks: [], liveDeployments: [] } : undefined);
+  const others = [
+    ...[cloudflareRead, githubRead].flatMap((read) => (read?.state === "found" ? [read] : [])),
+    ...(otherNamesRead ? [otherNamesRead] : []),
+  ].filter((read) => read.stacks.length > 0);
   if (convex.state === "failed") {
     return others.length > 0
       ? {
@@ -384,7 +422,10 @@ function withOtherStoreReads(
       : convex;
   }
   const reads = convex.observation.store === "found" ? [convex.observation, ...others] : others;
-  if ((!cloudflareRead || !githubRead) && !reads.some((read) => read.stacks.length > 0)) {
+  if (
+    (!cloudflareRead || !githubRead || !otherNamesRead) &&
+    !reads.some((read) => read.stacks.length > 0)
+  ) {
     return { state: "loading" };
   }
 

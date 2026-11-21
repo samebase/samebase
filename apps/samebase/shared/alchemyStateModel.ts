@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { vConvexDeploymentRegion } from "../convex/convexDeploymentRegionModel";
 
-const { array, literal, number, object, string, union } = v;
+const { array, literal, number, object, optional, string, union } = v;
 
 /** Renewal may retry provider failures. Samebase access failures remain separate. */
 export const ALCHEMY_CONNECTION_UNAVAILABLE = "Alchemy state is temporarily unavailable.";
@@ -61,6 +61,8 @@ export const vAlchemyRunRecord = object({
   version: literal(1),
   /** GitHub `owner/name`. */
   repository: string(),
+  /** GitHub's numeric repository id, in digits. */
+  repositoryId: optional(string()),
   /** Stack file relative to the repository root, with POSIX separators. */
   stackFile: string(),
   branch: string(),
@@ -105,8 +107,8 @@ export const vAlchemyStacksRead = union(
 export type AlchemyStacksRead = Infer<typeof vAlchemyStacksRead>;
 
 /**
-The setup status of a repository_actions repository, from the `prod` stage of the stack that carries
-the repository's name in the team's Alchemy state store.
+The setup status of a repository_actions repository, from the `prod` stages of the repository's
+stacks in the team's Alchemy state store.
 
 no_successful_deployment = no completed production deploy is recorded. The store does not say
 whether a run is still running or failed.
@@ -140,7 +142,7 @@ export const vAlchemyLiveDeployments = array(
 
 /**
 The read of the Alchemy state store of the organization's Cloudflare account (`Cloudflare.state()`)
-for one repository: the stages whose run record names the repository, as `readDeployedStacks` keeps
+for one repository: the stages whose run record matches the repository, as `readDeployedStacks` keeps
 them, with the Convex metadata of their production deployments.
 */
 export const vCloudflareStacksRead = union(
@@ -164,7 +166,7 @@ export type CloudflareStacksRead = Infer<typeof vCloudflareStacksRead>;
 
 /**
 The read of the GitHub state store of `@samebase/alchemy-kit/github-state`, the branch
-`alchemy-state-store` of the repository, for the repository: the stages whose run record names the
+`alchemy-state-store` of the repository, for the repository: the stages whose run record matches the
 repository, as `readDeployedStacks` keeps them, with the Convex metadata of their production
 deployments.
 */
@@ -179,6 +181,17 @@ export const vGitHubStacksRead = union(
   }),
 );
 export type GitHubStacksRead = Infer<typeof vGitHubStacksRead>;
+
+/**
+The stacks of a repository in the store of its Convex team whose name is not `owner/name` and does
+not start with `owner/name/`, such as the stack of a renamed repository, with the Convex metadata of
+their production deployments. The browser subscription gives only the stacks under the current name.
+*/
+export const vOtherNameStacksRead = object({
+  stacks: array(vAlchemyStack),
+  liveDeployments: vAlchemyLiveDeployments,
+});
+export type OtherNameStacksRead = Infer<typeof vOtherNameStacksRead>;
 
 /** Samebase holds no Convex connection to the repository's team, so it cannot read the store. */
 export const vAlchemyNoConnection = object({ store: literal("no_connection") });

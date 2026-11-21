@@ -13,6 +13,7 @@ import {
   readDeployedStacks,
   stackCards,
   stageResources,
+  type AlchemyRepository,
 } from "./alchemyState";
 import type { AlchemyStack } from "./alchemyStateModel";
 
@@ -21,6 +22,10 @@ const [deploymentRow, projectRow] = prod.resources;
 
 const [, , samebaseProd] = observedSamebaseStackReply.value.stages;
 const [, proxyRow, , siteRow] = samebaseProd.resources;
+
+function byName(githubRepositoryFullName: string) {
+  return { githubRepositoryDatabaseId: undefined, githubRepositoryFullName };
+}
 
 /**
 The captured Project row as `fqn`, with `namespace` as alchemy 2.0.0-beta.83 writes it: the last key,
@@ -83,16 +88,18 @@ describe("readDeployedStacks", () => {
   */
   it("keeps the stages whose output has a run record of the repository, without that record", () => {
     expect(
-      readDeployedStacks(observedSamebaseRepositoryReply.stacks, "samebase/samebase", "convex").map(
-        (stack) => ({
-          name: stack.name,
-          stages: stack.stages.map(({ name, run, output }) => ({
-            name,
-            headCommit: run.headCommit,
-            output,
-          })),
-        }),
-      ),
+      readDeployedStacks(
+        observedSamebaseRepositoryReply.stacks,
+        byName("samebase/samebase"),
+        "convex",
+      ).map((stack) => ({
+        name: stack.name,
+        stages: stack.stages.map(({ name, run, output }) => ({
+          name,
+          headCommit: run.headCommit,
+          output,
+        })),
+      })),
     ).toEqual([
       {
         name: "samebase/samebase",
@@ -129,14 +136,14 @@ describe("readDeployedStacks", () => {
     expect(
       readDeployedStacks(
         observedBaseAlchemyRepositoryReply.stacks,
-        "samebase/base-alchemy",
+        byName("samebase/base-alchemy"),
         "convex",
       ).map((deployed) => deployed.stages.map(({ name }) => name)),
     ).toEqual([["prod"]]);
     expect(
       readDeployedStacks(
         observedBaseAlchemyRepositoryReply.stacks,
-        "samebase/base-alchemy-two",
+        byName("samebase/base-alchemy-two"),
         "convex",
       ),
     ).toEqual([]);
@@ -148,9 +155,51 @@ describe("readDeployedStacks", () => {
       JSON.stringify({ ...output, "samebase.run": { ...run, runUrl: undefined } }),
     ]) {
       expect(
-        readDeployedStacks(stacksWithProdOutput(prodOutput), "samebase/base-alchemy", "convex"),
+        readDeployedStacks(
+          stacksWithProdOutput(prodOutput),
+          byName("samebase/base-alchemy"),
+          "convex",
+        ),
       ).toEqual([]);
     }
+  });
+
+  it("matches a run record by GitHub id when both ids are known, else by name", () => {
+    const [stack] = observedBaseAlchemyRepositoryReply.stacks;
+    const [, , baseProd] = stack.stages;
+    const output: unknown = JSON.parse(baseProd.output);
+    if (!isRecord(output) || !isRecord(output["samebase.run"])) {
+      throw new Error("Expected the captured run record.");
+    }
+    const run = output["samebase.run"];
+    const kept = (record: Record<string, unknown>, repository: AlchemyRepository) =>
+      readDeployedStacks(
+        [
+          {
+            name: "octo-org/shop",
+            stages: [
+              { ...baseProd, output: JSON.stringify({ ...output, "samebase.run": record }) },
+            ],
+          },
+        ],
+        repository,
+        "convex",
+      ).length > 0;
+    const store = {
+      githubRepositoryDatabaseId: "1001",
+      githubRepositoryFullName: "octo-org/store",
+    };
+
+    expect(kept({ ...run, repository: "octo-org/shop", repositoryId: "1001" }, store)).toBe(true);
+    expect(kept({ ...run, repository: "octo-org/store", repositoryId: "2002" }, store)).toBe(false);
+    expect(kept({ ...run, repository: "octo-org/store" }, store)).toBe(true);
+    expect(kept({ ...run, repository: "octo-org/shop" }, store)).toBe(false);
+    expect(
+      kept(
+        { ...run, repository: "octo-org/store", repositoryId: "2002" },
+        byName("octo-org/store"),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -158,7 +207,7 @@ describe("readDeployedStacks", () => {
 function readerStage(name: string) {
   const stage = readDeployedStacks(
     observedSamebaseRepositoryReply.stacks,
-    "samebase/samebase",
+    byName("samebase/samebase"),
     "convex",
   )
     .flatMap((stack) => stack.stages)

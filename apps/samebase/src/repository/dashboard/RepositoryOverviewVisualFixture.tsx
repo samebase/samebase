@@ -886,7 +886,6 @@ function RepositoryOverviewProvisioningFixture({
         alchemyState.state === "loaded" && alchemyState.observation.store === "found"
           ? alchemyState.observation.stacks
           : [],
-        repository.githubRepositoryFullName,
       ),
     );
     return client;

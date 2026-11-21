@@ -52,6 +52,10 @@ const appProject = {
 const [, , prod] = observedAlchemyStackReply.value.stages;
 /** The inspection target that `readTarget` gives for the API key of the seeded organization. */
 const target = { authMethod: "api_key", teamId: "38516", token: "convex-api-key" } as const;
+const baseAlchemy = {
+  githubRepositoryDatabaseId: undefined,
+  githubRepositoryFullName: "samebase/base-alchemy",
+};
 
 type RecordedRequest = {
   authorization: string | null;
@@ -886,14 +890,6 @@ describe("the setup status of a repository_actions repository", () => {
         teamProjects: [storeProject],
       },
     },
-    {
-      name: "only a stack in a folder has a prod output",
-      store: {
-        storeReply: observedAlchemyStackReply,
-        stackReplies: { "samebase/base-alchemy/apps/web": observedAlchemyStackReply },
-        teamProjects: [storeProject],
-      },
-    },
   ])("has no successful deployment when $name", async ({ store }) => {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
@@ -1118,6 +1114,39 @@ describe("the setup status of a repository_actions repository", () => {
   });
 });
 
+describe("readOtherNameStacks", () => {
+  it("gives the stack under another name whose prod run record has the repository id, and not the stack under the current name", async () => {
+    const t = makeConvexTest();
+    const { ids, user } = await seedAlchemyRepository(t);
+    const requests: RecordedRequest[] = [];
+    installAlchemyStateFetchStub({
+      requests,
+      storeReply: observedAlchemyStackReply,
+      stackReplies: {
+        "samebase/base-alchemy": observedAlchemyStackReply,
+        "samebase/old-name": withProdRun((run) => {
+          run["repository"] = "samebase/old-name";
+          run["repositoryId"] = "123";
+        }),
+      },
+      teamProjects: [appProject, storeProject],
+    });
+
+    const read = await user.action(api.repository.alchemyState.readOtherNameStacks, {
+      repositoryId: ids.repositoryId,
+    });
+
+    expect(read.stacks.map((stack) => stack.name)).toEqual(["samebase/old-name"]);
+    expect(
+      requests.flatMap((request) =>
+        isRecord(request.body) && request.body["path"] === "state:readStack"
+          ? [request.body["args"]]
+          : [],
+      ),
+    ).toEqual([{ stack: "samebase/old-name" }]);
+  });
+});
+
 describe("readAlchemyStacks", () => {
   it("reads a stack of another name whose prod run record names the repository, as after a rename", async () => {
     installAlchemyStateFetchStub({
@@ -1130,7 +1159,7 @@ describe("readAlchemyStacks", () => {
       teamProjects: [appProject, storeProject],
     });
 
-    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
+    const observation = await readAlchemyStacks({ repository: baseAlchemy, target });
 
     expect(observation).toEqual({
       ...deployedBaseAlchemy,
@@ -1147,7 +1176,7 @@ describe("readAlchemyStacks", () => {
       teamProjects: [appProject, storeProject],
     });
 
-    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
+    const observation = await readAlchemyStacks({ repository: baseAlchemy, target });
 
     expect(observation).toEqual(deployedBaseAlchemy);
 
@@ -1198,7 +1227,7 @@ describe("readAlchemyStacks", () => {
 
     await expect(
       readAlchemyStacks({
-        repository: "samebase/base-alchemy",
+        repository: baseAlchemy,
         target: { ...target, authMethod: "oauth" },
       }),
     ).resolves.toMatchObject({ store: "found" });
@@ -1219,7 +1248,7 @@ describe("readAlchemyStacks", () => {
 
     await expect(
       readAlchemyStacks({
-        repository: "samebase/base-alchemy",
+        repository: baseAlchemy,
         target: { ...target, authMethod: "oauth" },
       }),
     ).rejects.toThrow();
@@ -1235,9 +1264,9 @@ describe("readAlchemyStacks", () => {
       teamProjects: [appProject],
     });
 
-    await expect(
-      readAlchemyStacks({ repository: "samebase/base-alchemy", target }),
-    ).resolves.toEqual({ store: "missing" });
+    await expect(readAlchemyStacks({ repository: baseAlchemy, target })).resolves.toEqual({
+      store: "missing",
+    });
     expect(requests.some((request) => request.url.endsWith("/create_deploy_key"))).toBe(false);
   });
 
@@ -1250,9 +1279,10 @@ describe("readAlchemyStacks", () => {
       teamProjects: [storeProject],
     });
 
-    await expect(
-      readAlchemyStacks({ repository: "samebase/base-alchemy", target }),
-    ).resolves.toEqual({ store: "found", stacks: [] });
+    await expect(readAlchemyStacks({ repository: baseAlchemy, target })).resolves.toEqual({
+      store: "found",
+      stacks: [],
+    });
     expect(
       requests.filter(
         (request) => isRecord(request.body) && request.body["path"] === "state:readStack",
@@ -1283,7 +1313,7 @@ describe("readAlchemyStacks", () => {
       teamProjects: [storeProject],
     });
 
-    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
+    const observation = await readAlchemyStacks({ repository: baseAlchemy, target });
 
     // A stage counts only with a run record of the repository, and a stack whose name only starts
     // with the repository name is another repository.
@@ -1329,7 +1359,7 @@ describe("readAlchemyStacks", () => {
       teamProjects: [storeProject],
     });
 
-    const observation = await readAlchemyStacks({ repository: "samebase/base-alchemy", target });
+    const observation = await readAlchemyStacks({ repository: baseAlchemy, target });
 
     expect(JSON.stringify(observation)).not.toContain("secret-value");
     if (observation.store !== "found") {

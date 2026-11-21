@@ -11,7 +11,11 @@ export type RepositoryAlchemyStacks = Extract<AlchemyStateObservation, { store: 
 
 type RepositoryProviderObservationTarget = Pick<
   UserRepositoryResult,
-  "repositoryId" | "convexTeamId" | "githubRepositoryFullName" | "hasConnectedGitHubRepository"
+  | "repositoryId"
+  | "convexTeamId"
+  | "githubRepositoryDatabaseId"
+  | "githubRepositoryFullName"
+  | "hasConnectedGitHubRepository"
 > & {
   sourceSetup: Pick<UserRepositoryResult["sourceSetup"], "status">;
 };
@@ -29,6 +33,7 @@ export function useRepositoryProviderObservations(
     repository && !waiting ? repository.repositoryId : null,
     repository?.convexTeamId,
     repository?.githubRepositoryFullName,
+    repository?.githubRepositoryDatabaseId,
   );
   return waiting ? { state: "loading" } : read;
 }
