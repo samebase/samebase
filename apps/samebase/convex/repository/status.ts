@@ -102,13 +102,7 @@ export async function readRepositoryStatusForUser(
           ? (pullRequests.page.repository?.defaultBranch?.headCommitOid ?? null)
           : null,
     }),
-    setupStack:
-      plan !== null
-        ? buildRepositorySetupStackStatus({
-            read: store,
-            repository: repository.githubRepositoryFullName,
-          })
-        : null,
+    setupStack: plan !== null ? buildRepositorySetupStackStatus({ read: store }) : null,
   };
   return {
     ...observations,

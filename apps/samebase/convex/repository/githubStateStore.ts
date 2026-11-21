@@ -2,7 +2,11 @@ import { RequestError } from "@octokit/request-error";
 import type { Octokit } from "@octokit/rest";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
-import { parseWithoutSecretValues, readDeployedStacks } from "../../shared/alchemyState";
+import {
+  parseWithoutSecretValues,
+  readDeployedStacks,
+  type AlchemyRepository,
+} from "../../shared/alchemyState";
 import type { AlchemyStack, GitHubStacksRead } from "../../shared/alchemyStateModel";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -165,10 +169,10 @@ async function readStageFolders(octokit: Octokit, owner: string, repo: string) {
 }
 
 /**
-Reads the stacks of `repository` (GitHub `owner/name`) from the branch `alchemy-state-store` of the
+Reads the stacks of `repository` from the branch `alchemy-state-store` of the
 repository, as `readDeployedStacks` keeps them: only the run record in the output of a stage counts.
 Stacks and stages are in name order, resources in fqn order, and the fqn of a resource is the one
-in its file. The resources of a stage are read only when its run record names the repository. Each
+in its file. The resources of a stage are read only when its run record matches the repository. Each
 file has the values that Alchemy marks as secret removed as soon as it arrives, so no marked secret
 and no value that the store sealed leaves this function. Every other value of a file leaves it, as
 with the other stores. Samebase has no key to open a sealed value. A request that fails stops the
@@ -177,11 +181,11 @@ repository deletion: a file in a stage folder answers it from the tree alone.
 */
 export async function readGitHubStateStore(args: {
   octokit: Octokit;
-  repository: string;
+  repository: AlchemyRepository;
   treeOnly: boolean;
 }): Promise<GitHubStoreRead> {
   const { octokit, repository } = args;
-  const [owner, repo] = repository.split("/");
+  const [owner, repo] = repository.githubRepositoryFullName.split("/");
   try {
     const folders = await readStageFolders(octokit, owner, repo);
     if (folders === null) {
@@ -275,7 +279,7 @@ export async function readRepositoryGitHubStacks(
   ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   args: { repositoryId: Id<"repositories">; userId: Id<"users">; treeOnly: boolean },
 ): Promise<GitHubStoreRead> {
-  const { githubRepositoryFullName } = await ctx.runQuery(
+  const { githubRepositoryDatabaseId, githubRepositoryFullName } = await ctx.runQuery(
     internal.repository.cloudflareStateStore.readTarget,
     { repositoryId: args.repositoryId, userId: args.userId },
   );
@@ -293,7 +297,7 @@ export async function readRepositoryGitHubStacks(
   }
   return await readGitHubStateStore({
     octokit,
-    repository: githubRepositoryFullName,
+    repository: { githubRepositoryDatabaseId, githubRepositoryFullName },
     treeOnly: args.treeOnly,
   });
 }

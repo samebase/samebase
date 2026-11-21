@@ -12,6 +12,7 @@ import matchingRefs from "./fixtures/githubStateStore/matchingRefs.json";
 import recordedTree from "./fixtures/githubStateStore/tree.json";
 import { readGitHubStateStore } from "./githubStateStore";
 
+const myApp = { githubRepositoryDatabaseId: "1001", githubRepositoryFullName: "my-org/my-app" };
 const api = "https://api.github.com/repos/my-org/my-app";
 /** The recorded refs: the state branch, then the lock branch, whose name starts the same. */
 const [stateRef, lockRef] = matchingRefs;
@@ -87,7 +88,7 @@ describe("readGitHubStateStore", () => {
     const { octokit, requests } = fakeGitHub();
     const found = await readGitHubStateStore({
       octokit,
-      repository: "my-org/my-app",
+      repository: myApp,
       treeOnly: false,
     });
 
@@ -153,9 +154,11 @@ describe("readGitHubStateStore", () => {
       },
     });
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: false }),
-    ).toEqual({ state: "found", stageFiles: true, stacks: [] });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: false })).toEqual({
+      state: "found",
+      stageFiles: true,
+      stacks: [],
+    });
     expect(requests.filter((url) => url.includes("/git/blobs/"))).toHaveLength(2);
   });
 
@@ -169,7 +172,7 @@ describe("readGitHubStateStore", () => {
     const { octokit, requests } = fakeGitHub({ tree });
     const found = await readGitHubStateStore({
       octokit,
-      repository: "my-org/my-app",
+      repository: myApp,
       treeOnly: false,
     });
 
@@ -195,7 +198,7 @@ describe("readGitHubStateStore", () => {
     expect(
       await readGitHubStateStore({
         octokit: notState.octokit,
-        repository: "my-org/my-app",
+        repository: myApp,
         treeOnly: true,
       }),
     ).toEqual({ state: "found", stageFiles: false, stacks: [] });
@@ -204,9 +207,11 @@ describe("readGitHubStateStore", () => {
   it("reads only the tree for the deletion check", async () => {
     const { octokit, requests } = fakeGitHub();
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: true }),
-    ).toEqual({ state: "found", stageFiles: true, stacks: [] });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: true })).toEqual({
+      state: "found",
+      stageFiles: true,
+      stacks: [],
+    });
     expect(requests).toEqual([refsUrl, treeUrl]);
   });
 
@@ -215,9 +220,11 @@ describe("readGitHubStateStore", () => {
       tree: { ...recordedTree, tree: recordedTree.tree.slice(0, 1) },
     });
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: true }),
-    ).toEqual({ state: "found", stageFiles: false, stacks: [] });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: true })).toEqual({
+      state: "found",
+      stageFiles: false,
+      stacks: [],
+    });
   });
 
   it.each([
@@ -228,9 +235,9 @@ describe("readGitHubStateStore", () => {
   ])("finds no store when GitHub answers the refs with %s", async (_name, reply) => {
     const { octokit, requests } = fakeGitHub({ urls: { [refsUrl]: reply } });
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: false }),
-    ).toEqual({ state: "no_store" });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: false })).toEqual({
+      state: "no_store",
+    });
     expect(requests).toEqual([refsUrl]);
   });
 
@@ -249,9 +256,9 @@ describe("readGitHubStateStore", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { octokit, requests } = fakeGitHub({ urls: { [refsUrl]: reply } });
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: true }),
-    ).toEqual({ state: "failed" });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: true })).toEqual({
+      state: "failed",
+    });
     expect(requests).toEqual([refsUrl]);
   });
 
@@ -259,9 +266,9 @@ describe("readGitHubStateStore", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const { octokit } = fakeGitHub({ tree: { ...recordedTree, truncated: true } });
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: true }),
-    ).toEqual({ state: "failed" });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: true })).toEqual({
+      state: "failed",
+    });
   });
 
   it("fails on a blob that GitHub refuses, and logs no body", async () => {
@@ -273,9 +280,9 @@ describe("readGitHubStateStore", () => {
       },
     });
 
-    expect(
-      await readGitHubStateStore({ octokit, repository: "my-org/my-app", treeOnly: false }),
-    ).toEqual({ state: "failed" });
+    expect(await readGitHubStateStore({ octokit, repository: myApp, treeOnly: false })).toEqual({
+      state: "failed",
+    });
     expect(warn).toHaveBeenCalledWith("github_state_store:read_failed", {
       message: "git blob: 500",
       name: "Error",

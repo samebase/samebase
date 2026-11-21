@@ -124,7 +124,7 @@ const githubRepository = {
 /** The captured stack of samebase/base-alchemy as a store read gives it: only `prod` has a run. */
 const [capturedStack] = readDeployedStacks(
   observedBaseAlchemyRepositoryReply.stacks,
-  "samebase/base-alchemy",
+  { githubRepositoryDatabaseId: undefined, githubRepositoryFullName: "samebase/base-alchemy" },
   "convex",
 );
 const [capturedStage] = capturedStack.stages;
@@ -270,31 +270,24 @@ describe("buildRepositoryStacksStatus", () => {
 });
 
 describe("buildRepositorySetupStackStatus", () => {
-  const repositoryName = "samebase/base-alchemy";
-
   it("reports the first deployment from the same read", () => {
-    expect(
-      buildRepositorySetupStackStatus({ read: foundStore([stack]), repository: repositoryName }),
-    ).toEqual({ state: "done" });
-    expect(
-      buildRepositorySetupStackStatus({ read: foundStore([]), repository: repositoryName }),
-    ).toEqual({ state: "no_successful_deployment" });
+    expect(buildRepositorySetupStackStatus({ read: foundStore([stack]) })).toEqual({
+      state: "done",
+    });
+    expect(buildRepositorySetupStackStatus({ read: foundStore([]) })).toEqual({
+      state: "no_successful_deployment",
+    });
     // A team's first run creates the store.
-    expect(
-      buildRepositorySetupStackStatus({ read: { store: "missing" }, repository: repositoryName }),
-    ).toEqual({ state: "no_successful_deployment" });
+    expect(buildRepositorySetupStackStatus({ read: { store: "missing" } })).toEqual({
+      state: "no_successful_deployment",
+    });
   });
 
   it("is unavailable when the store cannot be read", () => {
-    expect(buildRepositorySetupStackStatus({ read: null, repository: repositoryName })).toEqual({
+    expect(buildRepositorySetupStackStatus({ read: null })).toEqual({ state: "unavailable" });
+    expect(buildRepositorySetupStackStatus({ read: { store: "no_connection" } })).toEqual({
       state: "unavailable",
     });
-    expect(
-      buildRepositorySetupStackStatus({
-        read: { store: "no_connection" },
-        repository: repositoryName,
-      }),
-    ).toEqual({ state: "unavailable" });
   });
 });
 

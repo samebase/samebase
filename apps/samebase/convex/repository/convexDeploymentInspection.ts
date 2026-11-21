@@ -31,6 +31,8 @@ export const CONVEX_CONNECTION_REQUIRED = "Convex connection is required.";
 
 export type ConvexInspectionTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
+  /** GitHub's numeric repository id. */
+  githubRepositoryDatabaseId: string;
   /** `owner/name` on GitHub. */
   githubRepositoryFullName: string;
   /** The Convex team that the organization connected. */
@@ -61,6 +63,7 @@ const vSealedConvexInspectionTarget = object({
   organizationId: id("organizations"),
   credential: vSealedSecret,
   authMethod: vConvexProviderAuthMethod,
+  githubRepositoryDatabaseId: string(),
   githubRepositoryFullName: string(),
   teamId: string(),
 });
@@ -108,6 +111,7 @@ export const readTarget = internalQuery({
       organizationId: repository.organizationId,
       credential: credential.auth.credential,
       authMethod: credential.auth.method,
+      githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
       githubRepositoryFullName,
       teamId: convexTeam.teamId,
     };
@@ -134,6 +138,7 @@ export async function readConvexInspectionTarget(
   }
   return {
     authMethod: target.authMethod,
+    githubRepositoryDatabaseId: target.githubRepositoryDatabaseId,
     githubRepositoryFullName: target.githubRepositoryFullName,
     teamId: target.teamId,
     token,

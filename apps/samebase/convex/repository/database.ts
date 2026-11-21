@@ -79,6 +79,8 @@ export const readEmbeddedDashboardProject = internalQuery({
   returns: union(
     object({
       teamId: string(),
+      /** GitHub's numeric id of the repository. */
+      githubRepositoryDatabaseId: string(),
       /** The GitHub `owner/name` of the repository. */
       repository: string(),
     }),
@@ -92,6 +94,7 @@ export const readEmbeddedDashboardProject = internalQuery({
     const organization = await requireRepositoryOrganization(ctx.db, repository);
     return {
       teamId: repository.convexTeamId,
+      githubRepositoryDatabaseId: repository.githubRepositoryDatabaseId,
       repository: `${organization.githubOwnerLogin}/${repository.githubRepositoryName}`,
     };
   },
@@ -183,6 +186,7 @@ async function readRepositoryDatabaseDeploymentContext(
   });
   const stackDeployments = await readTeamProductionDeployments({
     authMethod: credential.auth.method,
+    githubRepositoryDatabaseId: project.githubRepositoryDatabaseId,
     githubRepositoryFullName: project.repository,
     teamId: connection.teamId,
     token: convexToken,

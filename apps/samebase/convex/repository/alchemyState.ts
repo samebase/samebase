@@ -6,6 +6,7 @@ import {
   readDeployedStacks,
   vAlchemyConvexDeploymentState,
   vAlchemyConvexProjectState,
+  type AlchemyRepository,
 } from "../../shared/alchemyState";
 import {
   ALCHEMY_CONNECTION_UNAVAILABLE,
@@ -22,6 +23,7 @@ import {
   vAlchemyStoredStage,
   vCloudflareStacksRead,
   vGitHubStacksRead,
+  vOtherNameStacksRead,
   type AlchemySetupStatus,
   type AlchemyStack,
   type AlchemyStacksRead,
@@ -29,6 +31,7 @@ import {
   type AlchemyStoredStage,
   type CloudflareStacksRead,
   type GitHubStacksRead,
+  type OtherNameStacksRead,
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
@@ -116,17 +119,24 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
     : null;
 }
 
+/** A stack named `owner/name` or `owner/name/<folder>` for the repository. */
+function isNamedForRepository(name: string, repository: AlchemyRepository) {
+  const fullName = repository.githubRepositoryFullName;
+  return name === fullName || name.startsWith(`${fullName}/`);
+}
+
 /**
 The stacks of the repository in the store, in name order: each stack named `owner/name` or
 `owner/name/<folder>`, and each stack of another name whose `prod` output has a run record that
-names the repository. A repository renamed after its first deploy keeps its stack's first name,
-because the names of the stack's resources follow it, and its next deploy writes the new name in the
-run record. Each stack of another name costs one read of its `prod` output.
+matches the repository (`readDeployedStacks`), or, when it has no `prod` output, any stage that does.
+A repository renamed after its first deploy keeps its stack's first name, because the names of the
+stack's resources follow it, and its next deploy writes the new name in the run record. Each stack
+of another name costs one read of its `prod` output, and one read of the stack when it has none.
 */
 async function readRepositoryStackNames(args: {
   deployKey: string;
   deploymentUrl: string;
-  repository: string;
+  repository: AlchemyRepository;
 }) {
   const call = async (body: { path: string; args: Record<string, string> }) =>
     await fetchConvexDeploymentJson({
@@ -139,7 +149,7 @@ async function readRepositoryStackNames(args: {
   const limited = limiter(STORE_REQUEST_LIMIT);
   const belongs = await Promise.all(
     names.map(async (name) => {
-      if (name === args.repository || name.startsWith(`${args.repository}/`)) {
+      if (isNamedForRepository(name, args.repository)) {
         return true;
       }
       const output = parse(
@@ -148,13 +158,17 @@ async function readRepositoryStackNames(args: {
           async () => await call({ path: "state:getOutput", args: { stack: name, stage: "prod" } }),
         ),
       ).value;
-      return (
-        readDeployedStacks(
-          [{ name, stages: [{ name: "prod", resources: [], output }] }],
-          args.repository,
-          "convex",
-        ).length > 0
-      );
+      // A stack with no `prod` output can hold a preview stage of the repository.
+      const stages =
+        output === null
+          ? parse(
+              vStoreStackReply,
+              await limited(
+                async () => await call({ path: "state:readStack", args: { stack: name } }),
+              ),
+            ).value.stages
+          : [{ name: "prod", resources: [], output }];
+      return readDeployedStacks([{ name, stages }], args.repository, "convex").length > 0;
     }),
   );
   return names.filter((_, index) => belongs[index]);
@@ -163,14 +177,14 @@ async function readRepositoryStackNames(args: {
 /**
 Reads the stacks of a repository from the Alchemy state store of a Convex team, the production
 deployment of the team's `alchemy-state-store` project: `state:stacks`, then one `state:readStack`
-for each stack of the repository (`readRepositoryStackNames`). The secret values are removed first,
-and `readDeployedStacks` keeps the stages that Samebase shows. Of the other stacks of the team, only
-the output of `prod` is read.
+for each stack of the repository (`readRepositoryStackNames`) that `keep` accepts. The secret values
+are removed first, and `readDeployedStacks` keeps the stages that Samebase shows. Of the other stacks
+of the team, only the run records are used.
 */
-export async function readAlchemyStacks(args: {
-  /** The GitHub `owner/name` of the repository. */
-  repository: string;
+async function readStoreStacks(args: {
+  repository: AlchemyRepository;
   target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
+  keep: (name: string) => boolean;
 }): Promise<AlchemyStacksRead> {
   const deployment = await findAlchemyDeployment(args.target);
   if (!deployment) {
@@ -186,7 +200,7 @@ export async function readAlchemyStacks(args: {
         repository: args.repository,
       });
       return await Promise.all(
-        names.map(async (name) => ({
+        names.filter(args.keep).map(async (name) => ({
           name,
           reply: await fetchConvexDeploymentJson({
             authorization: `Convex ${deployKey}`,
@@ -212,6 +226,18 @@ export async function readAlchemyStacks(args: {
   };
 }
 
+/** Every stack of a repository in the store of a Convex team (`readStoreStacks`). */
+export async function readAlchemyStacks(args: {
+  repository: AlchemyRepository;
+  target: Pick<ConvexInspectionTarget, "authMethod" | "teamId" | "token">;
+}): Promise<AlchemyStacksRead> {
+  return await readStoreStacks({
+    repository: args.repository,
+    target: args.target,
+    keep: () => true,
+  });
+}
+
 /** The setup status of a repository_actions repository, from one read of the store. */
 async function readRepositorySetupStatus(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -221,9 +247,8 @@ async function readRepositorySetupStatus(
     repositoryId: args.repositoryId,
     userId: args.userId,
   });
-  const repository = target.githubRepositoryFullName;
-  const read = await readAlchemyStacks({ repository, target });
-  return readAlchemySetupStatus(read.store === "found" ? read.stacks : [], repository);
+  const read = await readAlchemyStacks({ repository: target, target });
+  return readAlchemySetupStatus(read.store === "found" ? read.stacks : []);
 }
 
 /** The inspection target of a store read, null without a Convex connection to the team. */
@@ -316,7 +341,7 @@ export async function assertRepositoryHasNoStack(
       await readRepositoryStackNames({
         deployKey,
         deploymentUrl: deployment.deploymentUrl,
-        repository: target.githubRepositoryFullName,
+        repository: target,
       }),
   );
   if (names.length > 0) {
@@ -337,7 +362,7 @@ export async function readRepositoryStacks(
   if (!target) {
     return { store: "no_connection" };
   }
-  const read = await readAlchemyStacks({ repository: target.githubRepositoryFullName, target });
+  const read = await readAlchemyStacks({ repository: target, target });
   return read.store === "missing"
     ? read
     : { ...read, liveDeployments: await readLiveDeployments(read.stacks, target) };
@@ -383,13 +408,12 @@ read proves no deployment, like a team without a store.
 export async function readTeamProductionDeployments(
   target: Pick<
     ConvexInspectionTarget,
-    "authMethod" | "githubRepositoryFullName" | "teamId" | "token"
+    "authMethod" | "githubRepositoryDatabaseId" | "githubRepositoryFullName" | "teamId" | "token"
   >,
 ) {
-  const read = await readAlchemyStacks({
-    repository: target.githubRepositoryFullName,
-    target,
-  }).catch(() => ({ store: "missing" as const }));
+  const read = await readAlchemyStacks({ repository: target, target }).catch(() => ({
+    store: "missing" as const,
+  }));
   return read.store === "missing"
     ? []
     : readProductionConvexDeployments(read.stacks).filter(
@@ -514,7 +538,7 @@ export const connectWithSnapshot = action({
         ...connection,
         snapshot: {
           store: value.store,
-          stacks: readDeployedStacks(value.stacks, target.githubRepositoryFullName, "convex"),
+          stacks: readDeployedStacks(value.stacks, target, "convex"),
         },
       };
     } catch {
@@ -581,6 +605,35 @@ export const readGitHubStacks = action({
   },
 });
 
+/**
+The stacks of a repository in the store of its Convex team that the browser subscription does not
+give: the stacks of the repository (`readRepositoryStackNames`) whose name is not `owner/name` and
+does not start with `owner/name/`, such as the stack of a renamed repository. Without a Convex
+connection or a store it gives no stack. The page starts the read in the browser.
+*/
+export const readOtherNameStacks = action({
+  access: "access_dashboard",
+  args: { repositoryId: id("repositories") },
+  returns: vOtherNameStacksRead,
+  handler: async (ctx, args): Promise<OtherNameStacksRead> => {
+    const target = await readStoreTarget(ctx, {
+      repositoryId: args.repositoryId,
+      userId: ctx.viewer.userId,
+    });
+    if (!target) {
+      return { stacks: [], liveDeployments: [] };
+    }
+    const read = await readStoreStacks({
+      repository: target,
+      target,
+      keep: (name) => !isNamedForRepository(name, target),
+    });
+    return read.store === "found"
+      ? { stacks: read.stacks, liveDeployments: await readLiveDeployments(read.stacks, target) }
+      : { stacks: [], liveDeployments: [] };
+  },
+});
+
 /** The setup status of a repository_actions repository, for its overview page. */
 export const readSetupStatus = action({
   access: "access_dashboard",
@@ -603,7 +656,7 @@ export const readDeploymentMetadata = action({
       repositoryId: args.repositoryId,
       userId: ctx.viewer.userId,
     });
-    const read = await readAlchemyStacks({ repository: target.githubRepositoryFullName, target });
+    const read = await readAlchemyStacks({ repository: target, target });
     return read.store === "missing" ? [] : await readLiveDeployments(read.stacks, target);
   },
 });

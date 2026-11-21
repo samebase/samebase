@@ -109,13 +109,12 @@ export function buildRepositoryStacksStatus(args: {
 /** The setup status of a repository that its GitHub Actions set up, from the same read. */
 export function buildRepositorySetupStackStatus(args: {
   read: RepositoryStoreRead;
-  repository: string;
 }): NonNullable<RepositoryStatus["setupStack"]> {
-  const { read, repository } = args;
+  const { read } = args;
   if (read === null || read.store === "no_connection") {
     return { state: "unavailable" };
   }
-  return readAlchemySetupStatus(read.store === "found" ? read.stacks : [], repository);
+  return readAlchemySetupStatus(read.store === "found" ? read.stacks : []);
 }
 
 /**

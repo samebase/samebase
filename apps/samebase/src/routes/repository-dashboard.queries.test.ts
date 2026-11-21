@@ -85,7 +85,7 @@ const liveConnection = {
     store: "found",
     stacks: readDeployedStacks(
       observedBaseAlchemyRepositoryReply.stacks,
-      "samebase/base-alchemy",
+      { githubRepositoryDatabaseId: undefined, githubRepositoryFullName: "samebase/base-alchemy" },
       "convex",
     ),
   },
