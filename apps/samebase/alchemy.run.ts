@@ -1,36 +1,8 @@
-// The Alchemy stack of samebase.com. .github/workflows/alchemy.yml runs it from this folder:
-//
-// - Stage `prod`, on each push to main: the Convex project `samebase-com`, its production deployment,
-//   which serves samebase.com through convex-hosting, the account API token that production sends
-//   email with, the PostHog proxy Worker of the app, so its route and settings are code instead
-//   of settings in the Cloudflare dashboard, and the identity hub at auth.samebase.com
-//   (identity-hub/index.ts) with its preview, development and production keys.
-// - Stage `pr-<number>`, on each pull request: a Convex preview deployment with the name of the
-//   stage, which `alchemy destroy` deletes when the pull request closes. It reads the project by its
-//   slug and creates no Workers. Its hub client is on auth.samebase.com, with the preview key
-//   from the state of `prod`.
-// - Stage `dev-<name>`, in development at each `pnpm run dev`: the two hub clients of the folder's
-//   logged-in Convex local deployment and their six variables. `<name>` is the user name in the
-//   main checkout and the folder name in a linked worktree (scripts/run-worktree-dev.ts).
-//
-// The state of every stage is in the `alchemy-state-store` project of the Convex team of the
-// credential, under the stack name samebase/samebase/apps/samebase, the repository and the folder of
-// this file, where the repository pages of Samebase read it. Every run needs the team token
-// CONVEX_ACCESS_TOKEN, or the Convex CLI login (`npx convex login`) on a development machine; it
-// mints the deploy key of each push itself. The stage `prod` also needs a Cloudflare login
-// (`npx alchemy login`, or CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in .env). That token
-// needs Workers Scripts Edit, Account Settings Read, and Account API Tokens Write, plus Workers
-// Routes Edit and Zone Read on samebase.com. The build reads the variables that alchemy.yml sets on
-// each deploy step, such as VITE_SAMEBASE_ROUTE_ENVIRONMENT.
-//
-// Each deployment has one client of the identity hub (RFC 134, 137), with two return addresses: the
-// sign-in with GitHub and Google comes back to Convex Auth's route, a provider connection to our own
-// (convex/http.ts). Each stage asks auth.samebase.com at `POST /register` with its key: production
-// with the production key, a preview with the preview key, a development stage with the development
-// key; `prod` makes the three keys. The production and development clients are `required`: a
-// deploy fails rather than ship guest sign-in or a client that the hub stopped. Before `prod` made
-// the preview key, a preview gets the off values and guest sign-in.
-//   npx alchemy plan --stage prod --no-input
+// The Alchemy stack of samebase.com, run from this folder by .github/workflows/alchemy.yml. Stages:
+// `prod` on each push to main, `pr-<number>` for each pull request, `dev-<name>` at each
+// `pnpm run dev` (scripts/run-worktree-dev.ts). Every run needs CONVEX_ACCESS_TOKEN or
+// `npx convex login`; `prod` also needs a Cloudflare token with Workers Scripts Edit, Account
+// Settings Read, Account API Tokens Write, and Workers Routes Edit and Zone Read on samebase.com.
 import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as GitHub from "@alchemy.run/github";
