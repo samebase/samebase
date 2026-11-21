@@ -40,6 +40,10 @@ export const tableNames = [
   "rateLimits",
   "connectionRequests",
   "connectionCodes",
+  "registrations",
+  "blocks",
+  "blockEvents",
+  "everyAppExemptions",
 ] as const satisfies ReadonlyArray<TableName>;
 
 /** Fails to compile when a table is missing from `tableNames`. */

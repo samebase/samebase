@@ -2,12 +2,14 @@
 // reaches every table of the hub (src/store/tables.ts): it writes the cards.
 import { Context, Schema } from "effect";
 import type { Tables } from "../../store/tables.ts";
-import { s, type TxShape } from "../../store/Tx.ts";
+import { n, s, type TxShape } from "../../store/Tx.ts";
 
 const Num = Schema.Finite;
 const Str = Schema.String;
 
 export const DeploymentType = Schema.Literals(["production", "development", "preview"]);
+
+const BlockKind = Schema.Literals(["repository", "owner"]);
 
 /** Who made a client at `POST /register`, as of that registration. */
 export const RegisteredBy = Schema.Union([
@@ -103,6 +105,42 @@ export const githubTables = {
       count: Num,
     }),
     indexes: { by_scope_and_github_id: [s("scope"), s("githubId")] },
+  },
+  /** Append-only: one row per successful registration, by time, for `/moderation/counts`. */
+  registrations: {
+    schema: Schema.Struct({ at: Num }),
+    indexes: { by_at: [n("at")] },
+  },
+  /**
+   * One row per block that moderation set, beside its row of `stops`, which is what refuses the
+   * repository's or the owner's cards. `/moderation/blocks` lists them.
+   */
+  blocks: {
+    schema: Schema.Struct({
+      kind: BlockKind,
+      githubId: Str,
+      reason: Str,
+      adminEmail: Str,
+      at: Num,
+    }),
+    indexes: { by_kind_and_github_id: [s("kind"), s("githubId")], by_at: [n("at")] },
+  },
+  /** Append-only: each block and unblock, which `/moderation/blocks` lists newest first. */
+  blockEvents: {
+    schema: Schema.Struct({
+      action: Schema.Literals(["block", "unblock"]),
+      kind: BlockKind,
+      githubId: Str,
+      reason: Str,
+      adminEmail: Str,
+      at: Num,
+    }),
+    indexes: { by_at: [n("at")] },
+  },
+  /** At most one row: every card skips the sign-in page. Read through its index with no prefix. */
+  everyAppExemptions: {
+    schema: Schema.Struct({ reason: Str }),
+    indexes: { by_reason: [s("reason")] },
   },
 } as const;
 

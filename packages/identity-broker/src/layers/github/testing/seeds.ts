@@ -1,8 +1,8 @@
-// The administrator's rows of the GitHub layer that nothing in this package writes yet: stops of
-// a repository or an owner, connector grants and sign-in page exemptions, plus a tenant's owner as
-// a registration from a new owner records it. Tests write them in one step of the Store. A grant
-// or an exemption reaches a card at its next registration, renewal or rewrite; a stop holds from
-// its commit.
+// The administrator's rows of the GitHub layer, written straight into the Store with no rewrite of
+// the cards: stops of a repository or an owner, connector grants and sign-in page exemptions, plus a
+// tenant's owner as a registration from a new owner records it. A grant or an exemption written
+// here reaches a card at its next registration, renewal or rewrite; a stop holds from its commit.
+// The moderation commands (src/layers/github/moderation.ts) also rewrite the cards.
 import { Effect } from "effect";
 import type { Tables } from "../../../store/tables.ts";
 import { first, type TxShape } from "../../../store/Tx.ts";

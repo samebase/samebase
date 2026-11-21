@@ -58,17 +58,22 @@ const indexSql = (table: TableName) =>
       ].join(", ")})`,
   );
 
-/** Every statement of the layout, in order. Its text is the layout that the `meta` row records. */
-export const layoutStatements: ReadonlyArray<string> = tableNames.flatMap((table) => [
+const createTableSql = (table: TableName) =>
   `CREATE TABLE IF NOT EXISTS ${quote(table)} (id INTEGER PRIMARY KEY AUTOINCREMENT, doc TEXT NOT NULL${columnsOf(
     table,
   )
     .map((field) => `, ${quote(field.path)}`)
-    .join("")})`,
-  ...indexSql(table),
-]);
+    .join("")})`;
 
-const layout = layoutStatements.join(";\n");
+/** The statements of one table: the table, then its indexes. */
+const tableStatements = (table: TableName) => [createTableSql(table), ...indexSql(table)];
+
+/** Every statement of the layout, in order. Its text is the layout that the `meta` row records. */
+export const layoutStatements: ReadonlyArray<string> = tableNames.flatMap(tableStatements);
+
+const layoutOf = (names: ReadonlyArray<TableName>) => names.flatMap(tableStatements).join(";\n");
+
+const layout = layoutOf(tableNames);
 
 const MetaRow = Schema.Struct({ value: Schema.String });
 const IdRow = Schema.Struct({ id: Schema.Number });
@@ -80,16 +85,30 @@ const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown)
 
 /**
  * Creates the layout, or checks that the stored one is this one. Run it inside the host's
- * transaction. A different stored layout is a defect: a layout change needs a migration.
+ * transaction. A stored layout that lacks whole tables of this one, and differs in nothing else,
+ * gets those tables, so a store of an earlier build keeps its rows. Any other difference is a
+ * defect: such a change needs a migration.
  */
 export const ensureLayout = (exec: Exec): void => {
   exec(`CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`, []);
   const stored = decodeMeta(exec(`SELECT value FROM meta WHERE key = 'layout'`, []));
   const current = stored.at(0);
   if (current !== undefined) {
-    if (current.value !== layout) {
+    if (current.value === layout) {
+      return;
+    }
+    const storedStatements = current.value.split(";\n");
+    const missing = tableNames.filter((table) => !storedStatements.includes(createTableSql(table)));
+    if (
+      missing.length === 0 ||
+      current.value !== layoutOf(tableNames.filter((table) => !missing.includes(table)))
+    ) {
       throw new Error("The stored layout differs from this build's layout");
     }
+    for (const statement of missing.flatMap(tableStatements)) {
+      exec(statement, []);
+    }
+    exec(`UPDATE meta SET value = ? WHERE key = 'layout'`, [layout]);
     return;
   }
   for (const statement of layoutStatements) {

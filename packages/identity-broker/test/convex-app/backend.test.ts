@@ -11,7 +11,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { ConvexHttpClient } from "convex/browser";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
+import { FetchHttpClient, HttpClientRequest } from "effect/http";
+import { HttpApiClient, HttpApiMiddleware } from "effect/http-api";
 import fc from "fast-check";
 import { base64url, createLocalJWKSet, jwtVerify } from "jose";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vite-plus/test";
@@ -26,6 +28,7 @@ import {
   type StubFetch,
 } from "../../src/core/testing/harness.ts";
 import { github } from "../../src/layers/github/routes.ts";
+import { ModerationApi, ModerationKey } from "../../src/moderation/api.ts";
 import {
   connectionCleanup,
   dyingStep,
@@ -211,6 +214,9 @@ const serveUpstream = (fetch: StubFetch) =>
 /** The allow-list of convex/hub.ts: the seeded repository with its owner. */
 const ALLOW_LIST = [{ repositoryId: "1", ownerId: "65" }];
 
+/** The moderation key of convex/hub.ts, fresh per run. */
+const MODERATION_KEY = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
+
 let upstreamServer: Server | undefined;
 const convexUpstream = stubFetch();
 const convexIdp = await fakeOidcUpstream(convexUpstream);
@@ -220,6 +226,7 @@ beforeAll(async () => {
   convexCli(["env", "set", "IDENTITY_BROKER_KEYS"], JSON.stringify(await createKeySet()));
   // The client secret of `fakeOidcUpstream`, a fixed test value.
   convexCli(["env", "set", "IDP_CLIENT_SECRET"], "idp-secret");
+  convexCli(["env", "set", "MODERATION_KEY"], MODERATION_KEY);
   upstreamServer = await serveUpstream(convexUpstream);
 });
 
@@ -491,6 +498,43 @@ test("of two callbacks with one state, the second loses the race as on the memor
     [302, null],
     [400, "text/html; charset=utf-8"],
   ]);
+}, 60_000);
+
+test("the moderation API answers its typed client from an httpAction", async () => {
+  emptyComponent();
+  await seedApp(convexHub());
+  const { moderation } = await Effect.runPromise(
+    HttpApiClient.make(ModerationApi, { baseUrl: siteUrl }).pipe(
+      Effect.provide(
+        HttpApiMiddleware.layerClient(ModerationKey, ({ next, request }) =>
+          next(HttpClientRequest.bearerToken(request, MODERATION_KEY)),
+        ),
+      ),
+      Effect.provide(FetchHttpClient.layer),
+    ),
+  );
+  const { clients } = await Effect.runPromise(moderation.clients({ query: { owner: "65" } }));
+  expect(clients).toMatchObject([{ ownerId: "65", deploymentType: "production" }]);
+  const block = {
+    action: "block",
+    kind: "owner",
+    githubId: "66",
+    reason: "Spam",
+    adminEmail: "admin@example.com",
+  } as const;
+  expect(await Effect.runPromise(moderation.changeBlock({ payload: block }))).toEqual({
+    changed: true,
+  });
+  expect((await Effect.runPromise(moderation.blocks())).blocks).toMatchObject([
+    { kind: "owner", githubId: "66" },
+  ]);
+
+  const anonymous = await fetch(`${siteUrl}/moderation/counts`);
+  expect([
+    anonymous.status,
+    anonymous.headers.get("www-authenticate"),
+    anonymous.headers.get("cache-control"),
+  ]).toEqual([401, 'Bearer realm="moderation"', "no-store"]);
 }, 60_000);
 
 test("an httpAction keeps both Set-Cookie fields of one response", async () => {

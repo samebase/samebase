@@ -1,7 +1,11 @@
-// The GitHub layer's commands: the storage steps of `POST /register` and of the client
-// configuration endpoint (RFC 7592). Each writes or reads cards with the layer's view, `GithubTx`.
+// The GitHub layer's commands: the storage steps of `POST /register`, of the client configuration
+// endpoint (RFC 7592) and of the moderation API. Each writes or reads cards with the layer's view,
+// `GithubTx`.
+import { Schema } from "effect";
+import * as Api from "../../moderation/api.ts";
 import { command, type Command } from "../../rules/commands.ts";
 import * as clients from "./clients.ts";
+import * as moderation from "./moderation.ts";
 import * as registration from "./registration.ts";
 import * as S from "./schemas.ts";
 import type { GithubTx } from "./tables.ts";
@@ -42,6 +46,60 @@ const definitions = {
     result: S.RemoveResult,
     readOnly: false,
     rule: clients.remove,
+  }),
+  "github.counts": command({
+    args: Schema.Struct({}),
+    result: Api.Counts,
+    readOnly: true,
+    rule: moderation.counts,
+  }),
+  "github.blocks": command({
+    args: Schema.Struct({}),
+    result: Api.BlockList,
+    readOnly: true,
+    rule: moderation.blocks,
+  }),
+  "github.changeBlock": command({
+    args: Api.BlockChange,
+    result: Api.Changed,
+    readOnly: false,
+    rule: moderation.changeBlock,
+  }),
+  "github.signInPage": command({
+    args: Schema.Struct({}),
+    result: Api.SignInPageList,
+    readOnly: true,
+    rule: moderation.signInPage,
+  }),
+  "github.changeSignInPage": command({
+    args: S.ChangeSignInPageArgs,
+    result: S.OwnerChangeResult,
+    readOnly: false,
+    rule: moderation.changeSignInPage,
+  }),
+  "github.connectorGrants": command({
+    args: S.ConnectorGrantsArgs,
+    result: Api.ConnectorGrantList,
+    readOnly: true,
+    rule: moderation.connectorGrants,
+  }),
+  "github.changeConnectorGrant": command({
+    args: S.ChangeConnectorGrantArgs,
+    result: S.OwnerChangeResult,
+    readOnly: false,
+    rule: moderation.changeConnectorGrant,
+  }),
+  "github.clients": command({
+    args: S.ClientsArgs,
+    result: Api.ClientList,
+    readOnly: true,
+    rule: moderation.clients,
+  }),
+  "github.deleteClient": command({
+    args: S.DeleteClientArgs,
+    result: Api.Changed,
+    readOnly: false,
+    rule: moderation.deleteClient,
   }),
 };
 
