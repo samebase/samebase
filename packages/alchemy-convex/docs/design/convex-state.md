@@ -94,25 +94,34 @@ section follows). The engine writes the stage output once, after a full successf
   plain object (a string, an array, a Date, a Redacted value) has no place for the key and is stored
   as it is, with a warning in the log. The record needs no store function, so this part keeps the
   wire names of version 1.
-- The record, version 1:
-  `{ version: 1, repository, repositoryId?, stackFile, branch, pullRequest, headCommit, runUrl, source, recordedAt }`,
-  no secret. `@samebase/alchemy-kit/run-record` derives it with no Convex dependency, so any state
-  layer can add it. The derivation runs once, at the first use of the state; `recordedAt` is the
-  time of the write. A checkout that gives no record (a tarball without git, no `origin` remote, a
-  detached HEAD) still reads, plans, and destroys: the first use logs the reason, and the outputs of
-  that run carry no record. A reader treats a missing `samebase.run` as an unknown run, which it
-  does for every output written before 0.7.0 anyway.
+- The record, version 2:
+  `{ version: 2, source, repositoryId, repositoryOwnerId, repositoryName, stackFile, branch, pullRequest, headCommit, runUrl, recordedAt }`,
+  no secret. The ids are GitHub ids as strings of digits; `repositoryId` says which repository the
+  stage belongs to, and `repositoryName` is for display only. Outputs of earlier releases hold
+  version 1, with `repository` (`owner/name`) and no ids. `@samebase/alchemy-kit/run-record` derives
+  it with no Convex dependency, so any state layer can add it. The derivation runs once, when the
+  first output write or the first check of a new stack needs it; `recordedAt` is the time of the
+  write. A run that gives no record (a tarball without git, no github.com `origin` remote, a
+  detached HEAD, a failed GitHub request) still reads, plans, and destroys: the log gives the
+  reason, and the outputs of that run carry no record. A reader treats a missing `samebase.run` as
+  an unknown run, which it does for every output written before 0.7.0 anyway.
 
-| Field          | GitHub Actions (`GITHUB_ACTIONS` is `true`)                                                                              | A checkout outside GitHub Actions                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `repository`   | `GITHUB_REPOSITORY`                                                                                                      | `git remote get-url origin`, the last two path segments of an https, ssh, or scp URL |
-| `repositoryId` | `GITHUB_REPOSITORY_ID`, left out when it is not set                                                                      | left out                                                                             |
-| `stackFile`    | the working directory below `git rev-parse --show-toplevel`, plus `alchemy.run.ts`                                       | the same                                                                             |
-| `branch`       | `GITHUB_HEAD_REF` when set (pull request events), else `GITHUB_REF_NAME`                                                 | `git rev-parse --abbrev-ref HEAD`; a detached HEAD fails                             |
-| `pullRequest`  | `pull_request.number` of the payload at `GITHUB_EVENT_PATH`, else `<n>` of `GITHUB_REF` `refs/pull/<n>/merge`, else null | null                                                                                 |
-| `headCommit`   | `pull_request.head.sha` of the payload, else `GITHUB_SHA`                                                                | `git rev-parse HEAD`                                                                 |
-| `runUrl`       | `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}`                 | null                                                                                 |
-| `source`       | `github-actions`                                                                                                         | `checkout`                                                                           |
+| Field               | GitHub Actions (`GITHUB_ACTIONS` is `true`)                                                                              | A checkout outside GitHub Actions                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `repositoryId`      | `GITHUB_REPOSITORY_ID`                                                                                                   | `id` of `GET https://api.github.com/repos/{owner}/{name}`, for the github.com `origin` remote (https, ssh, or scp form) |
+| `repositoryOwnerId` | `GITHUB_REPOSITORY_OWNER_ID`                                                                                             | `owner.id` of the same answer                                                                                           |
+| `repositoryName`    | `GITHUB_REPOSITORY`                                                                                                      | `full_name` of the same answer, the current name after a rename                                                         |
+| `stackFile`         | the working directory below `git rev-parse --show-toplevel`, plus `alchemy.run.ts`                                       | the same                                                                                                                |
+| `branch`            | `GITHUB_HEAD_REF` when set (pull request events), else `GITHUB_REF_NAME`                                                 | `git rev-parse --abbrev-ref HEAD`; a detached HEAD fails                                                                |
+| `pullRequest`       | `pull_request.number` of the payload at `GITHUB_EVENT_PATH`, else `<n>` of `GITHUB_REF` `refs/pull/<n>/merge`, else null | null                                                                                                                    |
+| `headCommit`        | `pull_request.head.sha` of the payload, else `GITHUB_SHA`                                                                | `git rev-parse HEAD`                                                                                                    |
+| `runUrl`            | `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}`                 | null                                                                                                                    |
+| `source`            | `github-actions`                                                                                                         | `checkout`                                                                                                              |
+
+- Only github.com is supported: a `GITHUB_SERVER_URL` other than `https://github.com`, or another
+  host in the `origin` remote, gives no record. A missing or empty `GITHUB_REPOSITORY_ID` or
+  `GITHUB_REPOSITORY_OWNER_ID` gives no record. The GitHub request of a checkout uses
+  `GITHUB_TOKEN`, else `GH_TOKEN`, else `gh auth token`, else no token.
 
 - `headCommit` on a pull request event is the head of the pull request, not `GITHUB_SHA`, which is
   the merge commit that no branch holds: the head is what GitHub's run reports as `head_sha` and
@@ -310,10 +319,11 @@ deploy conflict (0.25.1 made the conflict rare).
 
 - The store functions take Alchemy's arguments only. A resource write reads and writes only the row
   of that resource.
-- `Convex.withRunRecord(state)` is a layer over any state layer. It derives the record once, at the
-  first use of the state, and adds it to each output that `setOutput` writes, under `samebase.run`.
-  It passes every other call to the state as it is. The record and the layer use no Convex function,
-  so `withRunRecord(Cloudflare.state())` writes the same output document.
+- `Convex.withRunRecord(state)` is a layer over any state layer. It derives the record once, when
+  the first output write or the first check of a new stack needs it, and adds it to each output that
+  `setOutput` writes, under `samebase.run`. It passes every other call to the state as it is. The
+  record and the layer use no Convex function, so `withRunRecord(Cloudflare.state())` writes the
+  same output document.
 - `state:readStack` and `reader:repository` give each stage as `{ name, resources, output }`, the
   JSON texts of Alchemy state, with `output: null` for a stage without one. The repository reader
   gives every stage of the stacks of the repository. It removes the secrets and nothing else: it

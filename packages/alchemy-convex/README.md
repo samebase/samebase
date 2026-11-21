@@ -239,22 +239,24 @@ Alchemy state holds no time, commit, branch, or run. `Convex.withRunRecord(state
 stage output of any state layer, `Convex.state()` or `Cloudflare.state()`: the document that
 `setOutput` stores is the stack's output plus the key `samebase.run`. Samebase shows a stage only
 when its output has this record. On GitHub Actions the record comes from the run's variables and the
-event payload; on a development machine from git, which needs a branch and an `origin` remote. It
-holds no secret. The function comes from `@samebase/alchemy-kit/run-record` and works over any state
-layer.
+event payload; on a development machine from git, which needs a branch and a github.com `origin`
+remote, and from one GitHub API request for the repository ids. It holds no secret. The function
+comes from `@samebase/alchemy-kit/run-record` and works over any state layer.
 
 ```json
 {
   "convexUrl": "https://modest-guanaco-252.convex.cloud",
   "samebase.run": {
-    "version": 1,
-    "repository": "samebase/base-alchemy",
+    "version": 2,
+    "source": "github-actions",
+    "repositoryId": "123456789",
+    "repositoryOwnerId": "987654321",
+    "repositoryName": "samebase/base-alchemy",
     "stackFile": "alchemy.run.ts",
     "branch": "feature",
     "pullRequest": 42,
     "headCommit": "8af3c5b7932c528939cbc7aa0597b1fc36c8dc83",
     "runUrl": "https://github.com/samebase/base-alchemy/actions/runs/12345678901/attempts/1",
-    "source": "github-actions",
     "recordedAt": "2026-10-21T10:00:00.000Z"
   }
 }
@@ -490,8 +492,11 @@ steps:
       GITHUB_TOKEN: ${{ github.token }}
 ```
 
-A stack named `owner/name`, or `owner/name/<folder>` for a stack in a folder, belongs to the
-repository `owner/name`. A stack without the stage of the pull request has no card.
+A stage whose version 2 run record has the repository id of the run belongs to the repository, under
+any stack name. A stage with another repository id does not. A stage without a version 2 record
+belongs to the repository `owner/name` when its stack is named `owner/name`, or
+`owner/name/<folder>` for a stack in a folder. A stack without the stage of the pull request has no
+card.
 
 ## Data safety
 

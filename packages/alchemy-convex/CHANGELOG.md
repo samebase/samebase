@@ -2,9 +2,13 @@
 
 ## 0.44.0
 
-- Takes `@samebase/alchemy-kit` 0.6.0. `withRunRecord` adds `repositoryId` to the run record and
-  stops the first deploy of a new stack when the repository was renamed and its stack has the old
-  name. The error names the stack to write in the stack file. The store version does not change.
+- Takes `@samebase/alchemy-kit` 0.6.0. The run record is version 2, with the GitHub repository id
+  and owner id and `repositoryName`. Samebase must accept version 2 before an app deploys with this
+  release. `withRunRecord` stops the first deploy of a new stack when another stack of the same
+  repository and stack file exists, such as after a rename. The error names the stack to write in
+  the stack file. The store version does not change.
+- `alchemy-convex stack-comment` selects a stage with a version 2 record by the repository id, under
+  any stack name, and a stage without one by the stack name as before.
 
 ## 0.43.0
 

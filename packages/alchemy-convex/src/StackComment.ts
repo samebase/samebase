@@ -2,9 +2,10 @@
 // repository, read from the state store after the deploys.
 //
 // A stack sees only itself, so a comment that a stack declares cannot show the other stacks of the
-// repository. This command runs as a step after them and reads each stack named `owner/name` or
-// `owner/name/<folder>` that has the stage `pr-<number>`. A stack without that stage has no card. A
-// run replaces the whole body, so the last run shows the newest state.
+// repository. This command runs as a step after them and reads each stack of the repository that
+// has the stage `pr-<number>`: by the repository id of the stage's run record, or, for a stage
+// without a version 2 record, by the name `owner/name` or `owner/name/<folder>`. A stack without
+// that stage has no card. A run replaces the whole body, so the last run shows the newest state.
 //
 // The rows of a card are the boxes of `stageDiagram` from `@samebase/alchemy-kit/stack`, the model
 // of Samebase's stack diagram. Alchemy state holds secrets in clear text, and that model keeps no
@@ -24,6 +25,7 @@
 //   `align="absmiddle"` is the CSS value `middle`.
 import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { RUN_RECORD_KEY, runRecord } from "@samebase/alchemy-kit/run-record";
 import {
@@ -54,8 +56,19 @@ const StageOutput = Schema.Struct({
   }),
 });
 
+/** The part of a stage output that says which repository deployed it. */
+const RepositoryOfOutput = Schema.Struct({
+  [RUN_RECORD_KEY]: Schema.Struct({
+    version: Schema.Literal(2),
+    repositoryId: Schema.String,
+    stackFile: Schema.String,
+  }),
+});
+
 export interface StackCard {
   readonly name: string;
+  /** The folder of the stack file in the repository, "" at the root. */
+  readonly folder: string;
   readonly stage: string;
   readonly diagram: StageDiagram;
   readonly run: typeof StageOutput.Type | null;
@@ -70,25 +83,46 @@ export class StackCommentError extends Schema.TaggedError<StackCommentError>()(
   }
 }
 
-/** The cards of the stacks of `repository` that have `stage`, in name order. */
-export const readStackCards = ({ repository, stage }: { repository: string; stage: string }) =>
+/**
+ * The cards of the stacks of the repository that have `stage`, in name order. A stage with a version
+ * 2 record belongs to the repository of its `repositoryId`, under any stack name; any other stage
+ * belongs to the stacks named `repository` or `repository/<folder>`.
+ */
+export const readStackCards = ({
+  repository,
+  repositoryId,
+  stage,
+}: {
+  repository: string;
+  repositoryId: string;
+  stage: string;
+}) =>
   Effect.gen(function* () {
     const state = yield* yield* State;
-    const names = (yield* state.listStacks()).filter(
-      (name) => name === repository || name.startsWith(`${repository}/`),
-    );
     const cards: StackCard[] = [];
-    for (const name of names) {
+    for (const name of yield* state.listStacks()) {
       if (!(yield* state.listStages(name)).includes(stage)) {
         continue;
       }
       const request = { stack: name, stage };
+      const output = yield* state.getOutput(request);
+      const underName = name === repository || name.startsWith(`${repository}/`);
+      const record = Option.map(
+        Schema.decodeUnknownOption(RepositoryOfOutput)(output),
+        (decoded) => decoded[RUN_RECORD_KEY],
+      );
+      if (Option.isSome(record) ? record.value.repositoryId !== repositoryId : !underName) {
+        continue;
+      }
       const rows = yield* Effect.forEach(yield* state.list(request), (fqn) =>
         state.get({ ...request, fqn }).pipe(Effect.map((row) => ({ fqn, state: row }))),
       );
-      const output = yield* state.getOutput(request);
       cards.push({
         name,
+        folder:
+          underName || Option.isNone(record)
+            ? name.slice(repository.length + 1)
+            : record.value.stackFile.split("/").slice(0, -1).join("/"),
         stage,
         diagram: stageDiagram(rows),
         run: Schema.is(StageOutput)(output) ? output : null,
@@ -176,8 +210,8 @@ const runLine = ({ run }: StackCard) => {
 const SPACER = `<div><img src="${ICONS}/spacer.svg" width="460" align="left" alt=""></div>`;
 
 /** `alone`: the one card of the repository. A card at the root then has no folder, as on the repository page. */
-const renderCard = (card: StackCard, repository: string, alone: boolean) => {
-  const folder = card.name.slice(repository.length + 1);
+const renderCard = (card: StackCard, alone: boolean) => {
+  const { folder } = card;
   const heading = [
     folder === "" && alone ? "" : `<b>${escapeHtml(folder || "/")}</b> `,
     `<sub>${escapeHtml(card.stage)}</sub>`,
@@ -193,8 +227,8 @@ ${rows}
 </table>`;
 };
 
-export const renderStackComment = (cards: readonly StackCard[], repository: string) => `${MARKER}
-${cards.map((card) => renderCard(card, repository, cards.length === 1)).join("\n\n")}
+export const renderStackComment = (cards: readonly StackCard[]) => `${MARKER}
+${cards.map((card) => renderCard(card, cards.length === 1)).join("\n\n")}
 `;
 
 const Comments = Schema.Array(Schema.Struct({ id: Schema.Number, body: Schema.String }));
@@ -266,7 +300,11 @@ export const saveStackComment = (args: {
 
 /** The step of a workflow: the run record names the repository and the pull request of the run. */
 export const updateStackComment = Effect.gen(function* () {
-  const { pullRequest, repository } = yield* runRecord({ cwd: process.cwd(), env: process.env });
+  const {
+    pullRequest,
+    repositoryId,
+    repositoryName: repository,
+  } = yield* runRecord({ cwd: process.cwd(), env: process.env });
   if (pullRequest === null) {
     return yield* new StackCommentError({ reason: "this run has no pull request" });
   }
@@ -274,11 +312,11 @@ export const updateStackComment = Effect.gen(function* () {
   if (token === undefined || token === "") {
     return yield* new StackCommentError({ reason: "GITHUB_TOKEN is not set" });
   }
-  const cards = yield* readStackCards({ repository, stage: `pr-${pullRequest}` });
+  const cards = yield* readStackCards({ repository, repositoryId, stage: `pr-${pullRequest}` });
   return yield* saveStackComment({
     token,
     repository,
     pullRequest,
-    body: renderStackComment(cards, repository),
+    body: renderStackComment(cards),
   });
 });

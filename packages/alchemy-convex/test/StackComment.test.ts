@@ -5,6 +5,7 @@ import { inMemoryState } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { RUN_RECORD_KEY } from "@samebase/alchemy-kit/run-record";
 import {
   readStackCards,
   renderStackComment,
@@ -39,9 +40,11 @@ const stateOf = (recordedStages: readonly RecordedStage[]) => {
   return inMemoryState(rows, outputs);
 };
 
-const cardsAt = (stage: string, name = repository) =>
+const cardsAt = (stage: string, name = repository, recordedStages = stages) =>
   Effect.runPromise(
-    readStackCards({ repository: name, stage }).pipe(Effect.provide(stateOf(stages))),
+    readStackCards({ repository: name, repositoryId: "1021726325", stage }).pipe(
+      Effect.provide(stateOf(recordedStages)),
+    ),
   );
 
 const workerBox = (cards: readonly StackCard[]) => cards[1]?.diagram.boxes[0];
@@ -64,6 +67,38 @@ describe("readStackCards", () => {
     expect(await cardsAt("pr-1829", "samebase/same")).toEqual([]);
   });
 
+  it("selects a stage with a version 2 record by the repository id, under any stack name", async () => {
+    // The recorded app stage, deployed before a rename of the repository, and a stage of another
+    // repository under the current name.
+    const [app] = stages;
+    const recordOf = (repositoryId: string) => ({
+      version: 2,
+      repositoryId,
+      repositoryOwnerId: "285392744",
+      repositoryName: "samebase/old-name",
+      stackFile: "apps/samebase/alchemy.run.ts",
+    });
+    const renamed = app
+      ? [
+          {
+            ...app,
+            stack: "samebase/old-name/apps/samebase",
+            output: { [RUN_RECORD_KEY]: recordOf("1021726325") },
+          },
+          {
+            ...app,
+            stack: `${repository}/apps/other`,
+            output: { [RUN_RECORD_KEY]: recordOf("5151") },
+          },
+        ]
+      : [];
+
+    const cards = await cardsAt("pr-1829", repository, renamed);
+
+    expect(cards.map(({ name }) => name)).toEqual(["samebase/old-name/apps/samebase"]);
+    expect(renderStackComment(cards)).toContain("<b>apps/samebase</b> <sub>pr-1829</sub>");
+  });
+
   it("shows a deployment of two rows as one box, with its project folded in", async () => {
     const [app] = await cardsAt("pr-1829");
 
@@ -75,13 +110,13 @@ describe("readStackCards", () => {
 
 describe("renderStackComment", () => {
   it("starts with the marker that finds the comment again", async () => {
-    const body = renderStackComment(await cardsAt("pr-1829"), repository);
+    const body = renderStackComment(await cardsAt("pr-1829"));
 
     expect(body.startsWith("<!-- samebase-stacks -->\n")).toBe(true);
   });
 
   it("names each stack by its folder, with its address and its run", async () => {
-    const body = renderStackComment(await cardsAt("pr-1829"), repository);
+    const body = renderStackComment(await cardsAt("pr-1829"));
 
     expect(body).toContain("<b>apps/samebase</b> <sub>pr-1829</sub>");
     expect(body).toContain("<b>apps/sidebars-example</b> <sub>pr-1829</sub>");
@@ -92,13 +127,13 @@ describe("renderStackComment", () => {
   it("shows the two rows of one deployment once", async () => {
     const [app] = await cardsAt("pr-1829");
 
-    const body = renderStackComment(app ? [app] : [], repository);
+    const body = renderStackComment(app ? [app] : []);
 
     expect(body.match(/convex\.svg/g)).toHaveLength(1);
   });
 
   it("does not repeat the address of a Worker in its row", async () => {
-    const body = renderStackComment(await cardsAt("pr-1829"), repository);
+    const body = renderStackComment(await cardsAt("pr-1829"));
 
     expect(body.match(/<br><sub><a href="https:\/\/samebase-monorepo/g)).toBeNull();
   });
@@ -112,7 +147,6 @@ describe("renderStackComment", () => {
       app && box
         ? [{ ...app, diagram: { ...app.diagram, boxes: [...app.diagram.boxes, box] } }]
         : [],
-      repository,
     );
 
     expect(body).toContain(
@@ -123,7 +157,7 @@ describe("renderStackComment", () => {
   it("links a bucket to the dashboard page of its jurisdiction", async () => {
     const cards = await cardsAt("prod", "samebase/scout");
 
-    const body = renderStackComment(cards, "samebase/scout");
+    const body = renderStackComment(cards);
 
     expect(body).toMatch(
       /href="https:\/\/dash\.cloudflare\.com\/[0-9a-f]+\/r2\/default\/buckets\/[^"]+"/,
@@ -132,14 +166,14 @@ describe("renderStackComment", () => {
 
   it("names the root only when the repository has several cards", async () => {
     const [app] = await cardsAt("pr-1829");
-    const root = app ? [{ ...app, name: repository }] : [];
+    const root = app ? [{ ...app, name: repository, folder: "" }] : [];
 
-    expect(renderStackComment(root, repository)).not.toContain("<b>/</b>");
-    expect(renderStackComment([...root, ...root], repository)).toContain("<b>/</b>");
+    expect(renderStackComment(root)).not.toContain("<b>/</b>");
+    expect(renderStackComment([...root, ...root])).toContain("<b>/</b>");
   });
 
   it("has a blank line between tables and none inside a table", async () => {
-    const body = renderStackComment(await cardsAt("pr-1829"), repository);
+    const body = renderStackComment(await cardsAt("pr-1829"));
 
     expect(body.split("\n\n")).toHaveLength(2);
   });
@@ -152,7 +186,6 @@ describe("renderStackComment", () => {
       bucket && box
         ? [{ ...bucket, diagram: { ...bucket.diagram, boxes: [{ ...box, name: "<script>" }] } }]
         : [],
-      "samebase/scout",
     );
 
     expect(body).not.toContain("<script>");
@@ -191,12 +224,7 @@ describe("renderStackComment", () => {
         : [];
     const stage = { stack: repository, stage: "pr-1", rows, output: null };
 
-    const body = renderStackComment(
-      await Effect.runPromise(
-        readStackCards({ repository, stage: "pr-1" }).pipe(Effect.provide(stateOf([stage]))),
-      ),
-      repository,
-    );
+    const body = renderStackComment(await cardsAt("pr-1", repository, [stage]));
 
     // The bucket shows under the Worker that uses it, with the name of the binding.
     expect(body).toMatch(
