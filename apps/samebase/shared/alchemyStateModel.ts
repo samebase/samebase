@@ -1,7 +1,7 @@
 import { v, type Infer } from "convex/values";
 import { vConvexDeploymentRegion } from "../convex/convexDeploymentRegionModel";
 
-const { array, literal, number, object, optional, string, union } = v;
+const { array, literal, number, object, string, union } = v;
 
 /** Renewal may retry provider failures. Samebase access failures remain separate. */
 export const ALCHEMY_CONNECTION_UNAVAILABLE = "Alchemy state is temporarily unavailable.";
@@ -55,24 +55,41 @@ export const vAlchemyRepositoryReply = object({
 /**
 The record of the run that wrote the output of a stage. The run record layer of alchemy-convex adds
 it to the output under `samebase.run`, and Alchemy writes the output only after a full successful
-deploy.
+deploy. Version 1 names the repository by `owner/name`; version 2 identifies it by GitHub id.
 */
-export const vAlchemyRunRecord = object({
-  version: literal(1),
-  /** GitHub `owner/name`. */
-  repository: string(),
-  /** GitHub's numeric repository id, in digits. */
-  repositoryId: optional(string()),
-  /** Stack file relative to the repository root, with POSIX separators. */
-  stackFile: string(),
-  branch: string(),
-  pullRequest: union(number(), v.null()),
-  headCommit: string(),
-  runUrl: union(string(), v.null()),
-  source: union(literal("github-actions"), literal("checkout")),
-  /** ISO 8601, when the record was written. */
-  recordedAt: string(),
-});
+export const vAlchemyRunRecord = union(
+  object({
+    version: literal(1),
+    /** GitHub `owner/name`. */
+    repository: string(),
+    /** Stack file relative to the repository root, with POSIX separators. */
+    stackFile: string(),
+    branch: string(),
+    pullRequest: union(number(), v.null()),
+    headCommit: string(),
+    runUrl: union(string(), v.null()),
+    source: union(literal("github-actions"), literal("checkout")),
+    /** ISO 8601, when the record was written. */
+    recordedAt: string(),
+  }),
+  object({
+    version: literal(2),
+    source: union(literal("github-actions"), literal("checkout")),
+    /** GitHub's numeric repository id, in digits. */
+    repositoryId: string(),
+    /** GitHub's numeric id of the repository owner, in digits. */
+    repositoryOwnerId: string(),
+    /** GitHub `owner/name` at deploy time, for display only. */
+    repositoryName: string(),
+    stackFile: string(),
+    branch: string(),
+    pullRequest: union(number(), v.null()),
+    headCommit: string(),
+    runUrl: union(string(), v.null()),
+    recordedAt: string(),
+  }),
+);
+export type AlchemyRunRecord = Infer<typeof vAlchemyRunRecord>;
 
 /** A stage of the repository after its first full successful deploy. */
 const vAlchemyStage = object({

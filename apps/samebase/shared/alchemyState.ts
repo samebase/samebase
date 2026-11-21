@@ -4,6 +4,7 @@ import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
 import {
   vAlchemyRunRecord,
+  type AlchemyRunRecord,
   type AlchemySetupStatus,
   type AlchemyStack,
   type AlchemyStateObservation,
@@ -207,28 +208,41 @@ export function stageResources(stage: {
   };
 }
 
-/** A GitHub repository: its numeric id, undefined when Samebase does not know it, and `owner/name`. */
+/** A GitHub repository: its numeric id and `owner/name`. */
 export type AlchemyRepository = {
-  githubRepositoryDatabaseId: string | undefined;
+  githubRepositoryDatabaseId: string;
   githubRepositoryFullName: string;
 };
+
+/** Whether `run` is a run of `repository`. A repository without a known id has no version 2 run. */
+function isRunOf(
+  run: AlchemyRunRecord,
+  repository: { githubRepositoryDatabaseId: string | undefined; githubRepositoryFullName: string },
+) {
+  switch (run.version) {
+    case 2:
+      return run.repositoryId === repository.githubRepositoryDatabaseId;
+    // Version 1 records from earlier releases: delete once no store holds one.
+    case 1:
+      return run.repository === repository.githubRepositoryFullName;
+  }
+}
 
 /**
 The stacks of `repository` that Samebase shows, from the stages that the store gives. Samebase shows
 a stage only after its first full successful deploy: its output is a JSON object whose run record,
-under `samebase.run`, matches `repository`: by GitHub id when the record and `repository` both have
-one, else by `owner/name`. A stage while its first deploy runs, a stage whose deploys
-did not complete, and a stage that an older stack wrote without a run record have no such output.
-The `output` of a stage is the JSON of its output without the run record. A stack without a stage
-that Samebase shows is left out. Stacks and stages keep the order of the store. A store read on the
-server removes the secret values before it calls this. `store` is the store that gave the stages.
+under `samebase.run`, is of `repository` (`isRunOf`). A stage while its first deploy runs, a stage
+whose deploys did not complete, and a stage that an older stack wrote without a run record have no
+such output. The `output` of a stage is the JSON of its output without the run record. A stack
+without a stage that Samebase shows is left out. Stacks and stages keep the order of the store. A
+store read on the server removes the secret values before it calls this. `store` is the store that
+gave the stages.
 */
 export function readDeployedStacks(
   stacks: readonly { name: string; stages: readonly AlchemyStoredStage[] }[],
-  repository: AlchemyRepository,
+  repository: Parameters<typeof isRunOf>[1],
   store: AlchemyStack["store"],
 ): AlchemyStack[] {
-  const { githubRepositoryDatabaseId, githubRepositoryFullName } = repository;
   return stacks.flatMap((stack) => {
     const stages = stack.stages.flatMap((stage) => {
       const output: unknown = stage.output === null ? null : JSON.parse(stage.output);
@@ -236,10 +250,7 @@ export function readDeployedStacks(
         return [];
       }
       const { [RUN_RECORD_KEY]: run, ...stackOutput } = output;
-      return validate(vAlchemyRunRecord, run) &&
-        (run.repositoryId !== undefined && githubRepositoryDatabaseId !== undefined
-          ? run.repositoryId === githubRepositoryDatabaseId
-          : run.repository === githubRepositoryFullName)
+      return validate(vAlchemyRunRecord, run) && isRunOf(run, repository)
         ? [
             {
               name: stage.name,

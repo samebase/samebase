@@ -12,7 +12,7 @@ import matchingRefs from "./fixtures/githubStateStore/matchingRefs.json";
 import recordedTree from "./fixtures/githubStateStore/tree.json";
 import { readGitHubStateStore } from "./githubStateStore";
 
-const myApp = { githubRepositoryDatabaseId: undefined, githubRepositoryFullName: "my-org/my-app" };
+const myApp = { githubRepositoryDatabaseId: "1001", githubRepositoryFullName: "my-org/my-app" };
 const api = "https://api.github.com/repos/my-org/my-app";
 /** The recorded refs: the state branch, then the lock branch, whose name starts the same. */
 const [stateRef, lockRef] = matchingRefs;

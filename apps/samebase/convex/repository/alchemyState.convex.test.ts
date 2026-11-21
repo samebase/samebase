@@ -53,7 +53,7 @@ const [, , prod] = observedAlchemyStackReply.value.stages;
 /** The inspection target that `readTarget` gives for the API key of the seeded organization. */
 const target = { authMethod: "api_key", teamId: "38516", token: "convex-api-key" } as const;
 const baseAlchemy = {
-  githubRepositoryDatabaseId: undefined,
+  githubRepositoryDatabaseId: "123",
   githubRepositoryFullName: "samebase/base-alchemy",
 };
 
@@ -1136,8 +1136,11 @@ describe("readOtherNameStacks", () => {
       stackReplies: {
         "samebase/base-alchemy": observedAlchemyStackReply,
         "samebase/old-name": withProdRun((run) => {
-          run["repository"] = "samebase/old-name";
+          run["version"] = 2;
+          delete run["repository"];
           run["repositoryId"] = "123";
+          run["repositoryOwnerId"] = "456";
+          run["repositoryName"] = "samebase/old-name";
         }),
       },
       teamProjects: [appProject, storeProject],

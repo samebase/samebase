@@ -164,15 +164,25 @@ describe("readDeployedStacks", () => {
     }
   });
 
-  it("matches a run record by GitHub id when both ids are known, else by name", () => {
+  it("matches a version 2 run record by GitHub id and a version 1 run record by name", () => {
     const [stack] = observedBaseAlchemyRepositoryReply.stacks;
     const [, , baseProd] = stack.stages;
     const output: unknown = JSON.parse(baseProd.output);
     if (!isRecord(output) || !isRecord(output["samebase.run"])) {
       throw new Error("Expected the captured run record.");
     }
-    const run = output["samebase.run"];
-    const kept = (record: Record<string, unknown>, repository: AlchemyRepository) =>
+    const { repository: _, ...run } = output["samebase.run"];
+    const version2 = (repositoryId: string, repositoryName: string) => ({
+      ...run,
+      version: 2,
+      repositoryId,
+      repositoryOwnerId: "3003",
+      repositoryName,
+    });
+    const kept = (
+      record: Record<string, unknown>,
+      repository: Parameters<typeof readDeployedStacks>[1],
+    ) =>
       readDeployedStacks(
         [
           {
@@ -185,21 +195,17 @@ describe("readDeployedStacks", () => {
         repository,
         "convex",
       ).length > 0;
-    const store = {
+    const store: AlchemyRepository = {
       githubRepositoryDatabaseId: "1001",
       githubRepositoryFullName: "octo-org/store",
     };
 
-    expect(kept({ ...run, repository: "octo-org/shop", repositoryId: "1001" }, store)).toBe(true);
-    expect(kept({ ...run, repository: "octo-org/store", repositoryId: "2002" }, store)).toBe(false);
+    expect(kept(version2("1001", "octo-org/shop"), store)).toBe(true);
+    expect(kept(version2("2002", "octo-org/store"), store)).toBe(false);
+    expect(kept(version2("1001", "octo-org/store"), byName("octo-org/store"))).toBe(false);
     expect(kept({ ...run, repository: "octo-org/store" }, store)).toBe(true);
     expect(kept({ ...run, repository: "octo-org/shop" }, store)).toBe(false);
-    expect(
-      kept(
-        { ...run, repository: "octo-org/store", repositoryId: "2002" },
-        byName("octo-org/store"),
-      ),
-    ).toBe(true);
+    expect(kept({ ...run, repository: "octo-org/store", repositoryId: "1001" }, store)).toBe(false);
   });
 });
 

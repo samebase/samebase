@@ -209,6 +209,7 @@ function AlchemyResourceItem({ fqn, state }: { fqn: string; state: unknown }) {
 function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
   const recordedAt = Date.parse(record.recordedAt);
   const source = RUN_SOURCE_LABELS[record.source];
+  const repository = record.version === 2 ? record.repositoryName : record.repository;
 
   return (
     <>
@@ -217,7 +218,7 @@ function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
           <AlchemyStateDetailItem
             name={
               <a
-                href={`https://github.com/${record.repository}/pull/${record.pullRequest}`}
+                href={`https://github.com/${repository}/pull/${record.pullRequest}`}
                 rel="noreferrer noopener"
                 target="_blank"
               >
@@ -235,7 +236,7 @@ function AlchemyRunRecordRows({ record }: { record: AlchemyRunRecord }) {
         <AlchemyStateDetailItem
           name={
             <a
-              href={`https://github.com/${record.repository}/commit/${record.headCommit}`}
+              href={`https://github.com/${repository}/commit/${record.headCommit}`}
               rel="noreferrer noopener"
               target="_blank"
             >

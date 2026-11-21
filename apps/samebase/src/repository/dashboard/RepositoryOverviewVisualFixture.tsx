@@ -360,7 +360,19 @@ const FIXTURE_STACKS = ((): RepositoryAlchemyStacks => {
         stages: [
           {
             name: "prod",
-            run: { ...record, stackFile: "apps/sidebars-example/alchemy.run.ts" },
+            run: {
+              version: 2,
+              source: record.source,
+              repositoryId: "1021726325",
+              repositoryOwnerId: "285392744",
+              repositoryName: record.repository,
+              stackFile: "apps/sidebars-example/alchemy.run.ts",
+              branch: record.branch,
+              pullRequest: record.pullRequest,
+              headCommit: record.headCommit,
+              runUrl: record.runUrl,
+              recordedAt: record.recordedAt,
+            },
             resources: [
               { fqn: "Site", value: fixtureWorkerRow("samebase-monorepo-sidebars-example") },
             ],
