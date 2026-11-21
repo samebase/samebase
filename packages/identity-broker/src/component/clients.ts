@@ -28,7 +28,6 @@ const vClient = object({
   app: string(),
   registeredBy: vRegisteredBy,
   connectors: array(string()),
-  frozenAt: optional(number()),
 });
 
 /**
@@ -135,8 +134,7 @@ export const listByApp = query({
  * gets a new client at its next deploy. `changed` is false for a client that was already gone. With
  * `expectedOwnerId`, the delete happens only while the client's repository is recorded under that
  * owner, read in this same transaction: a console that listed the client for one owner cannot
- * delete it after a transfer gave the repository to another. A frozen client stays: its grants wait
- * for `resourceRequests.exportGrant`.
+ * delete it after a transfer gave the repository to another.
  */
 export const remove = mutation({
   args: { clientId: string(), expectedOwnerId: v.optional(string()) },
@@ -146,9 +144,6 @@ export const remove = mutation({
       .query("clients")
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .unique();
-    if (client?.frozenAt !== undefined) {
-      return { changed: false };
-    }
     if (client !== null && args.expectedOwnerId !== undefined) {
       const app = await ctx.db
         .query("apps")
@@ -164,29 +159,5 @@ export const remove = mutation({
     }
     await removeClientGrants(ctx, args.clientId);
     return { changed: client !== null };
-  },
-});
-
-/**
- * Freezes a client, as the hub's administrator, before its grants move to another hub (see
- * `frozenAt` in the schema). A second call keeps the first time. There is no unfreeze: an export
- * may have handed out a provider token, and a refresh here would spend it.
- */
-export const freeze = mutation({
-  args: { clientId: string(), now: number() },
-  returns: object({ frozenAt: number() }),
-  handler: async (ctx, args) => {
-    const client = await ctx.db
-      .query("clients")
-      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
-      .unique();
-    if (client === null) {
-      throw new Error("No client has this id.");
-    }
-    if (client.frozenAt !== undefined) {
-      return { frozenAt: client.frozenAt };
-    }
-    await ctx.db.patch("clients", client._id, { frozenAt: args.now });
-    return { frozenAt: args.now };
   },
 });

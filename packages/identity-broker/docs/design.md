@@ -20,12 +20,12 @@ renews that deadline. Client deletion invalidates redemption and refresh immedia
 bounded deletion of remaining grants. `/revoke` deletes the client's grant immediately.
 
 The host schedules the component's `cleanup` daily from a cron, as the
-[identity-hub](../../../apps/identity-hub) app does; nothing else deletes these rows. One run
-drains: a batch deletes at most 200 rows per table, and a full batch schedules the next one at once
-with the same cutoff, until no table fills a batch. The cutoff is the time the run began, so the run
-ends: rows written during it run out after the cutoff. A completed request lives until one minute
-after its authorization code expires, so cleanup never removes a request whose code can still be
-redeemed.
+[identity-hub](https://github.com/samebase/identity-hub) template does; nothing else deletes these
+rows. One run drains: a batch deletes at most 200 rows per table, and a full batch schedules the
+next one at once with the same cutoff, until no table fills a batch. The cutoff is the time the run
+began, so the run ends: rows written during it run out after the cutoff. A completed request lives
+until one minute after its authorization code expires, so cleanup never removes a request whose code
+can still be redeemed.
 
 A preview or development client has a removal date: cleanup deletes it 14 days after its
 registration or its last renewal, sign-in, resource authorization, or provider refresh. A deployment

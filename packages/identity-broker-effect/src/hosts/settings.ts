@@ -45,8 +45,7 @@ export const hubSettings = (options: HubSettings) =>
         const { google: googleClient, github: githubClient } = options.connectors;
         return HubConfig.layer({
           issuer: options.issuer,
-          // The order of the Convex hub (apps/identity-hub/convex/broker.ts): each asks the
-          // provider for its account screen on every sign-in.
+          // Each asks the provider for its account screen on every sign-in.
           connectors: [
             ...(googleClient === undefined
               ? []

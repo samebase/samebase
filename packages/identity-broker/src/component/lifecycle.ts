@@ -1,6 +1,5 @@
 import { v, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Component entrypoints are internal to the host; host functions enforce access.
 import { internalMutation, mutation, type MutationCtx } from "./_generated/server";
 
@@ -89,30 +88,18 @@ async function cleanupBatch(
     .withIndex("by_expires_at", (q) => q.lt("expiresAt", args.now))
     .take(BATCH);
   for (const request of resourceRequests) await ctx.db.delete("resourceRequests", request._id);
-  // A frozen client keeps every grant, expired ones included (see `frozenAt`). The count is of the
-  // deleted grants, so a batch of only frozen ones schedules no next batch.
-  const expiredGrants = await ctx.db
+  const refreshGrants = await ctx.db
     .query("refreshGrants")
     .withIndex("by_expires_at", (q) => q.lt("expiresAt", args.now))
     .take(BATCH);
-  let refreshGrants = 0;
-  for (const grant of expiredGrants) {
-    const client = await ctx.db
-      .query("clients")
-      .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
-      .unique();
-    if (client?.frozenAt !== undefined) continue;
-    await ctx.db.delete("refreshGrants", grant._id);
-    refreshGrants += 1;
-  }
+  for (const grant of refreshGrants) await ctx.db.delete("refreshGrants", grant._id);
 
   const { previewClientMaxAgeMs } = args;
-  const kept = (client: Doc<"clients">) => client.frozenAt === undefined;
   const previewClients =
     previewClientMaxAgeMs === undefined
       ? []
-      : (await idlePreviewClients(ctx, args.now - previewClientMaxAgeMs)).filter(kept);
-  const expired = (await expiredClients(ctx, args.now)).filter(kept);
+      : await idlePreviewClients(ctx, args.now - previewClientMaxAgeMs);
+  const expired = await expiredClients(ctx, args.now);
   // A row can be in both lists.
   const clients = new Map([...previewClients, ...expired].map((client) => [client._id, client]));
   for (const client of clients.values()) {
@@ -137,7 +124,7 @@ async function cleanupBatch(
     expiredClients: expired.length,
     signIns: signIns.length,
     resourceRequests: resourceRequests.length,
-    refreshGrants,
+    refreshGrants: refreshGrants.length,
   };
   if (Object.values(counts).some((count) => count === BATCH)) {
     await ctx.scheduler.runAfter(0, internal.lifecycle.continueCleanup, {

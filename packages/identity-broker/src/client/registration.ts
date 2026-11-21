@@ -210,16 +210,9 @@ export function registrationEndpoints(args: {
       registrationTokenHash: target.registrationTokenHash,
     });
     if (!result.ok) {
-      switch (result.error) {
-        case "production":
-          return insufficientScope("A production client cannot delete itself.");
-        case "frozen":
-          return insufficientScope("A frozen client cannot delete itself.");
-        case "invalid_token":
-          return invalidToken();
-        default:
-          return result.error satisfies never;
-      }
+      return result.error === "production"
+        ? insufficientScope("A production client cannot delete itself.")
+        : invalidToken();
     }
     return new Response(null, { status: 204 });
   });

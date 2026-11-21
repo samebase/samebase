@@ -29,12 +29,9 @@ const app = defineApp({
     IDENTITY_HUB_CLIENT_ID: v.string(),
     IDENTITY_HUB_CLIENT_SECRET: v.string(),
     IDENTITY_HUB_ISSUER: v.string(),
-    // The key of the hub's moderation endpoints, which /admin/hub-clients calls through
-    // hubClients/moderation.ts: it reads registrations and clients and sets blocks, and nothing else.
-    // Set by hand, as on the hub. Unset, as in CI: the page says that moderation is off.
-    IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
     // The public identity hub, where apps made from the starter sign in (samebase/identity-hub):
-    // its issuer and moderation key, for the same page. Set by hand; unset, its moderation is off.
+    // its issuer and the key of its moderation endpoints, which /admin/hub-clients calls through
+    // hubClients/moderation.ts. Set by hand. Unset, as in CI: the page says that moderation is off.
     PUBLIC_IDENTITY_HUB_ISSUER: v.optional(v.string()),
     PUBLIC_IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
