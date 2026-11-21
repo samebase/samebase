@@ -8,6 +8,7 @@ import {
   StateStoreError,
 } from "alchemy/State";
 import type { BucketObjects } from "alchemy/State/BucketState";
+import { passphraseEncryption } from "alchemy/State/PassphraseEncryption";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
@@ -18,6 +19,9 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vitest";
 import { blobSha } from "../../src/github-state/git.ts";
 import { makeGitHubObjects, state } from "../../src/github-state/GitHubState.ts";
+
+const passphrase = (text: string) => passphraseEncryption({ passphrase: Redacted.make(text) });
+const ENCRYPTION = passphrase("test-passphrase");
 
 const TreeBody = Schema.Struct({
   base_tree: Schema.optional(Schema.String),
@@ -218,12 +222,7 @@ describe("makeGitHubObjects", () => {
           none: yield* store.listStages("owner"),
         };
       }).pipe(
-        Effect.provide(
-          state({
-            repository: "o/r",
-            key: Redacted.make(Buffer.alloc(32).toString("base64")),
-          }),
-        ),
+        Effect.provide(state({ repository: "o/r" }).pipe(Layer.provide(ENCRYPTION))),
         Effect.scoped,
         Effect.provide(github.layer),
       ),
@@ -266,10 +265,10 @@ describe("makeGitHubObjects", () => {
   });
 });
 
-const KEY = Redacted.make(Buffer.alloc(32).toString("base64"));
 const STATE = "alchemy-state-store";
 const LOCK = "alchemy-state-store-lock";
 const PROD = { stack: "owner/name", stage: "prod" };
+const PROD_FILE = "owner/name/prod/Convex__Project.json";
 const ROW = {
   kind: "resource",
   resourceType: "Convex.Project",
@@ -287,10 +286,16 @@ const ROW = {
 const OUTPUT = { url: "https://example.test", secret: Redacted.make("output-secret"), n: [1, 2] };
 
 /** One process: a State service on `o/r` whose scope, and so its leases, closes after `use`. */
-const inProcess = <A, E, R>(use: (service: StateService) => Effect.Effect<A, E, R>) =>
+const inProcess = <A, E, R>(
+  use: (service: StateService) => Effect.Effect<A, E, R>,
+  encryption = ENCRYPTION,
+) =>
   Effect.gen(function* () {
     return yield* use(yield* yield* State);
-  }).pipe(Effect.provide(state({ repository: "o/r", key: KEY })), Effect.scoped);
+  }).pipe(
+    Effect.provide(state({ repository: "o/r" }).pipe(Layer.provide(encryption))),
+    Effect.scoped,
+  );
 
 /** Two processes on one repository. A's scope stays open while B runs. */
 const twoProcesses = <A, E>(
@@ -437,6 +442,92 @@ describe("state", () => {
     expect(encodeState(result.first)).toEqual(encodeState(ROW));
     expect(encodeState(result.second)).toEqual(encodeState(ROW));
     expect(result.second).not.toBe(result.first);
+  });
+
+  it("seals a secret in Alchemy's sealed format, and a point read opens it", async () => {
+    const github = fakeGitHub();
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* writeRow(PROD);
+        const row = yield* inProcess((b) => b.get({ ...PROD, fqn: ROW.fqn }));
+        return { row, file: github.file(STATE, PROD_FILE) ?? "" };
+      }).pipe(Effect.provide(github.layer)),
+    );
+    expect(result.file.startsWith("alchemy:sealed:1:passphrase:")).toBe(true);
+    expect(result.file).not.toContain("the-deploy-key");
+    expect(result.file).toMatch(/"deployKey": \{\n\s+"__sealed__": "[A-Za-z0-9+/=]+"/);
+    expect(result.file).toContain('"cloud": "https://example.test"');
+    expect(github.file(STATE, "__alchemy_store__.json")).toBe('{"format":1}');
+    expect(encodeState(result.row)).toEqual(encodeState(ROW));
+  });
+
+  it("fails a read with a wrong passphrase, with and without the lease", async () => {
+    const github = fakeGitHub();
+    const wrong = passphrase("not-the-passphrase");
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* writeRow(PROD);
+        const point = yield* inProcess((b) => Effect.flip(b.get({ ...PROD, fqn: ROW.fqn })), wrong);
+        const locked = yield* inProcess(
+          (b) => b.list(PROD).pipe(Effect.andThen(Effect.flip(b.get({ ...PROD, fqn: ROW.fqn })))),
+          wrong,
+        );
+        return { point: point.message, locked: locked.message };
+      }).pipe(Effect.provide(github.layer)),
+    );
+    expect(result.point).toContain("wrong passphrase");
+    expect(result.locked).toContain("wrong passphrase");
+  });
+
+  it("refuses a record with a secret that kit 0.3 or older sealed, and leaves it as it is", async () => {
+    const github = fakeGitHub();
+    // How kit 0.3 wrote ROW: its deployKey sealed under a key of 32 zero bytes.
+    const record = JSON.stringify(
+      {
+        ...ROW,
+        attr: {
+          deployKey: {
+            __redacted__: {
+              __sealed__: "v1.QS3K20nSTlbgJ2rd.bEpXA2tyxvSQ4Y7vnT-5OQ2GBbhFJRqRQDXxQAB9HOM",
+            },
+          },
+          urls: { cloud: "https://example.test" },
+        },
+      },
+      null,
+      2,
+    );
+    const get = (b: StateService) => Effect.flip(b.get({ ...PROD, fqn: ROW.fqn }));
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* makeGitHubObjects({ repository: "o/r" }).pipe(
+          Effect.flatMap((objects) => objects.write(PROD_FILE, record)),
+          Effect.scoped,
+        );
+        const point = yield* inProcess(get);
+        const locked = yield* inProcess((b) => b.list(PROD).pipe(Effect.andThen(get(b))));
+        return { point: point.message, locked: locked.message };
+      }).pipe(Effect.provide(github.layer)),
+    );
+    const refusal = `${PROD_FILE} holds secrets that @samebase/alchemy-kit 0.3 or older sealed. Destroy the stage with that version, then deploy again.`;
+    expect(result.point).toContain(refusal);
+    expect(result.locked).toContain(refusal);
+    expect(github.file(STATE, PROD_FILE)).toBe(record);
+  });
+
+  it("refuses a point read of a store in a newer format", async () => {
+    const github = fakeGitHub();
+    const error = await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* writeRow(PROD);
+        yield* makeGitHubObjects({ repository: "o/r" }).pipe(
+          Effect.flatMap((objects) => objects.write("__alchemy_store__.json", '{"format":2}')),
+          Effect.scoped,
+        );
+        return yield* inProcess((b) => Effect.flip(b.get({ ...PROD, fqn: ROW.fqn })));
+      }).pipe(Effect.provide(github.layer)),
+    );
+    expect(error.message).toContain("holds state in format 2");
   });
 
   it("reads the lease file of a stage through the lease", async () => {
