@@ -322,8 +322,8 @@ client as the sign-in's:
 
 Each deployment registers its `/oauth/hub/callback` at the hub, as a second return address of its
 one client, next to the sign-in's `/auth/hub/callback`. Provider client secrets and fixed provider
-callback URLs are configured on the hub, as described in
-[identity-hub](../apps/identity-hub/README.md#deploy).
+callback URLs are configured on the hub, in
+[apps/samebase/identity-hub](../apps/samebase/identity-hub/index.ts).
 
 Legacy Cloudflare MCP OAuth route, kept for existing rows only:
 

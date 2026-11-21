@@ -25,7 +25,7 @@
     "check": "pnpm run check:workspace && pnpm run check:root",
     "check:ci": "vp run check:workspace:ci && pnpm run check:root",
     "check:plugin": "vp fmt --check packages/plugin && node scripts/check-samebase-agent-plugin.ts && node scripts/check-agent-plugin-logo.ts",
-    "check:packages": "pnpm run check:plugin && vp run --fail-if-no-match --filter @samebase/sure --filter @samebase/dependent --filter @samebase/git-editor --filter @samebase/logo-model --filter @samebase/sidebars --filter @samebase/onboarding-video-tools --filter @samebase/identity-broker --filter @samebase/identity-broker-effect --filter @samebase/alchemy-convex --filter @samebase/alchemy-kit --filter identity-hub check",
+    "check:packages": "pnpm run check:plugin && vp run --fail-if-no-match --filter @samebase/sure --filter @samebase/dependent --filter @samebase/git-editor --filter @samebase/logo-model --filter @samebase/sidebars --filter @samebase/onboarding-video-tools --filter @samebase/identity-broker --filter @samebase/identity-broker-effect --filter @samebase/alchemy-convex --filter @samebase/alchemy-kit check",
     "check:remotion-studio": "vp run remotion:check",
     "check:workspace": "vp run --filter samebase check && vp run --filter workspace-layout-v2-solid typecheck:cached && pnpm run check:packages && vp run check:remotion-studio && pnpm run check:examples",
     "check:workspace:ci": "vp run ci:workspace",

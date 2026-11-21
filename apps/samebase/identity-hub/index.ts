@@ -25,7 +25,6 @@ export default hubWorker({
       clientSecret: Config.Redacted("SAMEBASE_HUB_GITHUB_CLIENT_SECRET"),
     },
   },
-  // The providers and scopes of auth.samebase.com (apps/identity-hub/convex/broker.ts).
   connections: {
     convex: {
       clientId: Config.Redacted("SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID"),

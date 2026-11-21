@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import remotionEslintPlugin from "@remotion/eslint-plugin";
-import { defaultClientConditions, defaultServerConditions, type Plugin } from "vite";
+import { defaultClientConditions, type Plugin } from "vite";
 import { defineConfig } from "vite-plus";
 import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
 // The app's dependency, which the root does not install.
@@ -343,7 +343,6 @@ export default defineConfig({
             "dist",
             "dev-dist",
             "apps/samebase/convex/**/*.convex.test.ts",
-            "apps/identity-hub/**",
             "apps/identity-broker-effect-example/**",
             "packages/identity-broker/**",
             "packages/identity-broker-effect/**",
@@ -420,17 +419,6 @@ export default defineConfig({
           // with every import of vitest on the runner.
           alias: { vitest: "vite-plus/test" },
           server: { deps: { inline: true } },
-        },
-      },
-      {
-        extends: true,
-        // The hub's functions import the broker's source, so the tests need no build of the broker.
-        ssr: { resolve: { conditions: ["samebase-source", ...defaultServerConditions] } },
-        test: {
-          name: "identity-hub",
-          environment: "edge-runtime",
-          include: ["apps/identity-hub/convex/**/*.test.ts"],
-          exclude: ["**/node_modules/**", "dist", "dev-dist"],
         },
       },
       {

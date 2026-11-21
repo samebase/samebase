@@ -40,17 +40,14 @@ export function used(client: Doc<"clients">, now: number) {
  * undefined when no row can go. For a preview or development client any preview or development row
  * can go, because the next deploy or dev start of its owner registers again. For a production client
  * a production row goes only if it never signed anyone in: the hub cannot know which client a
- * deployment holds, so one that has served users stays. A frozen client never goes (see `frozenAt`).
+ * deployment holds, so one that has served users stays.
  */
 function evicted(rows: Doc<"clients">[], deploymentType: Infer<typeof vDeployment>) {
   if (rows.length < MAX_CLIENTS_PER_APP) {
     return null;
   }
-  const candidates = rows.filter(
-    (row) =>
-      row.frozenAt === undefined &&
-      (deploymentType !== "production" || row.lastSignInAt === undefined),
-  );
+  const candidates =
+    deploymentType === "production" ? rows.filter((row) => row.lastSignInAt === undefined) : rows;
   return [...candidates].sort((a, b) => a.renewedAt - b.renewedAt)[0];
 }
 
@@ -279,17 +276,13 @@ export const renew = mutation({
 
 /**
  * A preview client deletes itself (RFC 7592 section 2.3). A production client cannot: a stack destroy
- * can leave a production deployment running, and the hub cannot know that it stopped. Nor can a
- * frozen client, whose grants wait for their export (see `frozenAt`).
+ * can leave a production deployment running, and the hub cannot know that it stopped.
  */
 export const remove = mutation({
   args: { clientId: string(), registrationTokenHash: string() },
   returns: union(
     object({ ok: literal(true) }),
-    object({
-      ok: literal(false),
-      error: union(literal("invalid_token"), literal("production"), literal("frozen")),
-    }),
+    object({ ok: literal(false), error: union(literal("invalid_token"), literal("production")) }),
   ),
   handler: async (ctx, args) => {
     const client = await clientAt(ctx, args.clientId, args.registrationTokenHash);
@@ -298,9 +291,6 @@ export const remove = mutation({
     }
     if (client.deploymentType === "production") {
       return { ok: false as const, error: "production" as const };
-    }
-    if (client.frozenAt !== undefined) {
-      return { ok: false as const, error: "frozen" as const };
     }
     await ctx.db.delete("clients", client._id);
     await removeClientGrants(ctx, client.clientId);

@@ -507,9 +507,7 @@ export const exchangeCode = mutation({
       // Replay: the code and its request are revoked (RFC 6749 section 4.1.2).
       await ctx.db.delete("authorizationCodes", code._id);
       if ("resourceRequestId" in code) {
-        // A frozen client keeps its grants (see `frozenAt`).
         if (
-          client.frozenAt === undefined &&
           code.refreshGrantId !== undefined &&
           (await ctx.db.get("refreshGrants", code.refreshGrantId)) !== null
         ) {
