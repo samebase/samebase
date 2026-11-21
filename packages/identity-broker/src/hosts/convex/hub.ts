@@ -1,7 +1,7 @@
 // The Convex host of the hub. The core runs in an `httpAction`, one run per request, and reaches
 // the state through the component `identityBroker` (component/), whose one mutation
 // `commands.run` runs one command of the closed registry as one transaction. An app gives
-// `convexHub` its reference to the component, its settings (`hubSettings` of ../settings.ts) and
+// `convexHub` its reference to the component, its settings (`hubSettings` of the main export) and
 // the routes of its registration layer, adds the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
 //
 // The secrets are Effect `Config` reads of the deployment's environment variables, which Convex
@@ -16,19 +16,22 @@ import {
 } from "convex/server";
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
-import { command as connectionsCommand } from "../../connections/commands.ts";
-import type { ConnectionSettings } from "../../connections/providers.ts";
-import { makeConnections } from "../../connections/routes.ts";
-import { command } from "../../core/command.ts";
-import { hubLogger, makeHandle, type Registration } from "../../core/router.ts";
-import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
-import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
-import { Store, StoreUnavailable } from "../../store/Store.ts";
+import {
+  cleanupBatch,
+  Fetch,
+  hubLogger,
+  Keys,
+  makeConnections,
+  makeHandle,
+  Random,
+  Store,
+  StoreUnavailable,
+  type ConnectionSettings,
+  type HubConfig,
+  type Registration,
+  type SignInPage,
+} from "../../index.ts";
 import type { ComponentApi } from "./component/_generated/component.ts";
-
-// What an app gives `convexHub`, in the one module that the package exports as `./convex`.
-export { hubSettings, type HubSettings } from "../settings.ts";
-export { github } from "../../layers/github/routes.ts";
 
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -145,10 +148,9 @@ export const convexHub = <E>(
     },
 
     /**
-     * The daily cleanup, for the app's cron: batches of `connections.cleanup` and
-     * `lifecycle.cleanup` with one cutoff, the time it starts, until a batch reports no `more`.
-     * The cutoff never moves, so the batches end. Each batch is its own transaction; a failed batch fails the
-     * action, and the next day's run deletes what is left.
+     * The daily cleanup, for the app's cron: batches with one cutoff, the time it starts, until
+     * none is left. The cutoff never moves, so the batches end. A failed batch fails the action,
+     * and the next day's run deletes what is left.
      */
     cleanup: internalActionGeneric({
       args: {},
@@ -159,12 +161,7 @@ export const convexHub = <E>(
             const cutoff = yield* Clock.currentTimeMillis;
             let more = true;
             while (more) {
-              more =
-                (yield* connectionsCommand("connections.cleanup", { now: cutoff })).more ||
-                (yield* command("lifecycle.cleanup", {
-                  now: cutoff,
-                  signInRetentionMs: SIGN_IN_RETENTION_MS,
-                })).more;
+              more = yield* cleanupBatch(cutoff);
             }
             return null;
           }).pipe(Effect.provideService(Store, convexStore(ctx, component.commands.run))),

@@ -3,12 +3,9 @@
 // no Node types and the shape is the one of `DatabaseSync`.
 import { Effect, Layer } from "effect";
 import {
-  decodeArgs,
-  decodeName,
+  decodeCommand,
   decodeResult,
   encodeArgs,
-  isReadOnly,
-  runStep,
   type Args,
   type CommandName,
   type Result,
@@ -55,12 +52,9 @@ export const makeSqliteStore = (
   sqliteStep(database, () => ensureLayout((sql, params) => database.prepare(sql).all(...params)));
   let now = options.now;
 
-  const runEncoded = (input: string, args: unknown): unknown => {
-    const name = decodeName(input);
-    const decoded = decodeArgs(name, args);
-    return sqliteStep(database, (tx) => runStep(name, decoded, now, tx), {
-      readOnly: isReadOnly(name),
-    });
+  const runEncoded = (name: string, args: unknown): unknown => {
+    const command = decodeCommand(name, args);
+    return sqliteStep(database, (tx) => command.run(now, tx), { readOnly: command.readOnly });
   };
 
   const store = Store.of({ run: (name, args) => Effect.sync(() => runEncoded(name, args)) });

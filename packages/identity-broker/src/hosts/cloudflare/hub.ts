@@ -13,23 +13,28 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Cause, Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import type { ConnectionSettings } from "../../connections/providers.ts";
-import { makeConnections } from "../../connections/routes.ts";
-import { hubLogger, makeHandle, type CoreServices, type Registration } from "../../core/router.ts";
-import { Fetch, type HubConfig, Keys, Random, type SignInPage } from "../../core/services.ts";
-import { SIGN_IN_RETENTION_MS } from "../../core/signIn.ts";
 import {
-  decodeArgs,
-  decodeName,
-  decodeResult,
-  isReadOnly,
-  runStep,
-  type Args,
-  type CommandName,
-} from "../../store/commands.ts";
-import { ensureLayout, sqlTx, type Exec } from "../../store/sql.ts";
-import { Store, StoreUnavailable } from "../../store/Store.ts";
-import { hubSettings, type HubSettings } from "../settings.ts";
+  cleanupBatch,
+  decodeCommand,
+  ensureLayout,
+  Fetch,
+  hubLogger,
+  hubSettings,
+  Keys,
+  makeConnections,
+  makeHandle,
+  Random,
+  sqlTx,
+  Store,
+  StoreUnavailable,
+  type ConnectionSettings,
+  type CoreServices,
+  type Exec,
+  type HubConfig,
+  type HubSettings,
+  type Registration,
+  type SignInPage,
+} from "../../index.ts";
 import { secretsStoreConfig, type SecretsStoreSettings } from "./secretsStore.ts";
 
 /**
@@ -74,20 +79,20 @@ export class HubObject extends Cloudflare.DurableObject<HubObject>()(
        * or throws, so a rule that suspends cannot write later. A defect throws and rolls the step
        * back. Returns the encoded result.
        */
-      const step = <N extends CommandName>(name: N, args: Args<N>, now: number): unknown =>
-        storage.transactionSync(() => {
+      const step = (name: string, args: unknown, now: number): unknown => {
+        const command = decodeCommand(name, args);
+        return storage.transactionSync(() => {
           let open = true;
           try {
-            return runStep(
-              name,
-              args,
+            return command.run(
               now,
-              sqlTx(exec, () => open, isReadOnly(name)),
+              sqlTx(exec, () => open, command.readOnly),
             );
           } finally {
             open = false;
           }
         });
+      };
 
       // Daily cleanup in bounded batches, as Alchemy's durable callback: its row and the native
       // alarm live in the object's own `alchemy_*` tables. Each batch schedules the next one with
@@ -100,21 +105,11 @@ export class HubObject extends Cloudflare.DurableObject<HubObject>()(
           function* (payload: typeof CleanupPayload.Encoded) {
             const now = yield* Clock.currentTimeMillis;
             const plan = alarmPlan((yield* decodeCleanupPayload(payload)).cutoff, now);
-            // The connections part's batch of expired requests and codes, then the core's.
-            const more = yield* Effect.sync(
-              () =>
-                decodeResult(
-                  "connections.cleanup",
-                  step("connections.cleanup", { now: plan.cutoff }, now),
-                ).more ||
-                decodeResult(
-                  "lifecycle.cleanup",
-                  step(
-                    "lifecycle.cleanup",
-                    { now: plan.cutoff, signInRetentionMs: SIGN_IN_RETENTION_MS },
-                    now,
-                  ),
-                ).more,
+            const more = yield* cleanupBatch(plan.cutoff).pipe(
+              Effect.provideService(
+                Store,
+                Store.of({ run: (name, args) => Effect.sync(() => step(name, args, now)) }),
+              ),
             );
             const next = plan.after(more);
             // `progress` grows with each batch, so a run of batches keeps a fresh retry budget.
@@ -141,10 +136,7 @@ export class HubObject extends Cloudflare.DurableObject<HubObject>()(
         /** The RPC method of the Worker: a name of the closed registry and its arguments, as JSON. */
         run: Effect.fn("HubObject.run")(function* (name: string, args: string) {
           const now = yield* Clock.currentTimeMillis;
-          return yield* Effect.sync(() => {
-            const command = decodeName(name);
-            return JSON.stringify(step(command, decodeArgs(command, parseJson(args)), now));
-          });
+          return yield* Effect.sync(() => JSON.stringify(step(name, parseJson(args), now)));
         }),
       };
     });

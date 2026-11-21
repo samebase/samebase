@@ -2,7 +2,7 @@
 // is the workers.dev address of its script.
 import { Config } from "effect";
 import { hubWorker } from "./hosts/cloudflare/hub.ts";
-import { github } from "./layers/github/routes.ts";
+import { github } from "./index.ts";
 
 export default hubWorker({
   main: import.meta.url,

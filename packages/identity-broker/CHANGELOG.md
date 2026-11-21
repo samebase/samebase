@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.36.0
+
+- The main export, `@samebase/identity-broker`, is the hub with no platform: `makeHandle`, the
+  services a host provides (`Store`, `Keys`, `Random`, `Fetch`, `hubSettings`, `hubLogger`), the
+  Store's command contract (`decodeCommand`, `TxShape`, `tables`, and `sqlTx` with `ensureLayout`
+  for SQLite), `cleanupBatch`, `makeConnections`, and the registration layers `github` and `stack`.
+  The README's "Write your own host" shows a host on Node with `node:sqlite`.
+- `checkStore` of `./testing` checks a host's storage against the memory store. It needs
+  `fast-check`, an optional peer dependency.
+- The Convex and Cloudflare hosts use only the main export.
+- Moved: `stack` from `./stack`, and `github` and `hubSettings` from `./convex`, to the main export.
+  `./stack` is gone.
+- `convex` is an optional peer dependency.
+
 ## 0.35.0
 
 - A new implementation in Effect replaces the package, with two hosts: a Convex component

@@ -6,20 +6,18 @@
 import type { GenericDatabaseWriter, GenericDataModel, GenericDocument } from "convex/server";
 import { Effect, Schema } from "effect";
 import {
+  checkQuery,
+  RowId,
   tables,
   type Doc,
   type IndexName,
-  type TableName,
-  type Tables,
-} from "../../store/tables.ts";
-import {
-  type Row as RowOf,
-  checkQuery,
-  RowId,
   type IndexValue,
   type Query,
+  type Row as RowOf,
+  type TableName,
+  type Tables,
   type TxShape,
-} from "../../store/Tx.ts";
+} from "../../index.ts";
 
 type Row<T extends TableName> = RowOf<Tables, T>;
 

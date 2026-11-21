@@ -43,7 +43,7 @@ import {
   signInCleanup,
   stepLists,
   type Player,
-} from "../../src/hosts/convex/testing.ts";
+} from "../../src/store/contract.ts";
 import type { Args } from "../../src/store/commands.ts";
 import { StepOutput } from "../../src/store/testing.ts";
 import { api } from "./convex/_generated/api.js";

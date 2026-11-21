@@ -67,14 +67,11 @@ export const everyCommandListed: Exclude<CommandName, (typeof commandNames)[numb
   ? true
   : false = true;
 
-/** The closed set of names. A host refuses any other name. */
-export const CommandNameSchema = Schema.Literals(commandNames);
-
 /** The command name of a host's input. Any other name is a defect of the caller. */
-export const decodeName = Schema.decodeUnknownSync(CommandNameSchema);
+const decodeName = Schema.decodeUnknownSync(Schema.Literals(commandNames));
 
 /** Decodes the arguments of `name`. Bad arguments are a defect of the caller. */
-export const decodeArgs = <N extends CommandName>(name: N, input: unknown): Args<N> =>
+const decodeArgs = <N extends CommandName>(name: N, input: unknown): Args<N> =>
   Schema.decodeUnknownSync(commands[name].args)(input);
 
 /** Encodes the arguments of `name` for `Store.run`. */
@@ -84,9 +81,6 @@ export const encodeArgs = <N extends CommandName>(name: N, args: Args<N>): unkno
 /** Decodes the result of `name` on the caller's side. */
 export const decodeResult = <N extends CommandName>(name: N, input: unknown): Result<N> =>
   Schema.decodeUnknownSync(commands[name].result)(input);
-
-/** Whether the command of `name` writes nothing. A host gives such a step a `Tx` that refuses writes. */
-export const isReadOnly = (name: CommandName): boolean => commands[name].readOnly;
 
 /** The core's view of a step whose `Tx` is over the whole catalog. */
 export const coreView = (tx: TxShape<Tables>): TxShape<CoreTables> =>
@@ -112,28 +106,26 @@ const ruleOver = <N extends CommandName>(
     );
 
 /**
- * Runs the rule of `name` to completion over `tx` and encodes its result, inside the host's
- * transaction, so a codec defect rolls the step back too. Throws on a defect, and on a rule that
- * suspends (`Effect.runSync` cannot finish it).
+ * The command of a host's input, `name` and its encoded `args`, decoded before the host opens its
+ * transaction: an unknown name or bad arguments throw. `readOnly`: the command writes nothing, so
+ * its `Tx` may refuse writes. `run` runs the rule over `tx` at the step clock `now`, inside the
+ * host's transaction, and returns the encoded result; it throws on a defect and on a rule that
+ * suspends, and the host then rolls the transaction back. `runAsync` is `run` for a `Tx` whose
+ * operations are async, such as one over Convex's `ctx.db`; it rejects on a defect.
  */
-export const runStep = <N extends CommandName>(
-  name: N,
-  args: Args<N>,
-  now: number,
-  tx: TxShape<Tables>,
-): unknown =>
-  Schema.encodeSync(commands[name].result)(Effect.runSync(ruleOver(name, args, now, tx)));
-
-/**
- * `runStep` for a host whose storage is async (a `Tx` over Convex's `ctx.db`): the same decode
- * and encode, with the rule run by `Effect.runPromise`. Rejects on a defect.
- */
-export const runStepAsync = async <N extends CommandName>(
-  name: N,
-  args: Args<N>,
-  now: number,
-  tx: TxShape<Tables>,
-): Promise<unknown> =>
-  Schema.encodeSync(commands[name].result)(
-    await Effect.runPromise(ruleOver(name, args, now, tx), { scheduler: microtaskScheduler() }),
-  );
+export const decodeCommand = (name: string, args: unknown) => {
+  const command = decodeName(name);
+  const decoded = decodeArgs(command, args);
+  const encode = Schema.encodeSync(commands[command].result);
+  return {
+    readOnly: commands[command].readOnly,
+    run: (now: number, tx: TxShape<Tables>): unknown =>
+      encode(Effect.runSync(ruleOver(command, decoded, now, tx))),
+    runAsync: async (now: number, tx: TxShape<Tables>): Promise<unknown> =>
+      encode(
+        await Effect.runPromise(ruleOver(command, decoded, now, tx), {
+          scheduler: microtaskScheduler(),
+        }),
+      ),
+  };
+};

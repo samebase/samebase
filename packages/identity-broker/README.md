@@ -10,8 +10,9 @@ at the hub ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html)), and its us
 OpenID Connect code flow and PKCE. The hub keeps no user accounts: `sub` is the provider's name and
 the provider's id of the user, such as `google:104325678901234567890`.
 
-The hub runs on Convex, as a component of your app, or on Cloudflare, as a Worker with one Durable
-Object.
+The hub runs on any platform that can answer a `Request` with a `Response`, over storage that you
+bring. The package has two ready hosts: Convex, as a component of your app, and Cloudflare, as a
+Worker with one Durable Object.
 
 ![Google and GitHub refuse preview deployments because each has a new URL. Identity Broker sits in front of them, so each provider sees one client and one URL, and every app and preview registers its exact URL at deploy.](https://raw.githubusercontent.com/samebase/samebase/main/packages/identity-broker/docs/how-it-works.gif)
 
@@ -22,6 +23,8 @@ deploy.
 ## Registration
 
 A hub mounts one registration layer, which decides who may register a client:
+
+Both are exports of `@samebase/identity-broker`.
 
 - `github(allowList)`: a GitHub Actions workflow of an allowed repository registers with its OIDC
   token. Each entry is `{ repositoryId, ownerId }`, GitHub's numeric ids.
@@ -48,7 +51,8 @@ export default app;
 ```ts
 // convex/hub.ts
 import { Config } from "effect";
-import { convexHub, github, hubSettings } from "@samebase/identity-broker/convex";
+import { github, hubSettings } from "@samebase/identity-broker";
+import { convexHub } from "@samebase/identity-broker/convex";
 import { components } from "./_generated/api";
 
 export const hub = convexHub(
@@ -106,7 +110,7 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 // src/hub.ts
 import { Config } from "effect";
 import { hubWorker } from "@samebase/identity-broker/cloudflare";
-import { stack } from "@samebase/identity-broker/stack";
+import { stack } from "@samebase/identity-broker";
 
 export default hubWorker({
   main: import.meta.url,
@@ -152,6 +156,155 @@ export default Alchemy.Stack(
 
 `alchemy deploy` deploys the Worker. The Worker's name, the object's class `Hub` and its one
 instance are the address of all the hub's data: a new name starts with empty storage.
+
+## Write your own host
+
+`makeHandle(registration)` of `@samebase/identity-broker` is the whole hub: an Effect program from a
+`Request` to a `Response`. It never fails; an error answers 500. A host provides its services:
+
+- `Store`: your storage (below).
+- `hubSettings(settings)`: the issuer, the connectors and the service names, as on Cloudflare.
+- `Keys.layer`: the signing keys, `IDENTITY_BROKER_KEYS` read with Effect's `Config`.
+- `Random.layer`, `Fetch.layer` and `hubLogger`: `crypto.getRandomValues`, `fetch` with no
+  redirects, and one JSON log line per entry. Time is Effect's `Clock`.
+
+For connections, give `makeHandle` the part that `makeConnections(settings)` makes.
+
+The `Store` has one method, `run(name, args)`: one command of a closed list, with its arguments and
+its result as JSON values. The host decodes it with `decodeCommand(name, args)` and runs it as one
+transaction:
+
+- `command.run(now, tx)` runs it over `tx`, a `TxShape<Tables>` of your storage, and returns the
+  result. `now` is Effect's `Clock` when the command arrives. A throw means the transaction must
+  roll back. `command.runAsync` is the same for a `Tx` whose calls are async.
+- One command sees one consistent state and its own writes, and nothing else writes meanwhile. When
+  `command.readOnly` is true, the `Tx` may refuse writes.
+- The database may retry a transaction after a write conflict, as Convex does. The `Store` never
+  sends a command again after a lost answer, because it may have committed: it fails with
+  `StoreUnavailable`, and the hub answers 500.
+- For SQLite, `sqlTx(exec, isOpen, readOnly)` is the `Tx`, and `ensureLayout(exec)` makes the
+  tables. Other storage implements `TxShape` over `tables`, each table's schema and indexes.
+
+Run `cleanupBatch(cutoff)` once a day through the `Store` until it answers `false`. It deletes
+expired rows, each batch its own commands.
+
+A host on Node with `node:sqlite`:
+
+```ts
+// hub.ts
+import type { DatabaseSync } from "node:sqlite";
+import { Clock, Config, Effect, Layer } from "effect";
+import {
+  cleanupBatch,
+  decodeCommand,
+  ensureLayout,
+  Fetch,
+  hubLogger,
+  hubSettings,
+  Keys,
+  makeHandle,
+  Random,
+  sqlTx,
+  stack,
+  Store,
+  type Exec,
+  type Tables,
+  type TxShape,
+} from "@samebase/identity-broker";
+
+export const makeStore = (database: DatabaseSync) => {
+  const exec: Exec = (sql, params) => database.prepare(sql).all(...params);
+  /** Runs `body` as one transaction, over a `Tx` that closes when it ends. */
+  const transaction = <A>(body: (tx: TxShape<Tables>) => A, readOnly = false): A => {
+    let open = true;
+    database.exec("BEGIN");
+    try {
+      const result = body(sqlTx(exec, () => open, readOnly));
+      open = false;
+      database.exec("COMMIT");
+      return result;
+    } catch (error) {
+      open = false;
+      database.exec("ROLLBACK");
+      throw error;
+    }
+  };
+  transaction(() => ensureLayout(exec));
+  const store = Store.of({
+    run: (name, args) =>
+      Effect.map(Clock.currentTimeMillis, (now) => {
+        const command = decodeCommand(name, args);
+        return transaction((tx) => command.run(now, tx), command.readOnly);
+      }),
+  });
+  return { store, transaction };
+};
+
+export const makeHub = (database: DatabaseSync) => {
+  const { store } = makeStore(database);
+  const handle = makeHandle(
+    stack({ keys: { preview: { key: Config.Redacted("HUB_PREVIEW_KEY") } } }),
+  );
+  const services = Layer.mergeAll(
+    hubSettings({
+      issuer: "https://auth.example.com",
+      connectors: {
+        google: {
+          clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
+          clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
+        },
+      },
+      service: {
+        name: "Example",
+        terms: "https://example.com/terms",
+        privacy: "https://example.com/privacy",
+      },
+    }),
+    Keys.layer,
+    Random.layer,
+    Fetch.layer,
+    Layer.succeed(Store, store),
+    hubLogger,
+  );
+  return {
+    /** A fetch handler, for `Deno.serve`, `Bun.serve` or any server of `Request` and `Response`. */
+    fetch: (request: Request) => Effect.runPromise(handle(request).pipe(Effect.provide(services))),
+    /** Once a day. */
+    cleanup: () =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const cutoff = yield* Clock.currentTimeMillis;
+          while (yield* cleanupBatch(cutoff)) {}
+        }).pipe(Effect.provideService(Store, store)),
+      ),
+  };
+};
+```
+
+### Test your storage
+
+`checkStore` of `@samebase/identity-broker/testing` checks a host's storage against the package's
+memory store: random inserts, replaces, deletes and index queries, rollback of a failed transaction,
+and a sign-in and a connection through the `Store`. It needs `fast-check`, and runs in any test
+runner. With Vitest:
+
+```ts
+// hub.test.ts
+import { DatabaseSync } from "node:sqlite";
+import { Effect } from "effect";
+import { test } from "vitest";
+import { checkStore } from "@samebase/identity-broker/testing";
+import { makeStore } from "./hub.ts";
+
+test("the hub's storage passes the host test kit", async () => {
+  await checkStore(() => {
+    const { store, transaction } = makeStore(new DatabaseSync(":memory:"));
+    return { store, transaction: async (body) => transaction((tx) => Effect.runSync(body(tx))) };
+  });
+}, 60_000);
+```
+
+`make` gives a fresh, empty store on each call. `checkStore` rejects with the first difference.
 
 ## Environment variables
 
