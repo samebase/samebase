@@ -225,6 +225,7 @@ export const outputWithRunRecord = (output: unknown, record: RunRecord): object 
 /** The part of another stack's output that the rename check reads. Any other shape is no record. */
 const RecordOfOutput = Schema.Struct({
   [RUN_RECORD_KEY]: Schema.Struct({
+    version: Schema.Literal(1),
     repositoryId: Schema.String,
     repository: Schema.String,
     stackFile: Schema.String,
@@ -268,7 +269,9 @@ export const renamedStack = (
  * apply, so the record names the last full successful deploy of the stage.
  *
  * A run with a `repositoryId` stops at the first `list` of a new stack when {@link renamedStack}
- * finds the stack of the same repository and stack file under its old repository name.
+ * finds the stack of the same repository and stack file under its old repository name. The stop
+ * needs a store whose `listStacks` and `listStages` give full stack names and only real stages, as
+ * the Convex store does; over another store it can miss the old stack, and the run goes on.
  */
 export const withRunRecord = <E, R>(inner: Layer.Layer<State, E, R>): Layer.Layer<State, E, R> =>
   Layer.effect(
@@ -305,9 +308,11 @@ export const withRunRecord = <E, R>(inner: Layer.Layer<State, E, R>): Layer.Laye
               const others = yield* Effect.forEach(
                 stacks.toSorted(),
                 (other) =>
-                  service
-                    .getOutput({ stack: other, stage: "prod" })
-                    .pipe(Effect.map((prodOutput) => ({ stack: other, prodOutput }))),
+                  service.getOutput({ stack: other, stage: "prod" }).pipe(
+                    // An output that cannot be read, such as one sealed with another key, is no record.
+                    Effect.catch(() => Effect.succeed(undefined)),
+                    Effect.map((prodOutput) => ({ stack: other, prodOutput })),
+                  ),
                 { concurrency: 8 },
               );
               const found = renamedStack(current, others);
@@ -319,26 +324,29 @@ export const withRunRecord = <E, R>(inner: Layer.Layer<State, E, R>): Layer.Laye
               );
             });
           const verdicts = new Map<string, Effect.Effect<void, StateStoreError>>();
+          // One synchronous step, so parallel lists of a stack share one check.
+          const verdictOf = (stack: string, empty: boolean, current: RunRecord) => {
+            const known = verdicts.get(stack);
+            if (known !== undefined) return known;
+            const verdict = empty
+              ? Effect.runSync(Effect.cached(renameCheck(stack, current)))
+              : Effect.void;
+            verdicts.set(stack, verdict);
+            return verdict;
+          };
           const wrapped: StateService = {
             ...service,
             // Plan, deploy and destroy list the stack they work on before any provider call; a stack read through a reference uses get and getOutput.
             list: (request) =>
-              service.list(request).pipe(
-                Effect.tap((fqns) =>
-                  Effect.gen(function* () {
-                    if (run?.repositoryId === undefined) return;
-                    let verdict = verdicts.get(request.stack);
-                    if (verdict === undefined) {
-                      verdict =
-                        fqns.length > 0
-                          ? Effect.void
-                          : yield* Effect.cached(renameCheck(request.stack, run));
-                      verdicts.set(request.stack, verdict);
-                    }
-                    yield* verdict;
-                  }),
+              service
+                .list(request)
+                .pipe(
+                  Effect.tap((fqns) =>
+                    run?.repositoryId === undefined
+                      ? Effect.void
+                      : verdictOf(request.stack, fqns.length === 0, run),
+                  ),
                 ),
-              ),
             setOutput: (request) =>
               documentOf(request).pipe(
                 Effect.flatMap((value) =>
