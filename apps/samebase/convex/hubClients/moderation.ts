@@ -153,10 +153,11 @@ const HUBS: readonly Hub[] = ["samebase", "public"];
 type Moderation = { hub: Hub; issuer: string; key: string };
 
 /**
-The hub that IDENTITY_HUB_MODERATION_KEY opens. Its moderation endpoints are only on this hub
-(packages/identity-broker), so the tab keeps it when IDENTITY_HUB_ISSUER moves to auth2.samebase.com.
+The old hub that IDENTITY_HUB_MODERATION_KEY opens (apps/identity-hub). Its moderation endpoints
+are only on that hub (packages/identity-broker), and since auth.samebase.com moved to the Effect hub
+it answers only at its deployment's own URL.
 */
-const SAMEBASE_HUB_ISSUER = "https://auth.samebase.com";
+const SAMEBASE_HUB_ISSUER = "https://secret-chickadee-10.convex.site";
 
 /**
 A hub's moderation endpoints, or null while its key is unset: the admin page then says that

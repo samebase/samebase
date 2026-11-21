@@ -1,4 +1,4 @@
-// samebase.com's identity hub (packages/identity-broker-effect) at https://auth2.samebase.com,
+// samebase.com's identity hub (packages/identity-broker-effect) at https://auth.samebase.com,
 // which the stage `prod` of alchemy.run.ts deploys. Production, the previews of pull requests and
 // the development stages register on it, each with its own key.
 //
@@ -14,7 +14,7 @@ export default hubWorker({
   main: import.meta.url,
   name: "samebase-identity-hub",
   // alchemy.run.ts names this issuer too, and does not take it from here.
-  domain: "auth2.samebase.com",
+  domain: "auth.samebase.com",
   connectors: {
     google: {
       clientId: Config.Redacted("SAMEBASE_HUB_GOOGLE_CLIENT_ID"),

@@ -1,7 +1,8 @@
 # identity-hub
 
-samebase.com's own sign-in hub on [Convex](https://convex.dev), at `auth.samebase.com`: the code of
-the production deployment of the project `identity-hub`. It mounts `identityBroker` from
+samebase.com's old sign-in hub on [Convex](https://convex.dev), now at its `.convex.site` URL only
+(`auth.samebase.com` serves the Effect hub, `apps/samebase/identity-hub`): the code of the
+production deployment of the project `identity-hub`. It mounts `identityBroker` from
 [`@samebase/identity-broker`](../../packages/identity-broker), holds Samebase's private Google and
 GitHub clients, and signs users in to samebase.com and to the repositories that the admin grants a
 connector. It also brokers Convex, Cloudflare, and GitHub API authorization for samebase.com. It
@@ -51,12 +52,13 @@ own id, such as `google:104325...`. A hub that lost the variable gets a new key 
 
 ## Issuer
 
-The hub answers at the deployment's `.convex.site` URL and at the custom domain `auth.samebase.com`.
-The stack sets `ISSUER` to that domain: the issuer is the name every app trusts, in discovery, in
-every `id_token`, and in the callback URLs registered with GitHub and Google. Changing it later
-means changing `IDENTITY_HUB_ISSUER` on every app's deployments and the callback URLs at every
-provider in one go; a user's `sub` does not depend on the issuer, so it does not change. An app
-reads the issuer from the reply of its registration, so it needs no setting of its own.
+The hub answers at the deployment's `.convex.site` URL. The custom domain `auth.samebase.com` moved
+to the Effect hub; the stack still sets `ISSUER` to it, so the frozen clients' tokens keep their
+issuer: the issuer is the name every app trusts, in discovery, in every `id_token`, and in the
+callback URLs registered with GitHub and Google. Changing it later means changing
+`IDENTITY_HUB_ISSUER` on every app's deployments and the callback URLs at every provider in one go;
+a user's `sub` does not depend on the issuer, so it does not change. An app reads the issuer from
+the reply of its registration, so it needs no setting of its own.
 
 ## Connectors
 

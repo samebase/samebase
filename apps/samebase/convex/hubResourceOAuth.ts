@@ -30,7 +30,7 @@ export const resources = {
 export const HUB_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
-A code exchange or a refresh at the hub. auth2.samebase.com waits up to 30 s for the provider
+A code exchange or a refresh at the hub. The hub waits up to 30 s for the provider
 (`FORWARD_TIMEOUT_MS` in packages/identity-broker-effect), and a provider that answers late has
 already rotated its refresh token: an earlier abort here would lose the only copy of the new one.
 */
@@ -163,8 +163,7 @@ export function expiringResourceTokens(
 
 /**
 Revocation cannot prevent local removal or obscure a failed connection attempt. `resource` names
-the provider: the Effect hub (auth2.samebase.com) keeps no grant to look it up, and
-auth.samebase.com ignores it.
+the provider: the hub keeps no grant to look it up.
 */
 export async function revokeHubRefreshToken(provider: ResourceProvider, refreshToken: string) {
   try {
