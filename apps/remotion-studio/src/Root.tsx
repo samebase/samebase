@@ -27,6 +27,10 @@ import {
   onboardingDemoEditDurationInFrames,
   onboardingDemoFps,
 } from "./compositions/onboarding-demo/onboardingDemoEdit";
+import {
+  AlchemyDashboard,
+  AlchemyDashboardMeta,
+} from "./compositions/samebase-alchemy-dashboard/AlchemyDashboard";
 import { SamebaseFilmV4 } from "./compositions/samebase-film-v4/SamebaseFilmV4";
 import { filmV4Fps, lookSeconds } from "./compositions/samebase-film-v4/filmV4Timeline";
 import { ScoutDemo } from "./compositions/scout-demo/ScoutDemo";
@@ -46,6 +50,11 @@ import { ticTacToeRecordingCrop } from "./compositions/tic-tac-toe/ticTacToeReco
 export function RemotionRoot() {
   return (
     <>
+      <Composition
+        id="SamebaseAlchemyDashboard"
+        component={AlchemyDashboard}
+        {...AlchemyDashboardMeta}
+      />
       <Composition
         id="FounderDemo"
         component={FounderDemo}
