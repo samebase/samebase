@@ -9,7 +9,8 @@ import { SamebaseLogoMark } from "@/components/repository-dashboard/RepositoryDa
 import { StackStateStore, StateStoreProblems } from "@/components/RepositoryAlchemyStateTree";
 import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecksPopover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlchemyStageDiagram } from "@/components/AlchemyStageDiagram";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import { boxSubtitle, stageTree, type StageTreeNode } from "@samebase/alchemy-kit/stack";
 import type {
@@ -30,12 +31,6 @@ import { ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
 import type { RepositoryWorkspaceSelected } from "./repositoryWorkspaceModel";
 
 const STORE_READ_FAILED = "Could not read the team's Alchemy state store.";
-
-/** React Flow and dagre load only when a card shows the diagram. */
-const AlchemyStageDiagram = lazy(async () => {
-  const module = await import("@/components/AlchemyStageDiagram");
-  return { default: module.AlchemyStageDiagram };
-});
 
 export function RootDirectoryLabel({ rootDirectory }: { rootDirectory: string }) {
   return (
@@ -388,12 +383,7 @@ function StackDiagram({ card }: { card: RepositoryStackCard }) {
   }
   return (
     <div className="border-t border-border px-3 pt-3 pb-1">
-      {/* While React Flow loads, the card keeps the height of the smallest diagram: one 72px box at
-      zoom 0.6 and the 8px below it. The card then only grows, and its bottom edge does not move
-      through the first screen of a phone. */}
-      <Suspense fallback={<div className="h-[52px]" />}>
-        <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
-      </Suspense>
+      <AlchemyStageDiagram diagram={card.diagram} asides={boxAsides(card)} />
     </div>
   );
 }

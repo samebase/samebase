@@ -1,23 +1,7 @@
 import { Graph, layout, type EdgeLabel, type GraphLabel, type NodeLabel } from "@dagrejs/dagre";
 import { resourceTypeUI } from "@samebase/alchemy-kit/ui";
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  getBezierPath,
-  Handle,
-  MarkerType,
-  Position,
-  ReactFlow,
-  useReactFlow,
-  useStore,
-  type Edge,
-  type EdgeProps,
-  type Node,
-  type NodeProps,
-} from "@xyflow/react";
 import { Clock } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { useElementSize } from "@/hooks/useElementSize";
+import { Fragment, type ReactNode, useId, useMemo, useState } from "react";
 import { AlchemyIsometricIcon } from "@/components/AlchemyIsometricIcon";
 import type { DiagramBox, StageDiagram } from "@samebase/alchemy-kit/stack";
 
@@ -33,18 +17,8 @@ const boxHeight = (box: DiagramBox) => 72 + (box.link ? 24 : 0) + (box.folded.le
 const FRAME_PADDING = 12;
 const FRAME_TITLE = 24;
 
-/** The smallest zoom of the diagram: below it, a narrow card scrolls the diagram sideways. */
+/** The smallest zoom of each layout but the narrowest: below it, the card shows a narrower layout. */
 const MIN_ZOOM = 0.6;
-
-type BoxNode = Node<
-  { box: DiagramBox; aside: ReactNode; open: boolean; onToggle: () => void },
-  "box"
->;
-type NamespaceNode = Node<{ name: string }, "namespace">;
-type LineEdge = Edge<
-  { labels: string[]; dim: boolean; points: { x: number; y: number }[] },
-  "line"
->;
 
 /** The Alchemy statuses of a row after its last apply finished. */
 const SETTLED = new Set(["created", "updated"]);
@@ -149,10 +123,18 @@ function layoutDiagram(
       };
     });
   // A top to bottom line follows the points of dagre, which pass beside the boxes of the rows that
-  // the line crosses. A left to right line is a curve straight from box to box.
+  // the line crosses. A left to right line goes from the middle of the right side of one box to the
+  // middle of the left side of the other, and the diagram draws it as a curve.
+  const middleOfSide = (id: string, side: "left" | "right") => {
+    const node = placed.find((candidate) => candidate.box.id === id) ?? placed[0];
+    return { x: side === "left" ? node.x : node.x + node.width, y: node.y + node.height / 2 };
+  };
   const routed = lines.map((line) => ({
     ...line,
-    points: rankdir === "TB" ? (graph.edge(line.source, line.target).points ?? []) : [],
+    points:
+      rankdir === "TB"
+        ? (graph.edge(line.source, line.target).points ?? [])
+        : [middleOfSide(line.source, "right"), middleOfSide(line.target, "left")],
   }));
   // The diagram starts at 0, 0.
   const extent = [
@@ -168,6 +150,7 @@ function layoutDiagram(
     y: node.y - top,
   });
   return {
+    rankdir,
     placed: placed.map(shift),
     frames: frames.map(shift),
     lines: routed.map((line) => ({ ...line, points: line.points.map(shift) })),
@@ -176,106 +159,64 @@ function layoutDiagram(
   };
 }
 
-/**
-The top to bottom layout of a card too narrow for the left to right layout `wide` at `MIN_ZOOM`,
-such as on a phone, or null when `wide` fits. A row holds any number of boxes when they fit at
-`MIN_ZOOM`, or else as many as fit, fewer when the lines beside the boxes need the room. When no
-count fits, such as when a namespace frame sits beside another box, the narrowest layout wins, the
-one with more boxes in a row on a tie.
-*/
-function tallLayout(diagram: StageDiagram, wide: DiagramLayout, cardWidth: number) {
-  const fits = (layout: DiagramLayout) => layout.width * MIN_ZOOM + 2 <= cardWidth;
-  if (fits(wide)) {
-    return null;
-  }
-  const most = Math.floor(((cardWidth - 2) / MIN_ZOOM + NODE_GAP.TB) / (BOX_WIDTH + NODE_GAP.TB));
-  let best = layoutDiagram(diagram, { rankdir: "TB", columns: Infinity });
-  for (let columns = most; columns >= 1 && !fits(best); columns--) {
-    const tall = layoutDiagram(diagram, { rankdir: "TB", columns });
-    if (tall.width < best.width) {
-      best = tall;
-    }
-  }
-  return best;
-}
-
 type DiagramLayout = ReturnType<typeof layoutDiagram>;
 
-function BoxNodeView({
-  data: { box, aside, open, onToggle },
-  sourcePosition = Position.Right,
-  targetPosition = Position.Left,
-}: NodeProps<BoxNode>) {
-  const schedule = box.rows.flatMap((row) => row.facts).find((fact) => fact.clock)?.value;
-  const unsettled = [
-    ...new Set(box.rows.map((row) => row.status).filter((status) => !SETTLED.has(status))),
+/** The card width in CSS pixels from which `layout` fits at `MIN_ZOOM`, with the card border. */
+const fitsFrom = (layout: DiagramLayout) => Math.ceil(layout.width * MIN_ZOOM) + 2;
+
+/**
+The layouts that a card can show, widest first: left to right, then top to bottom with any number of
+boxes in a row, then with fewer boxes in a row, down to one. Each keeps only a layout narrower than
+the one before it. A card shows the first layout that fits its width at `MIN_ZOOM`, or the last one.
+*/
+function diagramLayouts(diagram: StageDiagram) {
+  const layouts = [
+    layoutDiagram(diagram, { rankdir: "LR", columns: Infinity }),
+    layoutDiagram(diagram, { rankdir: "TB", columns: Infinity }),
+    ...Array.from({ length: diagram.boxes.length - 1 }, (_, index) =>
+      layoutDiagram(diagram, { rankdir: "TB", columns: diagram.boxes.length - 1 - index }),
+    ),
   ];
-  return (
-    <div
-      className={`relative flex h-full flex-col border bg-background p-2.5 ${open ? "border-foreground" : ""}`}
-    >
-      <Handle type="target" position={targetPosition} isConnectable={false} className="invisible" />
-      <div className="flex h-[50px] items-center gap-2.5">
-        <AlchemyIsometricIcon
-          resourceType={box.resourceType}
-          category={box.category}
-          icon={box.icon}
-        />
-        <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            aria-expanded={open}
-            className="cursor-pointer text-left font-mono text-[13px] leading-[17px] font-medium after:absolute after:inset-0"
-            onClick={onToggle}
-          >
-            <span className="max-lines-2">{box.name}</span>
-          </button>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="truncate">{box.typeName}</span>
-            {schedule ? (
-              <span className="shrink-0" title={schedule}>
-                <Clock aria-hidden="true" className="size-3" />
-                <span className="sr-only">{schedule}</span>
-              </span>
-            ) : null}
-            {unsettled.length > 0 ? (
-              <span className="shrink-0 text-amber-700 dark:text-amber-300">
-                {unsettled.join(", ")}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        {aside ? <div className="relative -mr-1.5 flex shrink-0 items-center">{aside}</div> : null}
-      </div>
-      {box.link ? (
-        <a
-          className="relative mt-1.5 truncate font-mono text-xs leading-[18px]"
-          href={box.link}
-          title={box.link}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {new URL(box.link).host}
-        </a>
-      ) : null}
-      {box.folded.length === 0 ? null : (
-        <span className="mt-1 text-xs leading-4 text-muted-foreground">
-          {box.folded.length} more
-        </span>
-      )}
-      <Handle type="source" position={sourcePosition} isConnectable={false} className="invisible" />
-    </div>
+  return layouts.filter((layout, index) =>
+    layouts.slice(0, index).every((wider) => fitsFrom(layout) < fitsFrom(wider)),
   );
 }
 
-function NamespaceNodeView({ data: { name } }: NodeProps<NamespaceNode>) {
-  return (
-    <div className="h-full border">
-      <span className="absolute top-1.5 left-2.5 font-mono text-xs text-muted-foreground">
-        {name}
-      </span>
-    </div>
-  );
+/**
+A CSS length for the layout that the card shows: `pick(layout)` pixels of that layout, at its zoom.
+Layout `i` holds from its own `fitsFrom` up to that of the layout before it, and the last one below
+that. Each layout gives a term that is its length while the card width (`100cqw`) is in its range and
+0 outside it: `min` with the distance to each end of the range times 100000 cuts it to 0, and `max`
+keeps it from going below 0. The sum is the length of the one layout in range.
+
+The zoom of a layout is the card width over the layout width, between `MIN_ZOOM` and 1, as a length:
+the CSS pixels of one pixel of the layout. The narrowest layout has no smallest zoom, so it always
+fits the card. Each length is in the element's own style, so the browser
+places an element as soon as it reads it, also while the rest of the HTML is still on its way.
+*/
+function across(layouts: DiagramLayout[], pick: (layout: DiagramLayout, index: number) => number) {
+  const terms = layouts.map((layout, index) => {
+    // The narrowest layout shrinks below `MIN_ZOOM` to the card width: a phone zooms the page instead.
+    const zoom =
+      index === layouts.length - 1
+        ? `min((100cqw - 2px) / ${layout.width}, 1px)`
+        : `clamp(${MIN_ZOOM}px, (100cqw - 2px) / ${layout.width}, 1px)`;
+    const value = `${pick(layout, index)} * ${zoom}`;
+    const ends = [
+      ...(index === layouts.length - 1 ? [] : [`(100cqw - ${fitsFrom(layout) - 0.01}px) * 100000`]),
+      ...(index === 0 ? [] : [`(${fitsFrom(layouts[index - 1])}px - 100cqw) * 100000`]),
+    ];
+    return ends.length === 0 ? value : `max(0px, min(${value}, ${ends.join(", ")}))`;
+  });
+  return `calc(${terms.join(" + ")})`;
+}
+
+/** A curve from the first point to the last that leaves and arrives level, as between two box sides. */
+function curveBetween(points: { x: number; y: number }[]) {
+  const [start] = points;
+  const end = points[points.length - 1];
+  const bend = Math.abs(end.x - start.x) / 2;
+  return `M${start.x},${start.y} C${start.x + bend},${start.y} ${end.x - bend},${end.y} ${end.x},${end.y}`;
 }
 
 /**
@@ -293,52 +234,81 @@ function pathThrough(points: { x: number; y: number }[]) {
   return `M${first.x},${first.y} L${middle(first, second)} ${inner.join(" ")} L${last.x},${last.y}`;
 }
 
-function LineEdgeView({ data, ...props }: EdgeProps<LineEdge>) {
-  const points = data?.points ?? [];
-  const label = points[Math.floor(points.length / 2)];
-  const [path, labelX, labelY] =
-    points.length >= 2 ? [pathThrough(points), label.x, label.y] : getBezierPath(props);
+function DiagramBoxView({
+  box,
+  aside,
+  open,
+  dim,
+  onToggle,
+  onHover,
+}: {
+  box: DiagramBox;
+  aside: ReactNode;
+  open: boolean;
+  dim: boolean;
+  onToggle: () => void;
+  onHover: (hovered: boolean) => void;
+}) {
+  const schedule = box.rows.flatMap((row) => row.facts).find((fact) => fact.clock)?.value;
+  const unsettled = [
+    ...new Set(box.rows.map((row) => row.status).filter((status) => !SETTLED.has(status))),
+  ];
   return (
-    <>
-      <BaseEdge path={path} markerStart={props.markerStart} markerEnd={props.markerEnd} />
-      {data && data.labels.length > 0 ? (
-        <EdgeLabelRenderer>
-          <div
-            className={`absolute bg-background px-1 text-center font-mono text-[11px] leading-[14px] whitespace-pre text-muted-foreground transition-opacity ${data.dim ? "opacity-30" : ""}`}
-            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+    <div
+      className={`flex h-full flex-col border bg-background p-[0.625em] transition-opacity ${open ? "border-foreground" : ""} ${dim ? "opacity-40" : ""}`}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+    >
+      <div className="flex h-[3.125em] items-center gap-[0.625em]">
+        <AlchemyIsometricIcon
+          resourceType={box.resourceType}
+          category={box.category}
+          icon={box.icon}
+        />
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            aria-expanded={open}
+            className="cursor-pointer text-left font-mono text-[0.8125em] leading-[1.3] font-medium after:absolute after:inset-0"
+            onClick={onToggle}
           >
-            {data.labels.join("\n")}
+            <span className="max-lines-2">{box.name}</span>
+          </button>
+          <div className="flex items-center gap-[0.5em] text-[0.75em] leading-[1.33] text-muted-foreground">
+            <span className="truncate">{box.typeName}</span>
+            {schedule ? (
+              <span className="shrink-0" title={schedule}>
+                <Clock aria-hidden="true" className="size-[1em]" />
+                <span className="sr-only">{schedule}</span>
+              </span>
+            ) : null}
+            {unsettled.length > 0 ? (
+              <span className="shrink-0 text-amber-700 dark:text-amber-300">
+                {unsettled.join(", ")}
+              </span>
+            ) : null}
           </div>
-        </EdgeLabelRenderer>
+        </div>
+        {aside ? <div className="relative -mr-1.5 flex shrink-0 items-center">{aside}</div> : null}
+      </div>
+      {box.link ? (
+        <a
+          className="relative mt-[0.5em] truncate font-mono text-[0.75em] leading-[1.5]"
+          href={box.link}
+          title={box.link}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {new URL(box.link).host}
+        </a>
       ) : null}
-    </>
+      {box.folded.length === 0 ? null : (
+        <span className="mt-[0.333em] text-[0.75em] leading-[1.33] text-muted-foreground">
+          {box.folded.length} more
+        </span>
+      )}
+    </div>
   );
-}
-
-const NODE_TYPES = { box: BoxNodeView, namespace: NamespaceNodeView };
-const EDGE_TYPES = { line: LineEdgeView };
-
-/**
-React Flow always renders hidden texts that say boxes and lines can be selected, moved and deleted
-with the keyboard. The diagram is read-only: its buttons and links inside the boxes take the focus.
-*/
-const READ_ONLY_ARIA_LABELS = {
-  "node.a11yDescription.default": "",
-  "node.a11yDescription.keyboardDisabled": "",
-  "edge.a11yDescription.default": "",
-} as const;
-
-/**
-Zooms the diagram to the width of its frame, between `MIN_ZOOM` and full size, at its top left.
-It runs again when the frame changes width, such as when a phone turns.
-*/
-function FitWidth({ width }: { width: number }) {
-  const { setViewport } = useReactFlow();
-  const frame = useStore((state) => state.width);
-  useEffect(() => {
-    void setViewport({ x: 1, y: 1, zoom: Math.min(1, Math.max(MIN_ZOOM, (frame - 2) / width)) });
-  }, [setViewport, frame, width]);
-  return null;
 }
 
 function DiagramBoxDetails({ box }: { box: DiagramBox }) {
@@ -405,10 +375,10 @@ The main resources of a stage as boxes, with lines from `downstream`. Each box l
 or Convex app, and a click on the box opens its details below the diagram. Hovering or opening a box
 dims the boxes and lines that do not touch it.
 
-The diagram fits the width of its card, between `MIN_ZOOM` and full size, and its height follows.
-A plain wheel or swipe scrolls the page: the diagram neither pans nor zooms. A card too narrow for
-the left to right diagram at `MIN_ZOOM` draws it top to bottom, and scrolls it sideways when that is
-still too wide.
+The server renders the diagram at its final size, with no script: each element has its size and
+place in its own style, from the card width (`100cqw`), for the widest layout that fits the card at
+`MIN_ZOOM` (`diagramLayouts`, `across`). The text of a box is in em, so it follows the zoom. The
+diagram takes no wheel, swipe or pinch, so they scroll and zoom the page.
 
 A box shows a clock when a row has a schedule, and the status of a row whose apply has not finished,
 such as `updating`. Its details list the facts of its rows (`resourceFacts`).
@@ -422,122 +392,151 @@ export function AlchemyStageDiagram({
   diagram: StageDiagram;
   asides?: ReadonlyMap<string, ReactNode>;
 }) {
+  // An id for the arrow markers of this diagram, from React's id without the characters that a URL
+  // fragment would need to escape.
+  const id = `diagram-${useId().replace(/[^\w-]/g, "")}`;
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [cardWidth, setCardWidth] = useState<number | null>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  useElementSize(cardRef, ({ widthPx }) => setCardWidth(widthPx));
-  const wide = useMemo(
-    () => layoutDiagram(diagram, { rankdir: "LR", columns: Infinity }),
-    [diagram],
-  );
-  const tall = useMemo(
-    () => (cardWidth === null ? null : tallLayout(diagram, wide, cardWidth)),
-    [diagram, wide, cardWidth],
-  );
-  const { placed, frames, lines, width, height } = tall ?? wide;
-  const [targetPosition, sourcePosition] = tall
-    ? [Position.Top, Position.Bottom]
-    : [Position.Left, Position.Right];
-
-  const active = hovered ?? selected;
-  const touches = (line: { source: string; target: string }) =>
-    line.source === active || line.target === active;
-  const near = new Set(lines.flatMap((line) => (touches(line) ? [line.source, line.target] : [])));
-  const dim = (id: string) => active !== null && id !== active && !near.has(id);
-
-  const nodes: (BoxNode | NamespaceNode)[] = [
-    ...frames.map((frame): NamespaceNode => ({
-      id: frame.id,
-      type: "namespace",
-      position: { x: frame.x, y: frame.y },
-      width: frame.width,
-      height: frame.height,
-      data: { name: frame.name },
-    })),
-    ...placed.map(({ box, x, y, width: w, height: h }): BoxNode => ({
-      id: box.id,
-      type: "box",
-      position: { x, y },
-      width: w,
-      height: h,
-      sourcePosition,
-      targetPosition,
-      className: `transition-opacity ${dim(box.id) ? "opacity-40" : ""}`,
-      data: {
-        box,
-        aside: asides?.get(box.id),
-        open: box.id === selected,
-        onToggle: () => setSelected((current) => (current === box.id ? null : box.id)),
-      },
-    })),
-  ];
-  const edges = lines.map(({ id, source, target, arrow, labels, points }): LineEdge => {
-    const lit = active !== null && touches({ source, target });
-    const color = lit ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))";
-    const marker = { type: MarkerType.ArrowClosed, width: 14, height: 14, color };
-    return {
-      id,
-      type: "line",
-      source,
-      target,
-      ...(arrow === "start"
-        ? { markerStart: marker }
-        : arrow === "end"
-          ? { markerEnd: marker }
-          : {}),
-      style: { stroke: color },
-      className: `transition-opacity ${active !== null && !lit ? "opacity-30" : ""}`,
-      data: { labels, dim: active !== null && !lit, points },
-    };
-  });
-  const open = diagram.boxes.find((box) => box.id === selected);
-
+  const layouts = useMemo(() => diagramLayouts(diagram), [diagram]);
   if (diagram.boxes.length === 0) {
     return null;
   }
 
+  const active = hovered ?? selected;
+  const open = diagram.boxes.find((box) => box.id === selected);
+  // Every layout has the same boxes, frames and lines, in the same order.
+  const [{ lines, frames }] = layouts;
+  const touches = (line: { source: string; target: string }) =>
+    line.source === active || line.target === active;
+  const near = new Set(lines.flatMap((line) => (touches(line) ? [line.source, line.target] : [])));
+  const marker = (lit: boolean) => `url(#${id}-${lit ? "lit" : "dim"})`;
+  // The middle of a curve of two points is halfway between them; a top to bottom line has an odd
+  // number of points, with the middle one on the line.
+  const middle = ({ points }: DiagramLayout["lines"][number]) => {
+    const [first, second] = points;
+    return points.length === 2
+      ? { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
+      : (points[Math.floor(points.length / 2)] ?? { x: 0, y: 0 });
+  };
   return (
     <div className="mb-2">
-      <div ref={cardRef} className="@container overflow-x-auto">
+      <div className="@container">
         <div
+          className="relative"
           style={{
-            width: `max(100%, ${Math.ceil(width * MIN_ZOOM) + 2}px)`,
-            height: `clamp(${Math.ceil(height * MIN_ZOOM)}px, ${(height / width) * 100}cqw, ${height + 2}px)`,
+            width: across(layouts, (layout) => layout.width),
+            height: across(layouts, (layout) => layout.height),
+            fontSize: across(layouts, () => 16),
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelected(null);
+            }
           }}
         >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={NODE_TYPES}
-            edgeTypes={EDGE_TYPES}
-            minZoom={MIN_ZOOM}
-            maxZoom={1}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            nodesFocusable={false}
-            edgesFocusable={false}
-            elementsSelectable={false}
-            deleteKeyCode={null}
-            disableKeyboardA11y
-            ariaLabelConfig={READ_ONLY_ARIA_LABELS}
-            panOnDrag={false}
-            panOnScroll={false}
-            zoomOnScroll={false}
-            zoomOnPinch={false}
-            zoomOnDoubleClick={false}
-            preventScrolling={false}
-            proOptions={{ hideAttribution: true }}
-            onNodeMouseEnter={(_event, node) => {
-              if (node.type === "box") {
-                setHovered(node.id);
-              }
-            }}
-            onNodeMouseLeave={() => setHovered(null)}
-            onPaneClick={() => setSelected(null)}
-          >
-            <FitWidth width={width} />
-          </ReactFlow>
+          <svg aria-hidden="true" className="absolute size-0">
+            <defs>
+              {[false, true].map((lit) => (
+                <marker
+                  key={String(lit)}
+                  id={`${id}-${lit ? "lit" : "dim"}`}
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="12"
+                  markerHeight="12"
+                  markerUnits="userSpaceOnUse"
+                  orient="auto-start-reverse"
+                >
+                  <path
+                    d="M0,1 L9,5 L0,9 Z"
+                    className={lit ? "fill-foreground" : "fill-muted-foreground"}
+                  />
+                </marker>
+              ))}
+            </defs>
+          </svg>
+          {layouts.map((layout, index) => (
+            // The lines of one layout: 0 by 0 while the card shows another layout.
+            <svg
+              key={index}
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 left-0"
+              style={{
+                width: across(layouts, (other, at) => (at === index ? other.width : 0)),
+                height: across(layouts, (other, at) => (at === index ? other.height : 0)),
+              }}
+              viewBox={`0 0 ${layout.width} ${layout.height}`}
+            >
+              {layout.lines.map((line) => {
+                const lit = active !== null && touches(line);
+                return (
+                  <path
+                    key={line.id}
+                    d={
+                      layout.rankdir === "LR" ? curveBetween(line.points) : pathThrough(line.points)
+                    }
+                    fill="none"
+                    vectorEffect="non-scaling-stroke"
+                    className={`transition-opacity ${lit ? "stroke-foreground" : "stroke-muted-foreground"} ${active !== null && !lit ? "opacity-30" : ""}`}
+                    markerStart={line.arrow === "start" ? marker(lit) : undefined}
+                    markerEnd={line.arrow === "end" ? marker(lit) : undefined}
+                  />
+                );
+              })}
+            </svg>
+          ))}
+          {frames.map((frame, number) => (
+            <div
+              key={frame.id}
+              className="absolute border"
+              style={{
+                left: across(layouts, (layout) => layout.frames[number].x),
+                top: across(layouts, (layout) => layout.frames[number].y),
+                width: across(layouts, (layout) => layout.frames[number].width),
+                height: across(layouts, (layout) => layout.frames[number].height),
+              }}
+            >
+              <span className="absolute top-[0.5em] left-[0.833em] font-mono text-[0.75em] text-muted-foreground">
+                {frame.name}
+              </span>
+            </div>
+          ))}
+          {lines.map((line, number) =>
+            line.labels.length === 0 ? null : (
+              <div
+                key={line.id}
+                className={`absolute -translate-1/2 bg-background px-[0.36em] text-center font-mono text-[0.6875em] leading-[1.27] whitespace-pre text-muted-foreground transition-opacity ${active !== null && !touches(line) ? "opacity-30" : ""}`}
+                style={{
+                  left: across(layouts, (layout) => middle(layout.lines[number]).x),
+                  top: across(layouts, (layout) => middle(layout.lines[number]).y),
+                }}
+              >
+                {line.labels.join("\n")}
+              </div>
+            ),
+          )}
+          {diagram.boxes.map((box, number) => (
+            <div
+              key={box.id}
+              className="absolute"
+              style={{
+                left: across(layouts, (layout) => layout.placed[number].x),
+                top: across(layouts, (layout) => layout.placed[number].y),
+                width: across(layouts, (layout) => layout.placed[number].width),
+                height: across(layouts, (layout) => layout.placed[number].height),
+              }}
+            >
+              <DiagramBoxView
+                box={box}
+                aside={asides?.get(box.id)}
+                open={box.id === selected}
+                dim={active !== null && box.id !== active && !near.has(box.id)}
+                onToggle={() => setSelected((current) => (current === box.id ? null : box.id))}
+                onHover={(over) => setHovered(over ? box.id : null)}
+              />
+            </div>
+          ))}
         </div>
       </div>
       {open ? <DiagramBoxDetails box={open} /> : null}

@@ -215,7 +215,7 @@ export function AlchemyIsometricIcon({
     <svg
       aria-hidden="true"
       viewBox="-11.5 -10 23 22"
-      className={`h-[43px] w-11 shrink-0 ${palette}`}
+      className={`h-[2.6875em] w-[2.75em] shrink-0 ${palette}`}
     >
       {solid}
     </svg>
