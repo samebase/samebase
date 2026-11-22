@@ -1,29 +1,31 @@
 // The settings of one hub, the same on every host: its issuer, the client of each provider, the
 // names of its sign-in service and its page before the provider. A host gives
-// `hubSettings(options)` to its runtime; the secrets are Effect `Config` values, which each host's
-// configuration provider reads when the runtime builds its services. The registration layer is not
+// `hubSettings(options)` to its runtime; the secrets are Effects, read when the runtime builds its
+// services. The registration layer is not
 // a setting: the app's hub module gives the host the routes of the one layer it mounts.
 import { Config, Effect, Layer, type Redacted } from "effect";
 import { github } from "../core/connectors/github.ts";
 import { google } from "../core/connectors/google.ts";
 import type { SignInPageFunction } from "../core/html.ts";
-import { HubConfig, SignInPage, type ServiceSettings } from "../core/services.ts";
+import { HubConfig, Keys, SignInPage, type ServiceSettings } from "../core/services.ts";
 
-/** A secret of the hub. */
-type Secret = Config.Config<Redacted.Redacted<string>>;
+/** A secret of the hub: a `Config`, or another Effect such as a Secrets Store read. */
+type Secret<R> = Effect.Effect<Redacted.Redacted<string>, unknown, R>;
 
 /** The client of the hub at one provider. */
-type ConnectorCredentials = { readonly clientId: Secret; readonly clientSecret: Secret };
+type ConnectorCredentials<R> = { readonly clientId: Secret<R>; readonly clientSecret: Secret<R> };
 
-/** One hub's settings. The signing keys are the host's `IDENTITY_BROKER_KEYS` (src/core/services.ts). */
-export type HubSettings = {
+/** One hub's settings. */
+export type HubSettings<R = never> = {
   /** The issuer, which each client names. Each connector's callback is under it. */
   readonly issuer: string;
   /** At least one; the hub does not start without one. */
   readonly connectors: {
-    readonly google?: ConnectorCredentials;
-    readonly github?: ConnectorCredentials;
+    readonly google?: ConnectorCredentials<R>;
+    readonly github?: ConnectorCredentials<R>;
   };
+  /** The signing keys (src/core/keys.ts). Default: `Config.Redacted("IDENTITY_BROKER_KEYS")`. */
+  readonly keys?: Secret<R>;
   /** The names that the sign-in page shows and discovery names. */
   readonly service: ServiceSettings;
   /**
@@ -34,12 +36,11 @@ export type HubSettings = {
 };
 
 /**
- * The hub's configuration and its page before the provider. A configuration that the hub cannot
- * run with stops the runtime where it builds its services: the deploy on Cloudflare, each request
- * on Convex.
+ * The hub's configuration, its page before the provider and its signing keys. A configuration that
+ * the hub cannot run with stops the runtime where it builds its services.
  */
-export const hubSettings = (options: HubSettings) =>
-  Layer.merge(
+export const hubSettings = <R>(options: HubSettings<R>) =>
+  Layer.mergeAll(
     Layer.unwrap(
       Effect.gen(function* () {
         const { google: googleClient, github: githubClient } = options.connectors;
@@ -71,4 +72,10 @@ export const hubSettings = (options: HubSettings) =>
       }),
     ),
     SignInPage.layer(options.signInPage),
+    Layer.effect(
+      Keys,
+      Effect.map(options.keys ?? Config.Redacted("IDENTITY_BROKER_KEYS"), (keys) =>
+        Keys.of({ read: () => keys }),
+      ),
+    ),
   );

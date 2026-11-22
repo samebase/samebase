@@ -90,10 +90,10 @@ export const hubLogger = Logger.layer([Logger.withLeveledConsole(Logger.formatJs
  * value, an error's text or a cause: a callback URL carries the provider's code and state, and a
  * command's error can echo its input.
  */
-const serverError = (annotations: {
-  readonly route: string;
+export const serverError = (annotations: {
+  readonly route?: string;
   readonly command?: string;
-  readonly category: "command_failed" | "provider_unavailable" | "defect";
+  readonly category: "command_failed" | "provider_unavailable" | "defect" | "start_failed";
 }) =>
   Effect.logError("hub_error").pipe(
     Effect.annotateLogs(annotations),

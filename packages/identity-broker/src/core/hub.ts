@@ -1,0 +1,107 @@
+import { Cause, Config, Effect, Exit, Layer } from "effect";
+import * as HttpServerRequest from "effect/http/HttpServerRequest";
+import * as HttpServerResponse from "effect/http/HttpServerResponse";
+import { makeConnections } from "../connections/routes.ts";
+import type { ConnectionSettings } from "../connections/providers.ts";
+import { hubSettings, type HubSettings } from "../hosts/settings.ts";
+import type { Store } from "../store/Store.ts";
+import {
+  hubLogger,
+  makeHandle,
+  serverError,
+  type CoreServices,
+  type Registration,
+} from "./router.ts";
+import { Fetch, Random, type HubConfig, type Keys, type SignInPage } from "./services.ts";
+
+type Hub<R = never> = {
+  readonly fetch: Effect.Effect<
+    HttpServerResponse.HttpServerResponse,
+    never,
+    HttpServerRequest.HttpServerRequest | R
+  >;
+};
+
+type HubOptions<R> = HubSettings<R> & {
+  readonly registration: Registration;
+  /** Without it the hub mounts no connection route. */
+  readonly connections?: ConnectionSettings<R>;
+};
+
+// workerd logs a thrown value that is no Error, such as Effect's ConfigError, as "[object Object]".
+const cannotStart = Effect.catchCause((cause: Cause.Cause<unknown>) =>
+  Effect.die(
+    new Error(
+      `The hub cannot start: ${Cause.prettyErrors(cause)
+        .map((error) => `${error.name}: ${error.message}`)
+        .join("; ")}`,
+    ),
+  ),
+);
+
+/** The hub over its settings, built when this runs. */
+export const hubRuntime = <E, R, RC = never>(
+  settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
+  registration: Registration,
+  connections?: ConnectionSettings<RC>,
+): Effect.Effect<Hub, never, Store | R | RC> =>
+  Effect.gen(function* () {
+    const part =
+      connections === undefined
+        ? undefined
+        : yield* makeConnections(connections).pipe(Effect.orDie);
+    const handle = makeHandle(registration, part);
+    const services = yield* Effect.context<CoreServices>();
+    return {
+      fetch: Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest;
+        const web = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie);
+        // `raw` hands the core's `Response` on unchanged, each `Set-Cookie` field too.
+        return HttpServerResponse.raw(yield* handle(web).pipe(Effect.provideContext(services)));
+      }),
+    };
+  }).pipe(
+    Effect.provide(Layer.mergeAll(settings, Random.layer, Fetch.layer, hubLogger)),
+    cannotStart,
+  );
+
+/** Reads each `Config` secret now; with another kind of secret the hub builds at the first request. */
+export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, never, Store> =>
+  Effect.gen(function* () {
+    const build = hubRuntime(hubSettings(options), options.registration, options.connections);
+    const credentials = [
+      options.connectors.google,
+      options.connectors.github,
+      options.connections?.convex,
+      options.connections?.cloudflare,
+      options.connections?.github,
+    ].flatMap((client) => (client === undefined ? [] : [client.clientId, client.clientSecret]));
+    const secrets = options.keys === undefined ? credentials : [options.keys, ...credentials];
+    if (secrets.every((secret) => Config.isConfig(secret))) {
+      // @ts-expect-error Each secret is a `Config` here, and a `Config` needs no service.
+      const now: Effect.Effect<Hub, never, Store> = build;
+      return yield* now;
+    }
+    for (const secret of secrets) {
+      if (Config.isConfig(secret)) {
+        const config: Config.Config<unknown> = secret;
+        yield* config.pipe(cannotStart);
+      }
+    }
+    // Also carries the start's configuration provider, which each build reads.
+    const start = yield* Effect.context<Store>();
+    let built: Hub | undefined;
+    const fetch: Hub<R>["fetch"] = Effect.gen(function* () {
+      if (built === undefined) {
+        const exit = yield* Effect.exit(Effect.provideContext(build, start));
+        if (Exit.isFailure(exit)) {
+          return HttpServerResponse.raw(
+            yield* serverError({ category: "start_failed" }).pipe(Effect.provide(hubLogger)),
+          );
+        }
+        built = exit.value;
+      }
+      return yield* built.fetch;
+    });
+    return { fetch };
+  });

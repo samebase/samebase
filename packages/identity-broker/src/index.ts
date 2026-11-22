@@ -19,6 +19,7 @@ export {
 } from "./core/services.ts";
 export type { Connector } from "./core/connectors/types.ts";
 export { hubSettings, type HubSettings } from "./hosts/settings.ts";
+export { hub, hubRuntime } from "./core/hub.ts";
 
 // The Store and its command contract.
 export { Store, StoreUnavailable, type StoreShape } from "./store/Store.ts";

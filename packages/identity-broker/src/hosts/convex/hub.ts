@@ -1,8 +1,8 @@
 // The Convex host of the hub. The core runs in an `httpAction`, one run per request, and reaches
 // the state through the component `identityBroker` (component/), where each command of the closed
 // registry is its own query or mutation, run as one transaction. An app gives
-// `convexHub` its reference to the component, its settings (`hubSettings` of the main export) and
-// the routes of its registration layer, adds the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
+// `convexHub` its reference to the component and its hub (`hub(options)` of the main export), adds
+// the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
 //
 // The secrets are Effect `Config` reads of the deployment's environment variables, which Convex
 // gives as `process.env`. Effect's default configuration provider does not work here: it reads
@@ -10,22 +10,10 @@
 // unsupported"). So the hub gives its own provider (`deploymentEnv`).
 import { httpActionGeneric, internalActionGeneric, type HttpRouter } from "convex/server";
 import { v } from "convex/values";
-import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
-import {
-  cleanupBatch,
-  Fetch,
-  hubLogger,
-  Keys,
-  makeConnections,
-  makeHandle,
-  Random,
-  Store,
-  StoreUnavailable,
-  type ConnectionSettings,
-  type HubConfig,
-  type Registration,
-  type SignInPage,
-} from "../../index.ts";
+import { Clock, ConfigProvider, Effect, Schema } from "effect";
+import * as HttpServerRequest from "effect/http/HttpServerRequest";
+import * as HttpServerResponse from "effect/http/HttpServerResponse";
+import { cleanupBatch, Store, StoreUnavailable } from "../../index.ts";
 import { decodeName } from "../../store/commands.ts";
 import type { ComponentApi } from "./component/_generated/component.ts";
 import type { CommandFunction, CommandFunctions, CommandInput } from "./functions.ts";
@@ -80,48 +68,41 @@ export const convexStore = (ctx: Runner, functions: CommandFunctions) =>
   });
 
 /**
- * One hub on Convex. `settings` is built in each request, so each request reads the deployment's
- * environment variables of that moment. `registration` is the one registration layer that the hub
- * mounts, from that layer's module. Each key of the stack layer
- * (`stack({ keys })` of src/layers/stack/routes.ts) is the deployment variable that its `Config`
- * names, such as `Config.Redacted("HUB_PREVIEW_KEY")`, read when a registration arrives: the app's
- * stack sets it in the `env` of the hub's `Convex.Deployment`. `connections` names the hub's
- * connection providers (src/connections/providers.ts), whose secrets are read in each request as
- * the settings are; without it the hub mounts no connection route.
+ * One hub on Convex, from `hub(options)` or `hubRuntime` of the main export. It runs in each
+ * request, so each request reads the deployment's environment variables of that moment. Each key
+ * of the stack layer is the deployment variable that its `Config` names, which the app's stack
+ * sets in the `env` of the hub's `Convex.Deployment`.
  */
-export const convexHub = <E>(
+export const convexHub = (
   component: ComponentApi,
-  settings: Layer.Layer<HubConfig | SignInPage, E>,
-  registration: Registration,
-  connections?: ConnectionSettings,
+  hub: Effect.Effect<
+    {
+      readonly fetch: Effect.Effect<
+        HttpServerResponse.HttpServerResponse,
+        never,
+        HttpServerRequest.HttpServerRequest
+      >;
+    },
+    never,
+    Store
+  >,
 ) => {
   const functions = commandFunctions(component);
-  const handle =
-    connections === undefined
-      ? Effect.succeed(makeHandle(registration))
-      : makeConnections(connections).pipe(
-          Effect.orDie,
-          Effect.map((part) => makeHandle(registration, part)),
-        );
 
   /**
    * Every request of the hub. The core takes the Web `Request` and gives the Web `Response`, which
-   * the action returns unchanged. A failure to build the services (a missing or wrong setting)
-   * rejects, and Convex answers 500.
+   * the action returns unchanged. A failure to build the hub (a missing or wrong setting) rejects,
+   * and Convex answers 500.
    */
   const fetch = httpActionGeneric((ctx, request) =>
     Effect.runPromise(
-      Effect.flatMap(handle, (run) => run(request)).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            settings,
-            Keys.layer,
-            Random.layer,
-            Fetch.layer,
-            Layer.succeed(Store, convexStore(ctx, functions)),
-            hubLogger,
-          ),
+      Effect.flatMap(hub, (built) => built.fetch).pipe(
+        Effect.map((response) => HttpServerResponse.toWeb(response)),
+        Effect.provideService(
+          HttpServerRequest.HttpServerRequest,
+          HttpServerRequest.fromWeb(request),
         ),
+        Effect.provideService(Store, convexStore(ctx, functions)),
         Effect.provideService(ConfigProvider.ConfigProvider, deploymentEnv),
       ),
     ),
