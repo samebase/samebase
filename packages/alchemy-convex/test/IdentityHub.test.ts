@@ -281,7 +281,11 @@ class FakeServices {
   readonly timeline: string[] = [];
   private nextClient = 1;
 
-  constructor(private readonly rest?: typeof fetch) {}
+  private readonly rest: typeof fetch | undefined;
+
+  constructor(rest?: typeof fetch) {
+    this.rest = rest;
+  }
 
   install() {
     vi.stubGlobal("fetch", this.fetch);

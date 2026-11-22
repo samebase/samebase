@@ -211,11 +211,10 @@ const commandArbitrary: fc.Arbitrary<Command> = fc.oneof(
 
 /** A broken invariant, by its name in the model. The runner reports it with the trace. */
 class Violation extends Error {
-  constructor(
-    readonly invariant: string,
-    message: string,
-  ) {
+  readonly invariant: string;
+  constructor(invariant: string, message: string) {
     super(`${invariant}: ${message}`);
+    this.invariant = invariant;
   }
 }
 

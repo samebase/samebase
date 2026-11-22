@@ -10,6 +10,7 @@
     "lib": ["ES2023"],
     "types": ["@cloudflare/workers-types", "node"],
     "strict": true,
+    "erasableSyntaxOnly": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,

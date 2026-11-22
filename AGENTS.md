@@ -236,6 +236,8 @@ Types and validation:
 - Keep type gaps explicit and searchable. Never use `any` or assertions except `as const`; use the
   narrowest `@ts-expect-error` with the runtime fact. Rare type-level `any` needs a local lint
   reason. Never use `@ts-nocheck` or config-level exemptions.
+- Write only erasable TypeScript: no enums, namespaces, or constructor parameter properties. Every
+  tsconfig sets `erasableSyntaxOnly`, so Node runs any `.ts` file directly.
 - Put lint exceptions on the exact line with a reason. Use a file-level exception only when one rule
   saturates the file. Only generated files can use config-level overrides.
 - Do not hide type gaps with false overloads, casts, reflection, `globalThis`, hand-written type
