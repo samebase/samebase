@@ -132,33 +132,32 @@ export const githubConnection = (credentials: Credentials): ConnectionProvider =
  * The providers of `settings`, with their secrets read. A host reads them where it reads its
  * connectors' secrets, so each is a secret binding of its Worker.
  */
-export const readProviders = <R>(settings: ConnectionSettings<R>) =>
-  Effect.gen(function* () {
-    const providers: ConnectionProvider[] = [];
-    if (settings.convex !== undefined) {
-      providers.push(
-        convexConnection({
-          clientId: yield* settings.convex.clientId,
-          clientSecret: yield* settings.convex.clientSecret,
-        }),
-      );
-    }
-    if (settings.cloudflare !== undefined) {
-      providers.push(
-        cloudflareConnection({
-          clientId: yield* settings.cloudflare.clientId,
-          clientSecret: yield* settings.cloudflare.clientSecret,
-          scopes: settings.cloudflare.scopes,
-        }),
-      );
-    }
-    if (settings.github !== undefined) {
-      providers.push(
-        githubConnection({
-          clientId: yield* settings.github.clientId,
-          clientSecret: yield* settings.github.clientSecret,
-        }),
-      );
-    }
-    return providers;
-  });
+export const readProviders = Effect.fnUntraced(function* <R>(settings: ConnectionSettings<R>) {
+  const providers: ConnectionProvider[] = [];
+  if (settings.convex !== undefined) {
+    providers.push(
+      convexConnection({
+        clientId: yield* settings.convex.clientId,
+        clientSecret: yield* settings.convex.clientSecret,
+      }),
+    );
+  }
+  if (settings.cloudflare !== undefined) {
+    providers.push(
+      cloudflareConnection({
+        clientId: yield* settings.cloudflare.clientId,
+        clientSecret: yield* settings.cloudflare.clientSecret,
+        scopes: settings.cloudflare.scopes,
+      }),
+    );
+  }
+  if (settings.github !== undefined) {
+    providers.push(
+      githubConnection({
+        clientId: yield* settings.github.clientId,
+        clientSecret: yield* settings.github.clientSecret,
+      }),
+    );
+  }
+  return providers;
+});

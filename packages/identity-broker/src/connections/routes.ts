@@ -567,11 +567,10 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
  * The connections part of a hub with `settings`, its providers' secrets read. A host reads it
  * where it reads its connectors' secrets. A setting with no provider is a defect of the host.
  */
-export const makeConnections = <R>(settings: ConnectionSettings<R>) =>
-  Effect.gen(function* () {
-    const providers = yield* readProviders(settings);
-    if (providers.length === 0) {
-      return yield* Effect.die(new Error("The connections setting names no provider"));
-    }
-    return connectionsPart(providers);
-  });
+export const makeConnections = Effect.fnUntraced(function* <R>(settings: ConnectionSettings<R>) {
+  const providers = yield* readProviders(settings);
+  if (providers.length === 0) {
+    return yield* Effect.die(new Error("The connections setting names no provider"));
+  }
+  return connectionsPart(providers);
+});
