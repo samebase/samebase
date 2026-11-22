@@ -12,6 +12,7 @@ import { checkStore, sqliteTestStore, type HostUnderTest } from "../core/testing
 import { api } from "../hosts/convex/component/_generated/api.ts";
 import componentSchema from "../hosts/convex/component/schema.ts";
 import { convexStore } from "../hosts/convex/hub.ts";
+import { commandFunctions } from "../hosts/convex/references.ts";
 import { convexTx } from "../hosts/convex/tx.ts";
 import { sqliteStep } from "../hosts/nodeSqlite.ts";
 import { decodeCommand } from "./commands.ts";
@@ -56,13 +57,13 @@ const convexTestHost = (): HostUnderTest => {
           body(
             // @ts-expect-error convex-test types `ctx.db` with the data model of the component's
             // schema, whose tables come from a string-keyed record. At run time it is the writer
-            // that `mutationGeneric` gives commands.run as `GenericDatabaseWriter<GenericDataModel>`.
+            // that `mutationGeneric` gives a command as `GenericDatabaseWriter<GenericDataModel>`.
             convexTx(ctx.db),
           ),
           { scheduler: microtaskScheduler() },
         ),
       ),
-    store: convexStore({ runMutation: t.mutation }, api.commands.run),
+    store: convexStore({ runQuery: t.query, runMutation: t.mutation }, commandFunctions(api)),
   };
 };
 

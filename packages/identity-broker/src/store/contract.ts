@@ -5,7 +5,7 @@
 import { Effect, Schema } from "effect";
 import fc from "fast-check";
 import { makeMemoryStore } from "../hosts/memory.ts";
-import { decodeResult, type Args, type CommandName } from "./commands.ts";
+import { decodeResult, encodeArgs, type Args, type CommandName } from "./commands.ts";
 import { MemoryDb } from "./memory.ts";
 import { tables, type Doc } from "./tables.ts";
 import {
@@ -550,8 +550,6 @@ export const signInCleanup = {
   more: false,
 };
 
-const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
-
 /** The one connection provider of `connectionCommands`, and the hub's state of the moment. */
 const provider = { name: "cloudflare", resource: "https://api.cloudflare.com/client/v4/" };
 const hubNow = { providers: [provider], liveGates: [] };
@@ -656,18 +654,18 @@ const connectionCommands: ReadonlyArray<Command> = [
 /** What the cleanup at the end of `connectionCommands` deletes: the request never finished. */
 export const connectionCleanup = { connectionRequests: 1, connectionCodes: 0, more: false };
 
-/**
- * Runs `commands` through a host's `run` mutation (name, arguments in JSON, step clock `T`; the
- * result in JSON) and returns the decoded results.
- */
+/** How a host runs one command: its name, encoded arguments and step clock; the encoded result. */
+type RunCommand = (name: CommandName, args: unknown, now: number) => Promise<unknown>;
+
+/** Runs `commands` through a host at the step clock `T` and returns the decoded results. */
 const playCommands = async (
   commands: ReadonlyArray<Command>,
-  run: (name: CommandName, args: string, now: number) => Promise<string>,
+  run: RunCommand,
 ): Promise<ReadonlyArray<unknown>> => {
   const results: Array<unknown> = [];
   for (const command of commands) {
-    const encoded = await run(command.name, JSON.stringify(command.args), T);
-    results.push(decodeResult(command.name, parseJson(encoded)));
+    const encoded = await run(command.name, encodeArgs(command.name, command.args), T);
+    results.push(decodeResult(command.name, encoded));
   }
   return results;
 };
@@ -678,18 +676,14 @@ const memoryCommands = (commands: ReadonlyArray<Command>): ReadonlyArray<unknown
   return commands.map((command) => host.run(command.name, command.args));
 };
 
-/** `signInCommands` through a host's `run` mutation. */
-export const playSignIn = (
-  run: (name: CommandName, args: string, now: number) => Promise<string>,
-) => playCommands(signInCommands, run);
+/** `signInCommands` through a host. */
+export const playSignIn = (run: RunCommand) => playCommands(signInCommands, run);
 
 /** `signInCommands` on a fresh memory host. */
 export const memorySignIn = () => memoryCommands(signInCommands);
 
-/** `connectionCommands` through a host's `run` mutation. */
-export const playConnection = (
-  run: (name: CommandName, args: string, now: number) => Promise<string>,
-) => playCommands(connectionCommands, run);
+/** `connectionCommands` through a host. */
+export const playConnection = (run: RunCommand) => playCommands(connectionCommands, run);
 
 /** `connectionCommands` on a fresh memory host. */
 export const memoryConnection = () => memoryCommands(connectionCommands);

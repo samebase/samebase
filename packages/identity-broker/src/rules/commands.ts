@@ -1,6 +1,7 @@
 // The command contract and the core's commands. Each command is one all-or-nothing step whose
-// arguments and result are plain JSON. A layer declares its own commands with `command`; the one
-// catalog that a host runs is composed in src/store/commands.ts.
+// encoded arguments and result are plain JSON and Convex values (src/hosts/convex/schema.ts
+// refuses any other schema). A layer declares its own commands with `command`; the one catalog that
+// a host runs is composed in src/store/commands.ts.
 import { Effect, Schema } from "effect";
 import * as authRequests from "./authRequests.ts";
 import * as clients from "./clients.ts";

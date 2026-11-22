@@ -105,6 +105,8 @@ export default crons;
 
 The hub answers every path of the site that the app's own routes do not.
 
+Each command of the hub is its own function of the component, such as `authRequests:exchangeCode`.
+
 ## On Cloudflare
 
 ```sh

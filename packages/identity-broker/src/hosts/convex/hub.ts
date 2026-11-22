@@ -1,6 +1,6 @@
 // The Convex host of the hub. The core runs in an `httpAction`, one run per request, and reaches
-// the state through the component `identityBroker` (component/), whose one mutation
-// `commands.run` runs one command of the closed registry as one transaction. An app gives
+// the state through the component `identityBroker` (component/), where each command of the closed
+// registry is its own query or mutation, run as one transaction. An app gives
 // `convexHub` its reference to the component, its settings (`hubSettings` of the main export) and
 // the routes of its registration layer, adds the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
 //
@@ -8,12 +8,7 @@
 // gives as `process.env`. Effect's default configuration provider does not work here: it reads
 // `import.meta.env`, and the Convex runtime throws at any `import.meta` ("import.meta
 // unsupported"). So the hub gives its own provider (`deploymentEnv`).
-import {
-  httpActionGeneric,
-  internalActionGeneric,
-  type FunctionReference,
-  type HttpRouter,
-} from "convex/server";
+import { httpActionGeneric, internalActionGeneric, type HttpRouter } from "convex/server";
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Layer, Schema } from "effect";
 import {
@@ -31,9 +26,10 @@ import {
   type Registration,
   type SignInPage,
 } from "../../index.ts";
+import { decodeName } from "../../store/commands.ts";
 import type { ComponentApi } from "./component/_generated/component.ts";
-
-const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+import type { CommandFunction, CommandFunctions, CommandInput } from "./functions.ts";
+import { commandFunctions } from "./references.ts";
 
 const decodeEnvValue = Schema.decodeUnknownSync(Schema.UndefinedOr(Schema.String));
 
@@ -50,41 +46,36 @@ const deploymentEnv = ConfigProvider.make((path) =>
   }),
 );
 
-/**
- * The mutation `commands.run` of component/commands.ts: `components.<name>.commands.run` of an
- * app, or the component's own when its functions are the app (the convex-test suite).
- */
-type RunCommand = FunctionReference<
-  "mutation",
-  "public" | "internal",
-  { name: string; args: string; now: number },
-  string,
-  string | undefined
->;
-
 /** What the Store uses of a Convex action's context. */
 type Runner = {
+  readonly runQuery: (
+    query: Extract<CommandFunction, { kind: "query" }>["reference"],
+    args: CommandInput,
+  ) => Promise<unknown>;
   readonly runMutation: (
-    mutation: RunCommand,
-    args: { name: string; args: string; now: number },
-  ) => Promise<string>;
+    mutation: Extract<CommandFunction, { kind: "mutation" }>["reference"],
+    args: CommandInput,
+  ) => Promise<unknown>;
 };
 
 /**
- * The Store of one action: one `commands.run` mutation per command, never retried (a lost reply
+ * The Store of one action: one call of the command's own function, never retried (a lost reply
  * is an unknown outcome). Its step clock `now` is Effect's `Clock` when the command starts. Any
- * failure of the mutation becomes `StoreUnavailable` with no text: the error can carry a defect's
+ * failure of the call becomes `StoreUnavailable` with no text: the error can carry a defect's
  * message, which must reach no response and no log line.
  */
-export const convexStore = (ctx: Runner, run: RunCommand) =>
+export const convexStore = (ctx: Runner, functions: CommandFunctions) =>
   Store.of({
     run: Effect.fn("Store.run")(function* (name: string, args: unknown) {
       const now = yield* Clock.currentTimeMillis;
-      const text = yield* Effect.tryPromise({
-        try: () => ctx.runMutation(run, { name, args: JSON.stringify(args), now }),
+      const command = functions[decodeName(name)];
+      return yield* Effect.tryPromise({
+        try: () =>
+          command.kind === "query"
+            ? ctx.runQuery(command.reference, { args, now })
+            : ctx.runMutation(command.reference, { args, now }),
         catch: () => new StoreUnavailable(),
       });
-      return parseJson(text);
     }),
   });
 
@@ -104,6 +95,7 @@ export const convexHub = <E>(
   registration: Registration,
   connections?: ConnectionSettings,
 ) => {
+  const functions = commandFunctions(component);
   const handle =
     connections === undefined
       ? Effect.succeed(makeHandle(registration))
@@ -126,7 +118,7 @@ export const convexHub = <E>(
             Keys.layer,
             Random.layer,
             Fetch.layer,
-            Layer.succeed(Store, convexStore(ctx, component.commands.run)),
+            Layer.succeed(Store, convexStore(ctx, functions)),
             hubLogger,
           ),
         ),
@@ -164,7 +156,7 @@ export const convexHub = <E>(
               more = yield* cleanupBatch(cutoff);
             }
             return null;
-          }).pipe(Effect.provideService(Store, convexStore(ctx, component.commands.run))),
+          }).pipe(Effect.provideService(Store, convexStore(ctx, functions))),
         ),
     }),
   };

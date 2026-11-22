@@ -8,18 +8,19 @@ import { Effect } from "effect";
 import { unique, type Row } from "../store/Tx.ts";
 import { cardRow, isStopped, usableCard, used } from "./clients.ts";
 import type { Step } from "./commands.ts";
-import type {
-  ClaimResult,
-  ClaimUpstreamArgs,
-  CompleteArgs,
-  CreateArgs,
-  CreateResult,
-  ExchangeCodeArgs,
-  ExchangeResult,
-  RequestIdArgs,
-  Return,
-  StartUpstreamArgs,
-  TransitionResult,
+import {
+  backField,
+  type ClaimResult,
+  type ClaimUpstreamArgs,
+  type CompleteArgs,
+  type CreateArgs,
+  type CreateResult,
+  type ExchangeCodeArgs,
+  type ExchangeResult,
+  type RequestIdArgs,
+  type Return,
+  type StartUpstreamArgs,
+  type TransitionResult,
 } from "./schemas.ts";
 import { Tx, type CoreTables } from "./tables.ts";
 
@@ -160,7 +161,7 @@ export const get = Effect.fnUntraced(function* (args: typeof RequestIdArgs.Type)
     requestId: request.requestId,
     status: request.status,
     clientId: request.clientId,
-    back: yield* returnTo(request),
+    ...backField(yield* returnTo(request)),
     connectors: request.connectors,
     freshLogin: request.freshLogin,
     txnCookieHash: request.txnCookieHash,
@@ -181,15 +182,15 @@ export const startUpstream = Effect.fnUntraced(function* (
   }
   const request = row.doc;
   if (request.expiresAt <= args.now) {
-    return { ok: false, error: "expired", back: yield* returnTo(request) };
+    return { ok: false, error: "expired", ...backField(yield* returnTo(request)) };
   }
   // A chooser page can be reloaded, so a pending request may start upstream more than once; the
   // newest state hash wins. Any other status means the flow already moved on.
   if (request.status !== "pending" && request.status !== "upstream") {
-    return { ok: false, error: "wrong_status", back: yield* returnTo(request) };
+    return { ok: false, error: "wrong_status", ...backField(yield* returnTo(request)) };
   }
   if ((yield* usableCard(request, args.connector, args)) === undefined) {
-    return { ok: false, error: "refused", back: yield* returnTo(request) };
+    return { ok: false, error: "refused", ...backField(yield* returnTo(request)) };
   }
   yield* tx.replace("authRequests", row.id, {
     status: "upstream",
@@ -223,11 +224,19 @@ export const claimUpstream = Effect.fnUntraced(function* (
   }
   if (request.expiresAt <= args.now) {
     yield* tx.delete("authRequests", row.id);
-    return { status: "expired", requestId: request.requestId, back: yield* returnTo(request) };
+    return {
+      status: "expired",
+      requestId: request.requestId,
+      ...backField(yield* returnTo(request)),
+    };
   }
   if ((yield* usableCard(request, request.connector, args)) === undefined) {
     yield* tx.delete("authRequests", row.id);
-    return { status: "refused", requestId: request.requestId, back: yield* returnTo(request) };
+    return {
+      status: "refused",
+      requestId: request.requestId,
+      ...backField(yield* returnTo(request)),
+    };
   }
   yield* tx.replace("authRequests", row.id, {
     status: "claimed",
@@ -261,14 +270,14 @@ export const complete = Effect.fnUntraced(function* (
   }
   const request = row.doc;
   if (request.expiresAt <= args.now) {
-    return { ok: false, error: "expired", back: yield* returnTo(request) };
+    return { ok: false, error: "expired", ...backField(yield* returnTo(request)) };
   }
   if (request.status !== "claimed") {
-    return { ok: false, error: "wrong_status", back: yield* returnTo(request) };
+    return { ok: false, error: "wrong_status", ...backField(yield* returnTo(request)) };
   }
   if ((yield* usableCard(request, request.connector, args)) === undefined) {
     yield* tx.delete("authRequests", row.id);
-    return { ok: false, error: "refused", back: yield* returnTo(request) };
+    return { ok: false, error: "refused", ...backField(yield* returnTo(request)) };
   }
   yield* tx.replace("authRequests", row.id, {
     status: "completed",
