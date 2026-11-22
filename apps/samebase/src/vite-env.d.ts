@@ -6,7 +6,6 @@ declare module "*?inline-script" {
   export default source;
 }
 
-declare const __APP_BUILD_CONFIG__: import("./lib/appBuildConfig").AppBuildConfig;
 declare var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 
 interface Navigation extends EventTarget {

@@ -83,15 +83,21 @@ test("hydration keeps the mobile pane that the user swiped to", async ({ page },
   const mainPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="main"]');
   await expect
     .poll(() =>
-      mainPane.evaluate(
-        (element: HTMLElement) =>
+      mainPane.evaluate((element) => {
+        if (!(element instanceof HTMLElement)) throw new Error("Expected the main pane.");
+        return (
           element.getBoundingClientRect().left +
           element.parentElement!.scrollLeft -
-          element.offsetLeft,
-      ),
+          element.offsetLeft
+        );
+      }),
     )
     .toBe(0);
-  expect(await mainPane.evaluate((element: HTMLElement) => element.offsetLeft)).toBeGreaterThan(0);
+  const offsetLeft = await mainPane.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) throw new Error("Expected the main pane.");
+    return element.offsetLeft;
+  });
+  expect(offsetLeft).toBeGreaterThan(0);
 
   await carousel.evaluate((element) => {
     element.scrollLeft = element.scrollWidth;

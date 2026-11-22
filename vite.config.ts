@@ -4,18 +4,18 @@ import { fileURLToPath } from "node:url";
 import remotionEslintPlugin from "@remotion/eslint-plugin";
 import { defaultClientConditions, type Plugin } from "vite";
 import { defineConfig } from "vite-plus";
+import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig.ts";
 // The app's dependency, which the root does not install.
 import { convexAuth } from "./apps/samebase/node_modules/@samebase/convex-auth-tanstack-start/dist/vite.js";
 import { inlineScriptPlugin } from "./apps/samebase/dev/inlineScriptPlugin.ts";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
-// The AppBuildConfig of apps/samebase/src/lib/appBuildConfig.ts, whose module reads a Vite global.
 const testAppBuildConfig = {
   appCommit: "test",
   appCommitNumber: null,
   browserConvexProxyPath: null,
-};
+} satisfies AppBuildConfig;
 
 /**
 The Convex CLI bundles the argon2 WASM module of the Convex Auth password component as a

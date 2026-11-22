@@ -201,7 +201,8 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   await expect(diffImage).toBeVisible();
   await expect
     .poll(async () => {
-      return diffImage.evaluate((image: HTMLImageElement) => {
+      return diffImage.evaluate((image) => {
+        if (!(image instanceof HTMLImageElement)) throw new Error("Expected the diff image.");
         return image.complete && image.naturalWidth > 0;
       });
     })
@@ -220,14 +221,18 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   // of glyph-antialiasing drift, so rely on the environment-local screenshot
   // diff above instead of checked-in panel snapshots here.
 
-  const initialDiffNaturalWidth = await diffImage.evaluate((image: HTMLImageElement) => {
+  const initialDiffNaturalWidth = await diffImage.evaluate((image) => {
+    if (!(image instanceof HTMLImageElement)) throw new Error("Expected the diff image.");
     return image.naturalWidth;
   });
   await resolutionScaleSlider.press("ArrowRight");
   await expect
     .poll(
       async () => {
-        return diffImage.evaluate((image: HTMLImageElement) => image.naturalWidth);
+        return diffImage.evaluate((image) => {
+          if (!(image instanceof HTMLImageElement)) throw new Error("Expected the diff image.");
+          return image.naturalWidth;
+        });
       },
       {
         // The resolution slider kicks off a fresh canvas capture plus image
