@@ -13,8 +13,8 @@ test.setTimeout(180_000);
 
 const MAX_CODE_EDITOR_DIFF_PIXEL_RATIO = 0.018;
 const PARITY_CAPTURE_DEVICE_SCALE_FACTOR = 2;
-const PARITY_DIFF_COLOR_MONACO = [255, 59, 48] as const;
-const PARITY_DIFF_COLOR_PROSEMARK = [0, 122, 255] as const;
+const PARITY_DIFF_COLOR_MONACO: [number, number, number] = [255, 59, 48];
+const PARITY_DIFF_COLOR_PROSEMARK: [number, number, number] = [0, 122, 255];
 const PARITY_PIXEL_DIFF_OUTPUT_PATH = fileURLToPath(
   new URL("../public/visual-fixtures/file-view-code-parity-pixel-diff.png", import.meta.url),
 );
@@ -202,6 +202,7 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   await expect
     .poll(async () => {
       return diffImage.evaluate((image) => {
+        if (!(image instanceof HTMLImageElement)) throw new Error("Expected the diff image.");
         return image.complete && image.naturalWidth > 0;
       });
     })
@@ -221,13 +222,17 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
   // diff above instead of checked-in panel snapshots here.
 
   const initialDiffNaturalWidth = await diffImage.evaluate((image) => {
+    if (!(image instanceof HTMLImageElement)) throw new Error("Expected the diff image.");
     return image.naturalWidth;
   });
   await resolutionScaleSlider.press("ArrowRight");
   await expect
     .poll(
       async () => {
-        return diffImage.evaluate((image) => image.naturalWidth);
+        return diffImage.evaluate((image) => {
+          if (!(image instanceof HTMLImageElement)) throw new Error("Expected the diff image.");
+          return image.naturalWidth;
+        });
       },
       {
         // The resolution slider kicks off a fresh canvas capture plus image

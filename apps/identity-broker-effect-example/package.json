@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
+    "typecheck": "tsc --noEmit --project tsconfig.worker.json && tsc --noEmit --project tsconfig.node.json",
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig apps/identity-broker-effect-example/tsconfig.node.json --report-unused-disable-directives apps/identity-broker-effect-example/src apps/identity-broker-effect-example/alchemy.run.ts",
     "test": "pnpm --dir ../.. exec vp test run --project identity-broker-effect-example",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test"

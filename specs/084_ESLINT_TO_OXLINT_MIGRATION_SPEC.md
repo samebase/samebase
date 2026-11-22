@@ -8,7 +8,7 @@
 - Depends on:
   - `vite.config.ts`
   - `package.json`
-  - `tsconfig.scripts.json`
+  - `tsconfig.json`
   - `apps/samebase/package.json`
   - `apps/samebase/tsconfig.json`
   - `apps/remotion-studio/package.json`
@@ -70,7 +70,7 @@ incompatibility, or rollout decision appears.
   `@convex-dev/no-args-without-validator` inside `**/convex/**/*.ts`.
 - The app/frontend lint entrypoints in `apps/samebase/package.json` now run Oxlint directly.
 - Root `package.json` also runs Oxlint for `runtime/**/*.ts`, `scripts/**/*.ts`, and
-  `apps/samebase/scripts/**/*.ts` using `tsconfig.scripts.json`.
+  `apps/samebase/scripts/**/*.ts` using the root `tsconfig.json`.
 - The root package owns Remotion Studio check, lint, and typecheck tasks. Its lint task uses the
   root Vite+ and Oxlint config, where all 15 recommended `@remotion/eslint-plugin` rules keep their
   upstream severities through Oxlint's JS-plugin bridge. The Remotion package owns its development,

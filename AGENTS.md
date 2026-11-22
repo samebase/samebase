@@ -238,6 +238,8 @@ Types and validation:
   reason. Never use `@ts-nocheck` or config-level exemptions.
 - Write only erasable TypeScript: no enums, namespaces, or constructor parameter properties. Every
   tsconfig sets `erasableSyntaxOnly`, so Node runs any `.ts` file directly.
+- Every TypeScript file belongs to exactly one config named `tsconfig.json` (or referenced by one),
+  the one CI checks it with.
 - Put lint exceptions on the exact line with a reason. Use a file-level exception only when one rule
   saturates the file. Only generated files can use config-level overrides.
 - Do not hide type gaps with false overloads, casts, reflection, `globalThis`, hand-written type

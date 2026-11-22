@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 type LandingReloadFrame = {
   content: {
@@ -19,7 +19,7 @@ declare global {
   }
 }
 
-async function installLandingFrameCapture(page: Parameters<typeof test>[0]["page"]) {
+async function installLandingFrameCapture(page: Page) {
   await page.addInitScript(() => {
     const sampleCount = 60;
     const maxAttempts = 300;
@@ -59,7 +59,7 @@ async function installLandingFrameCapture(page: Parameters<typeof test>[0]["page
   });
 }
 
-async function readLandingFrames(page: Parameters<typeof test>[0]["page"]) {
+async function readLandingFrames(page: Page) {
   try {
     await page.waitForFunction(() => (window.__landingReloadFrames?.length ?? 0) >= 10, {
       timeout: 5_000,
@@ -76,7 +76,7 @@ async function readLandingFrames(page: Parameters<typeof test>[0]["page"]) {
 }
 
 async function captureLandingReloadFrames(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   path?: string,
 ): Promise<LandingReloadFrame[]> {
   await installLandingFrameCapture(page);
@@ -90,7 +90,7 @@ async function captureLandingReloadFrames(
 }
 
 async function captureLandingFirstLoadFrames(
-  page: Parameters<typeof test>[0]["page"],
+  page: Page,
   path: string,
 ): Promise<LandingReloadFrame[]> {
   await installLandingFrameCapture(page);
@@ -127,11 +127,11 @@ function expectStableLandingFrames(
   expect(Math.max(...copyHeightValues) - Math.min(...copyHeightValues)).toBeLessThanOrEqual(1);
 }
 
-async function expectPathname(page: Parameters<typeof test>[0]["page"], pathname: string) {
+async function expectPathname(page: Page, pathname: string) {
   await expect.poll(() => new URL(page.url()).pathname).toBe(pathname);
 }
 
-async function expectSearchFlag(page: Parameters<typeof test>[0]["page"], flag: string) {
+async function expectSearchFlag(page: Page, flag: string) {
   await expect.poll(() => new URL(page.url()).searchParams.has(flag)).toBe(true);
 }
 

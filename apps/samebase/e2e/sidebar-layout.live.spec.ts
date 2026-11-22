@@ -249,7 +249,9 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
   await page.waitForLoadState("networkidle");
   const narrowerPage = await context.newPage();
   await narrowerPage.setViewportSize({
+    // @ts-expect-error test.skip above throws when the viewport is null, but its type asserts nothing.
     height: viewport.height,
+    // @ts-expect-error test.skip above throws when the viewport is null, but its type asserts nothing.
     width: viewport.width - 8,
   });
   await narrowerPage.goto("/logo?dev", { waitUntil: "domcontentloaded" });

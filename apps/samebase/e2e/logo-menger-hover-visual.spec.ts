@@ -955,6 +955,7 @@ test("Menger hover resumes landing tilt after a pointer cancellation", async ({ 
     .toBeGreaterThan(0.1);
 
   await scene.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) throw new Error("Expected the logo scene.");
     element.addEventListener(
       "pointerdown",
       (event) => {

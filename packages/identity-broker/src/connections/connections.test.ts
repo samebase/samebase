@@ -380,7 +380,7 @@ describe("/authorize refuses on a page, before any provider call", () => {
     });
     params.append("resource", convex.resource);
     params.append("resource", cloudflare.resource);
-    const refused = await h.fetchBroker(`${h.issuer}/authorize?${params}`);
+    const refused = await h.fetchBroker(`${h.issuer}/authorize?${params.toString()}`);
     expect([refused.status, refused.headers.get("location")]).toEqual([400, null]);
   });
 
@@ -527,7 +527,7 @@ test("with the part mounted, a sign-in code still redeems at the core", async ()
     code_challenge: challenge,
     code_challenge_method: "S256",
   });
-  const start = await h.fetchBroker(`${h.issuer}/authorize?${params}`);
+  const start = await h.fetchBroker(`${h.issuer}/authorize?${params.toString()}`);
   const { returned } = await callback(h, start);
   const tokens = await tokensOf(
     await redeem(h, testClient(h), returned.searchParams.get("code") ?? "", verifier),

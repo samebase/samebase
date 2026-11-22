@@ -43,7 +43,7 @@ test.use({
 });
 
 function buildProductionPublicLandingUrl(search: string): string {
-  const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
+  const playwrightVitePort = process.env["PLAYWRIGHT_VITE_PORT"] ?? "4173";
   return `http://${PRODUCTION_PUBLIC_HOSTNAME}:${playwrightVitePort}/${search}`;
 }
 
@@ -228,10 +228,7 @@ async function expectFooterLinksUseRightSidebarInnerEdge(statusBar: Locator) {
   }
 }
 
-async function expectStatusBarInRightSidebar(
-  page: Parameters<typeof test>[0]["page"],
-  statusBar: Locator,
-) {
+async function expectStatusBarInRightSidebar(page: Page, statusBar: Locator) {
   const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const rightPaneBox = await rightPane.boundingBox();
   const statusBarBox = await statusBar.boundingBox();

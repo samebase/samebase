@@ -25,7 +25,7 @@
     "check": "pnpm run check:workspace && pnpm run check:root",
     "check:ci": "vp run check:workspace:ci && pnpm run check:root",
     "check:plugin": "vp fmt --check packages/plugin && node scripts/check-samebase-agent-plugin.ts && node scripts/check-agent-plugin-logo.ts",
-    "check:packages": "pnpm run check:plugin && vp run --fail-if-no-match --filter @samebase/sure --filter @samebase/dependent --filter @samebase/git-editor --filter @samebase/logo-model --filter @samebase/sidebars --filter @samebase/onboarding-video-tools --filter @samebase/identity-broker --filter @samebase/alchemy-convex --filter @samebase/alchemy-kit check",
+    "check:packages": "pnpm run check:plugin && vp run --fail-if-no-match --filter @samebase/sure --filter @samebase/dependent --filter @samebase/git-editor --filter @samebase/logo-model --filter @samebase/sidebars --filter @samebase/onboarding-video-tools --filter @samebase/identity-broker --filter @samebase/identity-broker-effect-example --filter @samebase/alchemy-convex --filter @samebase/alchemy-kit check",
     "check:remotion-studio": "vp run remotion:check",
     "check:workspace": "vp run --filter samebase check && vp run --filter workspace-layout-v2-solid typecheck:cached && pnpm run check:packages && vp run check:remotion-studio && pnpm run check:examples",
     "check:workspace:ci": "vp run ci:workspace",
@@ -66,7 +66,7 @@
     "verify:template-export": "pnpm run template:export && git diff --exit-code -- apps/samebase/convex/starterSeedManifest.generated.ts",
     "prepare": "vp config --hooks-dir .vite-hooks",
     "killport": "node ./scripts/killport.ts",
-    "lint:scripts": "pnpm exec vp lint --tsconfig tsconfig.scripts.json --report-unused-disable-directives apps/samebase/alchemy.run.ts runtime scripts packages/plugin/scripts .devcontainer/postcreate.ts apps/samebase/scripts apps/samebase/postcss.config.ts apps/samebase/tailwind.config.ts",
+    "lint:scripts": "pnpm exec vp lint --tsconfig tsconfig.json --report-unused-disable-directives apps/samebase/alchemy.run.ts runtime scripts packages/plugin/scripts .devcontainer/postcreate.ts apps/samebase/scripts apps/samebase/postcss.config.ts apps/samebase/tailwind.config.ts",
     "playwright:open": "node ./scripts/playwright-session.ts open",
     "playwright:record:start": "node ./scripts/playwright-session.ts record-start",
     "playwright:record:stop": "node ./scripts/playwright-session.ts record-stop",
@@ -78,7 +78,7 @@
     "share:worktree": "node ./scripts/worktree-share.ts",
     "typecheck:remotion-studio": "vp run remotion:typecheck",
     "typecheck:examples": "vp run --filter @samebase/sidebars-example typecheck",
-    "typecheck:scripts": "pnpm run generate:tracked-file-paths && tsgo -p tsconfig.scripts.json --pretty false"
+    "typecheck:scripts": "pnpm run generate:tracked-file-paths && tsgo -p tsconfig.json --pretty false"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "5.0.0",

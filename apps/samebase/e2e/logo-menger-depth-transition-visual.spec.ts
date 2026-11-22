@@ -72,7 +72,7 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   await waitForPaint(page);
   const firstStaggerFrame = await canvas.screenshot();
   await canvas.evaluate((element) => {
-    element.dataset.mengerTransitionContext = "original";
+    element.dataset["mengerTransitionContext"] = "original";
   });
   await page.getByLabel("Stagger groups").fill("12");
   await expect(canvas).toHaveAttribute("data-menger-transition-context", "original");

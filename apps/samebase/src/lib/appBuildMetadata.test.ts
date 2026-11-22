@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { AppBuildConfig } from "@/lib/appBuildConfig";
+import { appBuildConfig as testAppBuildConfig, type AppBuildConfig } from "@/lib/appBuildConfig";
 
 afterEach(() => {
   vi.doUnmock("@/lib/appBuildConfig");
   vi.resetModules();
 });
-
-const testAppBuildConfig: AppBuildConfig = __APP_BUILD_CONFIG__;
 
 async function readAppBuildCommitFor(buildConfig: AppBuildConfig) {
   vi.doMock("@/lib/appBuildConfig", () => ({

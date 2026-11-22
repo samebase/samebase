@@ -158,7 +158,7 @@ async function captureLoad(page: Page, path: string) {
   const painted = pageFrames.slice(
     Math.max(
       0,
-      pageFrames.findLastIndex((frame) => frame.pageTimeMs <= timing.firstPaintMs),
+      pageFrames.map((frame) => frame.pageTimeMs <= timing.firstPaintMs).lastIndexOf(true),
     ),
   );
   const settled = painted.at(-1);
