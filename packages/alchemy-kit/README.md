@@ -284,6 +284,10 @@ parsed from JSON, and gives:
   same URL are one box.
 - `folded` on each box: the other rows that connect to it through `downstream`, such as a
   `Convex.Project` under its deployment.
+- `bindings` on each box: the resource bindings of its Workers, as the Cloudflare dashboard lists
+  them: the `env` name, the kind (such as `Durable Object`), a Lucide icon, the target (such as the
+  class `PageStore`), and the other box that the binding names, if one does. Plain text, secret and
+  JSON bindings are left out.
 - `lines`: the boxes that use each other. A line names the Worker bindings between its boxes, and a
   folded row that connects two boxes, such as an `Alchemy.Random` that both use, is a label on it.
 

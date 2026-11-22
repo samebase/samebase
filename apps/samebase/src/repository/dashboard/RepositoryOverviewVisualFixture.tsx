@@ -205,6 +205,8 @@ const DOCS_SITE_RESOURCES = [
         databaseId: "5e4c0b1d-0000-4000-8000-00000000d0c5",
       }),
       docsSiteBinding({ type: "service", name: "INGEST", service: "docs-site-ingest-prod" }),
+      docsSiteBinding({ type: "durable_object_namespace", name: "PAGES", className: "PageStore" }),
+      docsSiteBinding({ type: "assets", name: "ASSETS" }),
     ],
     [],
     {

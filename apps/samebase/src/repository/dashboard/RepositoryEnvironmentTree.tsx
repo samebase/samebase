@@ -11,6 +11,7 @@ import { RepositoryChecksPopover } from "@/repository/dashboard/RepositoryChecks
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlchemyStageDiagram } from "@/components/AlchemyStageDiagram";
+import { KitIcon } from "@/components/KitIcon";
 import { resourceTypePresentation } from "@/components/resourceTypePresentation";
 import { boxSubtitle, stageTree, type StageTreeNode } from "@samebase/alchemy-kit/stack";
 import type {
@@ -326,6 +327,20 @@ function StackListNode({
         ...node.children.map((child) => (
           <StackListNode key={`box:${child.box.id}`} asides={asides} node={child} />
         )),
+        // A binding to another box shows as that box under this one, with the binding name.
+        ...box.bindings
+          .filter((binding) => binding.box === null)
+          .map((binding) => (
+            <li
+              key={`binding:${binding.name}`}
+              className="flex min-w-0 items-center gap-2 py-1 text-xs text-muted-foreground"
+            >
+              <KitIcon icon={binding.icon} className="size-4 shrink-0" />
+              <span className="font-mono">{binding.name}</span>
+              <span>{binding.kind}</span>
+              {binding.target ? <span className="font-mono">{binding.target}</span> : null}
+            </li>
+          )),
         ...box.folded.map((row) => {
           const { icon, label } = resourceTypePresentation(row.resourceType);
           return (

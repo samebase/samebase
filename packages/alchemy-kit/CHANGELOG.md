@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0
+
+- Each box of `stageDiagram` has `bindings`: the resource bindings of its Workers, each with its
+  `env` name, the kind as the Cloudflare dashboard names it (such as `Durable Object` or
+  `D1 database`), a Lucide icon, the target that its own fields name (such as the class
+  `PageStore`), and the other box that it names, if one does. Every binding type that Alchemy writes
+  is read, not only R2. A binding that holds a value (plain text, secret, JSON, secret key) is left
+  out. A binding to a box that `downstream` does not connect gets a line too.
+- A line names a binding only when the binding names a row of the other box by its identifier, such
+  as the bucket, database or Worker. A binding name that only looks like the logical id of a row no
+  longer names it.
+
 ## 0.6.0
 
 - The run record is version 2: `repositoryId` and `repositoryOwnerId`, the GitHub ids as digits, and

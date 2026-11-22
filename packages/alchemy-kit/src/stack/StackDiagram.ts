@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 import { resourceTypeUI, type IconNode, type ResourceCategory } from "../ui/ResourceTypeUI.ts";
 import { asRecord, list, readString } from "./json.ts";
 import { resourceDashboard, resourceFacts } from "./ResourceFacts.ts";
+import { TARGET_IDS, workerBindings, type WorkerBinding } from "./WorkerBindings.ts";
 
 export { cronInWords, type ResourceFact } from "./ResourceFacts.ts";
 
@@ -74,26 +75,9 @@ function readRow({ fqn, state }: StateRow) {
       namespace: namespaceOf(record["namespace"]),
       facts: resourceFacts(resourceType, { attr, props: asRecord(record["props"]) }),
       dashboard: resourceDashboard(resourceType, attr) ?? null,
-      /**
-      A Worker keeps each binding as `{ sid, data: { bindings: [...] } }`, and an R2 binding names its
-      bucket in `bucketName`. Only these identifiers are read: plain text and secret bindings hold
-      their values next to them.
-      */
-      bindings: list(record["bindings"]).flatMap((value) => {
-        const group = asRecord(value);
-        const sid = readString(group, "sid");
-        if (sid === undefined) {
-          return [];
-        }
-        const bucketNames = list(asRecord(group["data"])["bindings"])
-          .map(asRecord)
-          .filter((binding) => readString(binding, "type") === "r2_bucket")
-          .map((binding) => readString(binding, "bucketName"))
-          .filter((name) => name !== undefined);
-        return [{ sid, bucketNames }];
-      }),
-      /** The bucket of an R2 bucket row, which a Worker's R2 binding names. */
-      bucketName: readString(attr, "bucketName") ?? null,
+      bindings: workerBindings(record["bindings"]),
+      /** The identifiers that a Worker binding names this row by, such as its bucket. */
+      ids: TARGET_IDS.flatMap((field) => readString(attr, field) ?? []),
       /** The `.convex.cloud` URL of a Convex deployment: rows with the same URL are one deployment. */
       deploymentUrl:
         resourceType === "Convex.Deployment" ? (readString(attr, "url") ?? null) : null,
@@ -133,6 +117,13 @@ export interface DiagramBox {
   link: string | null;
   urls: string[];
   namespace: string[];
+  /** The resource bindings of the box's Workers, by kind, then name. */
+  bindings: BoxBinding[];
+}
+
+/** A Worker binding of a box, with the other box that it names, if one does. */
+export interface BoxBinding extends Omit<WorkerBinding, "ids"> {
+  box: DiagramBox | null;
 }
 
 /** A line between the boxes `a` and `b`. `from` is the box that depends on the other, if one does. */
@@ -191,8 +182,12 @@ export function stageDiagram(stateRows: readonly StateRow[]) {
       link: members.map((row) => row.link).find((link) => link !== null) ?? null,
       urls: [...new Set(members.flatMap((row) => row.urls))],
       namespace: commonPrefix([first.namespace, ...members.slice(1).map((row) => row.namespace)]),
+      bindings: [],
     };
   });
+  for (const box of boxes) {
+    box.bindings = boxBindings(box, boxes);
+  }
   const boxOf = new Map(boxes.flatMap((box) => box.rows.map((row) => [row.fqn, box] as const)));
   const { home, labelRows } = foldRows(
     rows.filter((row) => !boxOf.has(row.fqn)),
@@ -206,15 +201,20 @@ export function stageDiagram(stateRows: readonly StateRow[]) {
   const lines: DiagramLine[] = [];
   const lineFor = (a: DiagramBox, b: DiagramBox) =>
     lines.find((line) => (line.a === a && line.b === b) || (line.a === b && line.b === a));
-  for (const box of boxes) {
-    for (const row of box.rows) {
-      for (const fqn of row.downstream) {
-        const user = boxOf.get(fqn) ?? home.get(fqn);
-        if (user === undefined || user === box || lineFor(user, box)) {
-          continue;
-        }
-        lines.push({ a: user, b: box, from: user, labels: [] });
-      }
+  const uses = [
+    ...boxes.flatMap((box) =>
+      box.rows.flatMap((row) =>
+        row.downstream.map((fqn) => [boxOf.get(fqn) ?? home.get(fqn), box] as const),
+      ),
+    ),
+    // A binding to a box that `downstream` does not connect still uses it.
+    ...boxes.flatMap((box) =>
+      box.bindings.map((binding) => [box, binding.box ?? undefined] as const),
+    ),
+  ];
+  for (const [user, used] of uses) {
+    if (user !== undefined && used !== undefined && user !== used && !lineFor(user, used)) {
+      lines.push({ a: user, b: used, from: user, labels: [] });
     }
   }
   for (const line of lines) {
@@ -310,20 +310,23 @@ export function stageTree({ boxes, lines }: StageDiagram) {
 /** A tree node's name with the labels of its line, such as `Prices (PRICES)`. */
 export const nodeTitle = (node: StageTreeNode) => withLabels(node.box.name, node.labels);
 
-/** The Worker binding names of `worker` that name a row of `other`, by logical id or R2 bucket. */
-function bindingNames(worker: DiagramBox, other: DiagramBox) {
-  return worker.rows
-    .filter((row) => row.resourceType === "Cloudflare.Worker")
+/** The bindings of the rows of `box`, each with the other box that holds a row it names. */
+const boxBindings = (box: DiagramBox, boxes: readonly DiagramBox[]): BoxBinding[] =>
+  box.rows
     .flatMap((row) => row.bindings)
-    .filter(({ sid, bucketNames }) =>
-      other.rows.some(
-        (target) =>
-          target.logicalId.toLowerCase() === sid.toLowerCase() ||
-          (target.bucketName !== null && bucketNames.includes(target.bucketName)),
-      ),
-    )
-    .map(({ sid }) => sid);
-}
+    .map(({ ids, ...binding }) => ({
+      ...binding,
+      box:
+        boxes.find(
+          (other) =>
+            other !== box && other.rows.some((row) => row.ids.some((id) => ids.includes(id))),
+        ) ?? null,
+    }))
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+
+/** The binding names of `box` that name `other`. */
+const bindingNames = (box: DiagramBox, other: DiagramBox) =>
+  box.bindings.filter((binding) => binding.box === other).map((binding) => binding.name);
 
 /**
 The rows that get a box, as groups that share one box, in row order: the Cloudflare Email rows, and

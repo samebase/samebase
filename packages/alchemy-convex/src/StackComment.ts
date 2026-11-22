@@ -166,8 +166,9 @@ const boxName = ({ name, resourceType, rows: [first] }: DiagramBox) => {
 
 /**
 A box of the tree: its name with the labels of its line as code, its type and schedule, and its link
-on the next line unless the link is the stage address. Below it, in a list: the boxes that it uses, the rows folded into it, and
-the boxes that share a resource with it. A repeated box has only its name.
+on the next line unless the link is the stage address. Below it, in a list: the boxes that it uses,
+its bindings that name no box, the rows folded into it, and the boxes that share a resource with it.
+A repeated box has only its name.
 */
 const treeNode = (node: StageTreeNode, address: string | null): string => {
   const { box, labels, repeated } = node;
@@ -181,6 +182,12 @@ const treeNode = (node: StageTreeNode, address: string | null): string => {
       : `<br><sub>${link(box.link, hostOf(box.link))}</sub>`;
   const below = [
     ...node.children.map((child) => treeNode(child, address)),
+    ...box.bindings
+      .filter((binding) => binding.box === null)
+      .map(
+        (binding) =>
+          `<code>${escapeHtml(binding.name)}</code> <sub>${escapeHtml([binding.kind, binding.target].filter((part) => part !== null).join(", "))}</sub>`,
+      ),
     ...box.folded.map(
       (row) =>
         `<sub>${escapeHtml(`${row.logicalId}, ${resourceTypeUI(row.resourceType).name}`)}</sub>`,
