@@ -1,4 +1,4 @@
-// Generated from src/store/commands.ts by src/hosts/convex/functions.test.ts.
+// Generated from src/store/commands.ts by scripts/generate-convex-functions.ts.
 import type { api } from "./component/_generated/api.ts";
 import type { ComponentApi } from "./component/_generated/component.ts";
 import type { CommandFunctions } from "./functions.ts";

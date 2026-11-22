@@ -1,4 +1,4 @@
-// Generated from src/store/commands.ts by src/hosts/convex/functions.test.ts.
+// Generated from src/store/commands.ts by scripts/generate-convex-functions.ts.
 import { commandMutation, commandQuery } from "../functions.ts";
 
 export const create = commandMutation("authRequests.create");
