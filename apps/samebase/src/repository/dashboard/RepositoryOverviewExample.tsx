@@ -184,7 +184,7 @@ const PRODUCTION_RESOURCES = [
   workerRow("BarcodeLookup", "pantry-barcode-lookup", {
     bindings: [
       binding("PHOTOS", { type: "r2_bucket", bucketName: "pantry-product-photos" }),
-      binding("PRODUCTS", { type: "d1", id: "pantry-products-id" }),
+      binding("PRODUCTS", { type: "d1", databaseId: "pantry-products-id" }),
     ],
     downstream: ["Site"],
   }),
@@ -195,7 +195,7 @@ const previewResources = (number: number, deployment: string) => [
   convexDeploymentRow("preview", deployment, ["BARCODE_URL", "SITE_URL"]),
   productsRow(`pantry-products-pr-${number}`),
   workerRow("BarcodeLookup", `pantry-barcode-lookup-pr-${number}`, {
-    bindings: [binding("PRODUCTS", { type: "d1", id: `pantry-products-pr-${number}-id` })],
+    bindings: [binding("PRODUCTS", { type: "d1", databaseId: `pantry-products-pr-${number}-id` })],
     downstream: ["Site"],
   }),
 ];

@@ -3,6 +3,7 @@ import { resourceTypeUI } from "@samebase/alchemy-kit/ui";
 import { Clock } from "lucide-react";
 import { Fragment, type ReactNode, useId, useMemo, useState } from "react";
 import { AlchemyIsometricIcon } from "@/components/AlchemyIsometricIcon";
+import { KitIcon } from "@/components/KitIcon";
 import type { DiagramBox, StageDiagram } from "@samebase/alchemy-kit/stack";
 
 const BOX_WIDTH = 248;
@@ -10,8 +11,18 @@ const BOX_WIDTH = 248;
 /** The space between two boxes of a column, or of a row, which a phone has less room for. */
 const NODE_GAP = { LR: 32, TB: 24 } as const;
 
-/** Border and padding, the icon row, the link row, and the "N more" row of a box, in pixels. */
-const boxHeight = (box: DiagramBox) => 72 + (box.link ? 24 : 0) + (box.folded.length > 0 ? 20 : 0);
+/** The bindings that a box lists: a binding to another box is the line to that box instead. */
+const ownBindings = (box: DiagramBox) => box.bindings.filter((binding) => binding.box === null);
+
+/**
+Border and padding, the icon row, the link row, the bindings with the space above them, and the
+"N more" row of a box, in pixels.
+*/
+const boxHeight = (box: DiagramBox) =>
+  72 +
+  (box.link ? 24 : 0) +
+  (ownBindings(box).length > 0 ? 8 + ownBindings(box).length * 20 : 0) +
+  (box.folded.length > 0 ? 20 : 0);
 
 /** The space around the boxes of a namespace frame, and above them for its name. */
 const FRAME_PADDING = 12;
@@ -302,6 +313,28 @@ function DiagramBoxView({
           {new URL(box.link).host}
         </a>
       ) : null}
+      {ownBindings(box).length === 0 ? null : (
+        <ul className="mt-[0.667em] text-[0.75em] leading-[1.667]" aria-label="Bindings">
+          {ownBindings(box).map((binding) => (
+            <li
+              key={binding.name}
+              className="flex min-w-0 items-center gap-[0.5em]"
+              title={[binding.name, binding.kind, binding.target].filter(Boolean).join(" ")}
+            >
+              <KitIcon
+                icon={binding.icon}
+                className="size-[1.167em] shrink-0 text-muted-foreground"
+              />
+              {/* One line each: `boxHeight` gives a binding 20 px. */}
+              <span className="max-w-[60%] shrink-0 truncate font-mono">{binding.name}</span>
+              <span className="truncate text-muted-foreground">
+                {binding.kind}
+                {binding.target ? <span className="font-mono"> {binding.target}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {box.folded.length === 0 ? null : (
         <span className="mt-[0.333em] text-[0.75em] leading-[1.33] text-muted-foreground">
           {box.folded.length} more

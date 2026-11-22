@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.0
+
+- Takes `@samebase/alchemy-kit` 0.7.0. `alchemy-convex stack-comment` lists, under each Worker, its
+  bindings that name no box of the stage, such as its own Durable Object class or its assets, with
+  their kind and target.
+
 ## 0.44.0
 
 - Takes `@samebase/alchemy-kit` 0.6.0. The run record is version 2, with the GitHub repository id
