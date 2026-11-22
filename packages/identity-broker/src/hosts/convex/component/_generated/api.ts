@@ -8,7 +8,13 @@
  * @module
  */
 
-import type * as commands from "../commands.js";
+import type * as authRequests from "../authRequests.js";
+import type * as clients from "../clients.js";
+import type * as connections from "../connections.js";
+import type * as github from "../github.js";
+import type * as lifecycle from "../lifecycle.js";
+import type * as signIns from "../signIns.js";
+import type * as stack from "../stack.js";
 
 import type {
   ApiFromModules,
@@ -18,7 +24,13 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
-  commands: typeof commands;
+  authRequests: typeof authRequests;
+  clients: typeof clients;
+  connections: typeof connections;
+  github: typeof github;
+  lifecycle: typeof lifecycle;
+  signIns: typeof signIns;
+  stack: typeof stack;
 }> = anyApi as any;
 
 /**

@@ -1,11 +1,12 @@
-// The Convex tables of the broker, made from `tables.ts`: each document's Effect Schema becomes a
-// Convex validator, and each declared index becomes a Convex index on the same field paths. Only
-// the AST kinds that `tables.ts` uses convert; any other kind throws when the schema is evaluated.
-// Checks (`Schema.Finite`) do not convert: the `Tx` encodes every write with the table's Effect
-// Schema, so the Convex validator only has to hold the same shape.
+// Convex validators made from the broker's Effect Schemas, on their encoded side: the tables of
+// `tables.ts` (each declared index becomes a Convex index on the same field paths), and each
+// command's arguments and result. Only the AST kinds that these schemas use convert; open records
+// and any other kind throw when the schema is evaluated. Checks (`Schema.Finite`) do not convert:
+// the Effect Schema still decodes every value, so the Convex validator only has to hold the same
+// shape.
 import { defineTable, type TableDefinition } from "convex/server";
 import { v, type Validator } from "convex/values";
-import { SchemaAST } from "effect";
+import { SchemaAST, type Schema } from "effect";
 // The table catalog alone: a Convex schema may not import what the commands import.
 import { tableNames, tables, type TableName } from "../../store/tables.ts";
 import type { IndexField } from "../../store/Tx.ts";
@@ -20,6 +21,8 @@ const value = (ast: SchemaAST.AST): Value => {
       return v.number();
     case "Boolean":
       return v.boolean();
+    case "Null":
+      return v.null();
     case "Literal": {
       const { literal } = ast;
       if (typeof literal === "bigint") {
@@ -59,6 +62,9 @@ const object = (ast: SchemaAST.Objects) => {
     ),
   );
 };
+
+/** The Convex validator of `schema`'s encoded side. */
+export const convexValue = (schema: Schema.Top): Value => value(SchemaAST.toEncoded(schema.ast));
 
 /** A table's document validator: an object, or a union of objects. */
 const document = (ast: SchemaAST.AST) => {

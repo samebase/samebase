@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.38.0
+
+- On Convex, each command is its own function of the component: a query for a read-only command, a
+  mutation for the others, at `<group>:<name>` (such as `authRequests:exchangeCode`). The dashboard
+  shows each one's calls, errors and timing, and runs it with its typed arguments. Its arguments are
+  `{ args, now }`; arguments and result are Convex values, no longer JSON text.
+- `commands.run` is gone. An app that mounts the component deploys again after the update.
+- A result with no return address has no `back` field, never `back: undefined`.
+
 ## 0.37.0
 
 - The moderation API is back: `moderation({ key })` of `./moderation`, mounted with

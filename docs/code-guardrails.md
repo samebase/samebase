@@ -6,12 +6,18 @@ disagree, this file wins — update both in the same change.
 
 ## Type safety
 
-Type-safety always matters, but the goal is not "zero `any` at any cost" — it is that the types tell
-the truth and the code reads like the mental model of the business logic. TypeScript is a tool for
-reaching the goal, not a barrier to route around; "enterprise TypeScript" ceremony that muddies the
-meaning of the code is its own failure. Where the type system genuinely cannot express something,
-the gap must be explicit, searchable, and quarantined — hiding a type gap is strictly worse than
-declaring one.
+- Write only erasable TypeScript syntax: types that Node's type stripping can remove. No `enum`, no
+  `namespace`, no constructor parameter properties (`constructor(readonly id: string)`), no
+  `import x = require()`. Declare the field and assign it in the constructor instead. Every tsconfig
+  sets `erasableSyntaxOnly` (directly or through `tsconfig.strict.json`), so the compiler enforces
+  the rule. The reason: Node runs any `.ts` file of the repository directly, as a script or a
+  generator, with no build step. One non-erasable line in an imported module stops that. Type-safety
+  always matters, but the goal is not "zero `any` at any cost" — it is that the types tell the truth
+  and the code reads like the mental model of the business logic. TypeScript is a tool for reaching
+  the goal, not a barrier to route around; "enterprise TypeScript" ceremony that muddies the meaning
+  of the code is its own failure. Where the type system genuinely cannot express something, the gap
+  must be explicit, searchable, and quarantined — hiding a type gap is strictly worse than declaring
+  one.
 
 - Never use `any` or type assertions. `as const` is always acceptable when preserving literal
   inference — it asserts nothing unsafe. There is no approved use for any other assertion: a type

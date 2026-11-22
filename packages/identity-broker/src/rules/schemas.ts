@@ -29,7 +29,11 @@ export type Return = typeof Return.Type;
  * the card is gone or no longer holds the address, and the hub sends the user nowhere (RFC 6749
  * section 4.1.2.1).
  */
-const back = Schema.optional(Return);
+const back = Schema.optionalKey(Return);
+
+/** The `back` field of a result: absent, never `undefined`, when there is no return address. */
+export const backField = (address: Return | undefined) =>
+  address === undefined ? {} : { back: address };
 
 export const TransitionResult = Schema.Union([
   /** The step read the return address on the card. */

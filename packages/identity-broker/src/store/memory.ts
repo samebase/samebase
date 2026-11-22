@@ -81,10 +81,12 @@ const seqOf = (id: RowId<string>) => {
 };
 
 export class MemorySnapshot {
-  constructor(
-    readonly rows: Rows,
-    readonly seq: number,
-  ) {}
+  readonly rows: Rows;
+  readonly seq: number;
+  constructor(rows: Rows, seq: number) {
+    this.rows = rows;
+    this.seq = seq;
+  }
 }
 
 export class MemoryDb {

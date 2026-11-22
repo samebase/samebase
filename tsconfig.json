@@ -9,6 +9,7 @@
     "experimentalDecorators": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
+    "erasableSyntaxOnly": true,
     "sourceMap": true
   },
   "exclude": ["node_modules", "**/node_modules/*"]

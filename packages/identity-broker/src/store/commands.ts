@@ -77,7 +77,7 @@ export const everyCommandListed: Exclude<CommandName, (typeof commandNames)[numb
   : false = true;
 
 /** The command name of a host's input. Any other name is a defect of the caller. */
-const decodeName = Schema.decodeUnknownSync(Schema.Literals(commandNames));
+export const decodeName = Schema.decodeUnknownSync(Schema.Literals(commandNames));
 
 /** Decodes the arguments of `name`. Bad arguments are a defect of the caller. */
 const decodeArgs = <N extends CommandName>(name: N, input: unknown): Args<N> =>

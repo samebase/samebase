@@ -1,9 +1,14 @@
-// A `Tx` over Convex's `ctx.db`, for one mutation. The tables are those of `schema.ts`, whose names
-// arrive at run time, so the database is the generic writer of `convex/server`. `RowId.key` is the
-// document's `_id`. A document is written in its encoded form and read back through its table's
-// Effect Schema, after the system fields are removed. The step ends when the mutation returns, so
-// no write can reach the database after it.
-import type { GenericDatabaseWriter, GenericDataModel, GenericDocument } from "convex/server";
+// A `Tx` over Convex's `ctx.db`, for one query or mutation. The tables are those of `schema.ts`,
+// whose names arrive at run time, so the database is the generic reader or writer of
+// `convex/server`. `RowId.key` is the document's `_id`. A document is written in its encoded form
+// and read back through its table's Effect Schema, after the system fields are removed. The step
+// ends when the function returns, so no write can reach the database after it.
+import type {
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+  GenericDataModel,
+  GenericDocument,
+} from "convex/server";
 import { Effect, Schema } from "effect";
 import {
   checkQuery,
@@ -42,9 +47,24 @@ interface Range {
   lte(field: string, value: IndexValue): Range;
 }
 
-export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape<Tables> => {
-  const encode = (table: TableName, doc: unknown) =>
-    toFields(JSON.stringify(Schema.encodeUnknownSync(tables[table].schema)(doc)));
+const encode = (table: TableName, doc: unknown) =>
+  toFields(JSON.stringify(Schema.encodeUnknownSync(tables[table].schema)(doc)));
+
+const idOf = <T extends TableName>(
+  db: GenericDatabaseReader<GenericDataModel>,
+  table: T,
+  id: RowId<T>,
+) => {
+  const normalized = db.normalizeId(table, id.key);
+  if (normalized === null) {
+    throw new Error(`Not a row id of ${table}: ${id.key}`);
+  }
+  return normalized;
+};
+
+/** The `Tx` of a query, for a read-only command: a write dies. */
+export const convexReadTx = (db: GenericDatabaseReader<GenericDataModel>): TxShape<Tables> => {
+  const readOnly = () => Effect.die(new Error("A read-only step wrote"));
   const rowOf = <T extends TableName>(table: T, stored: GenericDocument): Row<T> => {
     const { _id, _creationTime, ...fields } = stored;
     return {
@@ -52,26 +72,15 @@ export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape<T
       doc: Schema.decodeUnknownSync(tables[table].schema)(fields),
     };
   };
-  const idOf = <T extends TableName>(table: T, id: RowId<T>) => {
-    const normalized = db.normalizeId(table, id.key);
-    if (normalized === null) {
-      throw new Error(`Not a row id of ${table}: ${id.key}`);
-    }
-    return normalized;
-  };
-
   return {
-    insert: <T extends TableName>(table: T, doc: Doc<T>) =>
-      Effect.promise(async () => new RowId(table, await db.insert(table, encode(table, doc)))),
+    insert: readOnly,
     get: <T extends TableName>(table: T, id: RowId<T>) =>
       Effect.promise(async (): Promise<Row<T> | undefined> => {
-        const stored = await db.get(table, idOf(table, id));
+        const stored = await db.get(table, idOf(db, table, id));
         return stored === null ? undefined : rowOf(table, stored);
       }),
-    replace: <T extends TableName>(table: T, id: RowId<T>, doc: Doc<T>) =>
-      Effect.promise(() => db.replace(table, idOf(table, id), encode(table, doc))),
-    delete: <T extends TableName>(table: T, id: RowId<T>) =>
-      Effect.promise(() => db.delete(table, idOf(table, id))),
+    replace: readOnly,
+    delete: readOnly,
     query: <T extends TableName>(table: T, index: IndexName<T>, query: Query) =>
       Effect.promise(async (): Promise<ReadonlyArray<Row<T>>> => {
         const checked = checkQuery(tables, table, index, query);
@@ -105,3 +114,14 @@ export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape<T
       }),
   };
 };
+
+/** The `Tx` of a mutation. */
+export const convexTx = (db: GenericDatabaseWriter<GenericDataModel>): TxShape<Tables> => ({
+  ...convexReadTx(db),
+  insert: <T extends TableName>(table: T, doc: Doc<T>) =>
+    Effect.promise(async () => new RowId(table, await db.insert(table, encode(table, doc)))),
+  replace: <T extends TableName>(table: T, id: RowId<T>, doc: Doc<T>) =>
+    Effect.promise(() => db.replace(table, idOf(db, table, id), encode(table, doc))),
+  delete: <T extends TableName>(table: T, id: RowId<T>) =>
+    Effect.promise(() => db.delete(table, idOf(db, table, id))),
+});

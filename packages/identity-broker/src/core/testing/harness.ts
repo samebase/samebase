@@ -327,7 +327,6 @@ export type HostUnderTest = {
 };
 
 const isRecord = Schema.is(Schema.Record(Schema.String, Schema.Unknown));
-const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
 /** Equal by content: object keys in any order, and a member that is `undefined` is absent. */
 const sameData = (a: unknown, b: unknown): boolean => {
@@ -395,10 +394,7 @@ export async function checkStore(
     const { store } = await make();
     const results = await script.play((name, args, now) =>
       Effect.runPromise(
-        store.run(name, parseJson(args)).pipe(
-          Effect.map((result) => JSON.stringify(result)),
-          Effect.provideService(Clock.Clock, testClock(now).clock),
-        ),
+        store.run(name, args).pipe(Effect.provideService(Clock.Clock, testClock(now).clock)),
       ),
     );
     same(script.check, results, script.memory);

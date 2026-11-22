@@ -47,7 +47,7 @@ import {
   stepLists,
   type Player,
 } from "../../src/store/contract.ts";
-import type { Args } from "../../src/store/commands.ts";
+import { encodeArgs, type Args } from "../../src/store/commands.ts";
 import { StepOutput } from "../../src/store/testing.ts";
 import { api } from "./convex/_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./convex/fakeIdp.ts";
@@ -139,7 +139,7 @@ test("-0 and 0 are one index value", async () => {
   expect(foundOf(await player(negativeZero.step))).toEqual(negativeZero.found);
 });
 
-test("a sign-in through the component's run gives the memory host's results", async () => {
+test("a sign-in through the component's functions gives the memory host's results", async () => {
   emptyComponent();
   const fromConvex = await playSignIn((name, args, now) =>
     client.mutation(api.ops.command, { name, args, now }),
@@ -148,7 +148,7 @@ test("a sign-in through the component's run gives the memory host's results", as
   expect(fromConvex.at(-1)).toEqual(signInCleanup);
 }, 60_000);
 
-test("a connection through the component's run gives the memory host's results", async () => {
+test("a connection through the component's functions gives the memory host's results", async () => {
   emptyComponent();
   const fromConvex = await playConnection((name, args, now) =>
     client.mutation(api.ops.command, { name, args, now }),
@@ -240,7 +240,7 @@ const convexHub = (): TestHub => ({
   seedProduction: async (args) => {
     await client.mutation(api.ops.command, {
       name: "github.createClient",
-      args: JSON.stringify(args),
+      args: encodeArgs("github.createClient", args),
       now: Date.now(),
     });
   },
@@ -542,9 +542,7 @@ test("an httpAction keeps both Set-Cookie fields of one response", async () => {
   expect(response.headers.getSetCookie()).toEqual(["a=1; Path=/", "b=2; Path=/"]);
 });
 
-const CleanupResult = Schema.fromJsonString(
-  Schema.Struct({ signIns: Schema.Number, more: Schema.Boolean }),
-);
+const CleanupResult = Schema.Struct({ signIns: Schema.Number, more: Schema.Boolean });
 
 test("the cleanup runs batches until none is left", async () => {
   emptyComponent();
@@ -552,7 +550,7 @@ test("the cleanup runs batches until none is left", async () => {
   for (let at = 1; at <= 450; at++) {
     await client.mutation(api.ops.command, {
       name: "signIns.record",
-      args: JSON.stringify({ clientId: "c", ref: "test:a", connector: "idp", sub: "s", at }),
+      args: { clientId: "c", ref: "test:a", connector: "idp", sub: "s", at },
       now: Date.now(),
     });
   }
@@ -560,7 +558,7 @@ test("the cleanup runs batches until none is left", async () => {
   // A batch at the same retention finds none of them left.
   const after = await client.mutation(api.ops.command, {
     name: "lifecycle.cleanup",
-    args: JSON.stringify({ now: Date.now(), signInRetentionMs: 0 }),
+    args: { now: Date.now(), signInRetentionMs: 0 },
     now: Date.now(),
   });
   expect(Schema.decodeUnknownSync(CleanupResult)(after)).toEqual({ signIns: 0, more: false });

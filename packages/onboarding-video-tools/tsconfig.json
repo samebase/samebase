@@ -8,6 +8,7 @@
     "types": ["node"],
     "typeRoots": ["../../apps/samebase/node_modules/@types"],
     "strict": true,
+    "erasableSyntaxOnly": true,
     "noEmit": true,
     "skipLibCheck": true
   },

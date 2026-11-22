@@ -1,6 +1,6 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "description": "An OpenID Provider that holds a team's upstream sign-in connections once and keeps no user accounts. It runs on any platform with your own storage, with ready hosts for Convex and Cloudflare.",
   "license": "Apache-2.0",
   "repository": {
@@ -65,12 +65,13 @@
     "build": "tsc --project tsconfig.build.json",
     "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.node.json",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.node.json --report-unused-disable-directives packages/identity-broker/src packages/identity-broker/alchemy.run.ts packages/identity-broker/test",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.node.json --report-unused-disable-directives packages/identity-broker/src packages/identity-broker/alchemy.run.ts packages/identity-broker/scripts packages/identity-broker/test",
     "conformance": "node test/conformance/run.ts",
     "test": "pnpm --dir ../.. exec vp test run --project identity-broker --project identity-broker-machine",
     "test:quick": "pnpm --dir ../.. exec vp test run --project identity-broker",
     "test:convex": "vp test run test/convex-app",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test:quick && pnpm run build",
+    "generate:convex": "node scripts/generate-convex-functions.ts",
+    "check": "node scripts/generate-convex-functions.ts --check && pnpm run typecheck && pnpm run lint && pnpm run test:quick && pnpm run build",
     "deploy": "alchemy deploy",
     "destroy": "alchemy destroy"
   },

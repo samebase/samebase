@@ -8,7 +8,7 @@
 import { Effect, Schema } from "effect";
 import { spendBudget } from "../rules/authRequests.ts";
 import { cardRow, isStopped, used } from "../rules/clients.ts";
-import { GateNamespace, Return } from "../rules/schemas.ts";
+import { backField, GateNamespace, Return } from "../rules/schemas.ts";
 import { TokenEndpointAuthMethod, type Tx } from "../rules/tables.ts";
 import type { Doc } from "../store/tables.ts";
 import { unique } from "../store/Tx.ts";
@@ -35,7 +35,7 @@ type HubNow = {
   readonly liveGates: ReadonlyArray<GateNamespace>;
 };
 
-const back = Schema.optional(Return);
+const back = Schema.optionalKey(Return);
 
 type ConnectionRequest = Doc<"connectionRequests">;
 
@@ -260,14 +260,14 @@ export const claim = Effect.fnUntraced(function* (
   const admitted = yield* admission(request, args);
   if (request.expiresAt <= args.now) {
     yield* tx.delete("connectionRequests", row.id);
-    return { status: "expired", requestId: request.requestId, back: admitted.back };
+    return { status: "expired", requestId: request.requestId, ...backField(admitted.back) };
   }
   if (!admitted.ok) {
     yield* tx.delete("connectionRequests", row.id);
     return {
       status: "refused",
       requestId: request.requestId,
-      back: admitted.back,
+      ...backField(admitted.back),
       refused: admitted.refused,
     };
   }
@@ -316,11 +316,16 @@ export const complete = Effect.fnUntraced(function* (
   const request = row.doc;
   const admitted = yield* admission(request, args);
   if (request.status !== "claimed" || request.expiresAt <= args.now) {
-    return { ok: false, error: "gone", back: admitted.back };
+    return { ok: false, error: "gone", ...backField(admitted.back) };
   }
   if (!admitted.ok) {
     yield* tx.delete("connectionRequests", row.id);
-    return { ok: false, error: "refused", back: admitted.back, refused: admitted.refused };
+    return {
+      ok: false,
+      error: "refused",
+      ...backField(admitted.back),
+      refused: admitted.refused,
+    };
   }
   yield* tx.replace("connectionRequests", row.id, {
     status: "completed",

@@ -1,9 +1,12 @@
 // Test-only functions: `reset` and `step` play the adapter tests' operation lists over the Convex
-// `Tx` on this app's tables, one step per mutation; `command` calls the component's `run`.
+// `Tx` on this app's tables, one step per mutation; `command` calls a command's function in the
+// component by its name.
 import { mutationGeneric } from "convex/server";
 import { v } from "convex/values";
 import { Effect, Schema } from "effect";
+import { commandFunctions } from "../../../src/hosts/convex/references.ts";
 import { convexTx } from "../../../src/hosts/convex/tx.ts";
+import { decodeName } from "../../../src/store/commands.ts";
 import { microtaskScheduler } from "../../../src/store/Store.ts";
 import { playStep, StepInput, testTables } from "../../../src/store/testing.ts";
 import { components } from "./_generated/api.js";
@@ -33,13 +36,14 @@ export const step = mutationGeneric({
     }),
 });
 
+const functions = commandFunctions(components.identityBroker);
+
 export const command = mutationGeneric({
-  args: { name: v.string(), args: v.string(), now: v.number() },
-  returns: v.string(),
-  handler: (ctx, args): Promise<string> =>
-    ctx.runMutation(components.identityBroker.commands.run, {
-      name: args.name,
-      args: args.args,
-      now: args.now,
-    }),
+  args: { name: v.string(), args: v.any(), now: v.number() },
+  handler: (ctx, input): Promise<unknown> => {
+    const command = functions[decodeName(input.name)];
+    return command.kind === "query"
+      ? ctx.runQuery(command.reference, { args: input.args, now: input.now })
+      : ctx.runMutation(command.reference, { args: input.args, now: input.now });
+  },
 });

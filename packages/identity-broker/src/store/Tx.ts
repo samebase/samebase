@@ -30,10 +30,12 @@ export type IndexOf<C extends Catalog, T extends TableOf<C>> = keyof C[T]["index
  * in a document. `key` is the adapter's own row key; two handles of one row have equal keys.
  */
 export class RowId<T extends string> {
-  constructor(
-    readonly table: T,
-    readonly key: string,
-  ) {}
+  readonly table: T;
+  readonly key: string;
+  constructor(table: T, key: string) {
+    this.table = table;
+    this.key = key;
+  }
 }
 
 /** An index value; `undefined` stands for an absent field, which sorts before every value. */
