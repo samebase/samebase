@@ -3,7 +3,7 @@ import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { makeConnections } from "../connections/routes.ts";
 import type { ConnectionSettings } from "../connections/providers.ts";
-import { hubSettings, type HubSettings } from "../hosts/settings.ts";
+import { defaultKeys, hubSettings, type HubSettings } from "../hosts/settings.ts";
 import type { Store } from "../store/Store.ts";
 import {
   hubLogger,
@@ -76,7 +76,7 @@ export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, ne
       options.connections?.cloudflare,
       options.connections?.github,
     ].flatMap((client) => (client === undefined ? [] : [client.clientId, client.clientSecret]));
-    const secrets = options.keys === undefined ? credentials : [options.keys, ...credentials];
+    const secrets = [options.keys ?? defaultKeys, ...credentials];
     if (secrets.every((secret) => Config.isConfig(secret))) {
       // @ts-expect-error Each secret is a `Config` here, and a `Config` needs no service.
       const now: Effect.Effect<Hub, never, Store> = build;

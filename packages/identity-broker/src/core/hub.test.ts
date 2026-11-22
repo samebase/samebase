@@ -71,21 +71,21 @@ test("with every secret a Config, the hub reads each when it runs, and a missing
 
 test("with one other secret, nothing is built before the first request, and the build is kept", async () => {
   let reads = 0;
-  const keys = Effect.sync(() => {
+  const clientSecret = Effect.sync(() => {
     reads += 1;
-    return Redacted.make("{}");
+    return Redacted.make("secret");
   });
   const options = {
     issuer: TEST_ISSUER,
-    keys,
-    connectors: { google },
+    connectors: { google: { clientId: google.clientId, clientSecret } },
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
-  const started = start(options, { GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "secret" });
+  const started = start(options, { GOOGLE_CLIENT_ID: "id", IDENTITY_BROKER_KEYS: "{}" });
   const built = await Effect.runPromise(started.run);
   expect(reads).toBe(0);
-  expect(started.asked.toSorted()).toEqual(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]);
+  // The default keys too: on Cloudflare this read at the start is what declares the binding.
+  expect(started.asked.toSorted()).toEqual(["GOOGLE_CLIENT_ID", "IDENTITY_BROKER_KEYS"]);
   expect(await discovery(built.fetch)).toBe(200);
   expect(await discovery(built.fetch)).toBe(200);
   expect(reads).toBe(1);

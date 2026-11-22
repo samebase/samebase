@@ -12,6 +12,9 @@ import { HubConfig, Keys, SignInPage, type ServiceSettings } from "../core/servi
 /** A secret of the hub: a `Config`, or another Effect such as a Secrets Store read. */
 type Secret<R> = Effect.Effect<Redacted.Redacted<string>, unknown, R>;
 
+/** The signing keys of a hub whose options name none. */
+export const defaultKeys = Config.Redacted("IDENTITY_BROKER_KEYS");
+
 /** The client of the hub at one provider. */
 type ConnectorCredentials<R> = { readonly clientId: Secret<R>; readonly clientSecret: Secret<R> };
 
@@ -74,8 +77,6 @@ export const hubSettings = <R>(options: HubSettings<R>) =>
     SignInPage.layer(options.signInPage),
     Layer.effect(
       Keys,
-      Effect.map(options.keys ?? Config.Redacted("IDENTITY_BROKER_KEYS"), (keys) =>
-        Keys.of({ read: () => keys }),
-      ),
+      Effect.map(options.keys ?? defaultKeys, (keys) => Keys.of({ read: () => keys })),
     ),
   );
