@@ -240,6 +240,7 @@ Types and validation:
   tsconfig sets `erasableSyntaxOnly`, so Node runs any `.ts` file directly.
 - Every TypeScript file belongs to exactly one config named `tsconfig.json` (or referenced by one),
   the one CI checks it with.
+- Use named exports. Write a default export only where a tool requires one.
 - Put lint exceptions on the exact line with a reason. Use a file-level exception only when one rule
   saturates the file. Only generated files can use config-level overrides.
 - Do not hide type gaps with false overloads, casts, reflection, `globalThis`, hand-written type
