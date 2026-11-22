@@ -1,5 +1,15 @@
+import {
+  Client,
+  ModerationApi,
+  ModerationKey,
+  OwnerChanged,
+  UnknownConnector,
+} from "@samebase/identity-broker/moderation/api";
 import { validate } from "convex-helpers/validators";
-import { v, type Infer, type Validator } from "convex/values";
+import { v, type Infer } from "convex/values";
+import { Effect } from "effect";
+import { FetchHttpClient, HttpClientRequest } from "effect/http";
+import { HttpApiClient, HttpApiMiddleware } from "effect/http-api";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -15,8 +25,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const vBlockKind = union(literal("repository"), literal("owner"));
 const vBlockAction = union(literal("block"), literal("unblock"));
 
-// The answers of the hub's `/moderation/*` endpoints in src/component/moderation.ts of
-// @samebase/identity-broker 0.34.0.
+// The hub's answers as `ModerationApi` of @samebase/identity-broker/moderation/api declares them.
+// The typed client decodes them; each action's return type checks them against these validators.
 
 const vCount = object({ count: number(), atLeast: boolean() });
 const vCounts = object({ day: vCount, week: vCount });
@@ -136,8 +146,6 @@ const vGitHubRepository = object({
 /** `owner/name` as GitHub allows them; `.` and `..` are not repository names. */
 const GITHUB_FULL_NAME = /^([A-Za-z0-9-]+)\/(?!\.\.?$)([A-Za-z0-9._-]+)$/;
 
-const vChangeResult = object({ changed: boolean() });
-
 const vOff = object({ status: literal("off") });
 
 type Moderation = { issuer: string; key: string };
@@ -158,39 +166,36 @@ function readModeration(): Moderation | null {
   return issuer && key ? { issuer, key } : null;
 }
 
-/** One request to a moderation endpoint, with the key. */
-async function fetchHub(
+type HubClient = HttpApiClient.ForApi<typeof ModerationApi>["moderation"];
+
+/** The decoded answer of `request` through the typed client. A refusal or a bad answer throws. */
+async function askHub<A, E>(
   moderation: Moderation,
-  request: { method: "GET" | "POST" | "DELETE"; path: string; body?: unknown },
-): Promise<Response> {
-  return await fetch(`${moderation.issuer}${request.path}`, {
-    method: request.method,
-    headers: {
-      Authorization: `Bearer ${moderation.key}`,
-      "Content-Type": "application/json",
-    },
-    ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  request: (hub: HubClient) => Effect.Effect<A, E>,
+): Promise<A> {
+  return await Effect.runPromise(
+    HttpApiClient.make(ModerationApi, { baseUrl: moderation.issuer }).pipe(
+      Effect.flatMap((client) => request(client.moderation)),
+      Effect.timeout(REQUEST_TIMEOUT_MS),
+      Effect.provide(
+        HttpApiMiddleware.layerClient(ModerationKey, ({ next, request }) =>
+          next(HttpClientRequest.bearerToken(request, moderation.key)),
+        ),
+      ),
+      Effect.provide(FetchHttpClient.layer),
+    ),
+  );
 }
 
-/** The validated answer of one moderation endpoint. A refusal or a bad answer throws. */
-async function callHub<T>(
-  moderation: Moderation,
-  request: {
-    method: "GET" | "POST" | "DELETE";
-    path: string;
-    validator: Validator<T, "required", string>;
-    body?: unknown;
-  },
-): Promise<T> {
-  const response = await fetchHub(moderation, request);
-  const body: unknown = response.ok ? await response.json() : null;
-  if (!validate(request.validator, body)) {
-    throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
-  }
-  return body;
-}
+// A Convex return value has no readonly array, so each array of an answer is copied.
+const ownClient = (client: typeof Client.Type) => ({
+  ...client,
+  redirectUris: [...client.redirectUris],
+  connectors: [...client.connectors],
+  policyConnectors: client.policyConnectors && [...client.policyConnectors],
+  usableConnectors: client.usableConnectors && [...client.usableConnectors],
+  grantedConnectors: client.grantedConnectors && [...client.grantedConnectors],
+});
 
 /**
 The registration counts of the last day and week, the blocks, the newest block events, the
@@ -218,29 +223,34 @@ export const readOverview = action({
       return { status: "off" as const };
     }
 
-    const [counts, blockList, clientList, signInPage, connectorGrants] = await Promise.all([
-      callHub(moderation, { method: "GET", path: "/moderation/counts", validator: vCounts }),
-      callHub(moderation, { method: "GET", path: "/moderation/blocks", validator: vBlockList }),
-      callHub(moderation, { method: "GET", path: "/moderation/clients", validator: vClientList }),
-      callHub(moderation, {
-        method: "GET",
-        path: "/moderation/sign-in-page",
-        validator: vSignInPageList,
-      }),
-      callHub(moderation, {
-        method: "GET",
-        path: "/moderation/connector-grants",
-        validator: vConnectorGrantList,
-      }),
-    ]);
+    const [counts, blockList, clientList, signInPage, connectorGrants] = await askHub(
+      moderation,
+      (hub) =>
+        Effect.all(
+          [
+            hub.counts(),
+            hub.blocks(),
+            hub.clients({ query: {} }),
+            hub.signInPage(),
+            hub.connectorGrants(),
+          ],
+          { concurrency: "unbounded" },
+        ),
+    );
     return {
       status: "on" as const,
       issuer: moderation.issuer,
       counts,
-      blockList,
-      clientList,
-      signInPage,
-      connectorGrants,
+      blockList: { blocks: [...blockList.blocks], events: [...blockList.events] },
+      clientList: {
+        clients: clientList.clients.map(ownClient),
+        limitReached: clientList.limitReached,
+      },
+      signInPage: { everyApp: signInPage.everyApp, repositories: [...signInPage.repositories] },
+      connectorGrants: {
+        connectors: [...connectorGrants.connectors],
+        grants: [...connectorGrants.grants],
+      },
     };
   },
 });
@@ -270,11 +280,7 @@ export const lookupRepository = action({
       return { status: "not_found" as const };
     }
 
-    const { clients } = await callHub(moderation, {
-      method: "GET",
-      path: "/moderation/clients",
-      validator: vClientList,
-    });
+    const { clients } = await askHub(moderation, (hub) => hub.clients({ query: {} }));
     // Only the newest client of each repository (the list is newest first) names it: an older name
     // can belong to another repository now, or to none, so it goes to GitHub.
     const client = clients.find(
@@ -319,8 +325,8 @@ export const lookupRepository = action({
 });
 
 /**
-Grants (`grant: true`) or revokes one of the hub's connectors for one repository and owner, in the
-name of the signed-in admin. A grant names the owner that the admin saw: the hub answers
+Grants (`grant: true`) or revokes one of the hub's connectors for one repository and owner. A grant
+names the owner that the admin saw: the hub answers
 `owner_changed` when it recorded another owner, and `unknown_connector` for a connector it does not
 have. A revoke removes the row of the owner it names.
 */
@@ -345,47 +351,38 @@ export const changeConnectorGrant = action({
       ),
     }),
   ),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     const moderation = readModeration();
     if (moderation === null) {
       return { status: "off" as const };
     }
 
-    const response = await fetchHub(moderation, {
-      method: "POST",
-      path: "/moderation/connector-grants",
-      body: {
-        repositoryId: args.repositoryId,
-        connector: args.connector,
-        expectedOwnerId: args.expectedOwnerId,
-        grant: args.grant,
-        reason: args.reason,
-        adminEmail: ctx.viewer.user.email,
-      },
-    });
-    const body: unknown = await response.json().catch(() => null);
-    if (response.ok && validate(vChangeResult, body)) {
-      return {
-        status: "on" as const,
-        result: body.changed ? ("changed" as const) : ("unchanged" as const),
-      };
-    }
-    if (
-      (response.status === 409 || response.status === 400) &&
-      validate(
-        object({ error: union(literal("owner_changed"), literal("unknown_connector")) }),
-        body,
-      )
-    ) {
-      return { status: "on" as const, result: body.error };
-    }
-    throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
+    const result = await askHub(moderation, (hub) =>
+      hub
+        .changeConnectorGrant({
+          payload: {
+            repositoryId: args.repositoryId,
+            connector: args.connector,
+            expectedOwnerId: args.expectedOwnerId,
+            grant: args.grant,
+            reason: args.reason,
+          },
+        })
+        .pipe(
+          Effect.map(({ changed }) => (changed ? ("changed" as const) : ("unchanged" as const))),
+          Effect.catchIf(
+            (error) => error instanceof OwnerChanged || error instanceof UnknownConnector,
+            (refusal) => Effect.succeed(refusal.error),
+          ),
+        ),
+    );
+    return { status: "on" as const, result };
   },
 });
 
 /**
 Skips (`skip: true`) or shows again the hub's sign-in page for every app or for one repository and
-owner, in the name of the signed-in admin. A skip names the owner that the admin saw: the hub answers
+owner. A skip names the owner that the admin saw: the hub answers
 `owner_changed` when it recorded another owner. A show removes the row of the owner it names.
 */
 export const changeSignInPage = action({
@@ -398,33 +395,30 @@ export const changeSignInPage = action({
       result: union(literal("changed"), literal("unchanged"), literal("owner_changed")),
     }),
   ),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     const moderation = readModeration();
     if (moderation === null) {
       return { status: "off" as const };
     }
 
-    const response = await fetchHub(moderation, {
-      method: "POST",
-      path: "/moderation/sign-in-page",
-      body: {
-        target: args.target,
-        skip: args.skip,
-        reason: args.reason,
-        adminEmail: ctx.viewer.user.email,
-      },
-    });
-    const body: unknown = await response.json().catch(() => null);
-    if (response.ok && validate(vChangeResult, body)) {
-      return {
-        status: "on" as const,
-        result: body.changed ? ("changed" as const) : ("unchanged" as const),
-      };
-    }
-    if (response.status === 409 && validate(object({ error: literal("owner_changed") }), body)) {
-      return { status: "on" as const, result: body.error };
-    }
-    throw new Error(`The identity hub answered ${response.status} without a usable answer.`);
+    const result = await askHub(moderation, (hub) =>
+      hub
+        .changeSignInPage({
+          payload: {
+            target: args.target,
+            skip: args.skip,
+            reason: args.reason,
+          },
+        })
+        .pipe(
+          Effect.map(({ changed }) => (changed ? ("changed" as const) : ("unchanged" as const))),
+          Effect.catchIf(
+            (error) => error instanceof OwnerChanged,
+            (refusal) => Effect.succeed(refusal.error),
+          ),
+        ),
+    );
+    return { status: "on" as const, result };
   },
 });
 
@@ -442,18 +436,17 @@ export const changeBlock = action({
       return { status: "off" as const };
     }
 
-    const { changed } = await callHub(moderation, {
-      method: "POST",
-      path: "/moderation/blocks",
-      validator: vChangeResult,
-      body: {
-        action: args.action,
-        kind: args.kind,
-        githubId: args.githubId,
-        reason: args.reason,
-        adminEmail: ctx.viewer.user.email,
-      },
-    });
+    const { changed } = await askHub(moderation, (hub) =>
+      hub.changeBlock({
+        payload: {
+          action: args.action,
+          kind: args.kind,
+          githubId: args.githubId,
+          reason: args.reason,
+          adminEmail: ctx.viewer.user.email,
+        },
+      }),
+    );
     return { status: "on" as const, changed };
   },
 });
@@ -496,16 +489,6 @@ export const readOrganizationScope = internalQuery({
 });
 
 /**
-A hub's answer for one owner. It must name that owner: a hub on a broker without the owner filter
-answers every client, which this refuses instead of showing.
-*/
-const vOwnerClients = object({
-  owner: string(),
-  clients: array(vClient),
-  limitReached: boolean(),
-});
-
-/**
 The clients that a member may see at the hub (`readOrganizationScope`), newest first, the GitHub
 owner whose clients they are, and whether the hub stopped at its limit.
 */
@@ -513,28 +496,25 @@ async function readOrganizationClients(
   ctx: Pick<ActionCtx, "runQuery">,
   moderation: Moderation,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
-): Promise<{
-  ownerId: string;
-  clients: Infer<typeof vClient>[];
-  limitReached: boolean;
-}> {
+): Promise<{ ownerId: string; clients: Infer<typeof vClient>[]; limitReached: boolean }> {
   const scope = await ctx.runQuery(internal.hubClients.moderation.readOrganizationScope, {
     userId: args.userId,
     organizationId: args.organizationId,
   });
-  const answer = await callHub(moderation, {
-    method: "GET",
-    path: `/moderation/clients?${new URLSearchParams({ owner: scope.ownerId }).toString()}`,
-    validator: vOwnerClients,
-  });
+  const answer = await askHub(moderation, (hub) =>
+    hub.clients({ query: { owner: scope.ownerId } }),
+  );
+  // An answer that does not name this owner may list every owner's clients: show none of it.
   if (answer.owner !== scope.ownerId) {
     throw new Error("The identity hub answered for another owner.");
   }
-  const clients = answer.clients.filter(
-    (client) =>
-      scope.repositoryIds === null ||
-      scope.repositoryIds.includes(client.registeredBy.githubRepositoryDatabaseId),
-  );
+  const clients = answer.clients
+    .filter(
+      (client) =>
+        scope.repositoryIds === null ||
+        scope.repositoryIds.includes(client.registeredBy.githubRepositoryDatabaseId),
+    )
+    .map(ownClient);
   return {
     ownerId: scope.ownerId,
     clients: clients.sort(
@@ -596,11 +576,9 @@ export const deleteClientOfOrganization = action({
     if (!clients.some((client) => client.clientId === args.clientId)) {
       return { status: "on" as const, changed: false };
     }
-    const { changed } = await callHub(moderation, {
-      method: "DELETE",
-      path: `/moderation/clients/${args.clientId}?${new URLSearchParams({ owner: ownerId }).toString()}`,
-      validator: vChangeResult,
-    });
+    const { changed } = await askHub(moderation, (hub) =>
+      hub.deleteClient({ params: { clientId: args.clientId }, query: { owner: ownerId } }),
+    );
     return { status: "on" as const, changed };
   },
 });
