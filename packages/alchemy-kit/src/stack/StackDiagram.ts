@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 import { resourceTypeUI, type IconNode, type ResourceCategory } from "../ui/ResourceTypeUI.ts";
 import { asRecord, list, readString } from "./json.ts";
 import { resourceDashboard, resourceFacts } from "./ResourceFacts.ts";
-import { TARGET_IDS, workerBindings, type WorkerBinding } from "./WorkerBindings.ts";
+import { targetFields, workerBindings, type WorkerBinding } from "./WorkerBindings.ts";
 
 export { cronInWords, type ResourceFact } from "./ResourceFacts.ts";
 
@@ -76,8 +76,8 @@ function readRow({ fqn, state }: StateRow) {
       facts: resourceFacts(resourceType, { attr, props: asRecord(record["props"]) }),
       dashboard: resourceDashboard(resourceType, attr) ?? null,
       bindings: workerBindings(record["bindings"]),
-      /** The identifiers that a Worker binding names this row by, such as its bucket. */
-      ids: TARGET_IDS.flatMap((field) => readString(attr, field) ?? []),
+      /** The `attr` values that a Worker binding names this row by, such as its bucket. */
+      targets: targetFields(attr),
       /** The `.convex.cloud` URL of a Convex deployment: rows with the same URL are one deployment. */
       deploymentUrl:
         resourceType === "Convex.Deployment" ? (readString(attr, "url") ?? null) : null,
@@ -122,7 +122,7 @@ export interface DiagramBox {
 }
 
 /** A Worker binding of a box, with the other box that it names, if one does. */
-export interface BoxBinding extends Omit<WorkerBinding, "ids"> {
+export interface BoxBinding extends Omit<WorkerBinding, "match"> {
   box: DiagramBox | null;
 }
 
@@ -212,15 +212,20 @@ export function stageDiagram(stateRows: readonly StateRow[]) {
       box.bindings.map((binding) => [box, binding.box ?? undefined] as const),
     ),
   ];
+  // Two Workers that bind each other get a line each way, each with its own binding names.
   for (const [user, used] of uses) {
-    if (user !== undefined && used !== undefined && user !== used && !lineFor(user, used)) {
+    if (
+      user !== undefined &&
+      used !== undefined &&
+      user !== used &&
+      !lines.some((line) => line.from === user && (line.a === used || line.b === used))
+    ) {
       lines.push({ a: user, b: used, from: user, labels: [] });
     }
   }
   for (const line of lines) {
-    line.labels.push(
-      ...new Set([...bindingNames(line.a, line.b), ...bindingNames(line.b, line.a)]),
-    );
+    const other = line.from === line.a ? line.b : line.a;
+    line.labels.push(...new Set(line.from === null ? [] : bindingNames(line.from, other)));
   }
   for (const { row, reach } of labelRows) {
     const text = row.resourceType === "Alchemy.Random" ? "shared secret" : row.logicalId;
@@ -310,18 +315,25 @@ export function stageTree({ boxes, lines }: StageDiagram) {
 /** A tree node's name with the labels of its line, such as `Prices (PRICES)`. */
 export const nodeTitle = (node: StageTreeNode) => withLabels(node.box.name, node.labels);
 
-/** The bindings of the rows of `box`, each with the other box that holds a row it names. */
+/**
+The bindings of the rows of `box`, each with the other box that holds a row it names: a row of the
+binding's target type with each of its `attr` values. A binding to the box itself, such as the
+Worker's own Durable Object class, names no other box.
+*/
 const boxBindings = (box: DiagramBox, boxes: readonly DiagramBox[]): BoxBinding[] =>
   box.rows
     .flatMap((row) => row.bindings)
-    .map(({ ids, ...binding }) => ({
-      ...binding,
-      box:
-        boxes.find(
-          (other) =>
-            other !== box && other.rows.some((row) => row.ids.some((id) => ids.includes(id))),
-        ) ?? null,
-    }))
+    .map(({ match, ...binding }) => {
+      const named = boxes.filter((other) =>
+        other.rows.some(
+          (row) =>
+            match !== null &&
+            match.types.includes(row.resourceType) &&
+            match.values.every(([field, value]) => row.targets.get(field) === value),
+        ),
+      );
+      return { ...binding, box: named.includes(box) ? null : (named[0] ?? null) };
+    })
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
 
 /** The binding names of `box` that name `other`. */

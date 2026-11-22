@@ -316,12 +316,17 @@ function DiagramBoxView({
       {ownBindings(box).length === 0 ? null : (
         <ul className="mt-[0.667em] text-[0.75em] leading-[1.667]" aria-label="Bindings">
           {ownBindings(box).map((binding) => (
-            <li key={binding.name} className="flex min-w-0 items-center gap-[0.5em]">
+            <li
+              key={binding.name}
+              className="flex min-w-0 items-center gap-[0.5em]"
+              title={[binding.name, binding.kind, binding.target].filter(Boolean).join(" ")}
+            >
               <KitIcon
                 icon={binding.icon}
                 className="size-[1.167em] shrink-0 text-muted-foreground"
               />
-              <span className="font-mono">{binding.name}</span>
+              {/* One line each: `boxHeight` gives a binding 20 px. */}
+              <span className="max-w-[60%] shrink-0 truncate font-mono">{binding.name}</span>
               <span className="truncate text-muted-foreground">
                 {binding.kind}
                 {binding.target ? <span className="font-mono"> {binding.target}</span> : null}

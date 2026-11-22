@@ -151,3 +151,33 @@ it("gives the boxes and lines of a stage and keeps no secret value", () => {
   ]);
   expect(JSON.stringify(diagram.boxes)).not.toContain(SECRET);
 });
+
+it("links a binding only to a row of its target type, in the same R2 jurisdiction", () => {
+  const row = (logicalId: string, resourceType: string, attr: object, bindings: object[] = []) => ({
+    fqn: logicalId,
+    state: { logicalId, resourceType, status: "created", attr, bindings, downstream: [] },
+  });
+  const binding = (data: object) => ({ sid: "B", data: { bindings: [data] } });
+  const { boxes, lines } = stageDiagram([
+    row("Client", "Cloudflare.Worker", { workerName: "client" }, [
+      binding({
+        type: "durable_object_namespace",
+        name: "STORE",
+        className: "Store",
+        scriptName: "client",
+      }),
+      binding({ type: "r2_bucket", name: "UPLOADS", bucketName: "uploads", jurisdiction: "eu" }),
+    ]),
+    row("Named", "Cloudflare.R2.Bucket", { bucketName: "client", jurisdiction: "default" }),
+    row("Default", "Cloudflare.R2.Bucket", { bucketName: "uploads", jurisdiction: "default" }),
+    row("Eu", "Cloudflare.R2.Bucket", { bucketName: "uploads", jurisdiction: "eu" }),
+  ]);
+
+  expect(boxes[0]?.bindings.map((item) => [item.name, item.box?.name ?? null])).toEqual([
+    ["STORE", null],
+    ["UPLOADS", "Eu"],
+  ]);
+  expect(lines.map((line) => [line.a.name, line.b.name, line.labels])).toEqual([
+    ["Client", "Eu", ["UPLOADS"]],
+  ]);
+});

@@ -8,9 +8,10 @@
   `PageStore`), and the other box that it names, if one does. Every binding type that Alchemy writes
   is read, not only R2. A binding that holds a value (plain text, secret, JSON, secret key) is left
   out. A binding to a box that `downstream` does not connect gets a line too.
-- A line names a binding only when the binding names a row of the other box by its identifier, such
-  as the bucket, database or Worker. A binding name that only looks like the logical id of a row no
-  longer names it.
+- A binding names a row only of its target type, by the identifiers of that type: an R2 bucket by
+  its name and jurisdiction, a D1 database by its id, a Worker by its name, and so on. A binding name
+  that only looks like the logical id of a row no longer names it. A line carries only the binding
+  names of the box that uses the other, and two Workers that bind each other get a line each way.
 
 ## 0.6.0
 
