@@ -11,6 +11,9 @@ const BOX_WIDTH = 248;
 /** The space between two boxes of a column, or of a row, which a phone has less room for. */
 const NODE_GAP = { LR: 32, TB: 24 } as const;
 
+/** The bindings that a box lists: a binding to another box is the line to that box instead. */
+const ownBindings = (box: DiagramBox) => box.bindings.filter((binding) => binding.box === null);
+
 /**
 Border and padding, the icon row, the link row, the bindings with the space above them, and the
 "N more" row of a box, in pixels.
@@ -18,7 +21,7 @@ Border and padding, the icon row, the link row, the bindings with the space abov
 const boxHeight = (box: DiagramBox) =>
   72 +
   (box.link ? 24 : 0) +
-  (box.bindings.length > 0 ? 8 + box.bindings.length * 20 : 0) +
+  (ownBindings(box).length > 0 ? 8 + ownBindings(box).length * 20 : 0) +
   (box.folded.length > 0 ? 20 : 0);
 
 /** The space around the boxes of a namespace frame, and above them for its name. */
@@ -310,21 +313,19 @@ function DiagramBoxView({
           {new URL(box.link).host}
         </a>
       ) : null}
-      {box.bindings.length === 0 ? null : (
+      {ownBindings(box).length === 0 ? null : (
         <ul className="mt-[0.667em] text-[0.75em] leading-[1.667]" aria-label="Bindings">
-          {box.bindings.map((binding) => (
-            <li key={binding.name} className="flex items-center gap-[0.5em]" title={binding.kind}>
+          {ownBindings(box).map((binding) => (
+            <li key={binding.name} className="flex min-w-0 items-center gap-[0.5em]">
               <KitIcon
                 icon={binding.icon}
                 className="size-[1.167em] shrink-0 text-muted-foreground"
               />
-              <span className="sr-only">{binding.kind}</span>
               <span className="font-mono">{binding.name}</span>
-              {binding.box || binding.target ? (
-                <span className="truncate text-muted-foreground">
-                  → {binding.box?.name ?? binding.target}
-                </span>
-              ) : null}
+              <span className="truncate text-muted-foreground">
+                {binding.kind}
+                {binding.target ? <span className="font-mono"> {binding.target}</span> : null}
+              </span>
             </li>
           ))}
         </ul>
