@@ -954,7 +954,7 @@ test("Menger hover resumes landing tilt after a pointer cancellation", async ({ 
     .poll(() => readNumberAttribute(scene, "data-presentation-applied-angle-degrees"))
     .toBeGreaterThan(0.1);
 
-  await scene.evaluate((element) => {
+  await scene.evaluate((element: HTMLElement) => {
     element.addEventListener(
       "pointerdown",
       (event) => {

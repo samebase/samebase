@@ -5,9 +5,5 @@
     "types": []
   },
   "include": ["src/**/*.ts"],
-  "exclude": [
-    "../../node_modules",
-    "src/__tests__/learning/**/*",
-    "src/__tests__/types/understandingInferGoodRaw.tsc_test.ts"
-  ]
+  "exclude": ["../../node_modules"]
 }

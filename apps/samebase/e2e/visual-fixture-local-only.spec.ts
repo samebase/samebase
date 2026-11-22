@@ -16,7 +16,7 @@ test.use({
 });
 
 function buildDeployedVisualFixtureUrl() {
-  const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
+  const playwrightVitePort = process.env["PLAYWRIGHT_VITE_PORT"] ?? "4173";
   return `http://${DEPLOYED_HOSTNAME}:${playwrightVitePort}/visual-fixture?mode=button`;
 }
 

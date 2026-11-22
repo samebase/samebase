@@ -446,7 +446,7 @@ async function playAuthorize(
     ...(named.length === 0 ? {} : { connector: named.join(" ") }),
   });
   const label = `authorize ${client.handle} (${command.requested})`;
-  const response = await h.fetchBroker(`${h.issuer}/authorize?${params}`);
+  const response = await h.fetchBroker(`${h.issuer}/authorize?${params.toString()}`);
   checkAnswer(checks, label, response, client);
   // The set that `create` stores: what the request named, else the card's, of the card's.
   const stored = allowedNow(client, named.length === 0 ? undefined : named);

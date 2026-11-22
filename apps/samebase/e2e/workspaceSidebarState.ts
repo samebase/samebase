@@ -21,7 +21,7 @@ before the page load that the test measures.
 */
 export async function saveWorkspaceSidebarState(page: Page, state: WorkspaceSidebarState) {
   const localConfig: unknown = JSON.parse(await readFile(LOCAL_CONFIG_PATH, "utf8"));
-  if (!isRecord(localConfig) || !isRecord(localConfig.ports)) {
+  if (!isRecord(localConfig) || !isRecord(localConfig["ports"])) {
     throw new Error(`Invalid local Convex config: ${LOCAL_CONFIG_PATH}`);
   }
   // On a loopback origin the server names the cookie after the port (src/loopbackSessionCookies.ts).
@@ -32,7 +32,7 @@ export async function saveWorkspaceSidebarState(page: Page, state: WorkspaceSide
     throw new Error("Sign in before saving the workspace sidebar state.");
   }
 
-  const client = new ConvexHttpClient(`http://127.0.0.1:${String(localConfig.ports.cloud)}`, {
+  const client = new ConvexHttpClient(`http://127.0.0.1:${String(localConfig["ports"]["cloud"])}`, {
     logger: false,
     skipConvexDeploymentUrlCheck: true,
   });

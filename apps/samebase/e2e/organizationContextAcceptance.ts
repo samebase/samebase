@@ -72,5 +72,6 @@ export async function applyOrganizationContextAcceptanceFixture(args: {
   organizations: AcceptanceOrganization[];
 }) {
   const client = await createLocalConvexAdminClient(LOCAL_CONFIG_PATH);
+  // @ts-expect-error The client has admin auth, which may call internal functions; its type allows only public ones.
   return await client.mutation(internal.devAuth.applyOrganizationContextAcceptanceFixture, args);
 }

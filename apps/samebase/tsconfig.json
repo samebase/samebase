@@ -21,6 +21,15 @@
     "sourceMap": true,
     "inlineSources": true
   },
-  "include": ["src/**/*", "shared/**/*", "workers/**/*", "vite.config.ts", "convex/**/*"],
-  "exclude": ["node_modules", "convex/_generated"]
+  "include": [
+    "src/**/*",
+    "shared/**/*",
+    "workers/**/*",
+    "dev/**/*",
+    "e2e/**/*",
+    "playwright*.config.ts",
+    "prerender.config.ts",
+    "vite.config.ts"
+  ],
+  "exclude": ["node_modules"]
 }

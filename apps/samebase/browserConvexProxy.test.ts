@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
+import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy.ts";
 
 describe("browserConvexProxy", () => {
   it("prefers the local Convex URL when the dev frontend has a public origin", () => {

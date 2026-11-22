@@ -153,6 +153,10 @@ disagree, this file wins — update both in the same change.
   gap (`@ts-expect-error` with the runtime fact) instead of laundering it through runtime code. Keep
   a presence check only when own-key presence is real runtime state (an explicit `undefined` clear
   vs a missing key).
+- Every TypeScript file belongs to exactly one config named `tsconfig.json` (or a config one
+  references), the one CI type-checks it with, so the editor shows what CI shows. A
+  `tsconfig.<x>.json` exists only as such a reference or for the command line
+  (`pnpm check:editor-tsconfig` enforces it).
 
 ## UI behavior
 
