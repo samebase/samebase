@@ -1,5 +1,5 @@
 import { Config, Effect, Layer } from "effect";
-import type { Registration, Route } from "../../core/router.ts";
+import type { PublicRegistration, Route } from "../../core/router.ts";
 import { updateClient } from "../clientRegistration.ts";
 import { GATE_PREFIX } from "./clients.ts";
 import { deleteClient, readClient } from "./manage.ts";
@@ -61,7 +61,7 @@ export type GithubOptions = {
 export const github = (
   allowList: typeof AllowList.Type,
   options: GithubOptions = {},
-): Registration => {
+): PublicRegistration => {
   const paused = Effect.gen(function* () {
     return options.paused === undefined ? false : yield* options.paused;
   }).pipe(Effect.orDie);
@@ -75,5 +75,6 @@ export const github = (
       handler: (request: Request) => route.handler(request).pipe(Effect.provide(settings)),
     })),
     liveGates: Effect.map(paused, (value) => (value ? [{ prefix: GATE_PREFIX, live: [] }] : [])),
+    public: true,
   };
 };

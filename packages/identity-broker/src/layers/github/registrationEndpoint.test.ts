@@ -2,9 +2,12 @@
 // describes it. openid-client registers with its own `dynamicClientRegistration` and signs in,
 // discovery names the endpoint, and the client metadata that the hub reads, defaults, refuses, or
 // ignores.
+import { Config } from "effect";
 import * as client from "openid-client";
 import { describe, expect, it } from "vite-plus/test";
-import { createBroker, txnCookie } from "../../core/testing/harness.ts";
+import { hub } from "../../core/hub.ts";
+import { createBroker, TEST_SERVICE, txnCookie } from "../../core/testing/harness.ts";
+import { github } from "./routes.ts";
 import {
   createHub,
   ISSUER,
@@ -126,6 +129,21 @@ describe("POST /register with a standard client library", () => {
 });
 
 describe("discovery", () => {
+  it("is on a hub that names its service: strangers register here", () => {
+    const google = {
+      clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
+      clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
+    };
+    // @ts-expect-error A hub on the `github` layer needs `service`.
+    hub({ issuer: ISSUER, connectors: { google }, registration: github([]) });
+    hub({
+      issuer: ISSUER,
+      connectors: { google },
+      registration: github([]),
+      service: TEST_SERVICE,
+    });
+  });
+
   it("names the registration endpoint and the terms with the layer's routes", async () => {
     const h = await createHub();
 

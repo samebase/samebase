@@ -15,6 +15,9 @@
   Gone: `hubWorker`, `HubOptions`, the `secretsStore` option, and `hubRuntime` of `./cloudflare`.
 - `convexHub(component, hub)` takes the hub Effect in place of its settings, registration and
   connections.
+- `service` (the name, terms and privacy notice) is optional. Without it the sign-in page has no
+  links to them, discovery has no `op_tos_uri`, and a registration answer has no `terms`. A hub with
+  the `github` layer still needs it, as a type error.
 
 ## 0.38.0
 

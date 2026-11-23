@@ -29,8 +29,11 @@ export type HubSettings<R = never> = {
   };
   /** The signing keys (src/core/keys.ts). Default: `Config.Redacted("IDENTITY_BROKER_KEYS")`. */
   readonly keys?: Secret<R>;
-  /** The names that the sign-in page shows and discovery names. */
-  readonly service: ServiceSettings;
+  /**
+   * The name, terms and privacy notice that the sign-in page shows and discovery names. Without it
+   * they show nothing; a public registration layer such as `github` needs it.
+   */
+  readonly service?: ServiceSettings;
   /**
    * The hub's own page before the provider, from its facts to a whole HTML document; the default
    * page without it. The hub answers it with its own headers, and its error pages stay its own.

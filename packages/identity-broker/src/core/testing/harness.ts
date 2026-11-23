@@ -210,7 +210,7 @@ export async function coreServices(
     HubConfig.make({
       issuer: config.issuer ?? TEST_ISSUER,
       connectors: config.connectors ?? testConnectors(),
-      service: config.service ?? TEST_SERVICE,
+      service: "service" in config ? config.service : TEST_SERVICE,
     }),
   );
   const layer = Layer.mergeAll(

@@ -144,11 +144,6 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
         production: { key: Config.Redacted("HUB_PRODUCTION_KEY"), permanent: true },
       },
     }),
-    service: {
-      name: "Example",
-      terms: "https://example.com/terms",
-      privacy: "https://example.com/privacy",
-    },
   }).pipe(Effect.provide(DurableObjectStore)),
 ) {}
 ```
@@ -268,7 +263,7 @@ has `Cache-Control: no-store`. The typed client fails with the error's class.
 `Request` to a `Response`. It never fails; an error answers 500. A host provides its services:
 
 - `Store`: your storage (below).
-- `hubSettings(settings)`: the issuer, the connectors, the service names and the signing keys
+- `hubSettings(settings)`: the issuer, the connectors, the service (optional) and the signing keys
   (`keys`, by default `IDENTITY_BROKER_KEYS` read with Effect's `Config`).
 - `Random.layer`, `Fetch.layer` and `hubLogger`: `crypto.getRandomValues`, `fetch` with no
   redirects, and one JSON log line per entry. Time is Effect's `Clock`.
@@ -357,11 +352,6 @@ export const makeHub = (database: DatabaseSync) => {
           clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
           clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
         },
-      },
-      service: {
-        name: "Example",
-        terms: "https://example.com/terms",
-        privacy: "https://example.com/privacy",
       },
     }),
     Random.layer,

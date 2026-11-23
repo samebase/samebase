@@ -125,7 +125,7 @@ const registerClient = (settings: StackSettings) =>
       connections: key.connections,
     });
     return json(
-      newClient({ issuer: hub.issuer, terms: hub.service.terms }, credentials, {
+      newClient({ issuer: hub.issuer, terms: hub.service?.terms }, credentials, {
         createdAt,
         redirectUris: metadata.redirectUris,
         clientName: name,

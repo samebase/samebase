@@ -49,6 +49,9 @@ export type Registration<R = never> = {
   readonly liveGates?: Effect.Effect<ReadonlyArray<GateNamespace>>;
 };
 
+/** A registration layer where strangers register, so `hub(options)` needs the hub's `service`. */
+export type PublicRegistration<R = never> = Registration<R> & { readonly public: true };
+
 /** What a handler of a part needs: the core's services and the live gates of the request. */
 type PartEffect<A> = Effect.Effect<A, RouteError, CoreServices | LiveGates>;
 

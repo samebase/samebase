@@ -10,9 +10,17 @@ import {
   makeHandle,
   serverError,
   type CoreServices,
+  type PublicRegistration,
   type Registration,
 } from "./router.ts";
-import { Fetch, Random, type HubConfig, type Keys, type SignInPage } from "./services.ts";
+import {
+  Fetch,
+  Random,
+  type HubConfig,
+  type Keys,
+  type ServiceSettings,
+  type SignInPage,
+} from "./services.ts";
 
 type Hub<R = never> = {
   readonly fetch: Effect.Effect<
@@ -23,10 +31,15 @@ type Hub<R = never> = {
 };
 
 type HubOptions<R> = HubSettings<R> & {
-  readonly registration: Registration;
   /** Without it the hub mounts no connection route. */
   readonly connections?: ConnectionSettings<R>;
-};
+} & (
+    | { readonly registration: Registration & { readonly public?: never } }
+    | {
+        readonly registration: PublicRegistration;
+        readonly service: ServiceSettings;
+      }
+  );
 
 // workerd logs a thrown value that is no Error, such as Effect's ConfigError, as "[object Object]".
 const cannotStart = Effect.catchCause((cause: Cause.Cause<unknown>) =>

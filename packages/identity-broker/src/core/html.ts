@@ -165,8 +165,8 @@ export type SignInPageFacts = {
   }>;
   /** The scopes that the app gets, when the page asks for consent; null when it does not. */
   readonly scopes: ReadonlyArray<string> | null;
-  /** The hub's sign-in service: its name, and its privacy notice and terms. */
-  readonly hub: { readonly name: string; readonly privacy: string; readonly terms: string };
+  /** The hub's sign-in service: its name, and its privacy notice and terms; null without one. */
+  readonly hub: { readonly name: string; readonly privacy: string; readonly terms: string } | null;
 };
 
 /**
@@ -188,12 +188,12 @@ export const signInPage: SignInPageFunction = (facts) => {
   const fine =
     facts.scopes === null
       ? ""
-      : `\n<p class="fine">${escape(released(facts.scopes))} ${escape(facts.hub.name)} has not reviewed this app.</p>`;
+      : `\n<p class="fine">${escape(released(facts.scopes))}${facts.hub === null ? "" : ` ${escape(facts.hub.name)} has not reviewed this app.`}</p>`;
   return document(
     `Sign in to ${facts.host}`,
     `${heading}
 <div class="actions">${buttons}</div>${fine}`,
-    { privacy: facts.hub.privacy, terms: facts.hub.terms },
+    facts.hub,
   );
 };
 

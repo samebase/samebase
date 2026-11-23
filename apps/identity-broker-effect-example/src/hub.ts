@@ -30,10 +30,5 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
         preview: { key: Config.Redacted("EXAMPLE_HUB_PREVIEW_KEY") },
       },
     }),
-    service: {
-      name: "Identity broker example",
-      terms: "https://samebase.com/terms",
-      privacy: "https://samebase.com/privacy",
-    },
   }).pipe(Effect.provide(DurableObjectStore)),
 ) {}
