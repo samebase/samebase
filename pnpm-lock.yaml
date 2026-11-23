@@ -294,9 +294,9 @@ importers:
       effect:
         specifier: 4.1.4
         version: 4.1.4
-      oauth4webapi:
-        specifier: 3.8.8
-        version: 3.8.8
+      openid-client:
+        specifier: 6.9.0
+        version: 6.9.0
     devDependencies:
       '@alchemy.run/cloudflare':
         specifier: 2.0.0-beta.87
@@ -6112,6 +6112,9 @@ packages:
   jose@6.2.13:
     resolution: {integrity: sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ==}
 
+  jose@6.2.17:
+    resolution: {integrity: sha512-wOuK9V1yujQFH5S0ZWmLcDZN7+IKh9bUCC2ZPCf2HDlol3WWHy+PPyNjEI75FXRLMp3vDKQcupP59xhVU95hcg==}
+
   js-base64@3.9.4:
     resolution: {integrity: sha512-PtOMXpEGuP0RRiRXsjzHzl44dMHxSu2CPvAhinupR1tBa88me+1DPqsobl7eupn5UukjLkln1ZnAOAOXOrYG0Q==}
 
@@ -6755,6 +6758,9 @@ packages:
 
   openid-client@6.8.8:
     resolution: {integrity: sha512-ZsucJA5Ad04Uv7YN4ql+s4GXNmb9uAYQwyJTsJx7CH/MX3JZioLE2pVKi1SC+YrbSLA4Px3Gi30dMjgOZtb6pA==}
+
+  openid-client@6.9.0:
+    resolution: {integrity: sha512-2IvamJR8PAnWHngaCsGGA8TYfcLI2egvuqa9cOQYHIISwIUhxJwwwcCnkgVX95fzZ6J0TAna0aVGUMOxnPeRqg==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -13720,6 +13726,8 @@ snapshots:
 
   jose@6.2.13: {}
 
+  jose@6.2.17: {}
+
   js-base64@3.9.4: {}
 
   js-tokens@4.0.0: {}
@@ -14545,6 +14553,11 @@ snapshots:
   openid-client@6.8.8:
     dependencies:
       jose: 6.2.13
+      oauth4webapi: 3.8.8
+
+  openid-client@6.9.0:
+    dependencies:
+      jose: 6.2.17
       oauth4webapi: 3.8.8
 
   optionator@0.9.4:
