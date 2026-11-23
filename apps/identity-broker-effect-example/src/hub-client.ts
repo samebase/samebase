@@ -1,4 +1,4 @@
-// The app as a relying party of the identity hub, in OpenID Connect. oauth4webapi does discovery,
+// The app as a relying party of the identity hub, in OpenID Connect. openid-client does discovery,
 // the callback checks (state and the RFC 9207 `iss`), the code exchange with `client_secret_post`,
 // and the ID token checks (signature against the hub's JWKS, issuer, audience, nonce, expiry).
 //
@@ -9,7 +9,7 @@ import * as Alchemy from "alchemy";
 import * as Output from "alchemy/Output";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
-import * as oauth from "oauth4webapi";
+import * as oidc from "openid-client";
 
 /** The app's own hub (src/hub.ts), which the stage `prod` deploys. */
 const HUB = { issuer: "https://identity-broker-effect-example-hub-prod.pfp.workers.dev" };
@@ -37,10 +37,6 @@ export class TokenRefused extends Schema.TaggedError<TokenRefused>()("TokenRefus
 /** The answer to the browser names no issuer (RFC 9207). */
 export class AnswerWithoutIssuer extends Schema.TaggedError<AnswerWithoutIssuer>()(
   "AnswerWithoutIssuer",
-  {},
-) {}
-export class NoAuthorizationEndpoint extends Schema.TaggedError<NoAuthorizationEndpoint>()(
-  "NoAuthorizationEndpoint",
   {},
 ) {}
 export class NoIdToken extends Schema.TaggedError<NoIdToken>()("NoIdToken", {}) {}
@@ -74,13 +70,13 @@ export interface ClientValues {
   readonly clientSecret: Effect.Effect<Redacted.Redacted<string>>;
 }
 
-/** The tagged error of a failure of oauth4webapi, by its class. */
+/** The tagged error of a failure of openid-client, by its class. */
 const hubError = (cause: unknown): HubError =>
-  cause instanceof oauth.AuthorizationResponseError
+  cause instanceof oidc.AuthorizationResponseError
     ? new HubDeclined()
-    : cause instanceof oauth.OperationProcessingError
+    : cause instanceof oidc.ClientError
       ? new HubAnswerRejected({ code: cause.code ?? "operation" })
-      : cause instanceof oauth.ResponseBodyError
+      : cause instanceof oidc.ResponseBodyError
         ? new TokenRefused()
         : new HubUnreachable();
 
@@ -95,14 +91,10 @@ export class HubClient extends Context.Service<
     /** The hub's sign-in address for `redirectUri`, and what the callback must check. */
     start(
       redirectUri: string,
-    ): Effect.Effect<
-      { readonly url: string; readonly pending: PendingSignIn },
-      HubError | NoAuthorizationEndpoint
-    >;
-    /** The user of the hub's `answer` at `redirectUri`, after every check. */
+    ): Effect.Effect<{ readonly url: string; readonly pending: PendingSignIn }, HubError>;
+    /** The user of the hub's `answer`, after every check. Its address is the `redirect_uri`. */
     finish(
       answer: URL,
-      redirectUri: string,
       pending: PendingSignIn,
     ): Effect.Effect<User, HubError | AnswerWithoutIssuer | NoIdToken>;
   }
@@ -113,90 +105,63 @@ export class HubClient extends Context.Service<
       HubClient,
       Effect.gen(function* () {
         const fetch = yield* FetchHttpClient.Fetch;
-        const options = {
-          [oauth.customFetch]: <Method extends string, Body extends RequestInit["body"]>(
-            url: string,
-            init: oauth.CustomFetchOptions<Method, Body>,
-          ) =>
-            fetch(url, {
-              method: init.method,
-              headers: init.headers,
-              body: init.body ?? null,
-              redirect: init.redirect,
-              ...(init.signal === undefined ? {} : { signal: init.signal }),
-            }),
-        };
 
-        const discovery = Effect.flatMap(values.issuer, (issuer) =>
-          hubCall(async () => {
-            const url = new URL(issuer);
-            const response = await oauth.discoveryRequest(url, { algorithm: "oidc", ...options });
-            return await oauth.processDiscoveryResponse(url, response);
-          }),
-        );
+        const configuration = Effect.gen(function* () {
+          const issuer = new URL(yield* values.issuer);
+          const clientId = yield* values.clientId;
+          const clientSecret = Redacted.value(yield* values.clientSecret);
+          const config = yield* hubCall(() =>
+            oidc.discovery(issuer, clientId, undefined, oidc.ClientSecretPost(clientSecret), {
+              [oidc.customFetch]: (url, init) => fetch(url, { ...init, body: init.body ?? null }),
+            }),
+          );
+          // Check the ID token's signature against the hub's JWKS, not only TLS.
+          oidc.enableNonRepudiationChecks(config);
+          return config;
+        });
 
         const start = Effect.fn("HubClient.start")(function* (redirectUri: string) {
-          const as = yield* discovery;
-          if (as.authorization_endpoint === undefined) {
-            return yield* new NoAuthorizationEndpoint();
-          }
+          const config = yield* configuration;
           const pending = {
-            state: oauth.generateRandomState(),
-            nonce: oauth.generateRandomNonce(),
-            verifier: oauth.generateRandomCodeVerifier(),
+            state: oidc.randomState(),
+            nonce: oidc.randomNonce(),
+            verifier: oidc.randomPKCECodeVerifier(),
           };
-          const url = new URL(as.authorization_endpoint);
-          const parameters = {
-            client_id: yield* values.clientId,
-            redirect_uri: redirectUri,
-            response_type: "code",
-            scope: "openid email profile",
-            connector: CONNECTOR,
-            state: pending.state,
-            nonce: pending.nonce,
-            code_challenge: yield* hubCall(() =>
-              oauth.calculatePKCECodeChallenge(pending.verifier),
-            ),
-            code_challenge_method: "S256",
-          };
-          for (const [name, value] of Object.entries(parameters)) url.searchParams.set(name, value);
+          const codeChallenge = yield* hubCall(() =>
+            oidc.calculatePKCECodeChallenge(pending.verifier),
+          );
+          const url = yield* Effect.try({
+            try: () =>
+              oidc.buildAuthorizationUrl(config, {
+                redirect_uri: redirectUri,
+                scope: "openid email profile",
+                connector: CONNECTOR,
+                state: pending.state,
+                nonce: pending.nonce,
+                code_challenge: codeChallenge,
+                code_challenge_method: "S256",
+              }),
+            catch: hubError,
+          });
           return { url: url.href, pending };
         });
 
         const finish = Effect.fn("HubClient.finish")(function* (
           answer: URL,
-          redirectUri: string,
           pending: PendingSignIn,
         ) {
-          // RFC 9207: the hub names itself in every answer. oauth4webapi compares the value with
+          // RFC 9207: the hub names itself in every answer. openid-client compares the value with
           // the issuer; this makes it required whatever the metadata says.
           if (!answer.searchParams.has("iss")) return yield* new AnswerWithoutIssuer();
-          const as = yield* discovery;
-          const client: oauth.Client = { client_id: yield* values.clientId };
-          const clientSecret = yield* values.clientSecret;
-          const params = yield* Effect.try({
-            try: () => oauth.validateAuthResponse(as, client, answer, pending.state),
-            catch: hubError,
-          });
-          const response = yield* hubCall(() =>
-            oauth.authorizationCodeGrantRequest(
-              as,
-              client,
-              oauth.ClientSecretPost(Redacted.value(clientSecret)),
-              params,
-              redirectUri,
-              pending.verifier,
-              options,
-            ),
-          );
+          const config = yield* configuration;
           const tokens = yield* hubCall(() =>
-            oauth.processAuthorizationCodeResponse(as, client, response, {
+            oidc.authorizationCodeGrant(config, answer, {
+              pkceCodeVerifier: pending.verifier,
+              expectedState: pending.state,
               expectedNonce: pending.nonce,
-              requireIdToken: true,
             }),
           );
-          yield* hubCall(() => oauth.validateApplicationLevelSignature(as, response, options));
-          const claims = oauth.getValidatedIdTokenClaims(tokens);
+          const claims = tokens.claims();
           if (claims === undefined) return yield* new NoIdToken();
           return yield* Schema.decodeUnknownEffect(User)(claims).pipe(
             Effect.mapError(() => new HubAnswerRejected({ code: "claims" })),

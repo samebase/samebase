@@ -9,7 +9,6 @@ import {
   type AnswerWithoutIssuer,
   HubClient,
   type HubError,
-  type NoAuthorizationEndpoint,
   type NoIdToken,
   PendingSignIn,
   User,
@@ -91,7 +90,7 @@ const callback = Effect.fn("callback")(function* (url: URL) {
   const session = yield* Session;
   const pending = yield* session.unseal("sign-in", SignInCookie, request.cookies[SIGN_IN_COOKIE]);
   if (Option.isNone(pending)) return yield* new SignInExpired();
-  const user = yield* hub.finish(url, `${url.origin}/callback`, pending.value);
+  const user = yield* hub.finish(url, pending.value);
   const value = yield* session.seal("session", user, SESSION_TTL);
   return redirect("/").pipe(
     HttpServerResponse.setCookieUnsafe(SESSION_COOKIE, value, { ...COOKIE, maxAge: SESSION_TTL }),
@@ -117,7 +116,7 @@ const signIn = (
   route: "/login" | "/callback",
   attempt: Effect.Effect<
     HttpServerResponse.HttpServerResponse,
-    SignInExpired | HubError | AnswerWithoutIssuer | NoAuthorizationEndpoint | NoIdToken,
+    SignInExpired | HubError | AnswerWithoutIssuer | NoIdToken,
     HttpServerRequest | HubClient | Session
   >,
 ) =>
@@ -127,8 +126,6 @@ const signIn = (
         failed(route, 400, "The sign-in expired or started in another browser.", "sign_in"),
       AnswerWithoutIssuer: () =>
         failed(route, 400, "The answer does not name the identity hub.", "sign_in"),
-      NoAuthorizationEndpoint: () =>
-        failed(route, 502, "The identity hub names no authorization endpoint.", "sign_in"),
       NoIdToken: () => failed(route, 502, "The identity hub gave no ID token.", "sign_in"),
       HubDeclined: () => failed(route, 400, "The identity hub did not sign you in.", "refused"),
       HubAnswerRejected: (error) =>
