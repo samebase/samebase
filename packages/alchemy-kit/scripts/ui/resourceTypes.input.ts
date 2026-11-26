@@ -20,8 +20,9 @@ export const resourceTypeEntries: Record<string, InputEntry> = {
   "Convex.Project": ["Convex Project", "folder", "#EE342F", "database"],
   "Convex.Deployment": ["Convex Deployment", "database", "#EE342F", "database"],
   "Convex.LocalDeployment": ["Convex Local Deployment", "laptop", "#EE342F", "database"],
-  "IdentityHub.Client": ["Identity Hub Client", "id-card", undefined, "auth"],
-  "IdentityHub.SharedClient": ["Identity Hub Client", "id-card", undefined, "auth"],
+  "IdentityBroker.Client": ["Identity Broker Client", "id-card", undefined, "auth"],
+  "IdentityHub.Client": ["Identity Broker Client", "id-card", undefined, "auth"],
+  "IdentityHub.SharedClient": ["Identity Broker Client", "id-card", undefined, "auth"],
 };
 
 /** Alchemy resource types that use the default name and icon, one tag per line. */

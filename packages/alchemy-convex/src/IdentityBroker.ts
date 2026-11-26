@@ -622,11 +622,12 @@ const renew = (saved: ClientAttributes, required: boolean) =>
  * gives it the new type, with the same client; a destroy or an orphan delete finds this provider
  * for it by these aliases. Remove them, here and in `SavedRow`, once no saved row has an old type.
  */
-const OLD_TYPES = ["IdentityHub.Client", "IdentityHub.SharedClient"] as const;
+const OLD_TYPE = "IdentityHub.Client";
+const OLDER_TYPE = "IdentityHub.SharedClient";
 
 /** A saved row of this resource, whose `attr` `savedAttributes` reads. */
 const SavedRow = Schema.Struct({
-  resourceType: Schema.Literals(["IdentityBroker.Client", ...OLD_TYPES]),
+  resourceType: Schema.Literals(["IdentityBroker.Client", OLD_TYPE, OLDER_TYPE]),
   attr: Schema.Unknown,
 });
 
@@ -739,7 +740,9 @@ export type Client = Resource<
   never,
   Providers
 >;
-export const Client = Resource<Client>("IdentityBroker.Client", { aliases: [...OLD_TYPES] })({
+export const Client = Resource<Client>("IdentityBroker.Client", {
+  aliases: [OLD_TYPE, OLDER_TYPE],
+})({
   read,
   variables,
 });
