@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.44.0
+
+- 0.43.0 on npm does not have these changes: it still has the entry `./connections`.
+- Breaking: the API providers for which the broker gets tokens are now **integrations**. A connector
+  is still a sign-in provider, and a connection is still one person's authorization of one
+  integration. The old names are gone:
+  - The entry `@samebase/identity-broker/connections` -> `@samebase/identity-broker/integrations`.
+    Import `* as Integrations from "@samebase/identity-broker/integrations"`; the constructors keep
+    their names, such as `Integrations.cloudflare({...})`.
+  - The option `connections` of `identityBroker` -> `integrations`.
+  - The field `connections` of a `Registration.Key` -> `integrations`.
+  - Types and functions: `ConnectionSpec` -> `IntegrationSpec`, `ConnectionProvider` ->
+    `Integration`, `makeConnections` -> `makeIntegrations`.
+  - Configuration error messages say "integration", such as
+    `The integrations setting names no provider`.
+- Breaking for operators: each integration's callback moves from
+  `<issuer>/connections/<name>/callback` to `<issuer>/integrations/<name>/callback`, and the old
+  path answers 404. Before you deploy, add the new address as a redirect URL of the OAuth client at
+  each API provider, such as `<issuer>/integrations/cloudflare/callback`.
+- Stored data and the wire do not change: the tables `connectionRequests` and `connectionCodes`, the
+  card field `connections`, the Durable Object instance name `connections`, the store commands
+  `connections.*`, and the log events `connection` and `connection_refused`.
+
 ## 0.43.0
 
 - New entry `@samebase/identity-broker/alchemy`: `IdentityBroker.Client`, `registrationKey`, and
@@ -32,25 +55,6 @@
 - Breaking: the entry `./moderation/api` is now `./moderation-api`. Import
   `@samebase/identity-broker/moderation-api` in place of `@samebase/identity-broker/moderation/api`.
   Its exports are the same.
-- Breaking: the API providers for which the broker gets tokens are now **integrations**. A connector
-  is still a sign-in provider, and a connection is still one person's authorization of one
-  integration. The old names are gone:
-  - The entry `@samebase/identity-broker/connections` -> `@samebase/identity-broker/integrations`.
-    Import `* as Integrations from "@samebase/identity-broker/integrations"`; the constructors keep
-    their names, such as `Integrations.cloudflare({...})`.
-  - The option `connections` of `identityBroker` -> `integrations`.
-  - The field `connections` of a `Registration.Key` -> `integrations`.
-  - Types and functions: `ConnectionSpec` -> `IntegrationSpec`, `ConnectionProvider` ->
-    `Integration`, `makeConnections` -> `makeIntegrations`.
-  - Configuration error messages say "integration", such as
-    `The integrations setting names no provider`.
-- Breaking for operators: each integration's callback moves from
-  `<issuer>/connections/<name>/callback` to `<issuer>/integrations/<name>/callback`, and the old
-  path answers 404. Before you deploy, add the new address as a redirect URL of the OAuth client at
-  each API provider, such as `<issuer>/integrations/cloudflare/callback`.
-- Stored data and the wire do not change: the tables `connectionRequests` and `connectionCodes`, the
-  card field `connections`, the Durable Object instance name `connections`, the store commands
-  `connections.*`, and the log events `connection` and `connection_refused`.
 
 ## 0.42.0
 
