@@ -6,23 +6,13 @@
 import { v } from "convex/values";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { query } from "./_generated/server.js";
-import { storedStage } from "./state.ts";
+import { storedStage, withoutSecrets } from "./state.ts";
 
 /** The reply of {@link repository}. */
 export const repositoryReply = v.object({
   store: v.literal("found"),
   stacks: v.array(v.object({ name: v.string(), stages: v.array(storedStage) })),
 });
-
-/** Alchemy encodes a secret as an object with __redacted__; discard that whole object's contents. */
-const withoutSecrets = (text: string) =>
-  JSON.stringify(
-    JSON.parse(text, (_key, value: unknown) =>
-      typeof value === "object" && value !== null && "__redacted__" in value
-        ? { __redacted__: null }
-        : value,
-    ),
-  );
 
 const byName = <T extends { name: string }>(a: T, b: T) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0;

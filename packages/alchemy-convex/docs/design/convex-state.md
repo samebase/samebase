@@ -259,6 +259,9 @@ hand, with a Convex export and import; the package does not export the component
 
 ## Sealed secrets (store version 5)
 
+Store version 8 replaced this section: see
+[Sealing in the client](#sealing-in-the-client-store-version-8).
+
 `encodeState` writes `{ "__redacted__": <value> }`, and a row must keep the value: the next run can
 get a hub client secret or a Cloudflare token only from the state. So every reader had to remove the
 values, and a reader that forgot showed them. The store now seals them, so that a row is safe to
@@ -341,6 +344,31 @@ deploy conflict (0.25.1 made the conflict rare).
   this store also lists a stage that has only an output. Alchemy's `syncState` copies resources and
   no outputs, so a stage that moves to another store has no output, and no run record, until its
   next deploy.
+
+## Sealing in the client (store version 8)
+
+Store version 8 replaces the sealing of store version 5. The client seals with the sealing codec of
+Alchemy (`alchemy/State/StateEncryption`), and the store deployment is the key service of that
+codec, as KMS is for the AWS stores.
+
+- The client writes the JSON of `encodeJson`: each secret becomes `{ "__sealed__": <base64> }` under
+  a data key of the stage, and a top-level field `__alchemy_sealed__` holds `{ by: "convex", key }`
+  with the wrapped data key. A record that is not an object goes into that field as `value`.
+- `state:newDataKey({ stack, stage })` is an action, because only an action has real randomness. It
+  makes 32 random bytes and wraps them under the current key, with the stack and stage as additional
+  data. `state:openDataKey({ stack, stage, wrapped })` is a query that opens a wrapped key for that
+  stack and stage only. The codec makes one data key for each stage, and opens each wrapped data key
+  once.
+- `state:set` and `state:setOutput` are mutations that store the text. They refuse a text in which a
+  JSON object has the key `__redacted__`: a client of store version 7 that is still in a run sends
+  its secrets so.
+- A row of store version 7 stays as it is. `get`, `replaced`, and `getOutput` still open it, and the
+  codec reads the result as a record without sealing. The next write of that resource replaces it.
+  No read writes, because the store has no lock and other stacks read at any time.
+- `state:readStack` and `reader:repository` remove both kinds of secret, and drop
+  `__alchemy_sealed__`.
+- `state:rotateKey` makes a new key current for new data keys. There is no reseal, so a key variable
+  must stay while a row names it.
 
 ## Measured
 

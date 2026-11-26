@@ -5,11 +5,10 @@
 //
 // A stage holds one row for each resource of its stack, so the reads of one
 // stage collect all rows.
-import { v, type Validator } from "convex/values";
+import { v } from "convex/values";
 import type { QueryCtx } from "./_generated/server.js";
 // oxlint-disable-next-line samebase/no-raw-public-convex-function-builders -- Store entrypoints have no app wrapper; the reader and the deploy key enforce access.
 import { mutation, query } from "./_generated/server.js";
-import { generationOf } from "./keys.ts";
 
 const stage = { stack: v.string(), stage: v.string() };
 const resource = { ...stage, fqn: v.string() };
@@ -212,87 +211,34 @@ export const setOutput = mutation({
   },
 });
 
-/** A document holds at most 1 MiB, so one page reads less than the 16 MiB of one function. */
-const RESEAL_PAGE = 10;
-
-const pageOf = <Row extends Validator<unknown, "required", string>>(row: Row) =>
-  v.object({ page: v.array(row), continueCursor: v.string(), isDone: v.boolean() });
-
-const resealRow = v.object({ ...resource, value: v.string() });
+const REDACTED = "__redacted__";
 
 /**
- * One bounded page of the resources, in table order, for a reseal. `list` and `readStack` read a
- * whole stage or stack, which can pass the read limit of one function.
+ * A row's JSON text without its secrets. A secret of store version 7 (`__redacted__`, sealed or in
+ * clear text) and a secret that the client sealed (`__sealed__`) become `{"__redacted__": null}`.
+ * The header of a sealed record, the top-level field `__alchemy_sealed__`, holds the wrapped data
+ * key: it is dropped, and a record that is not an object comes from its `value`.
  */
-export const resourcePage = query({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: pageOf(resealRow),
-  handler: async (ctx, args) => {
-    const { page, continueCursor, isDone } = await ctx.db
-      .query("resources")
-      .paginate({ cursor: args.cursor, numItems: RESEAL_PAGE });
-    return {
-      page: page.map(({ stack, stage, fqn, value }) => ({ stack, stage, fqn, value })),
-      continueCursor,
-      isDone,
-    };
-  },
-});
-
-/** One bounded page of the outputs. A row that store version 6 left without a value is left out. */
-export const outputPage = query({
-  args: { cursor: v.union(v.string(), v.null()) },
-  returns: pageOf(v.object({ ...stage, value: v.string() })),
-  handler: async (ctx, args) => {
-    const { page, continueCursor, isDone } = await ctx.db
-      .query("outputs")
-      .paginate({ cursor: args.cursor, numItems: RESEAL_PAGE });
-    return {
-      page: page.flatMap(({ stack, stage, value }) =>
-        value === undefined ? [] : [{ stack, stage, value }],
-      ),
-      continueCursor,
-      isDone,
-    };
-  },
-});
+export const withoutSecrets = (text: string) => {
+  const parsed: unknown = JSON.parse(text, (_key, value: unknown) =>
+    typeof value === "object" && value !== null && (REDACTED in value || "__sealed__" in value)
+      ? { [REDACTED]: null }
+      : value,
+  );
+  if (typeof parsed !== "object" || parsed === null || !("__alchemy_sealed__" in parsed)) {
+    return JSON.stringify(parsed);
+  }
+  const { __alchemy_sealed__: header, ...record } = parsed;
+  return JSON.stringify(
+    typeof header === "object" && header !== null && "value" in header ? header.value : record,
+  );
+};
 
 /**
- * What a reseal write did. `stale` means that a rotation came after the sweep started: that sweep
- * must not put an older key back over the work of a newer one.
- */
-const replaceResult = v.union(v.literal("replaced"), v.literal("changed"), v.literal("stale"));
-
-/** Replaces the value of a row that still holds `expected`, for a reseal of `generation`. */
-export const replaceResource = mutation({
-  args: { ...resource, expected: v.string(), value: v.string(), generation: v.number() },
-  returns: replaceResult,
-  handler: async (ctx, args) => {
-    if ((await generationOf(ctx)) !== args.generation) return "stale";
-    const row = await rowOf(ctx, args);
-    if (row === null || row.value !== args.expected) return "changed";
-    await ctx.db.patch("resources", row._id, { value: args.value });
-    return "replaced";
-  },
-});
-
-/** Like {@link replaceResource}, for an output. */
-export const replaceOutput = mutation({
-  args: { ...stage, expected: v.string(), value: v.string(), generation: v.number() },
-  returns: replaceResult,
-  handler: async (ctx, args) => {
-    if ((await generationOf(ctx)) !== args.generation) return "stale";
-    const row = await outputOf(ctx, args);
-    if (row === null || row.value !== args.expected) return "changed";
-    await ctx.db.patch("outputs", row._id, { value: args.value });
-    return "replaced";
-  },
-});
-
-/**
- * One stage as the store holds it: its resources in fqn order and its output, as JSON texts, with
- * `output: null` for a stage without one. {@link readStack} and the repository reader give stages in
- * this shape, and the shape is Alchemy state only: a reader takes anything else from the output.
+ * One stage as the store holds it, without secrets: its resources in fqn order and its output, as
+ * JSON texts, with `output: null` for a stage without one. {@link readStack} and the repository
+ * reader give stages in this shape, and the shape is Alchemy state only: a reader takes anything
+ * else from the output.
  */
 export const storedStage = v.object({
   name: v.string(),
@@ -306,7 +252,7 @@ export const stackReply = v.object({ stages: v.array(storedStage) });
 /**
  * One call for a reader: every stage of a stack in name order, each with its
  * resources in fqn order and its output, as the JSON texts that the rows
- * hold. A stage with an output and no resource is listed with an empty
+ * hold without their secrets. A stage with an output and no resource is listed with an empty
  * resource list; a stage with resources and no output with `output: null`.
  * One function reads at most 16 MiB (Convex limit): a stack whose rows go
  * beyond that fails here and is read with `stages`, `list`, `get`, and
@@ -336,8 +282,8 @@ export const readStack = query({
           name: stage,
           resources: resources
             .filter((row) => row.stage === stage)
-            .map((row) => ({ fqn: row.fqn, value: row.value })),
-          output: output?.value ?? null,
+            .map((row) => ({ fqn: row.fqn, value: withoutSecrets(row.value) })),
+          output: output?.value === undefined ? null : withoutSecrets(output.value),
         };
       }),
     };

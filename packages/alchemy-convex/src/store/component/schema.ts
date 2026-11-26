@@ -20,8 +20,9 @@ export default defineSchema({
     value: v.optional(v.string()),
     currentRun: v.optional(v.any()),
   }).index("by_stage", ["stack", "stage"]),
-  // One row: the key that seals new secrets, the count of its rotations, and the last count for
-  // which a reseal finished.
+  // One row: the key that wraps new data keys, and the count of its rotations. Store version 7
+  // wrote `sealedGeneration` after a reseal. Nothing reads it now, and it stays declared for the
+  // rows of an older store.
   keys: defineTable({
     current: v.string(),
     generation: v.number(),

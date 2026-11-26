@@ -19,9 +19,10 @@
 // repository-scoped subscriptions with secret values removed. A key that stops working during a
 // long run (it expires after two hours) is replaced once per call.
 //
-// The store seals each `Redacted` value in its own functions, with a key in a variable of its
-// deployment, so this client sends and gets clear text. Each run asks whether the sealing is
-// finished, and finishes it: see `ensureSealed`.
+// This client seals each `Redacted` value with Alchemy's sealing codec before a write, and opens it
+// after a read. The store deployment is the key service of the codec: it makes the data key of each
+// stage and wraps it with a key in a variable of its deployment (see src/store/convex/sealing.ts).
+// So the run holds no key of its own. A run gives the store its first key: see `ensureKey`.
 //
 // Two first runs of a team can both create a project named `alchemy-state-store`.
 // The run whose project is not the oldest deletes its own, before it writes
@@ -41,21 +42,26 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as Redacted from "effect/Redacted";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import {
-  encodeState,
   type PersistedState,
   type ReplacedResourceState,
-  reviveState,
   State,
   type StateService,
   STATE_STORE_VERSION,
   StateStoreError,
 } from "alchemy/State";
+import {
+  makeSealingCodec,
+  type SealingScope,
+  StateEncryption,
+  type StateEncryptionService,
+} from "alchemy/State/StateEncryption";
 import { fromConfig } from "./Credentials.ts";
 import { ProductionDeploymentNotFound } from "./Deployment.ts";
 import {
@@ -97,7 +103,7 @@ const RUN_KEY_ACTIONS = [
   "deployment:functions:runInternalMutations",
 ] as const;
 
-/** The actions of the key of one run on the store: its writes are actions that seal. */
+/** The actions of the key of one run on the store: `state:newDataKey` is an action. */
 const STORE_KEY_ACTIONS = [...RUN_KEY_ACTIONS, "deployment:functions:runInternalActions"] as const;
 
 /** The body of POST /api/function, with HTTP 200 for a function error too. */
@@ -161,10 +167,10 @@ const decode =
     Schema.decodeUnknownEffect(schema)(value).pipe(Effect.mapError(() => failure(`bad ${what}`)));
 
 /** The reply of `state:sealing`. */
-const Sealing = Schema.Struct({ current: Schema.NullOr(Schema.String), sealed: Schema.Boolean });
+const Sealing = Schema.Struct({ current: Schema.NullOr(Schema.String) });
 
-/** The reply of `state:reseal`. */
-const Resealed = Schema.Struct({ failed: Schema.Array(Schema.String) });
+/** The reply of `state:newDataKey`: the data key and its wrapped copy, both base64. */
+const DataKey = Schema.Struct({ plaintext: Schema.String, wrapped: Schema.String });
 
 /** The function API of the store deployment, with a deploy key. */
 export interface FunctionApi {
@@ -190,45 +196,106 @@ const valueOf = (reply: Reply) =>
     ? Effect.succeed(reply.value)
     : Effect.fail(failure(reply.errorMessage.trim()));
 
-/** The functions of the store with Alchemy's encoding: the JSON text of encodeState. */
-const remoteOf = (api: FunctionApi) => {
+/**
+ * The store deployment as the key service of Alchemy's sealing codec, as KMS is for the AWS stores:
+ * it makes the data key of a stage and opens a wrapped one. The arguments name the stage only.
+ */
+const keyServiceOf = (functions: FunctionApi): StateEncryptionService => ({
+  id: "convex",
+  generate: (scope) =>
+    functions.call("state:newDataKey", { stack: scope.stack, stage: scope.stage }).pipe(
+      Effect.flatMap(valueOf),
+      Effect.flatMap(decode(DataKey, "state:newDataKey")),
+      Effect.map(({ plaintext, wrapped }) => ({
+        plaintext: Buffer.from(plaintext, "base64"),
+        wrapped,
+      })),
+    ),
+  unwrap: (wrapped, scope) =>
+    functions.call("state:openDataKey", { stack: scope.stack, stage: scope.stage, wrapped }).pipe(
+      Effect.flatMap(valueOf),
+      Effect.flatMap(decode(Schema.String, "state:openDataKey")),
+      Effect.map((plaintext) => Buffer.from(plaintext, "base64")),
+    ),
+});
+
+/**
+ * Alchemy's state interface over the functions of the store. A row holds the JSON text of the
+ * codec's `encodeJson`, so each secret leaves this process sealed. The codec makes one data key for
+ * each stage and opens each wrapped data key once. Like Alchemy's own stores, the store gives back
+ * the state that it got.
+ */
+export const storeState = (
+  functions: FunctionApi,
+  encryption: StateEncryptionService | undefined,
+): StateService => {
+  // A StateEncryption that the stack provides to the store layer replaces the store's own keys.
+  const codec = makeSealingCodec(encryption ?? keyServiceOf(functions));
   const run = (name: string, args: Record<string, string | undefined>) =>
-    api.call(`state:${name}`, args).pipe(Effect.flatMap(valueOf));
+    functions.call(`state:${name}`, args).pipe(Effect.flatMap(valueOf));
   const strings = (name: string, args: Record<string, string>) =>
     run(name, args).pipe(Effect.flatMap(decode(Schema.Array(Schema.String), name)));
   const optional = (name: string, args: Record<string, string>) =>
     run(name, args).pipe(Effect.flatMap(decode(Schema.NullOr(Schema.String), name)));
-  const encode = (value: unknown) => JSON.stringify(encodeState(value));
+  const encode = (scope: SealingScope, value: unknown) =>
+    codec.encodeJson(scope, value).pipe(Effect.map((json) => JSON.stringify(json)));
   return {
+    id: "convex",
+    getVersion: () => Effect.succeed(STATE_STORE_VERSION),
     listStacks: () => strings("stacks", {}),
-    listStages: (stack: string) => strings("stages", { stack }),
-    list: (r: { stack: string; stage: string }) =>
-      strings("list", { stack: r.stack, stage: r.stage }),
-    // Like Alchemy's own stores, the store gives back the state that it got.
-    get: (r: { stack: string; stage: string; fqn: string }) =>
+    listStages: (stack) => strings("stages", { stack }),
+    list: (r) => strings("list", { stack: r.stack, stage: r.stage }),
+    get: (r) =>
       optional("get", { stack: r.stack, stage: r.stage, fqn: r.fqn }).pipe(
-        Effect.map((text): PersistedState | undefined =>
-          text === null ? undefined : JSON.parse(text, reviveState),
+        Effect.flatMap((text) =>
+          text === null
+            ? Effect.undefined
+            : codec.decodeJson<PersistedState>(
+                { stack: r.stack, stage: r.stage },
+                JSON.parse(text),
+                `state '${r.fqn}'`,
+              ),
         ),
       ),
-    getReplacedResources: (r: { stack: string; stage: string }) =>
+    getReplacedResources: (r) =>
       strings("replaced", { stack: r.stack, stage: r.stage }).pipe(
-        Effect.map((texts) =>
-          texts.map((text): ReplacedResourceState => JSON.parse(text, reviveState)),
+        Effect.flatMap((texts) =>
+          Effect.forEach(texts, (text) =>
+            codec.decodeJson<ReplacedResourceState>(
+              { stack: r.stack, stage: r.stage },
+              JSON.parse(text),
+              "replaced resource state",
+            ),
+          ),
         ),
       ),
-    getOutput: (r: { stack: string; stage: string }) =>
+    getOutput: (r) =>
       optional("getOutput", { stack: r.stack, stage: r.stage }).pipe(
-        Effect.map((text): unknown => (text === null ? undefined : JSON.parse(text, reviveState))),
+        Effect.flatMap((text) =>
+          text === null
+            ? Effect.undefined
+            : codec.decodeJson<unknown>(
+                { stack: r.stack, stage: r.stage },
+                JSON.parse(text),
+                "stack output",
+              ),
+        ),
       ),
-    set: (r: { stack: string; stage: string; fqn: string; value: PersistedState }) =>
-      run("set", { stack: r.stack, stage: r.stage, fqn: r.fqn, value: encode(r.value) }),
-    delete: (r: { stack: string; stage: string; fqn: string }) =>
-      run("remove", { stack: r.stack, stage: r.stage, fqn: r.fqn }),
-    deleteStack: (r: { stack: string; stage?: string }) =>
-      run("removeStack", { stack: r.stack, stage: r.stage }),
-    setOutput: (r: { stack: string; stage: string; value: unknown }) =>
-      run("setOutput", { stack: r.stack, stage: r.stage, value: encode(r.value) }),
+    set: (r) =>
+      encode({ stack: r.stack, stage: r.stage }, r.value).pipe(
+        Effect.flatMap((value) =>
+          run("set", { stack: r.stack, stage: r.stage, fqn: r.fqn, value }),
+        ),
+        Effect.as(r.value),
+      ),
+    delete: (r) =>
+      run("remove", { stack: r.stack, stage: r.stage, fqn: r.fqn }).pipe(Effect.asVoid),
+    deleteStack: (r) => run("removeStack", { stack: r.stack, stage: r.stage }).pipe(Effect.asVoid),
+    setOutput: (r) =>
+      encode({ stack: r.stack, stage: r.stage }, r.value).pipe(
+        Effect.flatMap((value) => run("setOutput", { stack: r.stack, stage: r.stage, value })),
+        Effect.as(r.value),
+      ),
   };
 };
 
@@ -262,6 +329,8 @@ export interface StoreOptions {
   readonly scope: Scope.Scope;
   /** The functions directory that an outdated store gets: {@link storeDirectory}. */
   readonly store: string;
+  /** The StateEncryption of the stack, or undefined: the store makes the data keys. */
+  readonly encryption: StateEncryptionService | undefined;
 }
 
 /**
@@ -296,38 +365,26 @@ const pushStore = (
   });
 
 /**
- * Finishes the sealing of the store, whatever an earlier run left: a new key when the store has
- * none, then a reseal unless one finished under the current key. A run reads this each time, so a
- * run that stopped after a push cannot leave rows in clear text. This client makes a key once, and
- * it never reads a key back.
+ * Gives the store a key when it has none, whatever an earlier run left, so that it can wrap data
+ * keys. This client makes a key once, and it never reads a key back.
  */
-const ensureSealed = (
+const ensureKey = (
   options: StoreOptions,
   deployment: { readonly name: string; readonly deploymentUrl: string },
   functions: FunctionApi,
 ) =>
   Effect.gen(function* () {
-    const { current, sealed } = yield* functions
+    const { current } = yield* functions
       .call("state:sealing", {})
       .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Sealing, "state:sealing")));
-    if (current === null) {
-      const keyId = newKeyId();
-      yield* withPushKey(options.api, deployment.name, PUSH_KEY_ACTIONS, (key) =>
-        writeVariables(deployment.deploymentUrl, key, [
-          { name: stateKeyName(keyId), value: newKey() },
-        ]),
-      );
-      yield* functions.call("state:chooseKey", { keyId }).pipe(Effect.flatMap(valueOf));
-    }
-    if (sealed) return;
-    const { failed } = yield* functions
-      .call("state:reseal", {})
-      .pipe(Effect.flatMap(valueOf), Effect.flatMap(decode(Resealed, "state:reseal")));
-    if (failed.length > 0) {
-      yield* Effect.logWarning(
-        `Convex state: the store could not seal ${failed.join(", ")}. The next run tries again.`,
-      );
-    }
+    if (current !== null) return;
+    const keyId = newKeyId();
+    yield* withPushKey(options.api, deployment.name, PUSH_KEY_ACTIONS, (key) =>
+      writeVariables(deployment.deploymentUrl, key, [
+        { name: stateKeyName(keyId), value: newKey() },
+      ]),
+    );
+    yield* functions.call("state:chooseKey", { keyId }).pipe(Effect.flatMap(valueOf));
   });
 
 /**
@@ -435,24 +492,8 @@ export const makeConvexState = (options: StoreOptions) =>
       );
     }
 
-    yield* ensureSealed(options, deployment, functions);
-
-    const remote = remoteOf(functions);
-    const service: StateService = {
-      id: "convex",
-      getVersion: () => Effect.succeed(STATE_STORE_VERSION),
-      listStacks: remote.listStacks,
-      listStages: remote.listStages,
-      list: remote.list,
-      get: remote.get,
-      getReplacedResources: remote.getReplacedResources,
-      getOutput: remote.getOutput,
-      set: (request) => remote.set(request).pipe(Effect.as(request.value)),
-      delete: (request) => remote.delete(request).pipe(Effect.asVoid),
-      deleteStack: (request) => remote.deleteStack(request).pipe(Effect.asVoid),
-      setOutput: (request) => remote.setOutput(request).pipe(Effect.as(request.value)),
-    };
-    return service;
+    yield* ensureKey(options, deployment, functions);
+    return storeState(functions, options.encryption);
   });
 
 /**
@@ -470,12 +511,19 @@ export const state = (): Layer.Layer<State, never, ChildProcessSpawner.ChildProc
       const scope = yield* Scope.Scope;
       // The stack's ConfigProvider, for the read of the token on first use.
       const context = yield* Effect.context<never>();
+      const encryption = Option.getOrUndefined(yield* Effect.serviceOption(StateEncryption));
       return yield* Effect.cached(
         Effect.gen(function* () {
           const api = yield* ManagementApi.pipe(
             Effect.provide(ManagementApiLive().pipe(Layer.provide(fromConfig()))),
           );
-          return yield* makeConvexState({ api, spawner, scope, store: storeDirectory() });
+          return yield* makeConvexState({
+            api,
+            spawner,
+            scope,
+            store: storeDirectory(),
+            encryption,
+          });
         }).pipe(Effect.provideContext(context), Effect.orDie),
       );
     }),

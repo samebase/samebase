@@ -210,15 +210,15 @@ its own native signing key and JWKS, so no extra signing secret is required. See
 ### Secrets in the rows
 
 Alchemy writes a `Redacted` value in clear text, and a row must keep it: the hub keeps only the hash
-of a client secret, so the next run can get the value only from the state. The store seals each of
-these values with AES-256-GCM before it writes the row. A table view, a snapshot, and a reader that
+of a client secret, so the next run can get the value only from the state. Each of these values is
+sealed with AES-256-GCM before the run sends the row. A table view, a snapshot, and a reader that
 forgets to remove secrets show no value.
 
-Each key is one variable `STATE_KEY_<keyId>` of the store deployment, and a sealed value names its
-key. A run that finds no key makes one, writes it to the deployment, and never reads it back. A
-transaction in the store chooses the current key, so two first runs cannot replace a key that a row
-needs. Each run asks if every row is sealed under the current key, and finishes the work of a run
-that stopped.
+The client seals each value with the sealing codec of Alchemy, under a data key of the stage. The
+store deployment makes each data key and wraps it with its own key. Each key is one variable
+`STATE_KEY_<keyId>` of the store deployment, and a wrapped data key names its key. A run that finds
+no key makes one, writes it to the deployment, and never reads it back. A transaction in the store
+chooses the current key, so two first runs cannot replace a key that a row needs.
 
 The functions that a run reads with open the values, so a holder of the team token or of a key that
 can run internal queries still reads every secret of the team. A value that is not `Redacted`, such
@@ -228,10 +228,10 @@ To rotate the key, from a directory that selects the project `alchemy-state-stor
 
 1. Add a key with a new id of letters and digits:
    `npx convex env set --prod STATE_KEY_<keyId> "$(openssl rand -base64 32)"`.
-2. Make it the current key: `npx convex run --prod state:rotateKey '{"keyId":"<keyId>"}'`.
-3. The next run seals every value under it. To do this now: `npx convex run --prod state:reseal`.
-4. When `npx convex run --prod state:sealing` answers `"sealed": true`, remove the old variable. A
-   key that left the deployment before that cannot open its values.
+2. Make it the current key: `npx convex run --prod state:rotateKey '{"keyId":"<keyId>"}'`. New data
+   keys are wrapped under it.
+3. Keep the old variable. A row keeps the data key of its last write, and that data key opens only
+   with the key that wrapped it.
 
 ### What the output records about a run
 
