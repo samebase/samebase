@@ -55,10 +55,15 @@ export type OidcConnector<Name extends string = string> = Credentials & {
   issuer: string;
   scopes: string[];
   /**
-   * The provider documents `prompt=login`, so a fresh login (`prompt=login` or `max_age`) is sent
-   * upstream as that. Without it, a fresh login answers `login_required`.
+   * The provider documents `prompt=login`, so a forced login (`prompt=login` or `max_age=0`) is
+   * sent upstream as that. Without it, a forced login answers `login_required`.
    */
   promptLogin: boolean;
+  /**
+   * The provider obeys `max_age` and returns `auth_time`, so a positive `max_age` goes upstream as
+   * itself. Without it, a positive `max_age` is a forced login, or `login_required` with neither.
+   */
+  maxAge: boolean;
   /**
    * Sends `prompt=select_account`, so the provider shows its account screen on each sign-in and
    * cannot pass a user through with no click because an earlier app of this hub was approved.

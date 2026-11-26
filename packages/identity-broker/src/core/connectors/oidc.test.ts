@@ -83,6 +83,7 @@ const connector: OidcConnector = {
   issuer: ISSUER,
   scopes: ["openid", "email", "profile"],
   promptLogin: true,
+  maxAge: false,
   clientId: Redacted.make("c"),
   clientSecret: Redacted.make("s"),
 };
@@ -93,7 +94,7 @@ test("start carries PKCE and nonce; finish validates the signed id_token and rea
   const start = await startUpstream({
     connector,
     callbackUrl: CALLBACK,
-    freshLogin: true,
+    loginAge: { kind: "forced" },
     fetch: provider.fetch,
   });
   const url = new URL(start.url);
@@ -130,7 +131,7 @@ test("an id_token without auth_time finishes with no authentication time", async
   const start = await startUpstream({
     connector,
     callbackUrl: CALLBACK,
-    freshLogin: false,
+    loginAge: { kind: "none" },
     fetch: provider.fetch,
   });
   expect(new URL(start.url).searchParams.get("prompt")).toBeNull();
@@ -153,7 +154,7 @@ test("a wrong nonce or a wrong state is refused", async () => {
   const start = await startUpstream({
     connector,
     callbackUrl: CALLBACK,
-    freshLogin: false,
+    loginAge: { kind: "none" },
     fetch: provider.fetch,
   });
   provider.setNonce("someone-else");

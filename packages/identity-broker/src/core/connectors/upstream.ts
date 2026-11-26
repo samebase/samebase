@@ -71,11 +71,20 @@ export type UpstreamStart = {
   nonce: string | undefined;
 };
 
+/**
+ * What a request asks the provider about the login: nothing, a forced login, or a positive
+ * `max_age` relayed as itself.
+ */
+export type LoginAge =
+  | { readonly kind: "none" }
+  | { readonly kind: "forced" }
+  | { readonly kind: "relay"; readonly maxAge: number };
+
 /** The authorization URL for a connector, with fresh state, PKCE pair and, for OIDC, a nonce. */
 export async function startUpstream(args: {
   connector: OauthConnector | OidcConnector;
   callbackUrl: string;
-  freshLogin: boolean;
+  loginAge: LoginAge;
   fetch: FetchFunction;
 }): Promise<UpstreamStart> {
   const as = await authorizationServer(args.connector, args.fetch);
@@ -104,13 +113,18 @@ export async function startUpstream(args: {
   if (nonce !== undefined) {
     url.searchParams.set("nonce", nonce);
   }
-  if (args.freshLogin && args.connector.kind === "oidc") {
-    // With max_age the provider must return auth_time (OIDC Core 3.1.2.1), which the callback
-    // checks; prompt=login asks for the login itself.
+  // With max_age the provider must return auth_time (OIDC Core 3.1.2.1), which the callback
+  // checks; prompt=login asks for the login itself.
+  if (args.loginAge.kind === "forced") {
     url.searchParams.set("prompt", "login");
     url.searchParams.set("max_age", "0");
-  } else if (args.connector.selectAccount === true) {
-    url.searchParams.set("prompt", "select_account");
+  } else {
+    if (args.loginAge.kind === "relay") {
+      url.searchParams.set("max_age", String(args.loginAge.maxAge));
+    }
+    if (args.connector.selectAccount === true) {
+      url.searchParams.set("prompt", "select_account");
+    }
   }
   return { url: url.toString(), state, codeVerifier, nonce };
 }

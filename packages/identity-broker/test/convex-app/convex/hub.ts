@@ -45,6 +45,7 @@ const settings = Layer.unwrap(
           issuer: FAKE_IDP_ISSUER,
           scopes: ["openid"],
           promptLogin: true,
+          maxAge: false,
           clientId: Redacted.make("s6BhdRkqt3"),
           clientSecret: yield* Config.Redacted("IDP_CLIENT_SECRET"),
         },

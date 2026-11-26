@@ -478,6 +478,7 @@ const signInCommands: ReadonlyArray<Command> = [
       configured: settings.configured,
       liveGates: [],
       freshLogin: false,
+      maxAge: 300,
       txnCookieHash: "cookie",
       createdAt: T,
       expiresAt: T + 600_000,

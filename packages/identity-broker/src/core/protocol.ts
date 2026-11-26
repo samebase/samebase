@@ -158,7 +158,8 @@ export function validateAuthorizeRest(
   let maxAge: number | undefined;
   if (maxAgeRaw !== null) {
     maxAge = Number(maxAgeRaw);
-    if (!Number.isInteger(maxAge) || maxAge < 0) {
+    // Decimal digits only: `Number` also reads "", " 5", "1e3" and "0x10".
+    if (!/^\d+$/.test(maxAgeRaw) || !Number.isSafeInteger(maxAge)) {
       return invalid(400, "invalid_request", "max_age must be a non-negative integer.");
     }
   }

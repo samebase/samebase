@@ -32,7 +32,7 @@ import { readConnector } from "../../hosts/settings.ts";
 import { hubLogger, makeHandle, type Part, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { github, google } from "../connectors/index.ts";
-import type { Connector } from "../connectors/types.ts";
+import type { Connector, OidcConnector } from "../connectors/types.ts";
 import { createKeySet, type KeySet } from "../keys.ts";
 import {
   Fetch,
@@ -669,7 +669,7 @@ export async function fakeOidcUpstream(fetch: StubFetch) {
       return Response.json({ access_token: "idp-access", token_type: "Bearer", id_token: idToken });
     },
   });
-  const connector: Connector = {
+  const connector: OidcConnector = {
     kind: "oidc",
     provider: "idp",
     name: "idp",
@@ -677,6 +677,7 @@ export async function fakeOidcUpstream(fetch: StubFetch) {
     issuer,
     scopes: ["openid"],
     promptLogin: true,
+    maxAge: false,
     clientId: Redacted.make("s6BhdRkqt3"),
     clientSecret: Redacted.make("idp-secret"),
   };

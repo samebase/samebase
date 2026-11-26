@@ -6,7 +6,12 @@ import { Cause, Clock, Effect, Exit, Redacted, Result, Schema } from "effect";
 import * as oauth from "oauth4webapi";
 import { command } from "./command.ts";
 import type { Connector } from "./connectors/types.ts";
-import { finishUpstream, ProviderUnavailable, startUpstream } from "./connectors/upstream.ts";
+import {
+  finishUpstream,
+  ProviderUnavailable,
+  startUpstream,
+  type LoginAge,
+} from "./connectors/upstream.ts";
 import { errorPage, htmlResponse } from "./html.ts";
 import { logHubEvent } from "./hubEvents.ts";
 import {
@@ -206,44 +211,59 @@ export const jwks = Effect.fn("jwks")(function* (_request: Request) {
   return json(publicJwks(yield* keySet), 200, { "Cache-Control": "public, max-age=300" });
 });
 
+/** What a request asked of the login: a forced login, and a positive `max_age` in seconds. */
+type LoginAsked = { readonly freshLogin: boolean; readonly maxAge?: number };
+
 /**
- * Freshness is honored only as prompt=login upstream: a plain OAuth connector, or an OIDC
- * connector whose provider documents no `login` value, is refused, never pretended.
+ * What goes upstream for `asked` on `connector`, or undefined: the connector can do neither, and
+ * the request is refused, never pretended. A positive `max_age` alone goes as itself to a
+ * connector that relays it (docs/decisions/max-age.md), else as a forced login.
  */
-const cannotReauthenticate = (connector: Connector) =>
-  connector.kind === "oauth" || !connector.promptLogin;
+const loginAgeOn = (connector: Connector, asked: LoginAsked): LoginAge | undefined => {
+  if (!asked.freshLogin && asked.maxAge === undefined) {
+    return { kind: "none" };
+  }
+  if (connector.kind === "oauth") {
+    return undefined;
+  }
+  if (!asked.freshLogin && asked.maxAge !== undefined && connector.maxAge) {
+    return { kind: "relay", maxAge: asked.maxAge };
+  }
+  return connector.promptLogin ? { kind: "forced" } : undefined;
+};
 // Also an error_description at the return address, so no label (RFC 6749 section 4.1.2.1).
 const freshLoginRefusal =
   "This sign-in method cannot reauthenticate the user, which prompt=login or max_age asked for.";
 
 /**
- * Sends the user to a connector for a stored request; the caller refused a fresh login that the
- * connector cannot do. `refuse` answers a refusal of the step, with the return address that the
- * step read on the card: the hub's error page from `/authorize`, where the user has not
- * continued, and `toApp` from `/continue`, where the user has.
+ * Sends the user to a connector for a stored request, with what the caller found for the
+ * request's login age on it (`loginAgeOn`). `refuse` answers a refusal of the step, with the
+ * return address that the step read on the card: the hub's error page from `/authorize`, where the
+ * user has not continued, and `toApp` from `/continue`, where the user has.
  */
 const startConnector = Effect.fn("startConnector")(function* (args: {
   connector: Connector;
-  request: { requestId: string; freshLogin: boolean };
+  requestId: string;
+  loginAge: LoginAge;
   refuse: (back: Return | undefined, error: string, description: string) => Response;
 }) {
   const hub = yield* HubConfig;
   const { fetch } = yield* Fetch;
-  const { connector, request } = args;
+  const { connector } = args;
   // A provider whose metadata cannot be read answers 500, as the source's thrown error.
   const start = yield* Effect.tryPromise({
     try: () =>
       startUpstream({
         connector,
         callbackUrl: callbackUrl(hub, connector),
-        freshLogin: request.freshLogin,
+        loginAge: args.loginAge,
         fetch,
       }),
     catch: () => new ProviderUnavailable(),
   });
   const now = yield* Clock.currentTimeMillis;
   const result = yield* command("authRequests.startUpstream", {
-    requestId: request.requestId,
+    requestId: args.requestId,
     connector: connector.name,
     upstreamStateHash: yield* sha256HexEffect(start.state),
     upstreamCodeVerifier: start.codeVerifier,
@@ -327,7 +347,11 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     // The broker keeps no session, so it can never answer without interaction.
     return refusePage("This provider has no session to reuse.");
   }
-  const freshLogin = rest.value.prompt.includes("login") || rest.value.maxAge !== undefined;
+  const { maxAge } = rest.value;
+  const asked: LoginAsked = {
+    freshLogin: rest.value.prompt.includes("login") || maxAge === 0,
+    ...(maxAge === undefined || maxAge === 0 ? {} : { maxAge }),
+  };
   const scopes = SCOPES.filter((scope) => rest.value.scopes.includes(scope));
   // The connectors the app named, else every one on the card. A name that the card does not hold
   // is a request error.
@@ -336,11 +360,11 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   if (notOnCard !== undefined) {
     return refusePage(`This client cannot use the connector "${notOnCard}".`);
   }
-  // A fresh login that the one connector of the snapshot cannot do is refused before anything is
+  // A login age that the one connector of the snapshot cannot serve is refused before anything is
   // stored or spent; the stored set is checked again below.
   const offered = connectorsNamed(hub, named.length === 0 ? card.connectors : named);
   const snapshotDirect = offered.length === 1 && !card.confirm ? offered[0] : undefined;
-  if (snapshotDirect !== undefined && freshLogin && cannotReauthenticate(snapshotDirect)) {
+  if (snapshotDirect !== undefined && loginAgeOn(snapshotDirect, asked) === undefined) {
     return refusePage(freshLoginRefusal);
   }
   // Every later step needs this cookie: a client that fetches the page itself cannot send a
@@ -359,7 +383,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     requested: named,
     configured: hub.configured,
     liveGates: yield* liveGates,
-    freshLogin,
+    ...asked,
     txnCookieHash: yield* sha256HexEffect(txnCookie),
     createdAt: now,
     expiresAt: now + AUTH_REQUEST_TTL_MS,
@@ -386,15 +410,17 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   const stored = connectorsNamed(hub, created.connectors);
   // One stored connector and no page to show: straight to it (decision 5 of RFC 137).
   const direct = stored.length === 1 && !created.confirm ? stored[0] : undefined;
-  if (direct !== undefined && freshLogin && cannotReauthenticate(direct)) {
-    yield* command("authRequests.abandon", { requestId });
-    return refusePage(freshLoginRefusal);
-  }
   const setCookie = cookies.set(requestId, txnCookie);
   if (direct !== undefined) {
+    const loginAge = loginAgeOn(direct, asked);
+    if (loginAge === undefined) {
+      yield* command("authRequests.abandon", { requestId });
+      return refusePage(freshLoginRefusal);
+    }
     const response = yield* startConnector({
       connector: direct,
-      request: { requestId, freshLogin },
+      requestId,
+      loginAge,
       refuse: (_back, _error, description) => refusePage(description),
     });
     response.headers.append("Set-Cookie", setCookie);
@@ -459,14 +485,11 @@ export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Re
   if (connector === undefined || !stored.connectors.includes(name)) {
     return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
   }
-  if (stored.freshLogin && cannotReauthenticate(connector)) {
+  const loginAge = loginAgeOn(connector, stored);
+  if (loginAge === undefined) {
     return refuse(stored.back, "login_required", freshLoginRefusal);
   }
-  return yield* startConnector({
-    connector,
-    request: { requestId, freshLogin: stored.freshLogin },
-    refuse,
-  });
+  return yield* startConnector({ connector, requestId, loginAge, refuse });
 });
 
 /** The class name of a failure, for a log line: provider errors carry tokens and claims. */
@@ -599,25 +622,32 @@ export const upstreamCallback = (connector: Connector) =>
       }
     }
     const upstream = finished.success;
-    // Stored with every completed request; the token carries it only for a fresh login
-    // (authRequests.exchangeCode).
+    // Stored with every completed request; the token carries it only for a forced login or a
+    // max_age (authRequests.exchangeCode).
     let authTime = now;
-    if (claim.freshLogin) {
-      // prompt=login and max_age=0 went upstream, but a provider can still reuse its session;
-      // only the id_token's auth_time attests a login during this request. It must fall between
-      // the request's creation and now, each widened by the clock skew; auth_time is in whole
-      // seconds. A plain OAuth connector has no auth_time, and /authorize or /continue already
-      // refused it.
+    // A connector that can no longer serve the request since its start is held to the strictest
+    // check. A plain OAuth connector has no auth_time, and /authorize or /continue refused it.
+    const loginAge: LoginAge = loginAgeOn(connector, claim) ?? { kind: "forced" };
+    if (loginAge.kind !== "none") {
+      // Only the id_token's auth_time attests the login: a provider can reuse its session even
+      // after prompt=login. A forced login falls between the request's creation and now, each
+      // widened by the clock skew; a positive max_age holds with no tolerance (Keycloak's
+      // passMaxAge does the same). auth_time is in whole seconds.
       const { authTimeSeconds } = upstream;
+      const nowSeconds = Math.floor(now / 1000);
       if (
         authTimeSeconds === undefined ||
-        authTimeSeconds < Math.floor(claim.createdAt / 1000) - AUTH_TIME_SKEW_SECONDS ||
-        authTimeSeconds > Math.floor(now / 1000) + AUTH_TIME_SKEW_SECONDS
+        authTimeSeconds > nowSeconds + AUTH_TIME_SKEW_SECONDS ||
+        (loginAge.kind === "forced" &&
+          authTimeSeconds < Math.floor(claim.createdAt / 1000) - AUTH_TIME_SKEW_SECONDS) ||
+        (claim.maxAge !== undefined && nowSeconds - authTimeSeconds > claim.maxAge)
       ) {
         return answer(
           yield* abandon,
           "login_required",
-          "The provider did not confirm a new login, which prompt=login or max_age asked for.",
+          loginAge.kind === "forced"
+            ? "The provider did not confirm a new login, which prompt=login or max_age asked for."
+            : "The provider did not confirm a login within max_age.",
         );
       }
       authTime = authTimeSeconds * 1000;

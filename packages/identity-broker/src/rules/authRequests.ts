@@ -61,6 +61,7 @@ const baseFields = (request: AuthRequest) => ({
   codeChallenge: request.codeChallenge,
   connectors: request.connectors,
   freshLogin: request.freshLogin,
+  ...(request.maxAge === undefined ? {} : { maxAge: request.maxAge }),
   txnCookieHash: request.txnCookieHash,
   createdAt: request.createdAt,
   expiresAt: request.expiresAt,
@@ -143,6 +144,7 @@ export const create = Effect.fnUntraced(function* (
     codeChallenge: args.codeChallenge,
     connectors,
     freshLogin: args.freshLogin,
+    ...(args.maxAge === undefined ? {} : { maxAge: args.maxAge }),
     txnCookieHash: args.txnCookieHash,
     createdAt: args.createdAt,
     expiresAt: args.expiresAt,
@@ -164,6 +166,7 @@ export const get = Effect.fnUntraced(function* (args: typeof RequestIdArgs.Type)
     ...backField(yield* returnTo(request)),
     connectors: request.connectors,
     freshLogin: request.freshLogin,
+    ...(request.maxAge === undefined ? {} : { maxAge: request.maxAge }),
     txnCookieHash: request.txnCookieHash,
   };
 });
@@ -250,6 +253,7 @@ export const claimUpstream = Effect.fnUntraced(function* (
     upstreamCodeVerifier: request.upstreamCodeVerifier,
     ...(request.upstreamNonce === undefined ? {} : { upstreamNonce: request.upstreamNonce }),
     freshLogin: request.freshLogin,
+    ...(request.maxAge === undefined ? {} : { maxAge: request.maxAge }),
     createdAt: request.createdAt,
   };
 });
@@ -383,8 +387,7 @@ export const exchangeCode = Effect.fnUntraced(function* (
     ...(request.nonce === undefined ? {} : { nonce: request.nonce }),
     identity: request.identity,
     // The hub keeps no session, so it knows when the user logged in only when it asked the
-    // provider for a login in this request. Otherwise the provider may have reused its session,
-    // and the token names no time.
-    ...(request.freshLogin ? { authTime: request.authTime } : {}),
+    // provider for that time: a forced login or a `max_age`. Otherwise the token names no time.
+    ...(request.freshLogin || request.maxAge !== undefined ? { authTime: request.authTime } : {}),
   };
 });

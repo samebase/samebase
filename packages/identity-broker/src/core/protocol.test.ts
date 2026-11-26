@@ -50,6 +50,20 @@ describe("authorize", () => {
     }
   });
 
+  test("max_age is decimal digits that make a safe integer", () => {
+    const target = { clientId: "cl_1", redirectUri: base.redirect_uri };
+    const maxAge = (value: string) => {
+      const rest = validateAuthorizeRest(new URLSearchParams({ ...base, max_age: value }), target);
+      return rest.ok ? rest.value.maxAge : rest.error;
+    };
+    expect(maxAge("0")).toBe(0);
+    expect(maxAge("0300")).toBe(300);
+    expect(maxAge("9007199254740991")).toBe(9_007_199_254_740_991);
+    for (const value of ["", " 5", "1e3", "0x10", "1.0", "-1", "+1", "9007199254740992"]) {
+      expect(maxAge(value)).toBe("invalid_request");
+    }
+  });
+
   test("connector is a space-delimited list; an empty value counts as omitted", () => {
     const target = { clientId: "cl_1", redirectUri: base.redirect_uri };
     const connectors = (value: string | undefined) => {

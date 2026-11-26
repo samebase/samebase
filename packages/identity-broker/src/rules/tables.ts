@@ -75,7 +75,10 @@ const authRequestFields = {
   codeChallenge: Str,
   /** The connectors stored at `/authorize`: a later step goes on only with one of these. */
   connectors: Schema.Array(Str),
+  /** A forced login: `prompt=login` or `max_age=0`. */
   freshLogin: Schema.Boolean,
+  /** A positive `max_age`, in seconds. */
+  maxAge: opt(Num),
   txnCookieHash: Str,
   createdAt: Num,
   expiresAt: Num,
