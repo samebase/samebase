@@ -8,10 +8,11 @@
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect, Layer } from "effect";
-import { identityBroker, stack } from "@samebase/identity-broker";
+import { identityBroker } from "@samebase/identity-broker";
 import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connections from "@samebase/identity-broker/connections";
 import * as Connectors from "@samebase/identity-broker/connectors";
+import * as Registration from "@samebase/identity-broker/registration";
 
 // The logical id "Hub" and the script name stay: Alchemy's state and Cloudflare hold them.
 export default class Broker extends Cloudflare.Worker<Broker>()(
@@ -71,7 +72,7 @@ export default class Broker extends Cloudflare.Worker<Broker>()(
       ],
       // Three keys, each for clients that may use the three connections: a preview or development
       // client has a removal date, a production client is permanent.
-      registration: stack({
+      registration: Registration.stack({
         keys: {
           preview: {
             key: Config.Redacted("SAMEBASE_HUB_PREVIEW_KEY"),

@@ -5,7 +5,8 @@
 // `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
 import { Config, Effect, Layer, Redacted } from "effect";
 import { convexBroker } from "../../../src/hosts/convex/broker.ts";
-import { github, BrokerConfig, brokerRuntime, Keys, SignInPage } from "../../../src/index.ts";
+import { BrokerConfig, brokerRuntime, Keys, SignInPage } from "../../../src/index.ts";
+import { github } from "../../../src/layers/github/routes.ts";
 import { moderation } from "../../../src/moderation/server.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";

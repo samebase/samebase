@@ -2123,6 +2123,7 @@ export const trackedFilePaths = [
   "packages/identity-broker/src/layers/github/tables.ts",
   "packages/identity-broker/src/layers/github/testing/broker.ts",
   "packages/identity-broker/src/layers/github/testing/seeds.ts",
+  "packages/identity-broker/src/layers/index.ts",
   "packages/identity-broker/src/layers/stack/clients.ts",
   "packages/identity-broker/src/layers/stack/commands.ts",
   "packages/identity-broker/src/layers/stack/routes.ts",

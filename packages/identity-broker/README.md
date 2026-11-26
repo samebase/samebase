@@ -35,7 +35,7 @@ A broker mounts one registration layer, which decides who may register a client:
   with `key` does ([An app that uses a broker](#an-app-that-uses-a-broker)). A key with
   `permanent: true` may make production clients; the clients of other keys get a removal date.
 
-Both are exports of `@samebase/identity-broker`.
+Both are exports of `@samebase/identity-broker/registration`.
 
 ## On Convex
 
@@ -56,9 +56,10 @@ export default app;
 ```ts
 // convex/broker.ts
 import { Config } from "effect";
-import { github, identityBroker } from "@samebase/identity-broker";
+import { identityBroker } from "@samebase/identity-broker";
 import * as Connectors from "@samebase/identity-broker/connectors";
 import { convexBroker } from "@samebase/identity-broker/convex";
+import * as Registration from "@samebase/identity-broker/registration";
 import { components } from "./_generated/api";
 
 export const broker = convexBroker(
@@ -72,7 +73,7 @@ export const broker = convexBroker(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: github([{ repositoryId: "123456789", ownerId: "987654321" }]),
+    registration: Registration.github([{ repositoryId: "123456789", ownerId: "987654321" }]),
     service: {
       name: "Example",
       terms: "https://example.com/terms",
@@ -119,9 +120,10 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 // src/broker.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
-import { identityBroker, stack } from "@samebase/identity-broker";
+import { identityBroker } from "@samebase/identity-broker";
 import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connectors from "@samebase/identity-broker/connectors";
+import * as Registration from "@samebase/identity-broker/registration";
 
 export default class Broker extends Cloudflare.Worker<Broker>()(
   "Broker",
@@ -141,7 +143,7 @@ export default class Broker extends Cloudflare.Worker<Broker>()(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: stack({
+    registration: Registration.stack({
       keys: {
         preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") },
         production: { key: Config.Redacted("BROKER_PRODUCTION_KEY"), permanent: true },
@@ -431,10 +433,10 @@ needs the moderation key as a Bearer token.
 
 ```ts
 import { Config } from "effect";
-import { github } from "@samebase/identity-broker";
 import { moderation } from "@samebase/identity-broker/moderation";
+import * as Registration from "@samebase/identity-broker/registration";
 
-const registration = github("any", {
+const registration = Registration.github("any", {
   moderation: moderation({ key: Config.Redacted("IDENTITY_BROKER_MODERATION_KEY") }),
 });
 ```
@@ -552,13 +554,13 @@ import {
   makeHandle,
   Random,
   sqlTx,
-  stack,
   Store,
   type Exec,
   type Tables,
   type TxShape,
 } from "@samebase/identity-broker";
 import * as Connectors from "@samebase/identity-broker/connectors";
+import * as Registration from "@samebase/identity-broker/registration";
 
 export const makeStore = (database: DatabaseSync) => {
   const exec: Exec = (sql, params) => database.prepare(sql).all(...params);
@@ -591,7 +593,7 @@ export const makeStore = (database: DatabaseSync) => {
 export const makeBroker = (database: DatabaseSync) => {
   const { store } = makeStore(database);
   const handle = makeHandle(
-    stack({ keys: { preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } } }),
+    Registration.stack({ keys: { preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } } }),
   );
   const services = Layer.mergeAll(
     brokerSettings({

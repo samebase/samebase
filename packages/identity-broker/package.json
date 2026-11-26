@@ -25,6 +25,7 @@
     "./client-runtime": "./src/client/runtime.ts",
     "./connectors": "./src/core/connectors/index.ts",
     "./connections": "./src/connections/index.ts",
+    "./registration": "./src/layers/index.ts",
     "./moderation": "./src/moderation/server.ts",
     "./moderation/api": "./src/moderation/api.ts",
     "./testing": "./src/core/testing/harness.ts"
@@ -65,6 +66,10 @@
       "./connections": {
         "types": "./dist/connections/index.d.ts",
         "default": "./dist/connections/index.js"
+      },
+      "./registration": {
+        "types": "./dist/layers/index.d.ts",
+        "default": "./dist/layers/index.js"
       },
       "./moderation": {
         "types": "./dist/moderation/server.d.ts",

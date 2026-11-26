@@ -4,7 +4,8 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
 import * as Connectors from "./core/connectors/index.ts";
 import { DurableObjectStore, brokerWorkerProps } from "./hosts/cloudflare/broker.ts";
-import { github, identityBroker } from "./index.ts";
+import { identityBroker } from "./index.ts";
+import { github } from "./layers/github/routes.ts";
 
 export default class Broker extends Cloudflare.Worker<Broker>()(
   // The Alchemy logical id that the stage's saved state holds.

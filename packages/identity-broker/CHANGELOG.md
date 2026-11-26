@@ -18,6 +18,12 @@
   can take it. Replace `IdentityBroker.DISABLED` of `@samebase/alchemy-convex/identity-broker` with
   `import { DISABLED } from "@samebase/identity-broker/client-runtime"`; `./client` does not export
   it.
+- Breaking: the registration layers `github` and `stack`, and the types `StackKey` and
+  `StackSettings`, move from the root entry to the new entry
+  `@samebase/identity-broker/registration`, named after the option `registration` of
+  `identityBroker`. Import `* as Registration from "@samebase/identity-broker/registration"` and
+  write `registration: Registration.stack({...})` or `Registration.github([...])`. The root keeps
+  the types `Registration` and `PublicRegistration`.
 
 ## 0.42.0
 
