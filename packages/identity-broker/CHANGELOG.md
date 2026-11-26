@@ -24,6 +24,9 @@
   `identityBroker`. Import `* as Registration from "@samebase/identity-broker/registration"` and
   write `registration: Registration.stack({...})` or `Registration.github([...])`. The root keeps
   the types `Registration` and `PublicRegistration`.
+- Breaking: the entry `./moderation/api` is now `./moderation-api`. Import
+  `@samebase/identity-broker/moderation-api` in place of `@samebase/identity-broker/moderation/api`.
+  Its exports are the same.
 
 ## 0.42.0
 

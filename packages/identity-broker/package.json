@@ -27,7 +27,7 @@
     "./connections": "./src/connections/index.ts",
     "./registration": "./src/layers/index.ts",
     "./moderation": "./src/moderation/server.ts",
-    "./moderation/api": "./src/moderation/api.ts",
+    "./moderation-api": "./src/moderation/api.ts",
     "./testing": "./src/core/testing/harness.ts"
   },
   "publishConfig": {
@@ -75,7 +75,7 @@
         "types": "./dist/moderation/server.d.ts",
         "default": "./dist/moderation/server.js"
       },
-      "./moderation/api": {
+      "./moderation-api": {
         "types": "./dist/moderation/api.d.ts",
         "default": "./dist/moderation/api.js"
       },

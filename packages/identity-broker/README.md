@@ -457,7 +457,7 @@ empty. On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are
 A change applies at once: a block refuses the next step of each sign-in, and a grant or an exemption
 rewrites the clients it covers.
 
-`@samebase/identity-broker/moderation/api` declares the API with `HttpApi` of `effect/http-api` and
+`@samebase/identity-broker/moderation-api` declares the API with `HttpApi` of `effect/http-api` and
 imports no server code, so a browser or a Convex action can import it alone. The same declaration
 gives a typed client and the OpenAPI document:
 
@@ -465,7 +465,7 @@ gives a typed client and the OpenAPI document:
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClientRequest } from "effect/http";
 import { HttpApiClient, HttpApiMiddleware, OpenApi } from "effect/http-api";
-import { ModerationApi, ModerationKey } from "@samebase/identity-broker/moderation/api";
+import { ModerationApi, ModerationKey } from "@samebase/identity-broker/moderation-api";
 
 const blockRepository = (key: string, repositoryId: string) =>
   Effect.gen(function* () {

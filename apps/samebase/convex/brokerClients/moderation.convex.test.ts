@@ -7,7 +7,7 @@ import {
   OwnerChanged,
   SignInPageList,
   UnknownConnector,
-} from "@samebase/identity-broker/moderation/api";
+} from "@samebase/identity-broker/moderation-api";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../_generated/api";
