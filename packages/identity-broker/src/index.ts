@@ -1,7 +1,7 @@
 // What a host of the hub needs, on any platform. The README's "Write your own host" shows its use.
 
 // The hub: `makeHandle(registration, part)` gives `(request) => Effect<Response>`, where `part` is
-// what `makeConnections` gives, or absent.
+// what `makeConnections` of `./connections` gives, or absent.
 export {
   hubLogger,
   makeHandle,
@@ -23,7 +23,7 @@ export {
   type HubConfigInput,
   type ServiceSettings,
 } from "./core/services.ts";
-export type { Connector } from "./core/connectors/types.ts";
+export type { Connector, ConnectorSpec, Secret } from "./core/connectors/types.ts";
 export { hubSettings, type HubSettings } from "./hosts/settings.ts";
 export { hub, hubRuntime } from "./core/hub.ts";
 
@@ -49,8 +49,6 @@ export {
 } from "./store/Tx.ts";
 export { ensureLayout, sqlTx, type Exec, type SqlValue } from "./store/sql.ts";
 
-// The registration layers, and the connections part.
+// The registration layers. The connections part is in `./connections`.
 export { github } from "./layers/github/routes.ts";
 export { stack, type StackKey, type StackSettings } from "./layers/stack/routes.ts";
-export { makeConnections } from "./connections/routes.ts";
-export type { ConnectionSettings } from "./connections/providers.ts";

@@ -8,7 +8,8 @@ import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { first } from "../store/Tx.ts";
 import type { Connector } from "./connectors/types.ts";
 import type { SignInPageFacts } from "./html.ts";
-import { google } from "./connectors/google.ts";
+import { readConnector } from "../hosts/settings.ts";
+import { google } from "./connectors/index.ts";
 import type { Route } from "./router.ts";
 import { HubConfig, type HubConfigInput } from "./services.ts";
 import { sha256Hex } from "./subject.ts";
@@ -678,7 +679,15 @@ describe("authorization code flow with an OAuth connector", () => {
     const h = await createBroker({
       config: {
         connectors: [
-          google({ clientId: Redacted.make("google-client"), clientSecret: Redacted.make("s") }),
+          Effect.runSync(
+            readConnector(
+              google({
+                clientId: Effect.succeed(Redacted.make("google-client")),
+                clientSecret: Effect.succeed(Redacted.make("s")),
+                selectAccount: false,
+              }),
+            ),
+          ),
         ],
       },
     });

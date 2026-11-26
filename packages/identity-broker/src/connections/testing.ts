@@ -2,7 +2,7 @@
 // Cloudflare and GitHub, and at Cloudflare's revocation endpoint, on the harness's `Fetch`; a hub
 // with the part; and the client's side of each step. A fake provider spends each refresh token
 // once, like the rotation of GitHub and Cloudflare. No test framework import.
-import { Redacted } from "effect";
+import { Effect, Redacted } from "effect";
 import {
   createBroker,
   pkce,
@@ -12,24 +12,21 @@ import {
 } from "../core/testing/harness.ts";
 import type { Connector } from "../core/connectors/types.ts";
 import type { Registration } from "../core/router.ts";
-import {
-  cloudflareConnection,
-  convexConnection,
-  githubConnection,
-  type ConnectionProvider,
-} from "./providers.ts";
+import * as Connections from "./index.ts";
+import { readProvider, type ConnectionProvider } from "./providers.ts";
 import { connectionsPart } from "./routes.ts";
 
 const credentials = {
-  clientId: Redacted.make("provider-client"),
-  clientSecret: Redacted.make("provider-secret"),
+  clientId: Effect.succeed(Redacted.make("provider-client")),
+  clientSecret: Effect.succeed(Redacted.make("provider-secret")),
 };
-export const convex = convexConnection(credentials);
-export const cloudflare = cloudflareConnection({
-  ...credentials,
-  scopes: ["workers-scripts.read"],
-});
-export const github = githubConnection(credentials);
+export const [convex, cloudflare, github] = Effect.runSync(
+  Effect.all([
+    readProvider(Connections.convex(credentials)),
+    readProvider(Connections.cloudflare({ ...credentials, scopes: ["workers-scripts.read"] })),
+    readProvider(Connections.github(credentials)),
+  ]),
+);
 export const PROVIDERS: ReadonlyArray<ConnectionProvider> = [convex, cloudflare, github];
 
 // Convex's documented response:

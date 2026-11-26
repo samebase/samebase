@@ -32,9 +32,9 @@ export function oauthFetch(fetch: FetchFunction) {
 }
 
 /**
- * Discovery, once per issuer per `Fetch` function: one in an isolate, and one per test. RFC 8414
- * metadata for a plain OAuth connector, OIDC Discovery for an OIDC one. oauth4webapi then holds each
- * callback to that metadata, so a provider that advertises
+ * Discovery, once per kind and issuer per `Fetch` function: one in an isolate, and one per test.
+ * RFC 8414 metadata for a plain OAuth connector, OIDC Discovery for an OIDC one. oauth4webapi then
+ * holds each callback to that metadata, so a provider that advertises
  * `authorization_response_iss_parameter_supported` must send `iss` (RFC 9207).
  */
 const discovered = new WeakMap<FetchFunction, Map<string, oauth.AuthorizationServer>>();
@@ -49,7 +49,8 @@ async function authorizationServer(
 ): Promise<oauth.AuthorizationServer> {
   const cache = discovered.get(fetch) ?? new Map<string, oauth.AuthorizationServer>();
   discovered.set(fetch, cache);
-  const cached = cache.get(connector.issuer);
+  const key = `${connector.kind}:${connector.issuer}`;
+  const cached = cache.get(key);
   if (cached !== undefined) {
     return cached;
   }
@@ -59,7 +60,7 @@ async function authorizationServer(
     [oauth.customFetch]: oauthFetch(fetch),
   });
   const as = await oauth.processDiscoveryResponse(issuer, response);
-  cache.set(connector.issuer, as);
+  cache.set(key, as);
   return as;
 }
 
@@ -81,10 +82,18 @@ export async function startUpstream(args: {
   if (as.authorization_endpoint === undefined) {
     throw new Error(`Connector "${args.connector.name}" has no authorization endpoint`);
   }
+  const url = new URL(as.authorization_endpoint);
+  if (
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    as.authorization_endpoint.includes("#")
+  ) {
+    throw new Error(`Connector "${args.connector.name}" has an unsafe authorization endpoint`);
+  }
   const state = oauth.generateRandomState();
   const codeVerifier = oauth.generateRandomCodeVerifier();
   const nonce = args.connector.kind === "oidc" ? oauth.generateRandomNonce() : undefined;
-  const url = new URL(as.authorization_endpoint);
   url.searchParams.set("client_id", Redacted.value(args.connector.clientId));
   url.searchParams.set("redirect_uri", args.callbackUrl);
   url.searchParams.set("response_type", "code");
@@ -130,7 +139,11 @@ export async function finishUpstream(args: {
 }): Promise<UpstreamFinish> {
   const as = await authorizationServer(args.connector, args.fetch);
   const client: oauth.Client = { client_id: Redacted.value(args.connector.clientId) };
-  const clientAuth = oauth.ClientSecretPost(Redacted.value(args.connector.clientSecret));
+  const secret = Redacted.value(args.connector.clientSecret);
+  const clientAuth =
+    args.connector.tokenEndpointAuthMethod === "client_secret_basic"
+      ? oauth.ClientSecretBasic(secret)
+      : oauth.ClientSecretPost(secret);
   const params = oauth.validateAuthResponse(as, client, args.currentUrl, args.state);
   const response = await oauth.authorizationCodeGrantRequest(
     as,

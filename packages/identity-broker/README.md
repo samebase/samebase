@@ -57,6 +57,7 @@ export default app;
 // convex/hub.ts
 import { Config } from "effect";
 import { github, hub as identityHub } from "@samebase/identity-broker";
+import * as Connectors from "@samebase/identity-broker/connectors";
 import { convexHub } from "@samebase/identity-broker/convex";
 import { components } from "./_generated/api";
 
@@ -65,12 +66,12 @@ export const hub = convexHub(
   identityHub({
     // The deployment's site URL, or a custom domain in front of it.
     issuer: "https://happy-animal-123.convex.site",
-    connectors: {
-      google: {
+    connectors: [
+      Connectors.google({
         clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
-      },
-    },
+      }),
+    ],
     registration: github([{ repositoryId: "123456789", ownerId: "987654321" }]),
     service: {
       name: "Example",
@@ -117,8 +118,9 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 // src/hub.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
-import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
 import { hub, stack } from "@samebase/identity-broker";
+import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
+import * as Connectors from "@samebase/identity-broker/connectors";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
@@ -132,12 +134,12 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
   },
   hub({
     issuer: "https://auth.example.com",
-    connectors: {
-      google: {
+    connectors: [
+      Connectors.google({
         clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
-      },
-    },
+      }),
+    ],
     registration: stack({
       keys: {
         preview: { key: Config.Redacted("HUB_PREVIEW_KEY") },
@@ -177,6 +179,59 @@ instance are the address of all the hub's data: a new name starts with empty sto
 
 A secret can also be another Effect, such as a Secrets Store secret through
 `Cloudflare.SecretsStore.ReadSecret`. The hub then builds at its first request.
+
+## Connectors and connections
+
+`connectors` are the providers that users sign in with, in the order that the sign-in page and
+discovery name them. `@samebase/identity-broker/connectors` has `google` and `github`, `oidc` for
+any OpenID Connect provider found through discovery, and `oauth` for a plain OAuth 2.0 provider with
+your own `identity` function. Each connector's callback is `<issuer>/connectors/<name>/callback`.
+
+```ts
+import * as Connectors from "@samebase/identity-broker/connectors";
+
+Connectors.oidc({
+  name: "okta",
+  label: "Okta",
+  issuer: "https://example.okta.com",
+  clientId: Config.Redacted("OKTA_CLIENT_ID"),
+  clientSecret: Config.Redacted("OKTA_CLIENT_SECRET"),
+});
+```
+
+`connections` are optional. Each one lets a client get the provider's own tokens for an API, with
+the `resource` of RFC 8707. `@samebase/identity-broker/connections` has `convex`, `cloudflare` and
+`github`, and `oauth` for another OAuth 2.0 server. Each connection's callback is
+`<issuer>/connections/<name>/callback`.
+
+```ts
+import * as Connections from "@samebase/identity-broker/connections";
+
+const connections = [
+  Connections.cloudflare({
+    clientId: Config.Redacted("CLOUDFLARE_CLIENT_ID"),
+    clientSecret: Config.Redacted("CLOUDFLARE_CLIENT_SECRET"),
+    scopes: ["workers-scripts.read"],
+  }),
+  Connections.oauth({
+    name: "example",
+    resource: "https://api.example.com",
+    // The provider's `iss` (RFC 9207), or else the origin of its token endpoint.
+    issuer: "https://auth.example.com",
+    authorizationEndpoint: "https://auth.example.com/authorize",
+    tokenEndpoint: "https://auth.example.com/token",
+    scopes: ["read"],
+    clientId: Config.Redacted("EXAMPLE_CLIENT_ID"),
+    clientSecret: Config.Redacted("EXAMPLE_CLIENT_SECRET"),
+  }),
+];
+```
+
+`oauth` sends the client secret with HTTP Basic authentication unless `tokenEndpointAuthMethod` is
+`client_secret_post`.
+
+Give them to `hub(options)` as `connections`. The hub checks the names, providers, issuers and
+resources of both lists at its start.
 
 ## Moderation
 
@@ -268,7 +323,8 @@ has `Cache-Control: no-store`. The typed client fails with the error's class.
 - `Random.layer`, `Fetch.layer` and `hubLogger`: `crypto.getRandomValues`, `fetch` with no
   redirects, and one JSON log line per entry. Time is Effect's `Clock`.
 
-For connections, give `makeHandle` the part that `makeConnections(settings)` makes.
+For connections, give `makeHandle` the part that `makeConnections(connections)` of
+`@samebase/identity-broker/connections` makes.
 
 The `Store` has one method, `run(name, args)`: one command of a closed list, with its arguments and
 its result as JSON values. The host decodes it with `decodeCommand(name, args)` and runs it as one
@@ -310,6 +366,7 @@ import {
   type Tables,
   type TxShape,
 } from "@samebase/identity-broker";
+import * as Connectors from "@samebase/identity-broker/connectors";
 
 export const makeStore = (database: DatabaseSync) => {
   const exec: Exec = (sql, params) => database.prepare(sql).all(...params);
@@ -347,12 +404,12 @@ export const makeHub = (database: DatabaseSync) => {
   const services = Layer.mergeAll(
     hubSettings({
       issuer: "https://auth.example.com",
-      connectors: {
-        google: {
+      connectors: [
+        Connectors.google({
           clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
           clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
-        },
-      },
+        }),
+      ],
     }),
     Random.layer,
     Fetch.layer,
@@ -418,5 +475,6 @@ deploying shell's variable of that name. These are the secrets of `connectors`, 
 values in each request: the keys of `stack`, the moderation `key` and `paused` of `github`. The
 stack binds those, as `hub.bind(...)` in `alchemy.run.ts` shows ([On Cloudflare](#on-cloudflare)).
 
-At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/google/callback`
-or `<issuer>/connectors/github/callback`.
+At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/<name>/callback`
+for a connector, such as `<issuer>/connectors/google/callback`, and
+`<issuer>/connections/<name>/callback` for a connection.

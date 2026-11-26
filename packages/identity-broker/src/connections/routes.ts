@@ -6,6 +6,7 @@
 // authentication. Each step that moves a connection on is one command that reads the card in its
 // own transaction (rules.ts); every call to the provider is outside a command.
 import { Cause, Clock, Effect, Exit, Result } from "effect";
+import type { SecretServices } from "../core/connectors/types.ts";
 import { errorPage } from "../core/html.ts";
 import { logHubEvent } from "../core/hubEvents.ts";
 import {
@@ -27,7 +28,12 @@ import { toApp, txnCookies } from "../core/signIn.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "../core/subject.ts";
 import type { Return } from "../rules/schemas.ts";
 import { command } from "./commands.ts";
-import { readProviders, type ConnectionProvider, type ConnectionSettings } from "./providers.ts";
+import {
+  checkProviders,
+  readProvider,
+  type ConnectionProvider,
+  type ConnectionSpec,
+} from "./providers.ts";
 import type { Refused } from "./rules.ts";
 import type { ProviderTokens } from "./tables.ts";
 import {
@@ -564,13 +570,14 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
 };
 
 /**
- * The connections part of a hub with `settings`, its providers' secrets read. A host reads it
- * where it reads its connectors' secrets. A setting with no provider is a defect of the host.
+ * The connections part of a hub over `specs`, checked before any secret is read, then with each
+ * provider's secrets read. A host reads it where it reads its connectors' secrets.
  */
-export const makeConnections = Effect.fnUntraced(function* <R>(settings: ConnectionSettings<R>) {
-  const providers = yield* readProviders(settings);
-  if (providers.length === 0) {
-    return yield* Effect.die(new Error("The connections setting names no provider"));
-  }
-  return connectionsPart(providers);
+export const makeConnections = Effect.fnUntraced(function* <
+  Connection extends ConnectionSpec<unknown>,
+>(specs: ReadonlyArray<Connection>) {
+  yield* checkProviders(specs);
+  // @ts-expect-error `SecretServices<Connection>` is the services of each spec's secrets.
+  const typed: ReadonlyArray<ConnectionSpec<SecretServices<Connection>>> = specs;
+  return connectionsPart(yield* Effect.forEach(typed, readProvider));
 });

@@ -1,7 +1,9 @@
-import { Redacted } from "effect";
+import { Effect, Redacted } from "effect";
 import { afterEach, expect, test, vi } from "vite-plus/test";
+import { readConnector } from "../../hosts/settings.ts";
 import { createBroker, pkce, txnCookie } from "../testing/harness.ts";
-import { github } from "./github.ts";
+import { githubIdentity } from "./github.ts";
+import { github } from "./index.ts";
 
 // GitHub's documented example responses for GET /user and GET /user/emails
 // (docs.github.com/en/rest/users/users and docs.github.com/en/rest/users/emails), trimmed to the
@@ -74,11 +76,19 @@ function stubGitHub(user: unknown, emailList: unknown) {
   return { seen, fetch };
 }
 
-const connector = github({ clientId: Redacted.make("id"), clientSecret: Redacted.make("secret") });
+const connector = Effect.runSync(
+  readConnector(
+    github({
+      clientId: Effect.succeed(Redacted.make("id")),
+      clientSecret: Effect.succeed(Redacted.make("secret")),
+      selectAccount: false,
+    }),
+  ),
+);
 
 test("the real payloads give the id, the name, the avatar and the verified primary email", async () => {
   const { seen, fetch } = stubGitHub(octocat, emails);
-  const identity = await connector.identity("gho_token", fetch);
+  const identity = await githubIdentity("gho_token", fetch);
   expect(identity).toEqual({
     upstreamId: "1",
     name: "monalisa octocat",
@@ -94,19 +104,19 @@ test("no verified address means no email claim, whatever /user says", async () =
   const { fetch } = stubGitHub(octocat, [
     { email: "octocat@github.com", verified: false, primary: true, visibility: "public" },
   ]);
-  const identity = await connector.identity("gho_token", fetch);
+  const identity = await githubIdentity("gho_token", fetch);
   expect(identity.email).toBeUndefined();
   expect(identity.emailVerified).toBeUndefined();
 });
 
 test("a user without a display name falls back to the login", async () => {
   const { fetch } = stubGitHub({ ...octocat, name: null }, emails);
-  expect((await connector.identity("gho_token", fetch)).name).toBe("octocat");
+  expect((await githubIdentity("gho_token", fetch)).name).toBe("octocat");
 });
 
 test("a /user response without an id is an error", async () => {
   const { fetch } = stubGitHub({ login: "octocat" }, emails);
-  await expect(connector.identity("gho_token", fetch)).rejects.toThrow(/no id/);
+  await expect(githubIdentity("gho_token", fetch)).rejects.toThrow(/no id/);
 });
 
 /**

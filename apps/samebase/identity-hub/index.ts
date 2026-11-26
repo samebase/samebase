@@ -8,8 +8,10 @@
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect, Layer } from "effect";
-import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
 import { hub, stack } from "@samebase/identity-broker";
+import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
+import * as Connections from "@samebase/identity-broker/connections";
+import * as Connectors from "@samebase/identity-broker/connectors";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
@@ -30,22 +32,22 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
     return yield* hub({
       issuer: "https://auth.samebase.com",
       keys: yield* secret("SAMEBASE_HUB_IDENTITY_BROKER_KEYS"),
-      connectors: {
-        google: {
+      connectors: [
+        Connectors.google({
           clientId: yield* secret("SAMEBASE_HUB_GOOGLE_CLIENT_ID"),
           clientSecret: yield* secret("SAMEBASE_HUB_GOOGLE_CLIENT_SECRET"),
-        },
-        github: {
+        }),
+        Connectors.github({
           clientId: yield* secret("SAMEBASE_HUB_GITHUB_CLIENT_ID"),
           clientSecret: yield* secret("SAMEBASE_HUB_GITHUB_CLIENT_SECRET"),
-        },
-      },
-      connections: {
-        convex: {
+        }),
+      ],
+      connections: [
+        Connections.convex({
           clientId: yield* secret("SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_ID"),
           clientSecret: yield* secret("SAMEBASE_HUB_CONVEX_OAUTH_CLIENT_SECRET"),
-        },
-        cloudflare: {
+        }),
+        Connections.cloudflare({
           clientId: yield* secret("SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_ID"),
           clientSecret: yield* secret("SAMEBASE_HUB_CLOUDFLARE_OAUTH_CLIENT_SECRET"),
           // samebase.com checks Workers Builds and Workers, reads the account name, and reads an
@@ -60,12 +62,12 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
             "secrets-store.read",
             "secrets-store.write",
           ],
-        },
-        github: {
+        }),
+        Connections.github({
           clientId: yield* secret("SAMEBASE_HUB_GITHUB_APP_CLIENT_ID"),
           clientSecret: yield* secret("SAMEBASE_HUB_GITHUB_APP_CLIENT_SECRET"),
-        },
-      },
+        }),
+      ],
       // Three keys, each for clients that may use the three connections: a preview or development
       // client has a removal date, a production client is permanent.
       registration: stack({

@@ -1,6 +1,6 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "An OpenID Provider that holds a team's upstream sign-in connections once and keeps no user accounts. It runs on any platform with your own storage, with ready hosts for Convex and Cloudflare.",
   "license": "Apache-2.0",
   "repository": {
@@ -21,6 +21,8 @@
     "./_generated/component.js": "./src/hosts/convex/component/_generated/component.ts",
     "./convex": "./src/hosts/convex/hub.ts",
     "./cloudflare": "./src/hosts/cloudflare/hub.ts",
+    "./connectors": "./src/core/connectors/index.ts",
+    "./connections": "./src/connections/index.ts",
     "./moderation": "./src/moderation/server.ts",
     "./moderation/api": "./src/moderation/api.ts",
     "./testing": "./src/core/testing/harness.ts"
@@ -45,6 +47,14 @@
       "./cloudflare": {
         "types": "./dist/hosts/cloudflare/hub.d.ts",
         "default": "./dist/hosts/cloudflare/hub.js"
+      },
+      "./connectors": {
+        "types": "./dist/core/connectors/index.d.ts",
+        "default": "./dist/core/connectors/index.js"
+      },
+      "./connections": {
+        "types": "./dist/connections/index.d.ts",
+        "default": "./dist/connections/index.js"
       },
       "./moderation": {
         "types": "./dist/moderation/server.d.ts",
