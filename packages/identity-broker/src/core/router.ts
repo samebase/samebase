@@ -9,6 +9,7 @@ import { json, readParameters } from "./responses.ts";
 import type { GateNamespace } from "../rules/schemas.ts";
 import {
   BrokerConfig,
+  BrokerConfigError,
   LiveGates,
   type Fetch,
   type Keys,
@@ -42,11 +43,35 @@ export type Route<R = never> = {
   readonly handler: (request: Request) => Effect.Effect<Response, RouteError, CoreServices | R>;
 };
 
-/** What the one registration layer of a broker gives it, from that layer's module. */
+/**
+ * Why a layer's resolver refuses a client at `/authorize`. The broker answers with its own error
+ * page and never sends the user to the app: `invalid` (400, naming `invalid_client`), `unavailable`
+ * (503, with `Retry-After` in seconds when given) and `limited` (429).
+ */
+export type ResolveRefusal =
+  | { readonly refusal: "invalid"; readonly description: string }
+  | { readonly refusal: "unavailable"; readonly retryAfter?: number }
+  | { readonly refusal: "limited" };
+
+/**
+ * A layer's resolver of a client id that is an https address, called at `/authorize` after the
+ * checks of the request and before the card is read. It gives undefined when the card of
+ * `clientId` is stored and may be read, or a refusal. `clientId` is as the client sent it.
+ */
+export type Resolve = (request: {
+  readonly clientId: string;
+  readonly redirectUri: string;
+}) => Effect.Effect<ResolveRefusal | undefined, RouteError, CoreServices>;
+
+/** What a registration layer gives the broker, from that layer's module. */
 export type Registration<R = never> = {
   readonly routes: ReadonlyArray<Route<R>>;
   /** The gate namespaces that the layer owns, read in each request. Absent: it owns none. */
   readonly liveGates?: Effect.Effect<ReadonlyArray<GateNamespace>>;
+  /** The layer's clients whose id is an https address. Absent: the broker has no such client. */
+  readonly resolve?: Resolve;
+  /** Strangers use the layer, so the broker needs its `service` settings. */
+  readonly public?: true;
 };
 
 /** A registration layer where strangers register, so `identityBroker(options)` needs the broker's `service`. */
@@ -105,124 +130,175 @@ export const serverError = (annotations: {
   );
 
 /**
- * The broker's request handler. `registration` is the layer that the broker mounts: its routes, such
- * as the client registration endpoint, beside the core's sign-in routes, and its live gates.
- * `part` is an optional part of the broker, such as integrations; without it the broker has none of its
- * routes.
+ * The broker's request handler, made once at start from the broker's configuration.
+ * `registration` is the layer, or the layers, that the broker mounts: their routes, such as the
+ * client registration endpoint, beside the core's sign-in routes, their live gates, and at most one
+ * resolver. `part` is an optional part of the broker, such as integrations; without it the broker
+ * has none of its routes. It fails when two routes have the same method, path and match, when two
+ * layers have a resolver, and when a layer is public and the broker has no `service`.
  */
-export function makeHandle<R = never>(registration: Registration<R>, part?: Part) {
-  // RFC 7591: a mounted `POST /register` is the registration endpoint that discovery names.
+export const makeHandle = Effect.fnUntraced(function* <R = never>(
+  registration: Registration<R> | ReadonlyArray<Registration<R>>,
+  part?: Part,
+) {
+  const broker = yield* BrokerConfig;
+  const layers: ReadonlyArray<Registration<R>> = Array.isArray(registration)
+    ? registration
+    : [registration];
+  const resolvers = layers.flatMap((layer) => (layer.resolve === undefined ? [] : [layer.resolve]));
+  const [resolve, ...otherResolvers] = resolvers;
+  if (otherResolvers.length > 0) {
+    return yield* new BrokerConfigError({ message: "Only one registration layer may resolve" });
+  }
+  if (broker.service === undefined && layers.some((layer) => layer.public === true)) {
+    return yield* new BrokerConfigError({
+      message: "A public registration layer needs the broker's service settings",
+    });
+  }
+  const layerRoutes = layers.flatMap((layer) => layer.routes);
   const metadata = discovery({
-    registration: registration.routes.some(
+    // RFC 7591: a mounted `POST /register` is the registration endpoint that discovery names.
+    registration: layerRoutes.some(
       (route) => route.method === "POST" && route.path === "/register" && route.match === "exact",
     ),
+    publicClients: resolve !== undefined,
     extend: part?.metadata ?? ((document) => document),
   });
-  const liveGates = LiveGates.of({ read: registration.liveGates ?? Effect.succeed([]) });
-  /** `/authorize`: a request with `resource` goes to the part, when the broker has one. */
-  const authorizeRoute =
-    part === undefined
-      ? authorize
-      : (request: Request) =>
-          Effect.gen(function* () {
-            const params = yield* peekParameters(request);
-            return params !== null && params.has("resource")
-              ? yield* part.authorize(request, params)
-              : yield* authorize(request);
-          });
+  const liveGates = LiveGates.of({
+    read: Effect.map(
+      Effect.forEach(layers, (layer) => layer.liveGates ?? Effect.succeed([])),
+      (each) => each.flat(),
+    ),
+  });
+  const authorizeCore = (request: Request) => authorize(request, resolve);
+  const tokenCore = (request: Request) => token(request, resolve !== undefined);
+  /**
+   * `/authorize`: a HEAD stores nothing and calls no resolver. A request with `resource` goes to
+   * the part, when the broker has one.
+   */
+  const authorizeRoute = (request: Request) =>
+    Effect.gen(function* () {
+      if (request.method === "HEAD") {
+        return new Response(null, {
+          status: 405,
+          headers: { Allow: "GET, POST", "Cache-Control": "no-store" },
+        });
+      }
+      if (part === undefined) {
+        return yield* authorizeCore(request);
+      }
+      const params = yield* peekParameters(request);
+      return params !== null && params.has("resource")
+        ? yield* part.authorize(request, params)
+        : yield* authorizeCore(request);
+    });
   /** `/token`: the part answers its own grants first, when the broker has one. */
   const tokenRoute =
     part === undefined
-      ? token
+      ? tokenCore
       : (request: Request) =>
           Effect.gen(function* () {
             const params = yield* peekParameters(request);
             const answer = params === null ? undefined : yield* part.token(request, params);
-            return answer ?? (yield* token(request));
+            return answer ?? (yield* tokenCore(request));
           });
-  return Effect.fn("handle")(function* (request: Request) {
-    const broker = yield* BrokerConfig;
-    const at = (route: Route<R | LiveGates>): Mounted<R> => ({
-      ...route,
-      fullPath: `${broker.prefix}${route.path}`,
-    });
-    const routes: Mounted<R>[] = [
+  const at = (route: Route<R | LiveGates>): Mounted<R> => ({
+    ...route,
+    fullPath: `${broker.prefix}${route.path}`,
+  });
+  const routes: Mounted<R>[] = [
+    at({
+      method: "GET",
+      path: "/.well-known/openid-configuration",
+      match: "exact",
+      template: "/.well-known/openid-configuration",
+      handler: metadata,
+    }),
+    {
+      method: "GET",
+      path: "/.well-known/oauth-authorization-server",
+      fullPath: `/.well-known/oauth-authorization-server${broker.prefix}`,
+      match: "exact",
+      template: "/.well-known/oauth-authorization-server",
+      handler: metadata,
+    },
+    at({
+      method: "GET",
+      path: "/.well-known/jwks.json",
+      match: "exact",
+      template: "/.well-known/jwks.json",
+      handler: jwks,
+    }),
+    at({
+      method: "GET",
+      path: "/authorize",
+      match: "exact",
+      template: "/authorize",
+      handler: authorizeRoute,
+    }),
+    at({
+      method: "POST",
+      path: "/authorize",
+      match: "exact",
+      template: "/authorize",
+      handler: authorizeRoute,
+    }),
+    at({
+      method: "GET",
+      path: "/continue",
+      match: "exact",
+      template: "/continue",
+      handler: continueSignIn,
+    }),
+    at({
+      method: "POST",
+      path: "/token",
+      match: "exact",
+      template: "/token",
+      handler: tokenRoute,
+    }),
+    at({
+      method: "GET",
+      path: "/userinfo",
+      match: "exact",
+      template: "/userinfo",
+      handler: userinfo,
+    }),
+    at({
+      method: "POST",
+      path: "/userinfo",
+      match: "exact",
+      template: "/userinfo",
+      handler: userinfo,
+    }),
+    ...broker.connectors.map((connector) =>
       at({
         method: "GET",
-        path: "/.well-known/openid-configuration",
+        path: `/connectors/${connector.name}/callback`,
         match: "exact",
-        template: "/.well-known/openid-configuration",
-        handler: metadata,
+        template: `/connectors/${connector.name}/callback`,
+        handler: upstreamCallback(connector),
       }),
-      {
-        method: "GET",
-        path: "/.well-known/oauth-authorization-server",
-        fullPath: `/.well-known/oauth-authorization-server${broker.prefix}`,
-        match: "exact",
-        template: "/.well-known/oauth-authorization-server",
-        handler: metadata,
-      },
-      at({
-        method: "GET",
-        path: "/.well-known/jwks.json",
-        match: "exact",
-        template: "/.well-known/jwks.json",
-        handler: jwks,
-      }),
-      at({
-        method: "GET",
-        path: "/authorize",
-        match: "exact",
-        template: "/authorize",
-        handler: authorizeRoute,
-      }),
-      at({
-        method: "POST",
-        path: "/authorize",
-        match: "exact",
-        template: "/authorize",
-        handler: authorizeRoute,
-      }),
-      at({
-        method: "GET",
-        path: "/continue",
-        match: "exact",
-        template: "/continue",
-        handler: continueSignIn,
-      }),
-      at({
-        method: "POST",
-        path: "/token",
-        match: "exact",
-        template: "/token",
-        handler: tokenRoute,
-      }),
-      at({
-        method: "GET",
-        path: "/userinfo",
-        match: "exact",
-        template: "/userinfo",
-        handler: userinfo,
-      }),
-      at({
-        method: "POST",
-        path: "/userinfo",
-        match: "exact",
-        template: "/userinfo",
-        handler: userinfo,
-      }),
-      ...broker.connectors.map((connector) =>
-        at({
-          method: "GET",
-          path: `/connectors/${connector.name}/callback`,
-          match: "exact",
-          template: `/connectors/${connector.name}/callback`,
-          handler: upstreamCallback(connector),
-        }),
-      ),
-      ...(part?.routes ?? []).map(at),
-      ...registration.routes.map(at),
-    ];
+    ),
+    ...(part?.routes ?? []).map(at),
+    ...layerRoutes.map(at),
+  ];
+  const mounted = new Set<string>();
+  for (const route of routes) {
+    const key = `${route.method} ${route.match} ${route.fullPath}`;
+    if (mounted.has(key)) {
+      return yield* new BrokerConfigError({
+        message: `Two routes are ${route.method} ${route.template} (${route.match})`,
+      });
+    }
+    mounted.add(key);
+  }
+  return handleOver(routes, liveGates);
+});
+
+/** The handler over the mounted `routes`. */
+const handleOver = <R>(routes: ReadonlyArray<Mounted<R>>, liveGates: LiveGates["Service"]) =>
+  Effect.fn("handle")(function* (request: Request) {
     const { pathname } = new URL(request.url);
     // HEAD runs the GET route and loses the body, as in Convex's HTTP router.
     const head = request.method === "HEAD";
@@ -263,4 +339,3 @@ export function makeHandle<R = never>(registration: Registration<R>, part?: Part
     );
     return head ? new Response(null, response) : response;
   });
-}

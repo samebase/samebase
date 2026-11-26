@@ -81,11 +81,14 @@ export const create = Effect.fnUntraced(function* (args: typeof CreateArgs.Type,
 /** The card of `clientId`, when `registrationTokenHash` is its own token's. */
 const managedCard = Effect.fnUntraced(function* (clientId: string, registrationTokenHash: string) {
   const card = yield* unique(yield* StackTx, "clients", "by_client_id", [clientId]);
-  const client = card?.doc.stack;
-  return card !== undefined &&
-    client !== undefined &&
-    client.registrationTokenHash === registrationTokenHash
-    ? { card, client }
+  if (card === undefined) {
+    return undefined;
+  }
+  const { id, doc } = card;
+  return doc.tokenEndpointAuthMethod !== "none" &&
+    doc.stack !== undefined &&
+    doc.stack.registrationTokenHash === registrationTokenHash
+    ? { card: { id, doc }, client: doc.stack }
     : undefined;
 });
 

@@ -18,6 +18,7 @@ import { makeMemoryStore } from "../hosts/memory.ts";
 import * as Connectors from "./connectors/index.ts";
 import type { ConnectorSpec, Secret } from "./connectors/types.ts";
 import { identityBroker } from "./identityBroker.ts";
+import type { PublicRegistration } from "./router.ts";
 import { brokerLogLine, TEST_ISSUER, TEST_SERVICE } from "./testing/harness.ts";
 
 class PerRequestTag extends Context.Service<PerRequestTag, string>()("test/PerRequestTag") {}
@@ -595,4 +596,17 @@ test("secrets that need two different services in one connectors array are each 
   expect(await status()).toBe(200);
   expect(await status()).toBe(200);
   expect(reads).toEqual(["a", "b"]);
+});
+
+test("a public layer, alone or in a list, needs the broker's service settings by type", () => {
+  const publicLayer: PublicRegistration = { routes: [], public: true };
+  const base = { issuer: TEST_ISSUER, connectors: [Connectors.google(google)] };
+  // @ts-expect-error One public layer needs `service`.
+  identityBroker({ ...base, registration: publicLayer });
+  // @ts-expect-error A list that holds a public layer needs `service`.
+  identityBroker({ ...base, registration: [{ routes: [] }, publicLayer] });
+  expectTypeOf(identityBroker({ ...base, registration: [{ routes: [] }] })).toBeObject();
+  expectTypeOf(
+    identityBroker({ ...base, registration: [publicLayer], service: TEST_SERVICE }),
+  ).toBeObject();
 });

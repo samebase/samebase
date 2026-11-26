@@ -24,19 +24,17 @@ export const UpstreamIdentity = Schema.Struct({
   picture: opt(Str),
 });
 
+/** A client id that is the https address of the client's metadata document. */
+export const UrlClientId = Str.check(Schema.isPattern(/^https:\/\//));
+
 /**
- * The client card: everything a sign-in step reads about a client. A layer writes it; the core
- * reads it and moves only `lastSignInAt` and `removeAt`. A card row can hold a layer's own fields
- * beside these: a write of the core spreads the stored document, so they stay.
+ * The fields of every client card: everything a sign-in step reads about a client. A layer writes
+ * it; the core reads it and moves only `lastSignInAt` and `removeAt`. A card row can hold a layer's
+ * own fields beside these: a write of the core spreads the stored document, so they stay.
  */
-export const cardFields = {
-  /** Random, made by the broker. */
-  clientId: Str,
+const sharedCardFields = {
   /** The exact return addresses, sorted and unique. */
   redirectUris: Schema.Array(Str),
-  /** How the client proves itself at `/token`, with the SHA-256 hex of its secret. */
-  tokenEndpointAuthMethod: TokenEndpointAuthMethod,
-  secretHash: Str,
   /** The connectors this client may use now, as its layer last computed them. */
   connectors: Schema.Array(Str),
   /**
@@ -56,6 +54,24 @@ export const cardFields = {
   removeAt: opt(Num),
   createdAt: Num,
   lastSignInAt: opt(Num),
+};
+
+/** A card whose client proves itself at `/token` with its secret: every card of 0.44.0. */
+export const secretCardFields = {
+  tokenEndpointAuthMethod: TokenEndpointAuthMethod,
+  /** Random, made by the broker. */
+  clientId: Str,
+  /** The SHA-256 hex of the client's secret. */
+  secretHash: Schema.NonEmptyString,
+  ...sharedCardFields,
+};
+
+/** A card whose client has no secret: a token request names it and sends no authentication. */
+export const publicCardFields = {
+  tokenEndpointAuthMethod: Schema.Literal("none"),
+  clientId: UrlClientId,
+  secretHash: Schema.Null,
+  ...sharedCardFields,
 };
 
 export const cardIndexes = {
@@ -104,7 +120,10 @@ export const AuthRequest = Schema.Union([
 ]);
 
 export const coreTables = {
-  clients: { schema: Schema.Struct(cardFields), indexes: cardIndexes },
+  clients: {
+    schema: Schema.Union([Schema.Struct(secretCardFields), Schema.Struct(publicCardFields)]),
+    indexes: cardIndexes,
+  },
   /** One row per stopped key. A card with that key in its `gates` is refused from the commit on. */
   stops: {
     schema: Schema.Struct({ key: Str, at: Num }),

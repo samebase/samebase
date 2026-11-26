@@ -141,8 +141,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           args: {
+            authentication:
+              | { method: "none" }
+              | {
+                  method: "client_secret_post" | "client_secret_basic";
+                  secretHash: string;
+                };
             clientId: string;
-            clientSecretHash: string;
             codeChallengeOfVerifier: string;
             codeHash: string;
             configured: Array<string>;
@@ -150,8 +155,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             now: number;
             redirectUri: string;
             resource?: string;
-            tokenEndpointAuthMethod:
-              "client_secret_post" | "client_secret_basic";
           };
           now: number;
         },

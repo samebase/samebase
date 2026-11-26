@@ -519,9 +519,10 @@ has `Cache-Control: no-store`. The typed client fails with the error's class.
 
 ## Write your own host
 
-`makeHandle(registration)` of `@samebase/identity-broker` is the whole broker: an Effect program
-from a `Request` to a `Response`. It never fails; an error answers 500. A host provides its
-services:
+`makeHandle(registration)` of `@samebase/identity-broker` makes the whole broker once, from the
+broker's settings: an Effect program from a `Request` to a `Response`. It fails when the layers'
+routes collide or a public layer has no `service`. The handler never fails; an error answers 500. A
+host provides its services:
 
 - `Store`: your storage (below).
 - `brokerSettings(settings)`: the issuer, the connectors, the service (optional) and the signing
@@ -604,9 +605,6 @@ export const makeStore = (database: DatabaseSync) => {
 
 export const makeBroker = (database: DatabaseSync) => {
   const { store } = makeStore(database);
-  const handle = makeHandle(
-    Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } }),
-  );
   const services = Layer.mergeAll(
     brokerSettings({
       issuer: "https://auth.example.com",
@@ -621,6 +619,11 @@ export const makeBroker = (database: DatabaseSync) => {
     Fetch.layer,
     Layer.succeed(Store, store),
     brokerLogger,
+  );
+  const handle = Effect.runSync(
+    makeHandle(Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } })).pipe(
+      Effect.provide(services),
+    ),
   );
   return {
     /** A fetch handler, for `Deno.serve`, `Bun.serve` or any server of `Request` and `Response`. */

@@ -23,6 +23,7 @@ import {
 } from "./jwt.ts";
 import { parseKeySet, publicJwks, SIGNING_ALGORITHM } from "./keys.ts";
 import {
+  isUrlClientId,
   readBearerToken,
   readClientAuthentication,
   validateAuthorizeRest,
@@ -49,6 +50,7 @@ import {
 } from "./services.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "./subject.ts";
 import type { Return } from "../rules/schemas.ts";
+import type { Resolve, ResolveRefusal } from "./router.ts";
 
 /** A request lives this long from /authorize to the code redirect. */
 const AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
@@ -153,7 +155,10 @@ const keySet = Effect.gen(function* () {
 const callbackUrl = (broker: BrokerConfigShape, connector: Connector) =>
   `${broker.issuer}/connectors/${connector.name}/callback`;
 
-const metadata = (broker: BrokerConfigShape, registration: boolean) => {
+const metadata = (
+  broker: BrokerConfigShape,
+  mounted: { readonly registration: boolean; readonly publicClients: boolean },
+) => {
   const { issuer } = broker;
   return {
     issuer,
@@ -162,7 +167,9 @@ const metadata = (broker: BrokerConfigShape, registration: boolean) => {
     userinfo_endpoint: `${issuer}/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     // The client registration endpoint of RFC 7591, when a layer mounts it.
-    ...(registration ? { registration_endpoint: `${issuer}/register` } : {}),
+    ...(mounted.registration ? { registration_endpoint: `${issuer}/register` } : {}),
+    // A layer resolves clients by a metadata document (OAuth Client ID Metadata Document, section 8).
+    ...(mounted.publicClients ? { client_id_metadata_document_supported: true } : {}),
     // The terms of the broker's sign-in service (OpenID Connect Discovery).
     ...(broker.service === undefined ? {} : { op_tos_uri: broker.service.terms }),
     scopes_supported: SCOPES,
@@ -173,7 +180,11 @@ const metadata = (broker: BrokerConfigShape, registration: boolean) => {
     grant_types_supported: ["authorization_code"],
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: [SIGNING_ALGORITHM],
-    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+    token_endpoint_auth_methods_supported: [
+      "client_secret_post",
+      "client_secret_basic",
+      ...(mounted.publicClients ? ["none"] : []),
+    ],
     code_challenge_methods_supported: ["S256"],
     claims_supported: [
       "sub",
@@ -200,16 +211,18 @@ const metadata = (broker: BrokerConfigShape, registration: boolean) => {
 export type Metadata = ReturnType<typeof metadata>;
 
 /**
- * The discovery documents, with `registration_endpoint` when `registration` is mounted, and the
- * fields that a mounted part adds (`extend`).
+ * The discovery documents, with `registration_endpoint` when `registration` is mounted, the public
+ * client fields when a layer resolves clients (`publicClients`), and the fields that a mounted part
+ * adds (`extend`).
  */
 export const discovery = (options: {
   readonly registration: boolean;
+  readonly publicClients: boolean;
   readonly extend: (document: Metadata) => object;
 }) =>
   Effect.fn("discovery")(function* (_request: Request) {
     const broker = yield* BrokerConfig;
-    return json(options.extend(metadata(broker, options.registration)), 200, {
+    return json(options.extend(metadata(broker, options)), 200, {
       "Cache-Control": "public, max-age=300",
     });
   });
@@ -307,7 +320,38 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
 const continueHref = (broker: BrokerConfigShape, requestId: string, connector: Connector) =>
   `${broker.prefix}/continue?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
 
-export const authorize = Effect.fn("authorize")(function* (request: Request) {
+/** The broker's own page for a resolver's refusal: the user is never sent to the app. */
+const resolveRefusalPage = (refusal: ResolveRefusal) => {
+  switch (refusal.refusal) {
+    case "invalid":
+      return errorPage("Invalid client", `invalid_client: ${refusal.description}`, 400);
+    case "unavailable": {
+      const page = errorPage(
+        "Client unavailable",
+        "The app's client information cannot be read now. Try again soon.",
+        503,
+      );
+      if (refusal.retryAfter !== undefined) {
+        page.headers.set("Retry-After", String(refusal.retryAfter));
+      }
+      return page;
+    }
+    case "limited":
+      return errorPage("Too many sign-ins", "Too many new sign-ins. Try again soon.", 429);
+    default:
+      return refusal satisfies never;
+  }
+};
+
+/**
+ * `/authorize`. Every check of the request itself comes first, so a bad request costs no read.
+ * Then a client id that is an https address goes to `resolve`, the one resolver of the mounted
+ * layers; with none, such a client is unknown, even when its card is stored.
+ */
+export const authorize = Effect.fn("authorize")(function* (
+  request: Request,
+  resolve: Resolve | undefined,
+) {
   const broker = yield* BrokerConfig;
   const cookies = txnCookies(broker);
   const params = yield* Effect.promise(() => readParameters(request));
@@ -318,18 +362,6 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   if (!target.ok) {
     return errorPage("Invalid sign-in request", target.description, target.status);
   }
-  // A snapshot of the card, to answer a bad request before anything is stored. `create` reads the
-  // card again and decides.
-  const card = yield* command("clients.get", { clientId: target.value.clientId });
-  if (card === null) {
-    return unknownClientPage();
-  }
-  // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
-  // The request keeps the one the client named: the code exchange must name the same one.
-  const redirectUri = target.value.redirectUri;
-  if (!card.redirectUris.includes(redirectUri)) {
-    return invalidRedirectPage();
-  }
   if (params.has("resource")) {
     // A broker without the integrations part serves no API resource; with it, the router sends a
     // request with `resource` to the part.
@@ -338,6 +370,31 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   const rest = validateAuthorizeRest(params, target.value);
   if (!rest.ok) {
     return refusePage(rest.description);
+  }
+  if (rest.value.prompt.includes("none")) {
+    // The broker keeps no session, so it can never answer without interaction.
+    return refusePage("This provider has no session to reuse.");
+  }
+  // Exact string comparison, and no redirect to a URI that is not registered (RFC 9700 4.1.3).
+  // The request keeps the one the client named: the code exchange must name the same one.
+  const redirectUri = target.value.redirectUri;
+  if (isUrlClientId(target.value.clientId)) {
+    if (resolve === undefined) {
+      return unknownClientPage();
+    }
+    const refusal = yield* resolve({ clientId: target.value.clientId, redirectUri });
+    if (refusal !== undefined) {
+      return resolveRefusalPage(refusal);
+    }
+  }
+  // A snapshot of the card, to answer a bad request before anything is stored. `create` reads the
+  // card again and decides.
+  const card = yield* command("clients.get", { clientId: target.value.clientId });
+  if (card === null) {
+    return unknownClientPage();
+  }
+  if (!card.redirectUris.includes(redirectUri)) {
+    return invalidRedirectPage();
   }
   /** A refusal of a stop, the card or a limit, which the broker's operator can act on. */
   const refused = (reason: string, page: Response) => {
@@ -350,10 +407,6 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     });
     return page;
   };
-  if (rest.value.prompt.includes("none")) {
-    // The broker keeps no session, so it can never answer without interaction.
-    return refusePage("This provider has no session to reuse.");
-  }
   const { maxAge } = rest.value;
   const asked: LoginAsked = {
     freshLogin: rest.value.prompt.includes("login") || maxAge === 0,
@@ -707,7 +760,11 @@ export const upstreamCallback = (connector: Connector) =>
     );
   });
 
-export const token = Effect.fn("token")(function* (request: Request) {
+/**
+ * `/token`. With no resolver mounted (`publicClients` false), a client id that is an https address
+ * is refused, even when its card is stored.
+ */
+export const token = Effect.fn("token")(function* (request: Request, publicClients: boolean) {
   const broker = yield* BrokerConfig;
   const params = yield* Effect.promise(() => readParameters(request));
   // RFC 6749 section 5.2: every token error but invalid_client answers 400.
@@ -731,9 +788,13 @@ export const token = Effect.fn("token")(function* (request: Request) {
       clientAuth.status === 401 ? challenge : {},
     );
   }
+  const client = clientAuth.value;
+  if (!publicClients && isUrlClientId(client.clientId)) {
+    return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+  }
   if (params.getAll("resource").length > 1)
     return oauthError(400, "invalid_target", "Request one API resource.");
-  const validation = validateTokenRequest(params, clientAuth.value);
+  const validation = validateTokenRequest(params, client);
   if (!validation.ok) {
     return oauthError(validation.status, validation.error, validation.description);
   }
@@ -742,9 +803,11 @@ export const token = Effect.fn("token")(function* (request: Request) {
   // The client is authenticated in the step that redeems the code, from its card. The secret, the
   // code and the app's verifier cross the command boundary only as hashes (design section 2.2).
   const exchange = yield* command("authRequests.exchangeCode", {
-    clientId: clientAuth.value.clientId,
-    clientSecretHash: yield* sha256HexEffect(clientAuth.value.clientSecret),
-    tokenEndpointAuthMethod: clientAuth.value.method,
+    clientId: client.clientId,
+    authentication:
+      client.method === "none"
+        ? { method: "none" }
+        : { method: client.method, secretHash: yield* sha256HexEffect(client.clientSecret) },
     codeHash: yield* sha256HexEffect(validation.value.code),
     redirectUri: validation.value.redirectUri,
     codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),

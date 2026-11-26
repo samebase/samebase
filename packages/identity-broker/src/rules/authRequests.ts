@@ -319,8 +319,10 @@ const invalid = (
 ) => ({ ok: false, error, description }) satisfies ExchangeResult;
 
 /**
- * Authenticates the client and redeems an authorization code: single use, bound to the client, the
- * redirect URI and the PKCE challenge of its request (OAuth 2.1 section 4.1.3). The card is read in
+ * Authenticates the client by its card's method (a public card only with no authentication, a
+ * secret card only with its method and its secret) and redeems an authorization code: single use,
+ * bound to the client, the redirect URI and the PKCE challenge of its request (OAuth 2.1 section
+ * 4.1.3). The card is read in
  * this step, so a client that fails authentication leaves the code as it was, and a stop that
  * commits first refuses the client. The request's return address must still be on the card, and
  * its connector usable (`usableCard`). On success the code is marked used, the request is gone, and
@@ -332,10 +334,11 @@ export const exchangeCode = Effect.fnUntraced(function* (
 ): Effect.fn.Return<ExchangeResult, never, Tx> {
   const tx = yield* Tx;
   const card = yield* cardRow(args.clientId);
+  const { authentication } = args;
   if (
     card === undefined ||
-    card.doc.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
-    card.doc.secretHash !== args.clientSecretHash ||
+    card.doc.tokenEndpointAuthMethod !== authentication.method ||
+    (authentication.method !== "none" && card.doc.secretHash !== authentication.secretHash) ||
     (yield* isStopped(card.doc, args.liveGates))
   ) {
     return invalid("invalid_client", "Client authentication failed.");

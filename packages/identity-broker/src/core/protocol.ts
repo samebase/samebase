@@ -60,6 +60,12 @@ export function parseRedirectUri(value: string): URL | null {
     : null;
 }
 
+/**
+ * Whether `clientId` names a metadata document. Such an id is never trimmed: its text is the
+ * identity (draft-ietf-oauth-client-id-metadata-document section 3).
+ */
+export const isUrlClientId = (clientId: string) => clientId.trim().startsWith("https://");
+
 export type AuthorizeInput = {
   clientId: string;
   redirectUri: string;
@@ -89,7 +95,8 @@ export function validateAuthorizeTarget(
   if (hasRepeatedParameter(params)) {
     return invalid(400, "invalid_request", "A parameter is repeated.");
   }
-  const clientId = params.get("client_id")?.trim() ?? "";
+  const raw = params.get("client_id") ?? "";
+  const clientId = isUrlClientId(raw) ? raw : raw.trim();
   if (clientId.length === 0) {
     return invalid(400, "invalid_request", "client_id is required.");
   }
@@ -182,12 +189,20 @@ export function validateAuthorizeRest(
   };
 }
 
+/**
+ * How a token request authenticates its client: a secret by HTTP Basic or in the body, or no
+ * authentication, which only a client with no secret uses.
+ */
+export type ClientCredentials =
+  | { method: "none"; clientId: string }
+  | { method: TokenEndpointAuthMethod; clientId: string; clientSecret: string };
+
 export type TokenInput = {
   code: string;
   /** Required: every authorization request here names one, so RFC 6749 section 4.1.3 requires it. */
   redirectUri: string;
   codeVerifier: string;
-  client: { clientId: string; clientSecret: string; method: TokenEndpointAuthMethod };
+  client: ClientCredentials;
 };
 
 /**
@@ -195,14 +210,18 @@ export type TokenInput = {
  * token request, so it also refuses a repeated parameter (RFC 6749 section 3.2) and a request that
  * uses both methods (section 2.3): an Authorization header and a `client_secret` in the body. A
  * `client_id` in the body names the client and is not a method; an empty `client_secret` counts as
- * omitted (section 3.2).
+ * omitted (section 3.2). No Authorization header and no `client_secret` is no authentication. A
+ * client assertion (RFC 7521) is refused: the broker checks none.
  */
 export function readClientAuthentication(
   authorization: string | null,
   params: URLSearchParams,
-): Validation<TokenInput["client"]> {
+): Validation<ClientCredentials> {
   if (hasRepeatedParameter(params)) {
     return invalid(400, "invalid_request", "A parameter is repeated.");
+  }
+  if (params.has("client_assertion") || params.has("client_assertion_type")) {
+    return invalid(401, "invalid_client", "Client assertions are not supported.");
   }
   if (authorization !== null) {
     if (params.get("client_secret")) {
@@ -241,8 +260,11 @@ export function readClientAuthentication(
   }
   const clientId = params.get("client_id") ?? "";
   const clientSecret = params.get("client_secret") ?? "";
-  if (clientId.length === 0 || clientSecret.length === 0) {
-    return invalid(401, "invalid_client", "client_id and client_secret are required.");
+  if (clientId.length === 0) {
+    return invalid(401, "invalid_client", "client_id is required.");
+  }
+  if (clientSecret.length === 0) {
+    return { ok: true, value: { method: "none", clientId } };
   }
   return { ok: true, value: { clientId, clientSecret, method: "client_secret_post" } };
 }
