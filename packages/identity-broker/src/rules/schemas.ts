@@ -62,6 +62,7 @@ export const CreateArgs = Schema.Struct({
   configured,
   liveGates,
   freshLogin: Bool,
+  maxAge: opt(Num),
   txnCookieHash: Str,
   createdAt: Num,
   expiresAt: Num,
@@ -86,6 +87,7 @@ export const GetResult = Schema.NullOr(
     back,
     connectors: Strs,
     freshLogin: Bool,
+    maxAge: opt(Num),
     txnCookieHash: Str,
   }),
 );
@@ -118,6 +120,7 @@ export const ClaimResult = Schema.Union([
     upstreamCodeVerifier: Str,
     upstreamNonce: opt(Str),
     freshLogin: Bool,
+    maxAge: opt(Num),
     /** When /authorize stored the request: an upstream `auth_time` before it is an old session. */
     createdAt: Num,
   }),
@@ -169,7 +172,7 @@ export const ExchangeResult = Schema.Union([
     scope: Str,
     nonce: opt(Str),
     identity: UpstreamIdentity,
-    /** Only for a request that asked for a fresh login: the provider's time of that login. */
+    /** Only for a request that asked for a forced login or a `max_age`: the provider's time. */
     authTime: opt(Num),
   }),
   Schema.Struct({

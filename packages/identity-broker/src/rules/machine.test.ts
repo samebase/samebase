@@ -23,6 +23,14 @@ const GATES = ["gate:a", "key:b"];
 const NAMESPACE = "key:";
 const redirectUri = "https://app.test/cb";
 const otherUri = "https://app.test/other";
+/**
+ * What each request asked of the login: none, a positive `max_age`, or a forced login. The search
+ * of one request plays r2, the search of two r1 and r3.
+ */
+const FRESHNESS: Readonly<
+  Record<string, { readonly freshLogin: boolean; readonly maxAge?: number }>
+> = { r1: { freshLogin: false }, r2: { freshLogin: false, maxAge: 300 }, r3: { freshLogin: true } };
+const freshnessOf = (r: string) => FRESHNESS[r] ?? { freshLogin: false };
 
 interface Model {
   readonly snapshot: MemorySnapshot;
@@ -192,7 +200,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           requested: [],
           configured: CONNECTORS,
           liveGates,
-          freshLogin: false,
+          ...freshnessOf(action.r),
           txnCookieHash: `cookie-${action.r}`,
           createdAt: now,
           expiresAt: now + REQUEST_MS,
@@ -260,6 +268,10 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           );
           expect(action.cookie).toBe(true);
           expect(before !== undefined && before.expiresAt > now).toBe(true);
+          // The callback reads what the request asked of the login.
+          expect({ freshLogin: result.freshLogin, maxAge: result.maxAge }).toEqual(
+            freshnessOf(action.r),
+          );
         }
         if (result.status === "expired" || result.status === "refused") {
           expect(requestOf(action.r)).toBeUndefined();
@@ -334,6 +346,14 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           expect(code !== undefined && code.usedAt === undefined && code.expiresAt > now).toBe(
             true,
           );
+          // The token names the login's time exactly when the request asked for a forced login
+          // or a `max_age`.
+          const { freshLogin, maxAge } = freshnessOf(action.r);
+          expect(result.authTime).toBe(
+            (freshLogin || maxAge !== undefined) && request?.status === "completed"
+              ? request.authTime
+              : undefined,
+          );
           next = {
             ...next,
             redeemed: { ...model.redeemed, [action.r]: (model.redeemed[action.r] ?? 0) + 1 },
@@ -397,6 +417,10 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
     }
     // A claimed or completed request holds no upstream state hash, verifier or nonce.
     for (const request of docs().authRequests) {
+      // Every status keeps what the request asked of the login.
+      expect({ freshLogin: request.freshLogin, maxAge: request.maxAge }).toEqual(
+        freshnessOf(request.requestId),
+      );
       if (request.status === "claimed" || request.status === "completed") {
         expect(
           "upstreamStateHash" in request ||
@@ -452,14 +476,14 @@ describe("the authorization request machine", () => {
     // Depth 12 (114,791 states) takes about 24 s on the development Mac, and up to 6 times that on
     // a CI runner that runs other suites beside it; every step of a sign-in with a card change
     // before each of them fits in it.
-    const result = search(["r1"], depthOf("MACHINE_DEPTH_ONE", 12));
+    const result = search(["r2"], depthOf("MACHINE_DEPTH_ONE", 12));
     console.log("one request", result);
     expect(result.states).toBeGreaterThan(1);
   }, 300_000);
 
   test("two requests: every property holds in every reachable state", () => {
     // Depth 7 (57,012 states) takes about 10 s on the development Mac.
-    const result = search(["r1", "r2"], depthOf("MACHINE_DEPTH_TWO", 7));
+    const result = search(["r1", "r3"], depthOf("MACHINE_DEPTH_TWO", 7));
     console.log("two requests", result);
     expect(result.states).toBeGreaterThan(1);
   }, 300_000);

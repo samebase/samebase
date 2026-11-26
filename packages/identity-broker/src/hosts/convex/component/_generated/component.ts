@@ -49,6 +49,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             connector: string;
             createdAt: number;
             freshLogin: boolean;
+            maxAge?: number;
             requestId: string;
             status: "claimed";
             upstreamCodeVerifier: string;
@@ -112,6 +113,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             expiresAt: number;
             freshLogin: boolean;
             liveGates: Array<{ live: Array<string>; prefix: string }>;
+            maxAge?: number;
             nonce?: string;
             redirectUri: string;
             requestId: string;
@@ -185,6 +187,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           clientId: string;
           connectors: Array<string>;
           freshLogin: boolean;
+          maxAge?: number;
           requestId: string;
           status: "pending" | "upstream" | "claimed" | "completed";
           txnCookieHash: string;

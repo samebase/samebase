@@ -4,8 +4,8 @@ import type { ClientSecrets, ConnectorSpec, OauthConnector } from "./types.ts";
 
 /**
  * Google as an OIDC connector: discovery and id_token claims. Google documents no `login` value
- * for `prompt`, only `none`, `consent`, and `select_account`, so a fresh login through it answers
- * `login_required`. Its name is `google` unless `name` sets another.
+ * for `prompt`, only `none`, `consent`, and `select_account`, and no `max_age` it obeys, so a
+ * `prompt=login` or a `max_age` through it answers `login_required`. Its name is `google` unless `name` sets another.
  */
 export const google = <R1 = never, R2 = never>(
   options: ClientSecrets<R1, R2> & { readonly name?: string; readonly selectAccount?: boolean },
@@ -17,6 +17,7 @@ export const google = <R1 = never, R2 = never>(
   issuer: "https://accounts.google.com",
   scopes: ["openid", "email", "profile"],
   promptLogin: false,
+  maxAge: false,
   selectAccount: options.selectAccount ?? true,
   clientId: options.clientId,
   clientSecret: options.clientSecret,
@@ -47,7 +48,7 @@ export const github = <R1 = never, R2 = never>(
 
 /**
  * Any OpenID Connect provider found through discovery. Set `promptLogin` only when the provider
- * documents `prompt=login`.
+ * documents `prompt=login`, and `maxAge` only when it obeys `max_age` and returns `auth_time`.
  */
 export const oidc = <R1 = never, R2 = never>(
   options: ClientSecrets<R1, R2> & {
@@ -57,6 +58,7 @@ export const oidc = <R1 = never, R2 = never>(
     readonly provider?: string;
     readonly scopes?: ReadonlyArray<string>;
     readonly promptLogin?: boolean;
+    readonly maxAge?: boolean;
     readonly selectAccount?: boolean;
     readonly tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
   },
@@ -68,6 +70,7 @@ export const oidc = <R1 = never, R2 = never>(
   issuer: options.issuer,
   scopes: [...(options.scopes ?? ["openid", "email", "profile"])],
   promptLogin: options.promptLogin ?? false,
+  maxAge: options.maxAge ?? false,
   selectAccount: options.selectAccount ?? true,
   ...(options.tokenEndpointAuthMethod === undefined
     ? {}

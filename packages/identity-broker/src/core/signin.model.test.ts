@@ -14,6 +14,7 @@ import { decodeJwt } from "jose";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   createBroker,
+  fakeOidcUpstream,
   fakeUpstream,
   pkce,
   stubFetch,
@@ -1074,4 +1075,133 @@ describe("RFC 136 property C regressions", () => {
     expect(trace).toContain("continue P1 (C1) with fake: to fake, U1");
     expect(trace.at(-1)).toBe("authorize C1 (none): straight to fake, U2");
   });
+});
+
+/**
+ * One request that asks for the login's age, through an OIDC connector with each pair of
+ * capabilities. `delayMs` is the time the user spends at the provider; `authTime` is the
+ * provider's `auth_time` as seconds from the callback's second (`undefined`: none).
+ */
+type AgeCase = {
+  promptLogin: boolean;
+  relaysMaxAge: boolean;
+  prompt: boolean;
+  maxAge: number | undefined;
+  delayMs: number;
+  authTime: number | undefined;
+};
+
+const ageCase: fc.Arbitrary<AgeCase> = fc.record({
+  promptLogin: fc.boolean(),
+  relaysMaxAge: fc.boolean(),
+  prompt: fc.boolean(),
+  maxAge: fc.constantFrom(undefined, 0, 1, 10, 300, 10_000),
+  delayMs: fc.constantFrom(0, 900, 1_500, 30_000, 120_000),
+  authTime: fc.constantFrom(undefined, -20_000, -301, -300, -61, -60, -11, -10, -1, 0, 1, 60, 61),
+});
+
+/**
+ * The model: `prompt=login` or `max_age=0` is a forced login, which needs `promptLogin`. A positive
+ * `max_age` alone goes upstream as itself to a connector that relays it, else as a forced login.
+ */
+function agePath(c: AgeCase) {
+  const forced = c.prompt || c.maxAge === 0;
+  if (!forced && c.maxAge === undefined) {
+    return "none";
+  }
+  if (!forced && c.relaysMaxAge) {
+    return "relay";
+  }
+  return c.promptLogin ? "forced" : "refused";
+}
+
+describe("the login's age", () => {
+  it("is forced, relayed, or refused as the connector can, and the id_token names the provider's time", async () => {
+    const T = 1_800_000_000_250;
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    try {
+      await fc.assert(
+        fc.asyncProperty(ageCase, async (c) => {
+          vi.useFakeTimers({ now: T, toFake: ["Date"] });
+          const fetch = stubFetch();
+          const idp = await fakeOidcUpstream(fetch);
+          const connector = {
+            ...idp.connector,
+            promptLogin: c.promptLogin,
+            maxAge: c.relaysMaxAge,
+          };
+          const h = await createBroker({ fetch, config: { connectors: [connector] } });
+          h.clock.set(T);
+          const redirectUri = "https://app.example/cb";
+          const client = await h.registerClient({ appName: "Age", redirectUri });
+          const { verifier, challenge } = await pkce();
+          const params = new URLSearchParams({
+            client_id: client.clientId,
+            redirect_uri: redirectUri,
+            response_type: "code",
+            scope: "openid",
+            code_challenge: challenge,
+            code_challenge_method: "S256",
+            ...(c.prompt ? { prompt: "login" } : {}),
+            ...(c.maxAge === undefined ? {} : { max_age: String(c.maxAge) }),
+          });
+          const started = await h.fetchBroker(`${h.issuer}/authorize?${params.toString()}`);
+          const path = agePath(c);
+          if (path === "refused") {
+            expect(started.status).toBe(400);
+            expect(await started.text()).toContain("cannot reauthenticate the user");
+            return;
+          }
+          const upstream = new URL(started.headers.get("location") ?? "");
+          expect(upstream.origin).toBe("https://server.example.com");
+          expect(upstream.searchParams.get("prompt")).toBe(path === "forced" ? "login" : null);
+          expect(upstream.searchParams.get("max_age")).toBe(
+            path === "forced" ? "0" : path === "relay" ? String(c.maxAge) : null,
+          );
+          const now = T + c.delayMs;
+          vi.setSystemTime(now);
+          h.clock.set(now);
+          const nowSecond = Math.floor(now / 1000);
+          const authTime = c.authTime === undefined ? undefined : nowSecond + c.authTime;
+          idp.nextIdToken({ nonce: upstream.searchParams.get("nonce") ?? "", authTime });
+          const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+          callback.searchParams.set("code", "upstream-code");
+          callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+          const back = await h.fetchBroker(callback, { headers: txnCookie(started) });
+          const location = new URL(back.headers.get("location") ?? "");
+          // A forced login falls inside the request, give or take 60 seconds; a positive max_age
+          // holds with no tolerance; no time later than 60 seconds from now.
+          const accepted =
+            path === "none" ||
+            (authTime !== undefined &&
+              authTime <= nowSecond + 60 &&
+              (path !== "forced" || authTime >= Math.floor(T / 1000) - 60) &&
+              (c.maxAge === undefined || c.maxAge === 0 || nowSecond - authTime <= c.maxAge));
+          expect(location.searchParams.get("error")).toBe(accepted ? null : "login_required");
+          if (!accepted) {
+            return;
+          }
+          const tokens = await h.fetchBroker(`${h.issuer}/token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              grant_type: "authorization_code",
+              client_id: client.clientId,
+              client_secret: client.clientSecret,
+              code: location.searchParams.get("code") ?? "",
+              code_verifier: verifier,
+              redirect_uri: redirectUri,
+            }).toString(),
+          });
+          const answer = Schema.decodeUnknownSync(TokenAnswer)(await tokens.json());
+          expect(decodeJwt(answer.id_token ?? "").auth_time).toBe(
+            path === "none" ? undefined : authTime,
+          );
+        }),
+        { numRuns: 150, seed: 31_212 },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 120_000);
 });
