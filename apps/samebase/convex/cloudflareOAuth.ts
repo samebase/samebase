@@ -3,8 +3,8 @@ import {
   exchangeResourceOAuthCode,
   refreshResourceOAuthToken,
   expiringResourceTokens,
-  revokeHubRefreshToken,
-} from "./hubResourceOAuth";
+  revokeBrokerRefreshToken,
+} from "./brokerResourceOAuth";
 import { ResponseBodyError } from "oauth4webapi";
 import { Infer, v } from "convex/values";
 
@@ -687,7 +687,7 @@ export async function completeCloudflareOAuth(
     });
   } finally {
     if (unsavedRefreshToken !== undefined) {
-      await revokeHubRefreshToken("cloudflare", unsavedRefreshToken);
+      await revokeBrokerRefreshToken("cloudflare", unsavedRefreshToken);
     }
   }
 

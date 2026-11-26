@@ -19,13 +19,13 @@ import { requireOrganizationMembership } from "../organizationAccess";
 
 const { array, boolean, id, literal, number, object, string, union } = v;
 
-/** A hung hub must not hold the admin page. */
+/** A hung broker must not hold the admin page. */
 const REQUEST_TIMEOUT_MS = 10_000;
 
 const vBlockKind = union(literal("repository"), literal("owner"));
 const vBlockAction = union(literal("block"), literal("unblock"));
 
-// The hub's answers as `ModerationApi` of @samebase/identity-broker/moderation/api declares them.
+// The broker's answers as `ModerationApi` of @samebase/identity-broker/moderation/api declares them.
 // The typed client decodes them; each action's return type checks them against these validators.
 
 const vCount = object({ count: number(), atLeast: boolean() });
@@ -84,15 +84,15 @@ const vClient = object({
   ),
   /** The connectors the client's sign-ins may use. */
   connectors: array(string()),
-  /** The repository's owner that the hub recorded last, which a repository's exemption binds to. */
+  /** The repository's owner that the broker recorded last, which a repository's exemption binds to. */
   ownerId: union(string(), v.null()),
   /**
-  Whether the hub shows its sign-in page to this client's users: `shown`, or the exemption that
+  Whether the broker shows its sign-in page to this client's users: `shown`, or the exemption that
   skips it. Null when the client cannot sign in at all.
   */
   signInPage: union(literal("shown"), literal("every_app"), literal("repository"), v.null()),
   /**
-  The hub's connectors that its policy gives the client, the enrolled ones it may use now, and those
+  The broker's connectors that its policy gives the client, the enrolled ones it may use now, and those
   of them that only an admin's grant to its repository allows. Null when the client cannot sign in.
   */
   policyConnectors: union(array(string()), v.null()),
@@ -102,21 +102,21 @@ const vClient = object({
 
 const vClientList = object({ clients: array(vClient), limitReached: boolean() });
 
-/** The exemptions from the hub's sign-in page. */
+/** The exemptions from the broker's sign-in page. */
 const vSignInPageList = object({
   everyApp: union(object({ reason: string() }), v.null()),
   repositories: array(
     object({
       repositoryId: string(),
       ownerId: string(),
-      /** False while the hub has recorded another owner: the row then covers no client. */
+      /** False while the broker has recorded another owner: the row then covers no client. */
       active: boolean(),
       reason: string(),
     }),
   ),
 });
 
-/** The hub's connectors, which a grant may name, and every connector grant. */
+/** The broker's connectors, which a grant may name, and every connector grant. */
 const vConnectorGrantList = object({
   connectors: array(string()),
   grants: array(
@@ -124,7 +124,7 @@ const vConnectorGrantList = object({
       repositoryId: string(),
       ownerId: string(),
       connector: string(),
-      /** False while the hub has recorded another owner: the row then grants nothing. */
+      /** False while the broker has recorded another owner: the row then grants nothing. */
       active: boolean(),
       reason: string(),
     }),
@@ -136,7 +136,7 @@ const vSignInPageTarget = union(
   object({ scope: literal("repository"), repositoryId: string(), expectedOwnerId: string() }),
 );
 
-/** The fields of GitHub's repository answer that the hub's levers need. */
+/** The fields of GitHub's repository answer that the broker's levers need. */
 const vGitHubRepository = object({
   id: number(),
   full_name: string(),
@@ -151,13 +151,13 @@ const vOff = object({ status: literal("off") });
 type Moderation = { issuer: string; key: string };
 
 /**
-The moderation endpoints of the public hub, where apps made from the starter sign in
+The moderation endpoints of the public identity broker, where apps made from the starter sign in
 (PUBLIC_IDENTITY_HUB_ISSUER, deployed from samebase/identity-hub), or null while its key is unset:
 the admin page then says that moderation is off. The key can only read registration counts,
 clients, blocks, exemptions from the sign-in page, and connector grants, set blocks, exemptions, and
-grants, and delete clients at the hub. samebase.com decides who may use it: an admin for every app,
+grants, and delete clients at the broker. samebase.com decides who may use it: an admin for every app,
 an organization's owner for every repository of its GitHub owner, another member for the
-organization's connected repositories. The hub comes from the deployment's env, never from a
+organization's connected repositories. The broker comes from the deployment's env, never from a
 caller's URL, so no request can send a key to another host.
 */
 function readModeration(): Moderation | null {
@@ -166,12 +166,12 @@ function readModeration(): Moderation | null {
   return issuer && key ? { issuer, key } : null;
 }
 
-type HubClient = HttpApiClient.ForApi<typeof ModerationApi>["moderation"];
+type BrokerClient = HttpApiClient.ForApi<typeof ModerationApi>["moderation"];
 
 /** The decoded answer of `request` through the typed client. A refusal or a bad answer throws. */
-async function askHub<A, E>(
+async function askBroker<A, E>(
   moderation: Moderation,
-  request: (hub: HubClient) => Effect.Effect<A, E>,
+  request: (broker: BrokerClient) => Effect.Effect<A, E>,
 ): Promise<A> {
   return await Effect.runPromise(
     HttpApiClient.make(ModerationApi, { baseUrl: moderation.issuer }).pipe(
@@ -199,7 +199,7 @@ const ownClient = (client: typeof Client.Type) => ({
 
 /**
 The registration counts of the last day and week, the blocks, the newest block events, the
-newest clients of every app at one hub, each with who made it, the exemptions from the hub's
+newest clients of every app at one broker, each with who made it, the exemptions from the broker's
 sign-in page, and the connector grants.
 */
 export const readOverview = action({
@@ -223,16 +223,16 @@ export const readOverview = action({
       return { status: "off" as const };
     }
 
-    const [counts, blockList, clientList, signInPage, connectorGrants] = await askHub(
+    const [counts, blockList, clientList, signInPage, connectorGrants] = await askBroker(
       moderation,
-      (hub) =>
+      (broker) =>
         Effect.all(
           [
-            hub.counts(),
-            hub.blocks(),
-            hub.clients({ query: {} }),
-            hub.signInPage(),
-            hub.connectorGrants(),
+            broker.counts(),
+            broker.blocks(),
+            broker.clients({ query: {} }),
+            broker.signInPage(),
+            broker.connectorGrants(),
           ],
           { concurrency: "unbounded" },
         ),
@@ -257,7 +257,7 @@ export const readOverview = action({
 
 /**
 The GitHub ids of a repository by `owner/name`, for a grant or an exemption. A repository that the
-hub has clients of gives its tenant's id and recorded owner; another one, GitHub's answer to a
+broker has clients of gives its tenant's id and recorded owner; another one, GitHub's answer to a
 request without a token. `not_found` when neither knows it, such as a private repository that never
 registered.
 */
@@ -280,7 +280,7 @@ export const lookupRepository = action({
       return { status: "not_found" as const };
     }
 
-    const { clients } = await askHub(moderation, (hub) => hub.clients({ query: {} }));
+    const { clients } = await askBroker(moderation, (broker) => broker.clients({ query: {} }));
     // Only the newest client of each repository (the list is newest first) names it: an older name
     // can belong to another repository now, or to none, so it goes to GitHub.
     const client = clients.find(
@@ -325,8 +325,8 @@ export const lookupRepository = action({
 });
 
 /**
-Grants (`grant: true`) or revokes one of the hub's connectors for one repository and owner. A grant
-names the owner that the admin saw: the hub answers
+Grants (`grant: true`) or revokes one of the broker's connectors for one repository and owner. A grant
+names the owner that the admin saw: the broker answers
 `owner_changed` when it recorded another owner, and `unknown_connector` for a connector it does not
 have. A revoke removes the row of the owner it names.
 */
@@ -357,8 +357,8 @@ export const changeConnectorGrant = action({
       return { status: "off" as const };
     }
 
-    const result = await askHub(moderation, (hub) =>
-      hub
+    const result = await askBroker(moderation, (broker) =>
+      broker
         .changeConnectorGrant({
           payload: {
             repositoryId: args.repositoryId,
@@ -381,8 +381,8 @@ export const changeConnectorGrant = action({
 });
 
 /**
-Skips (`skip: true`) or shows again the hub's sign-in page for every app or for one repository and
-owner. A skip names the owner that the admin saw: the hub answers
+Skips (`skip: true`) or shows again the broker's sign-in page for every app or for one repository and
+owner. A skip names the owner that the admin saw: the broker answers
 `owner_changed` when it recorded another owner. A show removes the row of the owner it names.
 */
 export const changeSignInPage = action({
@@ -401,8 +401,8 @@ export const changeSignInPage = action({
       return { status: "off" as const };
     }
 
-    const result = await askHub(moderation, (hub) =>
-      hub
+    const result = await askBroker(moderation, (broker) =>
+      broker
         .changeSignInPage({
           payload: {
             target: args.target,
@@ -423,7 +423,7 @@ export const changeSignInPage = action({
 });
 
 /**
-Blocks or unblocks a repository or an owner at the hub, in the name of the signed-in admin. The hub
+Blocks or unblocks a repository or an owner at the broker, in the name of the signed-in admin. The broker
 refuses a change without a reason or with an id that is not a GitHub id.
 */
 export const changeBlock = action({
@@ -436,8 +436,8 @@ export const changeBlock = action({
       return { status: "off" as const };
     }
 
-    const { changed } = await askHub(moderation, (hub) =>
-      hub.changeBlock({
+    const { changed } = await askBroker(moderation, (broker) =>
+      broker.changeBlock({
         payload: {
           action: args.action,
           kind: args.kind,
@@ -452,8 +452,8 @@ export const changeBlock = action({
 });
 
 /**
-What a member of an organization may see at the hub. `ownerId` is the numeric GitHub id of the
-organization's owner account, which the hub records as each repository's owner. An organization owner
+What a member of an organization may see at the broker. `ownerId` is the numeric GitHub id of the
+organization's owner account, which the broker records as each repository's owner. An organization owner
 installed Samebase on that GitHub account and sees every repository of it, connected in Samebase or
 not (`repositoryIds` null). Another member may not have GitHub access to all of them, so they see
 only the organization's connected repositories.
@@ -489,24 +489,24 @@ export const readOrganizationScope = internalQuery({
 });
 
 /**
-The clients that a member may see at the hub (`readOrganizationScope`), newest first, the GitHub
-owner whose clients they are, and whether the hub stopped at its limit.
+The clients that a member may see at the broker (`readOrganizationScope`), newest first, the GitHub
+owner whose clients they are, and whether the broker stopped at its limit.
 */
 async function readOrganizationClients(
   ctx: Pick<ActionCtx, "runQuery">,
   moderation: Moderation,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<{ ownerId: string; clients: Infer<typeof vClient>[]; limitReached: boolean }> {
-  const scope = await ctx.runQuery(internal.hubClients.moderation.readOrganizationScope, {
+  const scope = await ctx.runQuery(internal.brokerClients.moderation.readOrganizationScope, {
     userId: args.userId,
     organizationId: args.organizationId,
   });
-  const answer = await askHub(moderation, (hub) =>
-    hub.clients({ query: { owner: scope.ownerId } }),
+  const answer = await askBroker(moderation, (broker) =>
+    broker.clients({ query: { owner: scope.ownerId } }),
   );
   // An answer that does not name this owner may list every owner's clients: show none of it.
   if (answer.owner !== scope.ownerId) {
-    throw new Error("The identity hub answered for another owner.");
+    throw new Error("The identity broker answered for another owner.");
   }
   const clients = answer.clients
     .filter(
@@ -525,9 +525,9 @@ async function readOrganizationClients(
 }
 
 /**
-The clients of an organization at the hub, newest first, each with who made it: for an owner,
+The clients of an organization at the broker, newest first, each with who made it: for an owner,
 every repository of the GitHub owner, connected in Samebase or not; for another member, the
-connected repositories. The list is a read of the hub and connects nothing.
+connected repositories. The list is a read of the broker and connects nothing.
 */
 export const readClientsOfOrganization = action({
   access: "access_dashboard",
@@ -554,9 +554,9 @@ export const readClientsOfOrganization = action({
 });
 
 /**
-Deletes one client of an organization's repositories at the hub. The client must be in the
+Deletes one client of an organization's repositories at the broker. The client must be in the
 organization's list, so a member can delete only the clients of repositories they may see.
-The hub deletes it only while its repository is still recorded under the organization's GitHub
+The broker deletes it only while its repository is still recorded under the organization's GitHub
 owner, so a transfer after the list cannot let this organization delete another owner's client. The
 deployment that held it gets a new client at its next deploy.
 */
@@ -576,8 +576,8 @@ export const deleteClientOfOrganization = action({
     if (!clients.some((client) => client.clientId === args.clientId)) {
       return { status: "on" as const, changed: false };
     }
-    const { changed } = await askHub(moderation, (hub) =>
-      hub.deleteClient({ params: { clientId: args.clientId }, query: { owner: ownerId } }),
+    const { changed } = await askBroker(moderation, (broker) =>
+      broker.deleteClient({ params: { clientId: args.clientId }, query: { owner: ownerId } }),
     );
     return { status: "on" as const, changed };
   },

@@ -1,32 +1,34 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  validateAdminHubClientsRouteSearch,
-  validateOrganizationHubClientsRouteSearch,
-} from "@/routeSearch/hubClients";
+  validateAdminBrokerClientsRouteSearch,
+  validateOrganizationBrokerClientsRouteSearch,
+} from "@/routeSearch/brokerClients";
 
-describe("admin hub clients route search", () => {
+describe("admin broker clients route search", () => {
   it("keeps the search and the comma-separated filters, and only the known groupings", () => {
     expect(
-      validateAdminHubClientsRouteSearch({
+      validateAdminBrokerClientsRouteSearch({
         q: " scout ",
         stage: "preview,development",
         group: "owner",
       }),
     ).toEqual({ q: "scout", stage: "preview,development", group: "owner" });
-    expect(validateAdminHubClientsRouteSearch({ group: "repository", owner: " " })).toEqual({});
+    expect(validateAdminBrokerClientsRouteSearch({ group: "repository", owner: " " })).toEqual({});
   });
 });
 
-describe("organization hub clients route search", () => {
+describe("organization broker clients route search", () => {
   it("has no owner filter and no owner grouping", () => {
     expect(
-      validateOrganizationHubClientsRouteSearch({
+      validateOrganizationBrokerClientsRouteSearch({
         q: "my-app",
         owner: "someone",
         stage: "preview",
         group: "owner",
       }),
     ).toEqual({ q: "my-app", stage: "preview" });
-    expect(validateOrganizationHubClientsRouteSearch({ group: "none" })).toEqual({ group: "none" });
+    expect(validateOrganizationBrokerClientsRouteSearch({ group: "none" })).toEqual({
+      group: "none",
+    });
   });
 });

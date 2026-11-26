@@ -88,7 +88,7 @@ export const deleteRevokedConnection = internalMutation({
       args.expected.provider === "cloudflare" &&
       credentials.cloudflare?.auth.method === "oauth"
     ) {
-      await ctx.scheduler.runAfter(0, internal.hubResourceOAuth.revokeCloudflareGrant, {
+      await ctx.scheduler.runAfter(0, internal.brokerResourceOAuth.revokeCloudflareGrant, {
         organizationId: args.expected.organizationId,
         refreshCredential: credentials.cloudflare.auth.refreshCredential,
       });

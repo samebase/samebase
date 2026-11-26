@@ -12,22 +12,27 @@ import {
   resolveDeploymentProfile,
   resolvePasswordAuthMode,
 } from "../deploymentProfile";
-import { type AuthAccountProvider, vAuthAccountProvider } from "./accountModel";
+import {
+  type AuthAccountProvider,
+  BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
+  BROKER_GOOGLE_ACCOUNT_PROVIDER_ID,
+  vAuthAccountProvider,
+} from "./accountModel";
 import { readNonDeletedUser } from "./lifecycle";
 import { buildNewUserNotification } from "./newUserNotification";
 
 const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 /**
-The id_token claims of the identity hub that a sign-in reads. `sub` is public (RFC 134): the
-provider and its own account id, such as `github:4076804`, the same in every app of the hub. The
+The id_token claims of the identity broker that a sign-in reads. `sub` is public (RFC 134): the
+provider and its own account id, such as `github:4076804`, the same in every app of the broker. The
 account id is GitHub's numeric user id as a string, or Google's `sub`. Convex Auth checks the
-issuer, audience, and expiry of the id_token, which it received over TLS from the hub's token
+issuer, audience, and expiry of the id_token, which it received over TLS from the broker's token
 endpoint, but not the types of its claims, so `parse` checks them and drops the other claims.
 */
-const vHubClaims = object({
+const vBrokerClaims = object({
   sub: string(),
-  /** The hub's connector of the sign-in, such as `google` or `google-apps`. */
+  /** The broker's connector of the sign-in, such as `google` or `google-apps`. */
   connector: string(),
   email: optional(string()),
   email_verified: optional(boolean()),
@@ -36,30 +41,30 @@ const vHubClaims = object({
 });
 
 /**
-The profile mapping of a hub method in convex/auth.ts, which signs in through the hub's connector
+The profile mapping of a broker method in convex/auth.ts, which signs in through the broker's connector
 `method.connector` of the provider `method.provider`. The `sub` starts with the provider, not the
 connector: `google:<id>` through `google` and through `google-apps` alike. It refuses claims of
 another shape, a `sub` that is not `<provider>:<account id>`, and claims of another connector than
 the method's, with a message for the sign-in page. The profile's `connector` is the provider, the
 key of `authAccounts`. The callbacks below find existing users by the email, so only an address
-that the hub verified counts.
+that the broker verified counts.
 */
-export function readHubProfile(
+export function readBrokerProfile(
   claims: unknown,
   method: { connector: string; provider: AuthAccountProvider },
 ) {
   const prefix = `${method.provider}:`;
   if (
-    !validate(vHubClaims, claims, { allowUnknownFields: true }) ||
+    !validate(vBrokerClaims, claims, { allowUnknownFields: true }) ||
     claims.connector !== method.connector ||
     !claims.sub.startsWith(prefix) ||
     !/^\S+$/.test(claims.sub.slice(prefix.length))
   ) {
     throw new ConvexError(
-      `The identity hub did not complete the ${readProviderLabel(method.provider)} sign-in. Try again later.`,
+      `The identity broker did not complete the ${readProviderLabel(method.provider)} sign-in. Try again later.`,
     );
   }
-  const { sub, email, email_verified, name, picture } = parse(vHubClaims, claims);
+  const { sub, email, email_verified, name, picture } = parse(vBrokerClaims, claims);
   return {
     id: sub,
     providerAccountId: sub.slice(prefix.length),
@@ -71,19 +76,22 @@ export function readHubProfile(
 }
 
 /**
-The sign-ins that the `hub-github` and `hub-google` methods of convex/auth.ts hand to the user
-callbacks, with the profile of `readHubProfile`. `accountId` and `profile.id` are the hub's
+The sign-ins that the two broker methods of convex/auth.ts hand to the user
+callbacks, with the profile of `readBrokerProfile`. `accountId` and `profile.id` are the broker's
 subject. The connector and the account id in the subject are the provider and the account id of
 the `authAccounts` key.
 */
-const vHubSignInProvider = object({
-  name: union(literal("hub-github"), literal("hub-google")),
+const vBrokerSignInProvider = object({
+  name: union(
+    literal(BROKER_GITHUB_ACCOUNT_PROVIDER_ID),
+    literal(BROKER_GOOGLE_ACCOUNT_PROVIDER_ID),
+  ),
   accountId: string(),
-  profile: vHubClaims
+  profile: vBrokerClaims
     .omit("sub", "email_verified", "connector")
     .extend({ id: string(), providerAccountId: string(), connector: vAuthAccountProvider }),
 });
-type HubSignInProvider = Infer<typeof vHubSignInProvider>;
+type BrokerSignInProvider = Infer<typeof vBrokerSignInProvider>;
 
 /**
 The session the core mints for a sign-in. The core declares no validator for it, so the custom
@@ -108,10 +116,10 @@ function readProviderLabel(provider: AuthAccountProvider): "Google" | "GitHub" {
 }
 
 /**
-Reads the identity that a hub sign-in may use. The hub must attest a verified email: Samebase
+Reads the identity that a broker sign-in may use. The broker must attest a verified email: Samebase
 matches existing accounts by it and stores it as the account email of a new user.
 */
-function readHubIdentity(provider: HubSignInProvider) {
+function readBrokerIdentity(provider: BrokerSignInProvider) {
   const { connector, providerAccountId, email, name, picture } = provider.profile;
   if (email === undefined) {
     throw new ConvexError(
@@ -222,17 +230,17 @@ async function assertGitHubAccessIdentity(
 }
 
 /**
-Called by the hub methods the first time the core sees a hub subject. The user is the one that
-`authAccounts` already maps the connector's account to (every identity from before the hub), else
-the user whose verified account email is the hub's verified email, else a new user. The core then
+Called by the broker methods the first time the core sees a broker subject. The user is the one that
+`authAccounts` already maps the connector's account to (every identity from before the broker), else
+the user whose verified account email is the broker's verified email, else a new user. The core then
 keeps the subject for that user, so a later sign-in finds it directly. `onSignIn` runs next and
 records the identity.
 */
 export const createUser = internalMutation({
-  args: { provider: vHubSignInProvider },
+  args: { provider: vBrokerSignInProvider },
   returns: id("users"),
   handler: async (ctx, args) => {
-    const identity = readHubIdentity(args.provider);
+    const identity = readBrokerIdentity(args.provider);
 
     const account = await ctx.db
       .query("authAccounts")
@@ -278,17 +286,17 @@ export const createUser = internalMutation({
 });
 
 /**
-Called by the hub methods on every sign-in, the first one included. It rejects users that cannot
+Called by the broker methods on every sign-in, the first one included. It rejects users that cannot
 sign in and records the identity with its latest email observation in `authAccounts`, where
 Samebase reads a user's sign-in identities; the GitHub row holds the raw GitHub user id that the
-GitHub App authorization must match. The hub reports no GitHub login, so a GitHub row keeps the
-login that the GitHub method before the hub observed.
+GitHub App authorization must match. The broker reports no GitHub login, so a GitHub row keeps the
+login that the GitHub method before the broker observed.
 */
 export const onSignIn = internalMutation({
-  args: { provider: vHubSignInProvider, userId: id("users") },
+  args: { provider: vBrokerSignInProvider, userId: id("users") },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const identity = readHubIdentity(args.provider);
+    const identity = readBrokerIdentity(args.provider);
     requireUserCanSignIn(await ctx.db.get(args.userId));
     if (identity.provider === "github") {
       await assertGitHubAccessIdentity(ctx, args.userId, identity.providerAccountId);

@@ -23,7 +23,7 @@ import { rootQueries } from "@/routes/root.queries";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
-  ORGANIZATION_HUB_CLIENTS_ROUTE,
+  ORGANIZATION_BROKER_CLIENTS_ROUTE,
   ORGANIZATION_MEMBERS_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
@@ -329,9 +329,9 @@ function AdminAppRightSidebarLinks() {
       <Link
         {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-        to="/admin/hub-clients"
+        to="/admin/broker-clients"
       >
-        Hub clients
+        Broker clients
       </Link>
     </nav>
   );
@@ -364,7 +364,7 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         {...APP_SIDEBAR_NAVIGATION_LINK_PROPS}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
-        to={ORGANIZATION_HUB_CLIENTS_ROUTE}
+        to={ORGANIZATION_BROKER_CLIENTS_ROUTE}
       >
         Sign-in clients
       </Link>

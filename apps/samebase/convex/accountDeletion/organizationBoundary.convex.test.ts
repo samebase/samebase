@@ -639,7 +639,7 @@ describe("account deletion organization boundary", () => {
 
   it("removes the former member's credentials and personal access but preserves shared data", async () => {
     const { ids, t } = await seedRunningDeletion();
-    vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+    vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
     vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
     vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
     const fetch = vi.fn(async () => new Response(null, { status: 204 }));
@@ -1131,10 +1131,10 @@ describe("account deletion organization boundary", () => {
   });
 
   it.each(["oauth", "mcp_oauth"] as const)(
-    "removes local Cloudflare %s access and revokes only hub refresh grants",
+    "removes local Cloudflare %s access and revokes only broker refresh grants",
     async (cloudflareAuthMethod) => {
       vi.useFakeTimers();
-      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
       vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
       vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
       const { ids, t } = await seedRunningDeletion();
@@ -1151,7 +1151,7 @@ describe("account deletion organization boundary", () => {
                 ? {
                     method: "oauth",
                     credential: testCredential("cloudflare-access-token"),
-                    refreshCredential: testCredential("hub-refresh-token"),
+                    refreshCredential: testCredential("broker-refresh-token"),
                     credentialExpiresAt: 2_000_000_000_000,
                   }
                 : {
@@ -1167,8 +1167,8 @@ describe("account deletion organization boundary", () => {
       await sealTestCredentials(t);
       const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
-        expect(request.url).toBe("https://hub.example.test/revoke");
-        expect((await request.formData()).get("token")).toBe("hub-refresh-token");
+        expect(request.url).toBe("https://broker.example.test/revoke");
+        expect((await request.formData()).get("token")).toBe("broker-refresh-token");
         return new Response(null, { status: 200 });
       });
       vi.stubGlobal("fetch", fetch);

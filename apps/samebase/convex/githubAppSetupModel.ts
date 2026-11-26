@@ -16,7 +16,7 @@ export const vGitHubAppSetupState = object({
   organizationId: optional(id("organizations")),
   githubSignInProviderAccountId: optional(string()),
   returnToPath: optional(string()),
-  /** The PKCE verifier of a user authorization through the identity hub. */
+  /** The PKCE verifier of a user authorization through the identity broker. */
   codeVerifier: optional(string()),
   createdAt: number(),
   expiresAt: number(),

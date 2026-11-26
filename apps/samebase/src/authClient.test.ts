@@ -33,14 +33,14 @@ vi.mock("react", async () => {
   };
 });
 
-// Each button gets the sign-in of its hub method only when both of its function references are
+// Each button gets the sign-in of its broker method only when both of its function references are
 // that method's; any other pair has no sign-in, and the test that clicks it fails.
 vi.mock("@convex-dev/auth/methods/oauth/react", async () => {
   const { getFunctionName } = await import("convex/server");
-  const hubMethodSignIns: Record<string, typeof githubSignInMock> = {
-    "auth:startSignInWithIdentityHubGithub auth:completeSignInWithIdentityHubGithub":
+  const brokerMethodSignIns: Record<string, typeof githubSignInMock> = {
+    "auth:startSignInWithIdentityBrokerGithub auth:completeSignInWithIdentityBrokerGithub":
       githubSignInMock,
-    "auth:startSignInWithIdentityHubGoogle auth:completeSignInWithIdentityHubGoogle":
+    "auth:startSignInWithIdentityBrokerGoogle auth:completeSignInWithIdentityBrokerGoogle":
       googleSignInMock,
   };
   return {
@@ -49,7 +49,7 @@ vi.mock("@convex-dev/auth/methods/oauth/react", async () => {
       completeSignIn: FunctionReference<"mutation">;
     }) => ({
       signIn:
-        hubMethodSignIns[
+        brokerMethodSignIns[
           `${getFunctionName(refs.startSignIn)} ${getFunctionName(refs.completeSignIn)}`
         ],
     }),

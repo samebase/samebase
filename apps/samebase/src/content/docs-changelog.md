@@ -37,9 +37,9 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-11
 
-- **v2336: Hub clients register with the public standard.** Both identity hubs now register clients
-  only with `POST /register`, the OAuth 2.0 Dynamic Client Registration standard (RFC 7591). An app
-  keeps its clients, so its sign-in keeps working. An app made from
+- **v2336: Broker clients register with the public standard.** Both identity brokers now register
+  clients only with `POST /register`, the OAuth 2.0 Dynamic Client Registration standard (RFC 7591).
+  An app keeps its clients, so its sign-in keeps working. An app made from
   [samebase/base](https://github.com/samebase/base) before today needs `@samebase/alchemy-convex`
   0.40.0 before a new preview or a new development machine can register. Ask your agent to apply the
   starter changelog, or follow its v2336 entry. New apps have it from the start. The same entry also
@@ -48,38 +48,39 @@ change. If a change needs action from you, the entry says so.
 
 ## 2026-11-09
 
-- **v2325: One hub client per deployment, with a list of return addresses.** A deployment now
-  registers one client at the identity hub that lists every address the hub may send people back to,
-  in `@samebase/alchemy-convex` 0.39.1 as `redirectUris`. The `app` name is optional and defaults to
-  the stack's path in the repository. The hub's clients were registered again on this day, so
-  connections to Convex, Cloudflare, and GitHub on samebase.com need a reconnect. An app made from
-  [samebase/base](https://github.com/samebase/base) has no sign-in until `alchemy.run.ts` lists its
-  address: ask your agent to apply the starter changelog, or follow its v2326 entry.
-- **v2318: Apps made from samebase/base sign in at the public hub.** Apps now sign in at
+- **v2325: One broker client per deployment, with a list of return addresses.** A deployment now
+  registers one client at the identity broker that lists every address the broker may send people
+  back to, in `@samebase/alchemy-convex` 0.39.1 as `redirectUris`. The `app` name is optional and
+  defaults to the stack's path in the repository. The broker's clients were registered again on this
+  day, so connections to Convex, Cloudflare, and GitHub on samebase.com need a reconnect. An app
+  made from [samebase/base](https://github.com/samebase/base) has no sign-in until `alchemy.run.ts`
+  lists its address: ask your agent to apply the starter changelog, or follow its v2326 entry.
+- **v2318: Apps made from samebase/base sign in at the public identity broker.** Apps now sign in at
   `id.samebase.com`, deployed from the template
   [samebase/identity-hub](https://github.com/samebase/identity-hub). `auth.samebase.com` is
-  samebase.com's own hub, and its `google-apps` and `github-apps` are gone, so an app made before
-  today has no sign-in until `alchemy.run.ts` names the new hub. Users keep their accounts. Ask your
-  agent to apply the starter changelog, or follow its v2318 entry. New apps have it from the start.
+  Samebase's identity broker, and its `google-apps` and `github-apps` are gone, so an app made
+  before today has no sign-in until `alchemy.run.ts` names the new broker. Users keep their
+  accounts. Ask your agent to apply the starter changelog, or follow its v2318 entry. New apps have
+  it from the start.
 
 ## 2026-11-08
 
-- **v2310: Apps made from samebase/base need one update.** The identity hub now takes a deploy's
-  GitHub token only when the token names the hub, which `@samebase/alchemy-convex` 0.34.0 and later
-  do. On an older version, sign-in keeps working, but a new preview gets no sign-in. Version 0.35.0
-  also moves the deploy state store of the Convex team to a new version, so move every app of a team
-  on the same day. Ask your agent to apply the starter changelog, or follow its v2310 entry. New
-  apps have it from the start.
+- **v2310: Apps made from samebase/base need one update.** The identity broker now takes a deploy's
+  GitHub token only when the token names the broker, which `@samebase/alchemy-convex` 0.34.0 and
+  later do. On an older version, sign-in keeps working, but a new preview gets no sign-in. Version
+  0.35.0 also moves the deploy state store of the Convex team to a new version, so move every app of
+  a team on the same day. Ask your agent to apply the starter changelog, or follow its v2310 entry.
+  New apps have it from the start.
 
 ## 2026-11-07
 
 - **v2301: Apps made from samebase/base sign in through Samebase's public clients.** The identity
-  hub's `google` and `github` connectors are now for samebase.com only. Every app signs in through
-  `google-apps` and `github-apps`, which Google and GitHub show as "Samebase". An app made from
-  [samebase/base](https://github.com/samebase/base) before today has no sign-in until
+  broker's `google` and `github` connectors are now for samebase.com only. Every app signs in
+  through `google-apps` and `github-apps`, which Google and GitHub show as "Samebase". An app made
+  from [samebase/base](https://github.com/samebase/base) before today has no sign-in until
   `alchemy.run.ts` names them. Ask your agent to apply the starter changelog, or follow its v2301
   entry. New apps have it from the start.
-- **v2297: Apps made from samebase/base need one update for sign-in.** The identity hub now asks
+- **v2297: Apps made from samebase/base need one update for sign-in.** The identity broker now asks
   each app which sign-in providers it uses, and it shows a page that names the app before Google or
   GitHub. An app made from [samebase/base](https://github.com/samebase/base) before today needs
   `@samebase/alchemy-convex` 0.33.0 and `connectors` in `alchemy.run.ts`, and its sign-in fails
@@ -89,17 +90,17 @@ change. If a change needs action from you, the entry says so.
 ## 2026-11-06
 
 - **v2286: See and delete your apps' sign-in clients.** Sign-in clients, in an organization's menu,
-  lists the identity hub's clients of the organization's repositories: one per deployment, with its
-  stage, return address, and last sign-in. A member who can create apps can delete one; that
+  lists the identity broker's clients of the organization's repositories: one per deployment, with
+  its stage, return address, and last sign-in. A member who can create apps can delete one; that
   deployment gets a new client at its next deploy.
 - **v2278: Connect GitHub or Cloudflare once more if Samebase asks.** samebase.com now gets its
-  sign-in from the identity hub the same way every app does. A GitHub authorization or a Cloudflare
-  connection made through the hub before this stops working once: when Samebase asks, connect it
-  again. Convex connections and your account stay as they are.
-- **v2277: A person's sign-in id is their Google id.** The identity hub gives each app the same id
-  for a person, `google:` and Google's own id for the account, in place of a different id in each
-  app. The id now stays the same if your app moves to another hub. Each person who signs in to your
-  app once more gets the new id once: an app made from
+  sign-in from the identity broker the same way every app does. A GitHub authorization or a
+  Cloudflare connection made through the broker before this stops working once: when Samebase asks,
+  connect it again. Convex connections and your account stay as they are.
+- **v2277: A person's sign-in id is their Google id.** The identity broker gives each app the same
+  id for a person, `google:` and Google's own id for the account, in place of a different id in each
+  app. The id now stays the same if your app moves to another broker. Each person who signs in to
+  your app once more gets the new id once: an app made from
   [samebase/base](https://github.com/samebase/base) makes them a new account then. No outside app
   had sign-ins yet, so no action is needed.
 - **v2275: Google sign-in on your laptop, and one secret.** In an app made from
@@ -111,11 +112,11 @@ change. If a change needs action from you, the entry says so.
 ## 2026-11-04
 
 - **v2261: Google sign-in without a Samebase account.** An app made from
-  [samebase/base](https://github.com/samebase/base) gets Sign in with Google from the identity hub
-  directly, so it needs no Samebase account, and leaving Samebase no longer stops it. An app on
-  `@samebase/alchemy-convex` before 0.24.0 keeps its Google sign-in, but a new deployment, such as a
-  new pull request preview, gets only guest sign-in until you update the package to 0.24.0. Ask your
-  agent to apply the v2261 entry of the starter changelog.
+  [samebase/base](https://github.com/samebase/base) gets Sign in with Google from the identity
+  broker directly, so it needs no Samebase account, and leaving Samebase no longer stops it. An app
+  on `@samebase/alchemy-convex` before 0.24.0 keeps its Google sign-in, but a new deployment, such
+  as a new pull request preview, gets only guest sign-in until you update the package to 0.24.0. Ask
+  your agent to apply the v2261 entry of the starter changelog.
 - **v2253: Google sign-in checks your site.** A deploy gets its Google sign-in client only when the
   site serves `/samebase-verification.json` with the repository's GitHub ID, so the client can be on
   any host and callback path. New apps write the file on every deploy. In an app made before this,
@@ -146,8 +147,8 @@ change. If a change needs action from you, the entry says so.
 - **v2242: Simpler repository header.** A repository now has one page. Disconnect sits in its header
   and opens the same Remove from Samebase dialog, so the Overview and Settings tabs are gone. The
   repository name is an underlined GitHub link. On a phone, swipe to open the sidebar.
-- **v2241: GitHub authorization through the identity hub.** GitHub user authorization now uses the
-  same flow as Convex and Cloudflare. Samebase asks you to authorize GitHub once more. Your
+- **v2241: GitHub authorization through the identity broker.** GitHub user authorization now uses
+  the same flow as Convex and Cloudflare. Samebase asks you to authorize GitHub once more. Your
   organizations and repositories do not change.
 - **v2240: No onboarding video in the sidebar.** The right sidebar no longer shows the onboarding
   video. It covered the first-time Cloudflare setup that New App no longer needs.
@@ -157,8 +158,8 @@ change. If a change needs action from you, the entry says so.
 - **v2236: Shorter repository settings.** Settings now shows only Remove from Samebase. The dialog
   no longer names Workers or Convex projects: your deployed app stays in your cloud accounts.
 - **v2234: Provider connections in previews.** Convex and Cloudflare authorization now returns
-  through the identity hub, so a new preview does not need its URL registered with either provider.
-  A Cloudflare OAuth connection made before this version must reconnect once from your
+  through the identity broker, so a new preview does not need its URL registered with either
+  provider. A Cloudflare OAuth connection made before this version must reconnect once from your
   organization's Providers page.
 - **v2228: One app starter.** The Alchemy starter is now
   [samebase/base](https://github.com/samebase/base). New App uses the same starter. Existing apps

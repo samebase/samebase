@@ -13,39 +13,40 @@ import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import Hub from "./identity-hub/index.ts";
+import Broker from "./identity-broker/index.ts";
 
 /**
 The site of production. Its deployment overrides CONVEX_SITE_URL to it (RFC 127), so Convex Auth
-builds the hub callback on it.
+builds the broker callback on it.
 */
 const PRODUCTION_SITE_URL = "https://samebase.com";
 /**
-The two routes of a deployment that receive the hub's answers: the identity hub's callback into
+The two routes of a deployment that receive the broker's answers: the identity broker's callback into
 Convex Auth, after CONVEX_SITE_URL (convex/convex.config.ts), and the provider connections callback
-(convex/hubResourceOAuth.ts).
+(convex/brokerResourceOAuth.ts).
 */
 const callbacks = (siteUrl: string) => [
   `${siteUrl}/auth/hub/callback`,
   `${siteUrl}/oauth/hub/callback`,
 ];
 /**
-The app of this repository on the identity hub, named before the default (the stack's path,
+The app of this repository on the identity broker, named before the default (the stack's path,
 `apps/samebase`) existed. The name groups the clients; it plays no part in user ids.
 */
 const APP = "samebase";
-/** The hub's connectors that the sign-in buttons name (convex/auth.ts). */
+/** The broker's connectors that the sign-in buttons name (convex/auth.ts). */
 const CONNECTORS = ["google", "github"];
 /**
-The identity hub (identity-hub/index.ts), where every stage registers. The issuer follows from the
-hub's domain there; this file names it and does not import it.
+Samebase's identity broker (identity-broker/index.ts), where every stage registers. The issuer
+follows from the broker's domain there; this file names it and does not import it.
 */
-const HUB = { issuer: "https://auth.samebase.com" };
-/** The resource id of the hub's preview key, which `prod` makes and the previews read. */
+const BROKER = { issuer: "https://auth.samebase.com" };
+// The resource ids below and "HubClient" and "Hub2Client" stay: Alchemy's state holds them.
+/** The resource id of the broker's preview key, which `prod` makes and the previews read. */
 const PREVIEW_KEY = "HubPreviewKey";
-/** The resource id of the hub's development key, which `prod` makes and the development stages read. */
+/** The resource id of the broker's development key, which `prod` makes and the development stages read. */
 const DEVELOPMENT_KEY = "HubDevelopmentKey";
-/** The resource id of the hub's production key, which `prod` makes. Its clients are permanent. */
+/** The resource id of the broker's production key, which `prod` makes. Its clients are permanent. */
 const PRODUCTION_KEY = "HubProductionKey";
 
 /**
@@ -69,13 +70,13 @@ export default Alchemy.Stack(
       // A development checkout: the logged-in local deployment of this folder, which `convex dev`
       // runs and pushes. `pnpm run dev` runs this stage once the backend answers. The client is a
       // development client on the backend's site port, which stays fixed for the folder, and it
-      // asks the hub with the development key from the state of `prod`. The hub removes it 14 days
+      // asks the broker with the development key from the state of `prod`. The broker removes it 14 days
       // after its last run. "Site" only writes the three variables.
       const local = Convex.LocalDeployment.of();
-      const hub = IdentityHub.Client.variables(
+      const broker = IdentityHub.Client.variables(
         yield* IdentityHub.Client("HubClient", {
           app: APP,
-          hub: HUB,
+          hub: BROKER,
           connectors: CONNECTORS,
           redirectUris: callbacks(local.siteUrl),
           deploymentType: "development",
@@ -86,9 +87,9 @@ export default Alchemy.Stack(
       );
       const site = yield* Convex.LocalDeployment("Site", {
         env: {
-          IDENTITY_HUB_ISSUER: hub.issuer,
-          IDENTITY_HUB_CLIENT_ID: hub.clientId,
-          IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
+          IDENTITY_HUB_ISSUER: broker.issuer,
+          IDENTITY_HUB_CLIENT_ID: broker.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: broker.clientSecret,
         },
       });
 
@@ -100,11 +101,11 @@ export default Alchemy.Stack(
       // deletes it. adopt(true) takes it into the state of this stage only.
       const project = yield* Convex.Project("Project", { slug: "samebase-com" }).pipe(adopt(true));
 
-      // A preview's hub callbacks are on its own `.convex.site` URL, and the hub reads the
+      // A preview's broker callbacks are on its own `.convex.site` URL, and the broker reads the
       // verification file there before it registers a client, so the preview has code first.
       // "Preview" creates the deployment and pushes: built like production with the route
       // environment `preview`, and the push command also sets SITE_URL to the preview's site URL and,
-      // once per preview, seeds the account. Its first push takes the off values of the three hub variables
+      // once per preview, seeds the account. Its first push takes the off values of the three broker variables
       // from the project's default variables for previews. Then the client registers, and "Site"
       // writes its variables, with no push. Each variable keeps the row that owned it before:
       // a row removes a name that leaves its own `env`. Both rows delete the deployment on destroy;
@@ -118,10 +119,10 @@ export default Alchemy.Stack(
         env: { SAMEBASE_COMMIT: commit },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
-      const hub = IdentityHub.Client.variables(
+      const broker = IdentityHub.Client.variables(
         yield* IdentityHub.Client("HubClient", {
           app: APP,
-          hub: HUB,
+          hub: BROKER,
           connectors: CONNECTORS,
           redirectUris: Output.map(preview.siteUrl, callbacks),
           deploymentType: "preview",
@@ -135,9 +136,9 @@ export default Alchemy.Stack(
         name: stage,
         env: {
           SAMEBASE_COMMIT: commit,
-          IDENTITY_HUB_ISSUER: hub.issuer,
-          IDENTITY_HUB_CLIENT_ID: hub.clientId,
-          IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
+          IDENTITY_HUB_ISSUER: broker.issuer,
+          IDENTITY_HUB_CLIENT_ID: broker.clientId,
+          IDENTITY_HUB_CLIENT_SECRET: broker.clientSecret,
         },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
 
@@ -156,10 +157,10 @@ export default Alchemy.Stack(
     // before "Site" pushes, and "Site" keeps every variable it owned before. The production key
     // makes it permanent.
     const productionKey = yield* IdentityHub.registrationKey(PRODUCTION_KEY, { stage: "prod" });
-    const hub = IdentityHub.Client.variables(
+    const broker = IdentityHub.Client.variables(
       yield* IdentityHub.Client("Hub2Client", {
         app: APP,
-        hub: HUB,
+        hub: BROKER,
         connectors: CONNECTORS,
         redirectUris: callbacks(PRODUCTION_SITE_URL),
         deploymentType: "production",
@@ -197,9 +198,9 @@ export default Alchemy.Stack(
       type: "prod",
       env: {
         SAMEBASE_COMMIT: commit,
-        IDENTITY_HUB_ISSUER: hub.issuer,
-        IDENTITY_HUB_CLIENT_ID: hub.clientId,
-        IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
+        IDENTITY_HUB_ISSUER: broker.issuer,
+        IDENTITY_HUB_CLIENT_ID: broker.clientId,
+        IDENTITY_HUB_CLIENT_SECRET: broker.clientSecret,
         CLOUDFLARE_EMAIL_ACCOUNT_ID: accountId,
         CLOUDFLARE_EMAIL_API_TOKEN: emailToken.value,
       },
@@ -222,11 +223,11 @@ export default Alchemy.Stack(
       routes: [{ pattern: "e.samebase.com/*", zoneName: "samebase.com" }],
     }).pipe(adopt(true), Alchemy.RemovalPolicy.retain());
 
-    // The hub and its keys: the preview and development keys, which the other stages read from
-    // this stage's state, and the production key. The hub binds its other secrets from the
-    // account's Secrets Store itself (identity-hub/index.ts).
-    const hubWorker = yield* Hub;
-    yield* hubWorker.bind("RegistrationKeys", {
+    // The broker and its keys: the preview and development keys, which the other stages read from
+    // this stage's state, and the production key. The broker binds its other secrets from the
+    // account's Secrets Store itself (identity-broker/index.ts).
+    const brokerWorker = yield* Broker;
+    yield* brokerWorker.bind("RegistrationKeys", {
       env: {
         SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
           stage: "prod",

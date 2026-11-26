@@ -44,7 +44,7 @@ describe("organization resource OAuth", () => {
           convexTeam: { teamId: "team-1" },
         });
       });
-      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
       vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "convex-client");
       vi.stubEnv("CONVEX_SITE_URL", "https://samebase.test");
       const owner = t.withIdentity({
@@ -56,7 +56,7 @@ describe("organization resource OAuth", () => {
           ? await owner.mutation(api.convexOAuth.getConvexOAuthUrl, { organizationId })
           : await owner.action(api.cloudflareOAuth.getCloudflareOAuthUrl, { organizationId });
 
-      expect(authorizeUrl).toContain("https://hub.example.test/authorize?");
+      expect(authorizeUrl).toContain("https://broker.example.test/authorize?");
       expect(authorizeUrl).toContain("client_id=convex-client");
       expect(new URL(authorizeUrl).searchParams.get("resource")).toBe(
         provider === "convex" ? "https://api.convex.dev" : "https://api.cloudflare.com/client/v4/",

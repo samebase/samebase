@@ -225,7 +225,7 @@ describe("UserSettingsPage", () => {
     expect(signInMethodsSection?.textContent).toContain("@octocat");
   });
 
-  it("shows the GitHub email of an identity that the hub reported without a login", async () => {
+  it("shows the GitHub email of an identity that the broker reported without a login", async () => {
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",
       displayName: "Current name",

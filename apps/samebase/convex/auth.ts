@@ -11,10 +11,14 @@ import {
   resolvePasswordAuthMode,
 } from "./deploymentProfile";
 import { mutation } from "./functions";
-import type { AuthAccountProvider } from "./identity/accountModel";
+import {
+  type AuthAccountProvider,
+  BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
+  BROKER_GOOGLE_ACCOUNT_PROVIDER_ID,
+} from "./identity/accountModel";
 import { readPasswordAccount, writePasswordAccount } from "./identity/passwordAccounts";
 import {
-  readHubProfile,
+  readBrokerProfile,
   requireUserCanSignIn,
   sendNewUserNotification,
   startCustomSignInSession,
@@ -34,25 +38,26 @@ const allowedRedirectOrigins = [readOptionalEnv("SITE_URL"), readOptionalEnv("CO
   .map((origin) => new URL(origin).origin);
 
 /**
-The sign-in method `hub-<connector>` of the identity hub. Convex Auth fixes the authorize URL of a
-method, and the URL names the connector, so each button is a method. Both methods share the
-`authHub` component: one hub client per deployment, one callback. The return annotation gives the
-exports below their types without the call, which reads the type of `internal`, which contains this
-module.
+The sign-in method `providerId` of the identity broker for one connector. Convex Auth fixes the
+authorize URL of a method, and the URL names the connector, so each button is a method. Both methods
+share the `authHub` component: one broker client per deployment, one callback. The return annotation
+gives the exports below their types without the call, which reads the type of `internal`, which
+contains this module.
 */
-function setupHubMethod<Connector extends AuthAccountProvider>(
+function setupBrokerMethod<Connector extends AuthAccountProvider>(
   connector: Connector,
+  providerId: typeof BROKER_GITHUB_ACCOUNT_PROVIDER_ID | typeof BROKER_GOOGLE_ACCOUNT_PROVIDER_ID,
 ): ReturnType<typeof setupOauth> {
   return setupOauth(
     auth,
-    `hub-${connector}` as const,
+    providerId,
     {
       authorizationEndpoint: `${env.IDENTITY_HUB_ISSUER}/authorize?connector=${connector}`,
       tokenEndpoint: `${env.IDENTITY_HUB_ISSUER}/token`,
       issuer: env.IDENTITY_HUB_ISSUER,
       scopes: ["openid", "email", "profile"],
       // samebase.com signs in through the operator's connectors, whose names are the providers.
-      profile: (claims) => readHubProfile(claims, { connector, provider: connector }),
+      profile: (claims) => readBrokerProfile(claims, { connector, provider: connector }),
     },
     {
       createUser: internal.identity.signIn.createUser,
@@ -62,13 +67,13 @@ function setupHubMethod<Connector extends AuthAccountProvider>(
   );
 }
 
-const hubGithub = setupHubMethod("github");
-export const startSignInWithIdentityHubGithub = hubGithub.startSignIn;
-export const completeSignInWithIdentityHubGithub = hubGithub.completeSignIn;
+const brokerGithub = setupBrokerMethod("github", BROKER_GITHUB_ACCOUNT_PROVIDER_ID);
+export const startSignInWithIdentityBrokerGithub = brokerGithub.startSignIn;
+export const completeSignInWithIdentityBrokerGithub = brokerGithub.completeSignIn;
 
-const hubGoogle = setupHubMethod("google");
-export const startSignInWithIdentityHubGoogle = hubGoogle.startSignIn;
-export const completeSignInWithIdentityHubGoogle = hubGoogle.completeSignIn;
+const brokerGoogle = setupBrokerMethod("google", BROKER_GOOGLE_ACCOUNT_PROVIDER_ID);
+export const startSignInWithIdentityBrokerGoogle = brokerGoogle.startSignIn;
+export const completeSignInWithIdentityBrokerGoogle = brokerGoogle.completeSignIn;
 
 const vPasswordSignInResult = union(
   object({ status: literal("complete"), tokens: vTokenBundle }),

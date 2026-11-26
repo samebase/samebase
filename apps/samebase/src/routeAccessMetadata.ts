@@ -41,7 +41,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/admin/hub-clients": {
+  "/admin/broker-clients": {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
@@ -120,7 +120,7 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
     access: "access_provider_connections",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/org/$owner/hub-clients": {
+  "/org/$owner/broker-clients": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },

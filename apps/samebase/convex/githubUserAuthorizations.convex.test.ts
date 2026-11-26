@@ -45,10 +45,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const HUB_ISSUER = "https://hub.example.test";
+const BROKER_ISSUER = "https://broker.example.test";
 
-function stubResourceHub(respond: (url: string) => Response) {
-  vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+function stubResourceBroker(respond: (url: string) => Response) {
+  vi.stubEnv("IDENTITY_HUB_ISSUER", BROKER_ISSUER);
   vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
   const requests: Array<{ url: string; body: URLSearchParams }> = [];
@@ -322,7 +322,7 @@ describe("viewer GitHub user authorization", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-    const hubRequests = stubResourceHub(() => new Response(null, { status: 200 }));
+    const brokerRequests = stubResourceBroker(() => new Response(null, { status: 200 }));
     const result = await t
       .withIdentity({
         subject: userId,
@@ -338,9 +338,9 @@ describe("viewer GitHub user authorization", () => {
       token: "revoke-access-token",
     });
     expect(githubAuthMocks.auth).toHaveBeenCalledWith({ type: "delete" });
-    expect(hubRequests.map(({ url }) => url)).toEqual([`${HUB_ISSUER}/revoke`]);
-    expect(hubRequests[0]?.body.get("token")).toBe("revoke-refresh-token");
-    expect(hubRequests[0]?.body.get("resource")).toBe("https://api.github.com");
+    expect(brokerRequests.map(({ url }) => url)).toEqual([`${BROKER_ISSUER}/revoke`]);
+    expect(brokerRequests[0]?.body.get("token")).toBe("revoke-refresh-token");
+    expect(brokerRequests[0]?.body.get("resource")).toBe("https://api.github.com");
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
   });
 
@@ -361,7 +361,7 @@ describe("viewer GitHub user authorization", () => {
         githubUserLogin: "hubot",
         accessToken: testCredential("expired-access-token"),
         accessTokenExpiresAt: now - 60_000,
-        refreshToken: testCredential("hub-refresh-token"),
+        refreshToken: testCredential("broker-refresh-token"),
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,
@@ -379,13 +379,13 @@ describe("viewer GitHub user authorization", () => {
         request: { method: "DELETE", url: "https://api.github.com", headers: {} },
       }),
     );
-    const hubRequests = stubResourceHub(() => new Response(null, { status: 200 }));
+    const brokerRequests = stubResourceBroker(() => new Response(null, { status: 200 }));
 
     await t
       .withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` })
       .action(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization, {});
 
-    expect(hubRequests[0]?.body.get("token")).toBe("hub-refresh-token");
+    expect(brokerRequests[0]?.body.get("token")).toBe("broker-refresh-token");
     await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
   });
 });
@@ -724,7 +724,7 @@ describe("GitHub user authorization identity boundaries", () => {
     vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
     vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
     vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
-    const hubRequests = stubResourceHub(() =>
+    const brokerRequests = stubResourceBroker(() =>
       Response.json({
         access_token: "refreshed-access-token",
         token_type: "bearer",
@@ -737,8 +737,8 @@ describe("GitHub user authorization identity boundaries", () => {
       await resolveGitHubUserOctokit(ctx, { userId, githubUserId: "904" });
     });
 
-    expect(hubRequests.map(({ url }) => url)).toEqual([`${HUB_ISSUER}/token`]);
-    expect(Object.fromEntries(hubRequests[0]?.body ?? [])).toMatchObject({
+    expect(brokerRequests.map(({ url }) => url)).toEqual([`${BROKER_ISSUER}/token`]);
+    expect(Object.fromEntries(brokerRequests[0]?.body ?? [])).toMatchObject({
       grant_type: "refresh_token",
       refresh_token: "old-refresh-token",
       resource: "https://api.github.com",
@@ -762,13 +762,13 @@ describe("GitHub user authorization identity boundaries", () => {
     ).resolves.toBe("refreshed-refresh-token");
   });
 
-  it("asks for a new authorization when the hub refuses the grant", async () => {
+  it("asks for a new authorization when the broker refuses the grant", async () => {
     const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
       "github-refresh-refused@example.test",
       "905",
     );
     await sealTestCredentials(t);
-    stubResourceHub(() => Response.json({ error: "invalid_grant" }, { status: 400 }));
+    stubResourceBroker(() => Response.json({ error: "invalid_grant" }, { status: 400 }));
 
     await expect(
       t.action(async (ctx) => {
@@ -782,13 +782,13 @@ describe("GitHub user authorization identity boundaries", () => {
     expect(authorization?.refreshTokenExpiresAt).toBeLessThanOrEqual(Date.now());
   });
 
-  it("keeps the grant when the hub is unavailable", async () => {
+  it("keeps the grant when the broker is unavailable", async () => {
     const { authorizationId, t, userId } = await seedGitHubRefreshCandidate(
       "github-refresh-outage@example.test",
       "906",
     );
     await sealTestCredentials(t);
-    stubResourceHub(() => new Response("unavailable", { status: 503 }));
+    stubResourceBroker(() => new Response("unavailable", { status: 503 }));
 
     await expect(
       t.action(async (ctx) => {

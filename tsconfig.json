@@ -15,7 +15,7 @@
   },
   "include": [
     "apps/samebase/alchemy.run.ts",
-    "apps/samebase/identity-hub/**/*.ts",
+    "apps/samebase/identity-broker/**/*.ts",
     "apps/samebase/*.test.ts",
     "scripts/**/*.ts",
     "runtime/**/*.ts",

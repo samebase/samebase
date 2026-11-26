@@ -118,18 +118,18 @@ function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
   });
 }
 
-const HUB_ISSUER = "https://hub.example.test";
-const hubIssuerParameter = `iss=${encodeURIComponent(HUB_ISSUER)}`;
+const BROKER_ISSUER = "https://broker.example.test";
+const brokerIssuerParameter = `iss=${encodeURIComponent(BROKER_ISSUER)}`;
 
-function stubHubTokens(tokens: { access_token: string; refresh_token: string }) {
+function stubBrokerTokens(tokens: { access_token: string; refresh_token: string }) {
   const requests: Array<{ url: string; body: URLSearchParams }> = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
       requests.push({ url: request.url, body: new URLSearchParams(await request.text()) });
-      if (request.url === `${HUB_ISSUER}/revoke`) return new Response(null, { status: 200 });
-      if (request.url === `${HUB_ISSUER}/token`) {
+      if (request.url === `${BROKER_ISSUER}/revoke`) return new Response(null, { status: 200 });
+      if (request.url === `${BROKER_ISSUER}/token`) {
         return Response.json({ ...tokens, token_type: "bearer", expires_in: 28_800 });
       }
       throw new Error(`Unexpected request to ${request.url}`);
@@ -147,7 +147,7 @@ beforeEach(() => {
   vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
   vi.stubEnv("SITE_URL", "https://samebase.com");
   vi.stubEnv("CONVEX_SITE_URL", "https://samebase.com");
-  vi.stubEnv("IDENTITY_HUB_ISSUER", HUB_ISSUER);
+  vi.stubEnv("IDENTITY_HUB_ISSUER", BROKER_ISSUER);
   vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
   githubAppMocks.revokeGitHubAppUserToken.mockResolvedValue(undefined);
@@ -191,7 +191,7 @@ describe("GitHub App setup", () => {
     );
     const setupUrl = new URL(result.setupUrl);
     const state = setupUrl.searchParams.get("state");
-    expect(setupUrl.origin + setupUrl.pathname).toBe(`${HUB_ISSUER}/authorize`);
+    expect(setupUrl.origin + setupUrl.pathname).toBe(`${BROKER_ISSUER}/authorize`);
     expect(setupUrl.searchParams.get("resource")).toBe("https://api.github.com");
     expect(setupUrl.searchParams.get("redirect_uri")).toBe(
       "https://samebase.com/oauth/hub/callback",
@@ -512,14 +512,14 @@ describe("GitHub App setup", () => {
       githubUserId: "callback-user-id",
       githubUserLogin: "callback-user",
     });
-    const hubRequests = stubHubTokens({
+    const brokerRequests = stubBrokerTokens({
       access_token: "callback-access-token",
       refresh_token: "callback-refresh-token",
     });
 
     await sealTestCredentials(t);
     const response = await t.fetch(
-      `/oauth/hub/callback?code=authorization-code&state=authorization-callback-state&${hubIssuerParameter}`,
+      `/oauth/hub/callback?code=authorization-code&state=authorization-callback-state&${brokerIssuerParameter}`,
     );
     const html = await expectGitHubCompletion(
       response,
@@ -538,8 +538,8 @@ describe("GitHub App setup", () => {
     expect(githubAppMocks.readAuthenticatedGitHubUser).toHaveBeenCalledWith(
       "callback-access-token",
     );
-    expect(hubRequests).toHaveLength(1);
-    expect(Object.fromEntries(hubRequests[0]?.body ?? [])).toMatchObject({
+    expect(brokerRequests).toHaveLength(1);
+    expect(Object.fromEntries(brokerRequests[0]?.body ?? [])).toMatchObject({
       grant_type: "authorization_code",
       code: "authorization-code",
       code_verifier: "code-verifier",
@@ -587,14 +587,14 @@ describe("GitHub App setup", () => {
       githubUserId: "rotation-user-id",
       githubUserLogin: "rotation-user",
     });
-    const hubRequests = stubHubTokens({
+    const brokerRequests = stubBrokerTokens({
       access_token: "replacement-access-token",
       refresh_token: "replacement-refresh-token",
     });
 
     await sealTestCredentials(t);
     const response = await t.fetch(
-      `/oauth/hub/callback?code=rotation-code&state=authorization-rotation-state&${hubIssuerParameter}`,
+      `/oauth/hub/callback?code=rotation-code&state=authorization-rotation-state&${brokerIssuerParameter}`,
     );
     await expectGitHubCompletion(response, "https://samebase.com/org");
     const snapshot = await t.run(async (ctx) => ({
@@ -608,8 +608,8 @@ describe("GitHub App setup", () => {
     await expect(openAccessToken(snapshot.authorization)).resolves.toBe("replacement-access-token");
     expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledOnce();
     expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledWith("displaced-access-token");
-    expect(hubRequests.at(-1)?.url).toBe(`${HUB_ISSUER}/revoke`);
-    expect(hubRequests.at(-1)?.body.get("token")).toBe("displaced-refresh-token");
+    expect(brokerRequests.at(-1)?.url).toBe(`${BROKER_ISSUER}/revoke`);
+    expect(brokerRequests.at(-1)?.body.get("token")).toBe("displaced-refresh-token");
   });
 
   it("rejects a different GitHub user and revokes only the uncommitted token", async () => {
@@ -637,14 +637,14 @@ describe("GitHub App setup", () => {
       githubUserId: "different-user-id",
       githubUserLogin: "different-user",
     });
-    const hubRequests = stubHubTokens({
+    const brokerRequests = stubBrokerTokens({
       access_token: "uncommitted-access-token",
       refresh_token: "uncommitted-refresh-token",
     });
 
     await sealTestCredentials(t);
     const response = await t.fetch(
-      `/oauth/hub/callback?code=mismatch-code&state=authorization-mismatch-state&${hubIssuerParameter}`,
+      `/oauth/hub/callback?code=mismatch-code&state=authorization-mismatch-state&${brokerIssuerParameter}`,
     );
     await expectGitHubCompletion(
       response,
@@ -665,11 +665,11 @@ describe("GitHub App setup", () => {
     expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledWith(
       "uncommitted-access-token",
     );
-    expect(hubRequests.at(-1)?.url).toBe(`${HUB_ISSUER}/revoke`);
-    expect(hubRequests.at(-1)?.body.get("token")).toBe("uncommitted-refresh-token");
+    expect(brokerRequests.at(-1)?.url).toBe(`${BROKER_ISSUER}/revoke`);
+    expect(brokerRequests.at(-1)?.body.get("token")).toBe("uncommitted-refresh-token");
   });
 
-  it("refuses a hub callback that has no issuer", async () => {
+  it("refuses a broker callback that has no issuer", async () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
       const userId = await insertUser(ctx, "authorization-issuer@example.test");
@@ -689,14 +689,14 @@ describe("GitHub App setup", () => {
         expiresAt: Date.now() + 60_000,
       });
     });
-    const hubRequests = stubHubTokens({ access_token: "unused", refresh_token: "unused" });
+    const brokerRequests = stubBrokerTokens({ access_token: "unused", refresh_token: "unused" });
 
     const response = await t.fetch(
       "/oauth/hub/callback?code=issuer-code&state=authorization-issuer-state",
     );
 
     expect(response.status).toBe(400);
-    expect(hubRequests).toHaveLength(0);
+    expect(brokerRequests).toHaveLength(0);
   });
 
   it("finishes each kind of setup state only at its own route", async () => {
@@ -721,19 +721,19 @@ describe("GitHub App setup", () => {
         });
       }
     });
-    const hubRequests = stubHubTokens({ access_token: "unused", refresh_token: "unused" });
-    const issuer = encodeURIComponent(HUB_ISSUER);
+    const brokerRequests = stubBrokerTokens({ access_token: "unused", refresh_token: "unused" });
+    const issuer = encodeURIComponent(BROKER_ISSUER);
 
     const atSetupUrl = await t.fetch(
       `/oauth/github/callback?code=route-code&state=user_authorization-state&iss=${issuer}`,
     );
-    const atHubCallback = await t.fetch(
+    const atBrokerCallback = await t.fetch(
       `/oauth/hub/callback?installation_id=5005&state=installation-state&iss=${issuer}`,
     );
 
     await expect(atSetupUrl.text()).resolves.toContain("window.close()");
-    expect(atHubCallback.status).toBe(400);
-    expect(hubRequests).toHaveLength(0);
+    expect(atBrokerCallback.status).toBe(400);
+    expect(brokerRequests).toHaveLength(0);
   });
 
   it("closes the install window when the state belongs to another deployment", async () => {
@@ -816,7 +816,7 @@ describe("GitHub App setup", () => {
 
     await sealTestCredentials(t);
     const response = await t.fetch(
-      `/oauth/hub/callback?error=access_denied&state=authorization-canceled-state&${hubIssuerParameter}`,
+      `/oauth/hub/callback?error=access_denied&state=authorization-canceled-state&${brokerIssuerParameter}`,
     );
     await expectGitHubCompletion(
       response,

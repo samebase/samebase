@@ -11,7 +11,7 @@ import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oaut
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildProviderOAuthStoreReturnUrl } from "./authorizationCompletion";
-import { buildResourceOAuthUrl, exchangeResourceOAuthCode } from "./hubResourceOAuth";
+import { buildResourceOAuthUrl, exchangeResourceOAuthCode } from "./brokerResourceOAuth";
 
 export const storeConvexOauthTokens = internalMutation({
   args: {

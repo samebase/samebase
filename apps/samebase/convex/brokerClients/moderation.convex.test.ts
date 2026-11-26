@@ -15,7 +15,7 @@ import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.se
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
 
-const HUB_ISSUER = "https://public-hub.example.test";
+const BROKER_ISSUER = "https://public-broker.example.test";
 const MODERATION_KEY = "moderation-key";
 
 afterEach(() => {
@@ -28,7 +28,7 @@ const jsonResponse = (value: unknown, status = 200, headers: Record<string, stri
     headers: { "Content-Type": "application/json", ...headers },
   });
 
-// The hub's answers, typed by the declaration that the hub serves, so a change to it fails here.
+// The broker's answers, typed by the declaration that the broker serves, so a change to it fails here.
 const counts: typeof Counts.Encoded = {
   day: { count: 1, atLeast: false },
   week: { count: 1_000, atLeast: true },
@@ -167,14 +167,14 @@ const gitHubRepository = {
   html_url: "https://github.com/octocat/Hello-World",
 };
 
-/** The hub's refusals as its README lists them: `{ error, error_description }`. */
+/** The broker's refusals as its README lists them: `{ error, error_description }`. */
 const ownerChanged: typeof OwnerChanged.Encoded = {
   error: "owner_changed",
-  error_description: "The hub records another owner of the repository.",
+  error_description: "The broker records another owner of the repository.",
 };
 const unknownConnector: typeof UnknownConnector.Encoded = {
   error: "unknown_connector",
-  error_description: "The hub has no connector of this name.",
+  error_description: "The broker has no connector of this name.",
 };
 const invalidToken: typeof InvalidToken.Encoded = {
   error: "invalid_token",
@@ -188,8 +188,8 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
   return await route(new Request(input, init));
 });
 
-/** The hub's moderation endpoints, answered with the fixtures above or by `answer`. */
-function stubHub(answer?: (request: Request) => Response) {
+/** The broker's moderation endpoints, answered with the fixtures above or by `answer`. */
+function stubBroker(answer?: (request: Request) => Response) {
   const requests: Sent[] = [];
   route = async (request) => {
     const text = await request.clone().text();
@@ -242,24 +242,24 @@ async function viewerWith(t: ConvexTest, email: string) {
 }
 
 function turnModerationOn() {
-  vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", HUB_ISSUER);
+  vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", BROKER_ISSUER);
   vi.stubEnv("PUBLIC_IDENTITY_HUB_MODERATION_KEY", MODERATION_KEY);
 }
 
-describe("hub client moderation", () => {
+describe("broker client moderation", () => {
   it.each(["anonymous", "member"] as const)(
-    "refuses %s for every function, and calls no hub",
+    "refuses %s for every function, and calls no broker",
     async (role) => {
       const t = makeConvexTest();
       turnModerationOn();
-      const requests = stubHub();
+      const requests = stubBroker();
       const viewer = role === "anonymous" ? t : await viewerWith(t, "member@example.test");
 
-      await expect(viewer.action(api.hubClients.moderation.readOverview, {})).rejects.toThrow(
+      await expect(viewer.action(api.brokerClients.moderation.readOverview, {})).rejects.toThrow(
         "Access denied",
       );
       await expect(
-        viewer.action(api.hubClients.moderation.changeBlock, {
+        viewer.action(api.brokerClients.moderation.changeBlock, {
           action: "block",
           kind: "owner",
           githubId: "65",
@@ -267,14 +267,14 @@ describe("hub client moderation", () => {
         }),
       ).rejects.toThrow("Access denied");
       await expect(
-        viewer.action(api.hubClients.moderation.changeSignInPage, {
+        viewer.action(api.brokerClients.moderation.changeSignInPage, {
           target: { scope: "every_app" },
           skip: true,
           reason: "Launch week",
         }),
       ).rejects.toThrow("Access denied");
       await expect(
-        viewer.action(api.hubClients.moderation.changeConnectorGrant, {
+        viewer.action(api.brokerClients.moderation.changeConnectorGrant, {
           repositoryId: "74",
           connector: "google",
           expectedOwnerId: "65",
@@ -283,7 +283,7 @@ describe("hub client moderation", () => {
         }),
       ).rejects.toThrow("Access denied");
       await expect(
-        viewer.action(api.hubClients.moderation.lookupRepository, {
+        viewer.action(api.brokerClients.moderation.lookupRepository, {
           fullName: "octocat/Hello-World",
         }),
       ).rejects.toThrow("Access denied");
@@ -291,18 +291,18 @@ describe("hub client moderation", () => {
     },
   );
 
-  it("says that moderation is off without the key, and calls no hub", async () => {
+  it("says that moderation is off without the key, and calls no broker", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", BROKER_ISSUER);
     vi.stubEnv("PUBLIC_IDENTITY_HUB_MODERATION_KEY", " ");
-    const requests = stubHub();
+    const requests = stubBroker();
     const admin = await viewerWith(t, "nicu@samebase.com");
 
-    expect(await admin.action(api.hubClients.moderation.readOverview, {})).toEqual({
+    expect(await admin.action(api.brokerClients.moderation.readOverview, {})).toEqual({
       status: "off",
     });
     expect(
-      await admin.action(api.hubClients.moderation.changeBlock, {
+      await admin.action(api.brokerClients.moderation.changeBlock, {
         action: "block",
         kind: "owner",
         githubId: "65",
@@ -310,7 +310,7 @@ describe("hub client moderation", () => {
       }),
     ).toEqual({ status: "off" });
     expect(
-      await admin.action(api.hubClients.moderation.changeSignInPage, {
+      await admin.action(api.brokerClients.moderation.changeSignInPage, {
         target: { scope: "every_app" },
         skip: true,
         reason: "Launch week",
@@ -319,17 +319,17 @@ describe("hub client moderation", () => {
     expect(requests).toEqual([]);
   });
 
-  it("reads the counts, the blocks, and the clients at the hub with the key", async () => {
+  it("reads the counts, the blocks, and the clients at the broker with the key", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const admin = await viewerWith(t, "nicu@samebase.com");
 
-    const overview = await admin.action(api.hubClients.moderation.readOverview, {});
+    const overview = await admin.action(api.brokerClients.moderation.readOverview, {});
 
     expect(overview).toEqual({
       status: "on",
-      issuer: HUB_ISSUER,
+      issuer: BROKER_ISSUER,
       counts,
       blockList,
       clientList,
@@ -338,31 +338,31 @@ describe("hub client moderation", () => {
     });
     expect(requests).toEqual([
       {
-        url: `${HUB_ISSUER}/moderation/counts`,
+        url: `${BROKER_ISSUER}/moderation/counts`,
         method: "GET",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
       {
-        url: `${HUB_ISSUER}/moderation/blocks`,
+        url: `${BROKER_ISSUER}/moderation/blocks`,
         method: "GET",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
       {
-        url: `${HUB_ISSUER}/moderation/clients`,
+        url: `${BROKER_ISSUER}/moderation/clients`,
         method: "GET",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
       {
-        url: `${HUB_ISSUER}/moderation/sign-in-page`,
+        url: `${BROKER_ISSUER}/moderation/sign-in-page`,
         method: "GET",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
       },
       {
-        url: `${HUB_ISSUER}/moderation/connector-grants`,
+        url: `${BROKER_ISSUER}/moderation/connector-grants`,
         method: "GET",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: undefined,
@@ -370,18 +370,18 @@ describe("hub client moderation", () => {
     ]);
   });
 
-  it("finds a repository's GitHub ids at the hub, else on GitHub without a token", async () => {
+  it("finds a repository's GitHub ids at the broker, else on GitHub without a token", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     let gitHub = () => jsonResponse(gitHubRepository);
-    const requests = stubHub((request) =>
+    const requests = stubBroker((request) =>
       request.url.startsWith("https://api.github.com/") ? gitHub() : jsonResponse(clientList),
     );
     const admin = await viewerWith(t, "nicu@samebase.com");
     const lookup = async (fullName: string) =>
-      await admin.action(api.hubClients.moderation.lookupRepository, { fullName });
+      await admin.action(api.brokerClients.moderation.lookupRepository, { fullName });
 
-    // The tenant's id and recorded owner, from the hub's clients of the repository.
+    // The tenant's id and recorded owner, from the broker's clients of the repository.
     expect(await lookup(" Octo-Org/Octo-Repo ")).toEqual({
       status: "found",
       repositoryId: "74",
@@ -395,8 +395,8 @@ describe("hub client moderation", () => {
       name: "octocat/Hello-World",
     });
     expect(requests.map(({ url, authorization }) => [url, authorization])).toEqual([
-      [`${HUB_ISSUER}/moderation/clients`, `Bearer ${MODERATION_KEY}`],
-      [`${HUB_ISSUER}/moderation/clients`, `Bearer ${MODERATION_KEY}`],
+      [`${BROKER_ISSUER}/moderation/clients`, `Bearer ${MODERATION_KEY}`],
+      [`${BROKER_ISSUER}/moderation/clients`, `Bearer ${MODERATION_KEY}`],
       ["https://api.github.com/repos/octocat/Hello-World", null],
     ]);
 
@@ -407,7 +407,7 @@ describe("hub client moderation", () => {
     expect(requests).toHaveLength(5);
   });
 
-  it("finds a repository at the hub by its newest name only", async () => {
+  it("finds a repository at the broker by its newest name only", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     const [, original] = clientList.clients;
@@ -429,14 +429,14 @@ describe("hub client moderation", () => {
       ownerId: "70",
     };
     let clients = [moved, old];
-    const requests = stubHub((request) =>
+    const requests = stubBroker((request) =>
       request.url.startsWith("https://api.github.com/")
         ? jsonResponse({ message: "Not Found" }, 404)
         : jsonResponse({ clients, limitReached: false }),
     );
     const admin = await viewerWith(t, "nicu@samebase.com");
     const lookup = async (fullName: string) =>
-      await admin.action(api.hubClients.moderation.lookupRepository, { fullName });
+      await admin.action(api.brokerClients.moderation.lookupRepository, { fullName });
 
     expect(await lookup("octo-org/octo-repo")).toEqual({ status: "not_found" });
     expect(requests.at(-1)?.url).toBe("https://api.github.com/repos/octo-org/octo-repo");
@@ -455,10 +455,10 @@ describe("hub client moderation", () => {
     });
   });
 
-  it("grants a connector to a repository, and says when the hub refuses", async () => {
+  it("grants a connector to a repository, and says when the broker refuses", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const admin = await viewerWith(t, "nicu@samebase.com");
     const change = {
       repositoryId: "74",
@@ -468,30 +468,30 @@ describe("hub client moderation", () => {
       reason: "A team we know",
     };
     const changeGrant = async () =>
-      await admin.action(api.hubClients.moderation.changeConnectorGrant, {
+      await admin.action(api.brokerClients.moderation.changeConnectorGrant, {
         ...change,
       });
 
     expect(await changeGrant()).toEqual({ status: "on", result: "changed" });
     expect(requests).toEqual([
       {
-        url: `${HUB_ISSUER}/moderation/connector-grants`,
+        url: `${BROKER_ISSUER}/moderation/connector-grants`,
         method: "POST",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: change,
       },
     ]);
 
-    stubHub(() => jsonResponse(ownerChanged, 409));
+    stubBroker(() => jsonResponse(ownerChanged, 409));
     expect(await changeGrant()).toEqual({ status: "on", result: "owner_changed" });
-    stubHub(() => jsonResponse(unknownConnector, 400));
+    stubBroker(() => jsonResponse(unknownConnector, 400));
     expect(await changeGrant()).toEqual({ status: "on", result: "unknown_connector" });
   });
 
   it("skips the sign-in page for a repository", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const admin = await viewerWith(t, "nicu@samebase.com");
     const change = {
       target: { scope: "repository" as const, repositoryId: "74", expectedOwnerId: "65" },
@@ -499,31 +499,31 @@ describe("hub client moderation", () => {
       reason: "A team we know",
     };
     const changePage = async () =>
-      await admin.action(api.hubClients.moderation.changeSignInPage, {
+      await admin.action(api.brokerClients.moderation.changeSignInPage, {
         ...change,
       });
 
     expect(await changePage()).toEqual({ status: "on", result: "changed" });
     expect(requests).toEqual([
       {
-        url: `${HUB_ISSUER}/moderation/sign-in-page`,
+        url: `${BROKER_ISSUER}/moderation/sign-in-page`,
         method: "POST",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: change,
       },
     ]);
 
-    stubHub(() => jsonResponse(ownerChanged, 409));
+    stubBroker(() => jsonResponse(ownerChanged, 409));
     expect(await changePage()).toEqual({ status: "on", result: "owner_changed" });
   });
 
   it("sets a block in the name of the signed-in admin", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const admin = await viewerWith(t, "nicu@samebase.com");
 
-    const result = await admin.action(api.hubClients.moderation.changeBlock, {
+    const result = await admin.action(api.brokerClients.moderation.changeBlock, {
       action: "unblock",
       kind: "repository",
       githubId: "74",
@@ -533,7 +533,7 @@ describe("hub client moderation", () => {
     expect(result).toEqual({ status: "on", changed: true });
     expect(requests).toEqual([
       {
-        url: `${HUB_ISSUER}/moderation/blocks`,
+        url: `${BROKER_ISSUER}/moderation/blocks`,
         method: "POST",
         authorization: `Bearer ${MODERATION_KEY}`,
         body: {
@@ -547,15 +547,15 @@ describe("hub client moderation", () => {
     ]);
   });
 
-  it("fails when the hub refuses the key", async () => {
+  it("fails when the broker refuses the key", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    stubHub(() =>
+    stubBroker(() =>
       jsonResponse(invalidToken, 401, { "WWW-Authenticate": 'Bearer error="invalid_token"' }),
     );
     const admin = await viewerWith(t, "nicu@samebase.com");
 
-    await expect(admin.action(api.hubClients.moderation.readOverview, {})).rejects.toThrow(
+    await expect(admin.action(api.brokerClients.moderation.readOverview, {})).rejects.toThrow(
       InvalidToken,
     );
   });
@@ -563,7 +563,7 @@ describe("hub client moderation", () => {
 
 /**
 A member of an organization of GitHub owner 65 with two connected repositories, GitHub ids 74 and
-81, and one that is not connected yet, and an outsider. The list asks the hubs by owner, so which
+81, and one that is not connected yet, and an outsider. The list asks the brokers by owner, so which
 repositories are connected does not change it.
 */
 async function organizationWithMember(t: ConvexTest) {
@@ -653,16 +653,16 @@ async function organizationWithMember(t: ConvexTest) {
 }
 
 /** The organization's owner, GitHub account 65, whose repositories need not be connected. */
-const ORGANIZATION_LIST = `${HUB_ISSUER}/moderation/clients?owner=65`;
+const ORGANIZATION_LIST = `${BROKER_ISSUER}/moderation/clients?owner=65`;
 
-describe("an organization's hub clients", () => {
+describe("an organization's broker clients", () => {
   it("lists the clients of its owner's repositories for an owner, in one request", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const { member, organizationId } = await organizationWithMember(t);
 
-    const result = await member.action(api.hubClients.moderation.readClientsOfOrganization, {
+    const result = await member.action(api.brokerClients.moderation.readClientsOfOrganization, {
       organizationId,
     });
 
@@ -686,14 +686,14 @@ describe("an organization's hub clients", () => {
       clientId: "cl_unconnected",
       registeredBy: { ...preview.registeredBy, githubRepositoryDatabaseId: "99" },
     };
-    const requests = stubHub((request) =>
+    const requests = stubBroker((request) =>
       request.method === "DELETE"
         ? jsonResponse({ changed: true })
         : jsonResponse({ owner: "65", clients: [preview, unconnected], limitReached: true }),
     );
     const { member, plainMember, organizationId } = await organizationWithMember(t);
     const ids = async (viewer: typeof member) => {
-      const result = await viewer.action(api.hubClients.moderation.readClientsOfOrganization, {
+      const result = await viewer.action(api.brokerClients.moderation.readClientsOfOrganization, {
         organizationId,
       });
       return result.status === "on" ? result.clients.map((client) => client.clientId) : [];
@@ -702,11 +702,13 @@ describe("an organization's hub clients", () => {
     expect(await ids(member)).toEqual(["cl_preview", "cl_unconnected"]);
     expect(await ids(plainMember)).toEqual(["cl_preview"]);
     expect(
-      await member.action(api.hubClients.moderation.readClientsOfOrganization, { organizationId }),
+      await member.action(api.brokerClients.moderation.readClientsOfOrganization, {
+        organizationId,
+      }),
     ).toMatchObject({ limitReached: true });
     // A plain member cannot delete a client they do not see.
     expect(
-      await plainMember.action(api.hubClients.moderation.deleteClientOfOrganization, {
+      await plainMember.action(api.brokerClients.moderation.deleteClientOfOrganization, {
         organizationId,
         clientId: "cl_unconnected",
       }),
@@ -715,30 +717,30 @@ describe("an organization's hub clients", () => {
   });
 
   it.each([
-    ["the full list, as a hub without the owner filter answers", () => jsonResponse(clientList)],
+    ["the full list, as a broker without the owner filter answers", () => jsonResponse(clientList)],
     ["another owner's list", () => jsonResponse({ ...clientList, owner: "66" })],
-  ])("shows nothing when a hub answers %s", async (_, answer) => {
+  ])("shows nothing when a broker answers %s", async (_, answer) => {
     const t = makeConvexTest();
     turnModerationOn();
-    stubHub(answer);
+    stubBroker(answer);
     const { member, organizationId } = await organizationWithMember(t);
 
     await expect(
-      member.action(api.hubClients.moderation.readClientsOfOrganization, { organizationId }),
-    ).rejects.toThrow("The identity hub answered");
+      member.action(api.brokerClients.moderation.readClientsOfOrganization, { organizationId }),
+    ).rejects.toThrow("The identity broker answered");
   });
 
-  it("refuses a user outside the organization, and calls no hub", async () => {
+  it("refuses a user outside the organization, and calls no broker", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const { outsider, organizationId } = await organizationWithMember(t);
 
     await expect(
-      outsider.action(api.hubClients.moderation.readClientsOfOrganization, { organizationId }),
+      outsider.action(api.brokerClients.moderation.readClientsOfOrganization, { organizationId }),
     ).rejects.toThrow("Organization membership is required.");
     await expect(
-      outsider.action(api.hubClients.moderation.deleteClientOfOrganization, {
+      outsider.action(api.brokerClients.moderation.deleteClientOfOrganization, {
         organizationId,
         clientId: "cl_test",
       }),
@@ -749,10 +751,10 @@ describe("an organization's hub clients", () => {
   it("deletes a client of the organization's repositories", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const { member, organizationId } = await organizationWithMember(t);
 
-    const result = await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
+    const result = await member.action(api.brokerClients.moderation.deleteClientOfOrganization, {
       organizationId,
       clientId: "cl_test",
     });
@@ -760,17 +762,17 @@ describe("an organization's hub clients", () => {
     expect(result).toEqual({ status: "on", changed: true });
     expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
       `GET ${ORGANIZATION_LIST}`,
-      `DELETE ${HUB_ISSUER}/moderation/clients/cl_test?owner=65`,
+      `DELETE ${BROKER_ISSUER}/moderation/clients/cl_test?owner=65`,
     ]);
   });
 
   it("deletes nothing for a client that is not in the organization's list", async () => {
     const t = makeConvexTest();
     turnModerationOn();
-    const requests = stubHub();
+    const requests = stubBroker();
     const { member, organizationId } = await organizationWithMember(t);
 
-    const result = await member.action(api.hubClients.moderation.deleteClientOfOrganization, {
+    const result = await member.action(api.brokerClients.moderation.deleteClientOfOrganization, {
       organizationId,
       clientId: "cl_of_another_organization",
     });
@@ -779,15 +781,15 @@ describe("an organization's hub clients", () => {
     expect(requests.map((request) => request.method)).toEqual(["GET"]);
   });
 
-  it("says that moderation is off without the key, and calls no hub", async () => {
+  it("says that moderation is off without the key, and calls no broker", async () => {
     const t = makeConvexTest();
-    vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", HUB_ISSUER);
+    vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", BROKER_ISSUER);
     vi.stubEnv("PUBLIC_IDENTITY_HUB_MODERATION_KEY", " ");
-    const requests = stubHub();
+    const requests = stubBroker();
     const { member, organizationId } = await organizationWithMember(t);
 
     expect(
-      await member.action(api.hubClients.moderation.readClientsOfOrganization, {
+      await member.action(api.brokerClients.moderation.readClientsOfOrganization, {
         organizationId,
       }),
     ).toEqual({ status: "off" });

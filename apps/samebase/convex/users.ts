@@ -339,8 +339,8 @@ export const getUserSettings = query({
           if (github !== null || account.emailVerified === undefined) {
             throw new Error("GitHub sign-in identity is inconsistent.");
           }
-          // The hub reports no GitHub login: only an identity that the GitHub method before the
-          // hub signed in has one.
+          // The broker reports no GitHub login: only an identity that the GitHub method before the
+          // broker signed in has one.
           github = {
             email: normalizeAccountEmail(account.emailVerified),
             ...(account.githubLogin === undefined ? {} : { login: account.githubLogin }),

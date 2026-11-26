@@ -7,8 +7,8 @@ import { useId, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
-import { formatTime, type HubClient, ownerOf } from "@/components/hubClients/hubClient";
-import { HubClientsTable } from "@/components/hubClients/HubClientsTable";
+import { formatTime, type BrokerClient, ownerOf } from "@/components/brokerClients/brokerClient";
+import { BrokerClientsTable } from "@/components/brokerClients/BrokerClientsTable";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,10 +25,10 @@ import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { applySearchPatch } from "@/routing/searchFlags";
 
-const adminHubClientsRouteApi = getRouteApi("/_authed/admin/hub-clients");
+const adminBrokerClientsRouteApi = getRouteApi("/_authed/admin/broker-clients");
 
 type Overview = Extract<
-  FunctionReturnType<typeof api.hubClients.moderation.readOverview>,
+  FunctionReturnType<typeof api.brokerClients.moderation.readOverview>,
   { status: "on" }
 >;
 type BlockKind = Overview["blockList"]["blocks"][number]["kind"];
@@ -43,7 +43,7 @@ const formatCount = (count: { count: number; atLeast: boolean }) =>
 
 type BlockTarget = { kind: BlockKind; githubId: string; name: string; clientCount: number };
 
-const repositoryTarget = (client: HubClient, clients: readonly HubClient[]): BlockTarget => ({
+const repositoryTarget = (client: BrokerClient, clients: readonly BrokerClient[]): BlockTarget => ({
   kind: "repository",
   githubId: client.registeredBy.githubRepositoryDatabaseId,
   name: client.registeredBy.githubRepository,
@@ -57,8 +57,8 @@ const repositoryTarget = (client: HubClient, clients: readonly HubClient[]): Blo
 /** A repository by its GitHub id, the owner that a row binds to, and its `owner/name`. */
 type RepositoryTarget = { repositoryId: string; ownerId: string; name: string };
 
-/** The `owner/name` of each repository that the hub has clients of, from its newest client. */
-const repositoryNames = (clients: readonly HubClient[]) =>
+/** The `owner/name` of each repository that the broker has clients of, from its newest client. */
+const repositoryNames = (clients: readonly BrokerClient[]) =>
   new Map(
     [...clients]
       .reverse()
@@ -71,14 +71,14 @@ const repositoryNames = (clients: readonly HubClient[]) =>
       ),
   );
 
-/** Whether the hub skips its sign-in page for the repository while the owner owns it. */
+/** Whether the broker skips its sign-in page for the repository while the owner owns it. */
 const isExempt = (overview: Overview, repositoryId: string, ownerId: string | null) =>
   overview.signInPage.repositories.some(
     (row) => row.repositoryId === repositoryId && row.ownerId === ownerId,
   );
 
 /**
-A repository for the hub's sign-in page, which covers every app and deployment of it: whether the
+A repository for the broker's sign-in page, which covers every app and deployment of it: whether the
 row of its recorded owner exists now, and that owner, which a new row binds to.
 */
 type SignInPageTarget = {
@@ -88,10 +88,10 @@ type SignInPageTarget = {
   registeredByOwnerId: string | null;
   name: string;
   exempt: boolean;
-  now: HubClient["signInPage"];
+  now: BrokerClient["signInPage"];
 };
 
-const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarget => {
+const signInPageTarget = (client: BrokerClient, overview: Overview): SignInPageTarget => {
   const repositoryId = client.registeredBy.githubRepositoryDatabaseId;
   return {
     repositoryId,
@@ -104,18 +104,18 @@ const signInPageTarget = (client: HubClient, overview: Overview): SignInPageTarg
 };
 
 const SIGN_IN_PAGE_NOW = {
-  shown: "The hub shows its sign-in page to this app's users.",
-  every_app: "The hub skips its sign-in page for every app.",
-  repository: "The hub skips its sign-in page for this repository.",
+  shown: "The broker shows its sign-in page to this app's users.",
+  every_app: "The broker skips its sign-in page for every app.",
+  repository: "The broker skips its sign-in page for this repository.",
 } as const;
 
 /**
 A repository for its connector grants, which cover every app and deployment of it: the recorded
-owner, which a new grant binds to, and the connectors that the hub's policy already gives it.
+owner, which a new grant binds to, and the connectors that the broker's policy already gives it.
 */
 type ConnectorsTarget = RepositoryTarget & { policyConnectors: string[] };
 
-const connectorsTarget = (client: HubClient): ConnectorsTarget | null =>
+const connectorsTarget = (client: BrokerClient): ConnectorsTarget | null =>
   client.ownerId === null || client.policyConnectors === null
     ? null
     : {
@@ -125,7 +125,7 @@ const connectorsTarget = (client: HubClient): ConnectorsTarget | null =>
         policyConnectors: client.policyConnectors,
       };
 
-const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTarget => ({
+const ownerTarget = (client: BrokerClient, clients: readonly BrokerClient[]): BlockTarget => ({
   kind: "owner",
   githubId: client.registeredBy.githubOwnerId,
   name: ownerOf(client),
@@ -135,30 +135,30 @@ const ownerTarget = (client: HubClient, clients: readonly HubClient[]): BlockTar
 });
 
 /**
-Every client at the public identity hub with who made it at `/register` (a repository's GitHub
+Every client at the public identity broker with who made it at `/register` (a repository's GitHub
 Actions run with its actor, or a development server with the app's initial access token), grouped
 by repository, and the blocks and their events.
 */
-export function AdminHubClientsPage() {
+export function AdminBrokerClientsPage() {
   return (
     <main
-      data-testid="admin-hub-clients-page"
+      data-testid="admin-broker-clients-page"
       data-posthog-mask
       className="container mx-auto w-full max-w-6xl py-6 @max-3xl:px-3"
     >
-      <h1 className="text-xl font-semibold @2xl:text-2xl">Hub clients</h1>
-      <HubModeration />
+      <h1 className="text-xl font-semibold @2xl:text-2xl">Public identity broker clients</h1>
+      <BrokerModeration />
     </main>
   );
 }
 
-function HubModeration() {
-  const readOverview = useAction(api.hubClients.moderation.readOverview);
-  const changeBlock = useAction(api.hubClients.moderation.changeBlock);
-  const changeSignInPage = useAction(api.hubClients.moderation.changeSignInPage);
-  const changeConnectorGrant = useAction(api.hubClients.moderation.changeConnectorGrant);
+function BrokerModeration() {
+  const readOverview = useAction(api.brokerClients.moderation.readOverview);
+  const changeBlock = useAction(api.brokerClients.moderation.changeBlock);
+  const changeSignInPage = useAction(api.brokerClients.moderation.changeSignInPage);
+  const changeConnectorGrant = useAction(api.brokerClients.moderation.changeConnectorGrant);
   const overview = useQuery({
-    queryKey: ["admin-hub-clients-overview"],
+    queryKey: ["admin-broker-clients-overview"],
     queryFn: async () => await readOverview({}),
     retry: false,
   });
@@ -180,7 +180,7 @@ function HubModeration() {
       )}
       {overview.isError ? (
         <p className="mt-6 text-sm text-destructive" role="alert">
-          Could not reach the identity hub.
+          Could not reach the identity broker.
         </p>
       ) : overview.data === undefined ? null : overview.data.status === "off" ? (
         <p className="mt-6 text-sm text-muted-foreground">
@@ -279,21 +279,21 @@ function AdminClientsTable({
   onSignInPage: (target: SignInPageTarget) => void;
   onConnectors: (target: ConnectorsTarget) => void;
 }) {
-  const navigate = adminHubClientsRouteApi.useNavigate();
-  const search = adminHubClientsRouteApi.useSearch();
+  const navigate = adminBrokerClientsRouteApi.useNavigate();
+  const search = adminBrokerClientsRouteApi.useSearch();
   const clients = overview.clientList.clients;
 
   const blocked = useMemo(() => {
     const ids = new Set(
       overview.blockList.blocks.map((block) => `${block.kind}:${block.githubId}`),
     );
-    return (client: HubClient) =>
+    return (client: BrokerClient) =>
       ids.has(`repository:${client.registeredBy.githubRepositoryDatabaseId}`) ||
       ids.has(`owner:${client.registeredBy.githubOwnerId}`);
   }, [overview.blockList.blocks]);
 
   return (
-    <HubClientsTable
+    <BrokerClientsTable
       clients={clients}
       limitReached={overview.clientList.limitReached}
       now={now}
@@ -387,7 +387,7 @@ function BlockDialog({
   onChanged,
 }: {
   target: BlockTarget | null;
-  changeBlock: ReturnType<typeof useAction<typeof api.hubClients.moderation.changeBlock>>;
+  changeBlock: ReturnType<typeof useAction<typeof api.brokerClients.moderation.changeBlock>>;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -414,7 +414,7 @@ function BlockDialog({
       await onChanged();
       close();
     } catch {
-      setError("The hub refused the change.");
+      setError("The broker refused the change.");
     } finally {
       setPending(false);
     }
@@ -436,7 +436,7 @@ function BlockDialog({
             </DialogDescription>
           </DialogHeader>
           <form
-            id="admin-hub-clients-block-form"
+            id="admin-broker-clients-block-form"
             className="grid gap-2"
             onSubmit={(event) => {
               event.preventDefault();
@@ -445,9 +445,9 @@ function BlockDialog({
               }
             }}
           >
-            <Label htmlFor="admin-hub-clients-block-reason">Reason</Label>
+            <Label htmlFor="admin-broker-clients-block-reason">Reason</Label>
             <Input
-              id="admin-hub-clients-block-reason"
+              id="admin-broker-clients-block-reason"
               required
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -464,7 +464,7 @@ function BlockDialog({
             </Button>
             <Button
               type="submit"
-              form="admin-hub-clients-block-form"
+              form="admin-broker-clients-block-form"
               variant="destructive"
               disabled={pending || reason.trim() === ""}
             >
@@ -490,7 +490,7 @@ function BlocksSection({
   onChanged,
 }: {
   overview: Overview;
-  changeBlock: ReturnType<typeof useAction<typeof api.hubClients.moderation.changeBlock>>;
+  changeBlock: ReturnType<typeof useAction<typeof api.brokerClients.moderation.changeBlock>>;
   onChanged: () => Promise<void>;
 }) {
   const [kind, setKind] = useState<BlockKind>("repository");
@@ -519,7 +519,7 @@ function BlocksSection({
       setReason("");
       await onChanged();
     } catch {
-      setMessage("The hub refused the change. Check the id and the reason.");
+      setMessage("The broker refused the change. Check the id and the reason.");
     } finally {
       setPending(null);
     }
@@ -535,9 +535,9 @@ function BlocksSection({
         }}
       >
         <div className="grid gap-2">
-          <Label htmlFor="admin-hub-clients-kind">What</Label>
+          <Label htmlFor="admin-broker-clients-kind">What</Label>
           <Select value={kind} onValueChange={setKind} items={BLOCK_KINDS}>
-            <SelectTrigger id="admin-hub-clients-kind" className="text-base">
+            <SelectTrigger id="admin-broker-clients-kind" className="text-base">
               <SelectValue />
             </SelectTrigger>
             <AppSelectContent>
@@ -550,9 +550,9 @@ function BlocksSection({
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="admin-hub-clients-github-id">GitHub id</Label>
+          <Label htmlFor="admin-broker-clients-github-id">GitHub id</Label>
           <Input
-            id="admin-hub-clients-github-id"
+            id="admin-broker-clients-github-id"
             inputMode="numeric"
             pattern="[1-9][0-9]*"
             required
@@ -561,9 +561,9 @@ function BlocksSection({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="admin-hub-clients-reason">Reason</Label>
+          <Label htmlFor="admin-broker-clients-reason">Reason</Label>
           <Input
-            id="admin-hub-clients-reason"
+            id="admin-broker-clients-reason"
             required
             value={reason}
             onChange={(event) => setReason(event.target.value)}
@@ -641,24 +641,24 @@ function BlocksSection({
 }
 
 type ChangeSignInPage = ReturnType<
-  typeof useAction<typeof api.hubClients.moderation.changeSignInPage>
+  typeof useAction<typeof api.brokerClients.moderation.changeSignInPage>
 >;
 
-/** What the hub answered to a change that it did not make, for the admin. */
-/** Moderation went off while the page was open: the hub changed nothing. */
-const MODERATION_OFF = "Moderation is off: the hub changed nothing.";
+/** What the broker answered to a change that it did not make, for the admin. */
+/** Moderation went off while the page was open: the broker changed nothing. */
+const MODERATION_OFF = "Moderation is off: the broker changed nothing.";
 
-/** The answer of a change: moderation off, or the hub's result. */
+/** The answer of a change: moderation off, or the broker's result. */
 type ChangeAnswer = { status: "off" } | { status: "on"; result: string };
 
 const signInPageRefusal = (answer: ChangeAnswer) =>
   answer.status === "off"
     ? MODERATION_OFF
     : answer.result === "owner_changed"
-      ? "The hub recorded another owner of the repository. Reload the page and try again."
+      ? "The broker recorded another owner of the repository. Reload the page and try again."
       : null;
 
-/** Skips or shows again the hub's sign-in page for one repository, with a reason. */
+/** Skips or shows again the broker's sign-in page for one repository, with a reason. */
 function SignInPageDialog({
   target,
   changeSignInPage,
@@ -701,7 +701,7 @@ function SignInPageDialog({
       await onChanged();
       close();
     } catch {
-      setError("The hub refused the change.");
+      setError("The broker refused the change.");
     } finally {
       setPending(false);
     }
@@ -718,8 +718,8 @@ function SignInPageDialog({
             <DialogDescription>
               {target.now === null ? null : `${SIGN_IN_PAGE_NOW[target.now]} `}
               {target.exempt
-                ? "This removes the repository's exemption. From the next sign-in the hub shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
-                : `The users of every app of this repository, in production, previews, and development servers, go straight to Google or GitHub, with no page that names the app. The exemption trusts the owner with GitHub id ${target.ownerId ?? "none"}, and stops while the hub records another owner.`}
+                ? "This removes the repository's exemption. From the next sign-in the broker shows its page, unless the switch for every app skips it. Sign-ins that already started finish as they started."
+                : `The users of every app of this repository, in production, previews, and development servers, go straight to Google or GitHub, with no page that names the app. The exemption trusts the owner with GitHub id ${target.ownerId ?? "none"}, and stops while the broker records another owner.`}
               {!target.exempt &&
               target.registeredByOwnerId !== null &&
               target.registeredByOwnerId !== target.ownerId
@@ -728,19 +728,19 @@ function SignInPageDialog({
             </DialogDescription>
           </DialogHeader>
           <form
-            id="admin-hub-clients-sign-in-page-form"
+            id="admin-broker-clients-sign-in-page-form"
             className="grid gap-2"
             onSubmit={(event) => {
               event.preventDefault();
-              // The hub recorded no owner of the repository: no row can bind to one.
+              // The broker recorded no owner of the repository: no row can bind to one.
               if (!pending && target.ownerId !== null) {
                 void change(target, target.ownerId);
               }
             }}
           >
-            <Label htmlFor="admin-hub-clients-sign-in-page-reason">Reason</Label>
+            <Label htmlFor="admin-broker-clients-sign-in-page-reason">Reason</Label>
             <Input
-              id="admin-hub-clients-sign-in-page-reason"
+              id="admin-broker-clients-sign-in-page-reason"
               required
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -757,7 +757,7 @@ function SignInPageDialog({
             </Button>
             <Button
               type="submit"
-              form="admin-hub-clients-sign-in-page-form"
+              form="admin-broker-clients-sign-in-page-form"
               disabled={pending || reason.trim() === "" || target.ownerId === null}
             >
               {pending ? (
@@ -779,7 +779,7 @@ function SignInPageDialog({
 }
 
 /**
-A repository for a grant or an exemption, by `owner/name`, which samebase.com resolves at the hub,
+A repository for a grant or an exemption, by `owner/name`, which samebase.com resolves at the broker,
 else on GitHub. When neither knows it, such as a private repository that never registered, the
 form asks for its GitHub ids.
 */
@@ -790,7 +790,7 @@ function RepositoryForm({
   label: string;
   onPick: (repository: RepositoryTarget) => void;
 }) {
-  const lookupRepository = useAction(api.hubClients.moderation.lookupRepository);
+  const lookupRepository = useAction(api.brokerClients.moderation.lookupRepository);
   const id = useId();
   const [name, setName] = useState("");
   const [ids, setIds] = useState<{ repositoryId: string; ownerId: string } | null>(null);
@@ -839,7 +839,7 @@ function RepositoryForm({
       {ids === null ? null : (
         <>
           <p className="text-sm text-muted-foreground">
-            Not at the hub or on GitHub: enter its ids.
+            Not at the broker or on GitHub: enter its ids.
           </p>
           <Label htmlFor={`${id}-repository-id`}>Repository id</Label>
           <Input
@@ -872,7 +872,7 @@ function RepositoryForm({
 }
 
 /**
-A form for a repository to exempt, the "every app" switch of the hub's sign-in page, and the
+A form for a repository to exempt, the "every app" switch of the broker's sign-in page, and the
 repositories that skip it, each with a Show. The switch and Show need the reason above them.
 */
 function SignInPageSection({
@@ -910,7 +910,7 @@ function SignInPageSection({
       setReason("");
       await onChanged();
     } catch {
-      setMessage("The hub refused the change.");
+      setMessage("The broker refused the change.");
     } finally {
       setPending(null);
     }
@@ -930,9 +930,9 @@ function SignInPageSection({
         }
       />
       <div className="mt-6 grid gap-2">
-        <Label htmlFor="admin-hub-clients-sign-in-page-change-reason">Reason</Label>
+        <Label htmlFor="admin-broker-clients-sign-in-page-change-reason">Reason</Label>
         <Input
-          id="admin-hub-clients-sign-in-page-change-reason"
+          id="admin-broker-clients-sign-in-page-change-reason"
           required
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -940,8 +940,8 @@ function SignInPageSection({
       </div>
       <p className="text-sm">
         {everyApp === null
-          ? "The switch for every app is off. The hub skips its sign-in page only for the repositories below."
-          : `The hub skips its sign-in page for every app: ${everyApp.reason}`}
+          ? "The switch for every app is off. The broker skips its sign-in page only for the repositories below."
+          : `The broker skips its sign-in page for every app: ${everyApp.reason}`}
       </p>
       <div>
         <Button
@@ -981,7 +981,7 @@ function SignInPageSection({
                 {names.get(row.repositoryId) ?? `repository ${row.repositoryId}`}: {row.reason}
                 <span className="block text-muted-foreground">
                   Bound to the owner with GitHub id {row.ownerId}.
-                  {row.active ? null : " Not active: the hub recorded another owner."}
+                  {row.active ? null : " Not active: the broker recorded another owner."}
                 </span>
               </span>
               <Button
@@ -1015,17 +1015,17 @@ function SignInPageSection({
 }
 
 type ChangeConnectorGrant = ReturnType<
-  typeof useAction<typeof api.hubClients.moderation.changeConnectorGrant>
+  typeof useAction<typeof api.brokerClients.moderation.changeConnectorGrant>
 >;
 
-/** What the hub answered to a grant that it did not change, for the admin. */
+/** What the broker answered to a grant that it did not change, for the admin. */
 const connectorGrantRefusal = (answer: ChangeAnswer) =>
   answer.status === "on" && answer.result === "unknown_connector"
-    ? "The hub does not have this connector."
+    ? "The broker does not have this connector."
     : signInPageRefusal(answer);
 
 /**
-The private connectors of one repository and owner: a checkbox for each connector of the hub that
+The private connectors of one repository and owner: a checkbox for each connector of the broker that
 its policy does not already give the repository, checked when the owner's grant exists. Save writes
 one grant or revoke for each changed box, with the reason.
 */
@@ -1124,7 +1124,7 @@ function ConnectorsForm({
           refused.push(`${connector}: ${refusal}`);
         }
       } catch {
-        refused.push(`${connector}: The hub refused the change.`);
+        refused.push(`${connector}: The broker refused the change.`);
       }
     }
     onOutcome(
@@ -1147,15 +1147,15 @@ function ConnectorsForm({
         <DialogDescription>
           {target.policyConnectors.length === 0
             ? null
-            : `The hub's policy gives this repository ${target.policyConnectors.join(", ")}. `}
+            : `The broker's policy gives this repository ${target.policyConnectors.join(", ")}. `}
           A grant adds a private connector for every app of this repository: production, previews,
           and development servers. It trusts the owner with GitHub id {target.ownerId}, and stops
-          while the hub records another owner. A client uses a granted connector once it enrolls in
-          it, at its next deploy.
+          while the broker records another owner. A client uses a granted connector once it enrolls
+          in it, at its next deploy.
         </DialogDescription>
       </DialogHeader>
       <form
-        id="admin-hub-clients-connectors-form"
+        id="admin-broker-clients-connectors-form"
         className="grid gap-3"
         onSubmit={(event) => {
           event.preventDefault();
@@ -1166,7 +1166,7 @@ function ConnectorsForm({
       >
         {choices.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            The hub's policy already gives this repository every connector.
+            The broker's policy already gives this repository every connector.
           </p>
         ) : (
           choices.map((name) => (
@@ -1184,9 +1184,9 @@ function ConnectorsForm({
             </Label>
           ))
         )}
-        <Label htmlFor="admin-hub-clients-connectors-reason">Reason</Label>
+        <Label htmlFor="admin-broker-clients-connectors-reason">Reason</Label>
         <Input
-          id="admin-hub-clients-connectors-reason"
+          id="admin-broker-clients-connectors-reason"
           required
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -1198,7 +1198,7 @@ function ConnectorsForm({
         </Button>
         <Button
           type="submit"
-          form="admin-hub-clients-connectors-form"
+          form="admin-broker-clients-connectors-form"
           disabled={pending || changes.length === 0 || reason.trim() === ""}
         >
           {pending ? (
@@ -1255,7 +1255,7 @@ function ConnectorGrantsSection({
       setReason("");
       await onChanged();
     } catch {
-      setMessage("The hub refused the change.");
+      setMessage("The broker refused the change.");
     } finally {
       setPending(null);
     }
@@ -1278,9 +1278,9 @@ function ConnectorGrantsSection({
         }
       />
       <div className="mt-6 grid gap-2">
-        <Label htmlFor="admin-hub-clients-connector-grants-reason">Reason</Label>
+        <Label htmlFor="admin-broker-clients-connector-grants-reason">Reason</Label>
         <Input
-          id="admin-hub-clients-connector-grants-reason"
+          id="admin-broker-clients-connector-grants-reason"
           required
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -1305,7 +1305,7 @@ function ConnectorGrantsSection({
                   {grant.reason}
                   <span className="block text-muted-foreground">
                     Bound to the owner with GitHub id {grant.ownerId}.
-                    {grant.active ? null : " Not active: the hub recorded another owner."}
+                    {grant.active ? null : " Not active: the broker recorded another owner."}
                   </span>
                 </span>
                 <Button

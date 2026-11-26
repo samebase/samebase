@@ -1,30 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { OrganizationHubClientsPage } from "@/organization/hubClients/OrganizationHubClientsPage";
+import { OrganizationBrokerClientsPage } from "@/organization/brokerClients/OrganizationBrokerClientsPage";
 import { AuthenticatedOrganizationRoutePage } from "@/organization/OrganizationRouteBoundary";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
-  ORGANIZATION_HUB_CLIENTS_ROUTE_SEARCH_STATIC_DATA,
-  validateOrganizationHubClientsRouteSearch,
-} from "@/routeSearch/hubClients";
+  ORGANIZATION_BROKER_CLIENTS_ROUTE_SEARCH_STATIC_DATA,
+  validateOrganizationBrokerClientsRouteSearch,
+} from "@/routeSearch/brokerClients";
 import { applySearchPatch } from "@/routing/searchFlags";
 
-export const Route = createFileRoute("/_authed/org/$owner/hub-clients")({
-  component: OrganizationHubClientsRoutePage,
+export const Route = createFileRoute("/_authed/org/$owner/broker-clients")({
+  component: OrganizationBrokerClientsRoutePage,
   staticData: {
-    ...ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/hub-clients"],
-    ...ORGANIZATION_HUB_CLIENTS_ROUTE_SEARCH_STATIC_DATA,
+    ...ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/broker-clients"],
+    ...ORGANIZATION_BROKER_CLIENTS_ROUTE_SEARCH_STATIC_DATA,
   },
-  validateSearch: validateOrganizationHubClientsRouteSearch,
+  validateSearch: validateOrganizationBrokerClientsRouteSearch,
 });
 
-function OrganizationHubClientsRoutePage() {
+function OrganizationBrokerClientsRoutePage() {
   const { owner } = Route.useParams();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
   return (
     <AuthenticatedOrganizationRoutePage owner={owner}>
       {(organization) => (
-        <OrganizationHubClientsPage
+        <OrganizationBrokerClientsPage
           organization={organization}
           search={search}
           // One owner's page has no owner filter and no owner grouping, which the table does not offer.

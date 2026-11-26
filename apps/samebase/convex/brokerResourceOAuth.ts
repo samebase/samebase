@@ -19,22 +19,22 @@ import { createUrlSearchParams } from "../shared/urlSearchParams";
 import { openSecret, vSealedSecret } from "./sealedSecret";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 
-/** The API resource that the hub grants for each provider, sent as `resource`. */
+/** The API resource that the broker grants for each provider, sent as `resource`. */
 export const resources = {
   convex: "https://api.convex.dev",
   cloudflare: "https://api.cloudflare.com/client/v4/",
   github: "https://api.github.com",
 } as const;
 
-/** How long the hub keeps an unused refresh grant (`REFRESH_IDLE_MS` in the broker). */
-export const HUB_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
+/** How long the broker keeps an unused refresh grant (`REFRESH_IDLE_MS` in packages/identity-broker). */
+export const BROKER_GRANT_IDLE_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
-A code exchange or a refresh at the hub. The hub waits up to 30 s for the provider
+A code exchange or a refresh at the broker. The broker waits up to 30 s for the provider
 (`FORWARD_TIMEOUT_MS` in packages/identity-broker), and a provider that answers late has
 already rotated its refresh token: an earlier abort here would lose the only copy of the new one.
 */
-const HUB_TOKEN_TIMEOUT_MS = 35_000;
+const BROKER_TOKEN_TIMEOUT_MS = 35_000;
 
 type ResourceProvider = keyof typeof resources;
 
@@ -62,11 +62,11 @@ function callbackUrl() {
 }
 
 /** The origin of the page that reports a finished authorization to its popup opener. */
-export function hubCallbackOrigin() {
+export function brokerCallbackOrigin() {
   return new URL(callbackUrl()).origin;
 }
 
-export async function buildHubAuthorizationUrl(args: {
+export async function buildBrokerAuthorizationUrl(args: {
   provider: ResourceProvider;
   state: string;
   codeVerifier: string;
@@ -107,10 +107,10 @@ export async function buildResourceOAuthUrl(
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
-  return await buildHubAuthorizationUrl({ provider: args.provider, state, codeVerifier });
+  return await buildBrokerAuthorizationUrl({ provider: args.provider, state, codeVerifier });
 }
 
-/** The hub callback validated the authorization response when the browser came back. */
+/** The broker callback validated the authorization response when the browser came back. */
 export async function exchangeResourceOAuthCode(args: {
   provider: ResourceProvider;
   code: string;
@@ -130,7 +130,7 @@ export async function exchangeResourceOAuthCode(args: {
       code_verifier: args.codeVerifier,
       resource: resources[args.provider],
     },
-    { signal: AbortSignal.timeout(HUB_TOKEN_TIMEOUT_MS) },
+    { signal: AbortSignal.timeout(BROKER_TOKEN_TIMEOUT_MS) },
   );
   return await oauth.processGenericTokenEndpointResponse(authorizationServer, client, response);
 }
@@ -144,7 +144,7 @@ export async function refreshResourceOAuthToken(provider: ResourceProvider, refr
     refreshToken,
     {
       additionalParameters: { resource: resources[provider] },
-      signal: AbortSignal.timeout(HUB_TOKEN_TIMEOUT_MS),
+      signal: AbortSignal.timeout(BROKER_TOKEN_TIMEOUT_MS),
     },
   );
   return await oauth.processRefreshTokenResponse(authorizationServer, client, response);
@@ -163,9 +163,9 @@ export function expiringResourceTokens(
 
 /**
 Revocation cannot prevent local removal or obscure a failed connection attempt. `resource` names
-the provider: the hub keeps no grant to look it up.
+the provider: the broker keeps no grant to look it up.
 */
-export async function revokeHubRefreshToken(provider: ResourceProvider, refreshToken: string) {
+export async function revokeBrokerRefreshToken(provider: ResourceProvider, refreshToken: string) {
   try {
     const { authorizationServer, client } = configuration();
     const response = await oauth.revocationRequest(
@@ -180,7 +180,7 @@ export async function revokeHubRefreshToken(provider: ResourceProvider, refreshT
     );
     await oauth.processRevocationResponse(response);
   } catch {
-    console.warn("hub:grant_revocation_failed");
+    console.warn("broker:grant_revocation_failed");
   }
 }
 
@@ -188,7 +188,7 @@ export const revokeCloudflareGrant = internalAction({
   args: { organizationId: v.id("organizations"), refreshCredential: vSealedSecret },
   returns: v.null(),
   handler: async (_ctx, { organizationId, refreshCredential }) => {
-    await revokeHubRefreshToken(
+    await revokeBrokerRefreshToken(
       "cloudflare",
       await openSecret({
         sealed: refreshCredential,
@@ -199,8 +199,8 @@ export const revokeCloudflareGrant = internalAction({
   },
 });
 
-/** The `error` of a hub authorization response. Throws when the hub did not send the response. */
-export function readHubAuthorizationError(url: URL, state: string): string | undefined {
+/** The `error` of a broker authorization response. Throws when the broker did not send the response. */
+export function readBrokerAuthorizationError(url: URL, state: string): string | undefined {
   const { authorizationServer, client } = configuration();
   try {
     oauth.validateAuthResponse(authorizationServer, client, url, state);
@@ -220,7 +220,7 @@ export async function finishResourceOAuth(ctx: ActionCtx, request: Request): Pro
 
   let providerError: string | undefined;
   try {
-    providerError = readHubAuthorizationError(url, grant.state);
+    providerError = readBrokerAuthorizationError(url, grant.state);
   } catch {
     return new Response("Invalid OAuth authorization response", { status: 400 });
   }

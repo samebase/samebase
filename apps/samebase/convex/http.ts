@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { routeAll } from "@samebase/convex-hosting";
 import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
-import { finishGitHubAppInstallation, finishHubOAuth } from "./githubAppInstallation";
+import { finishGitHubAppInstallation, finishBrokerOAuth } from "./githubAppInstallation";
 import {
   authorizeMcpOauthRequest,
   exchangeMcpOauthToken,
@@ -43,7 +43,7 @@ const openAiAppsChallenge = httpAction(async () => {
   });
 });
 
-// The identity hub reads this file on a site before it registers a client there (RFC 129, RFC 134):
+// The identity broker reads this file on a site before it registers a client there (RFC 129, RFC 134):
 // it names this repository, samebase/samebase, by its numeric GitHub id, which a rename does not
 // change. Every deployment serves the same answer, previews included, and no answer is cached.
 http.route({
@@ -57,7 +57,7 @@ http.route({
 http.route({
   path: "/oauth/hub/callback",
   method: "GET",
-  handler: finishHubOAuth,
+  handler: finishBrokerOAuth,
 });
 
 http.route({

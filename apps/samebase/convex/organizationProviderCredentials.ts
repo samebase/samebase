@@ -607,7 +607,7 @@ export async function connectCloudflareCredential(
     await ctx.db.patch(credentials._id, { cloudflare: credential });
   }
   if (credentials?.cloudflare?.auth.method === "oauth") {
-    await ctx.scheduler.runAfter(0, internal.hubResourceOAuth.revokeCloudflareGrant, {
+    await ctx.scheduler.runAfter(0, internal.brokerResourceOAuth.revokeCloudflareGrant, {
       organizationId: organization._id,
       refreshCredential: credentials.cloudflare.auth.refreshCredential,
     });
@@ -874,7 +874,7 @@ export const disconnectCloudflare = internalMutation({
       throw new Error("Cloudflare credential changed before disconnect completed.");
     }
     if (credentials.cloudflare.auth.method === "oauth") {
-      await ctx.scheduler.runAfter(0, internal.hubResourceOAuth.revokeCloudflareGrant, {
+      await ctx.scheduler.runAfter(0, internal.brokerResourceOAuth.revokeCloudflareGrant, {
         organizationId: organization._id,
         refreshCredential: credentials.cloudflare.auth.refreshCredential,
       });

@@ -6,11 +6,11 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
-import { AdminHubClientsPage } from "./AdminHubClientsPage";
-import type { HubClientsRouteSearch } from "@/routeSearch/hubClients";
+import { AdminBrokerClientsPage } from "./AdminBrokerClientsPage";
+import type { BrokerClientsRouteSearch } from "@/routeSearch/brokerClients";
 
 const testState = vi.hoisted(() => {
-  const search: HubClientsRouteSearch = {};
+  const search: BrokerClientsRouteSearch = {};
   return {
     readOverview: vi.fn(),
     changeBlock: vi.fn(),
@@ -28,16 +28,16 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: (reference: Parameters<typeof actual.useAction>[0]) => {
       const name = getFunctionName(reference);
-      if (name === getFunctionName(api.hubClients.moderation.readOverview)) {
+      if (name === getFunctionName(api.brokerClients.moderation.readOverview)) {
         return testState.readOverview;
       }
-      if (name === getFunctionName(api.hubClients.moderation.changeSignInPage)) {
+      if (name === getFunctionName(api.brokerClients.moderation.changeSignInPage)) {
         return testState.changeSignInPage;
       }
-      if (name === getFunctionName(api.hubClients.moderation.changeConnectorGrant)) {
+      if (name === getFunctionName(api.brokerClients.moderation.changeConnectorGrant)) {
         return testState.changeConnectorGrant;
       }
-      if (name === getFunctionName(api.hubClients.moderation.lookupRepository)) {
+      if (name === getFunctionName(api.brokerClients.moderation.lookupRepository)) {
         return testState.lookupRepository;
       }
       return testState.changeBlock;
@@ -169,7 +169,7 @@ const overview = {
   },
   signInPage: {
     everyApp: null,
-    // The hub has recorded owner 65 for this repository since the row was set.
+    // The broker has recorded owner 65 for this repository since the row was set.
     repositories: [{ repositoryId: "81", ownerId: "90", active: false, reason: "A team we know" }],
   },
   connectorGrants: {
@@ -193,7 +193,7 @@ async function renderPage() {
   await act(async () => {
     root.render(
       <QueryClientProvider client={new QueryClient()}>
-        <AdminHubClientsPage />
+        <AdminBrokerClientsPage />
       </QueryClientProvider>,
     );
   });
@@ -236,7 +236,7 @@ function button(container: HTMLElement, text: string) {
   return match;
 }
 
-describe("AdminHubClientsPage", () => {
+describe("AdminBrokerClientsPage", () => {
   beforeEach(() => {
     testState.readOverview.mockReset();
     testState.readOverview.mockResolvedValue(overview);
@@ -373,8 +373,8 @@ describe("AdminHubClientsPage", () => {
       expect(page.rootElement.textContent).toContain("owner 65: Phishing page");
       expect(page.rootElement.textContent).toContain("block owner 65: Phishing page");
       await act(async () => {
-        type(page.rootElement, "#admin-hub-clients-github-id", "74");
-        type(page.rootElement, "#admin-hub-clients-reason", "Fixed");
+        type(page.rootElement, "#admin-broker-clients-github-id", "74");
+        type(page.rootElement, "#admin-broker-clients-reason", "Fixed");
       });
       await act(async () => {
         button(page.rootElement, "Unblock").click();
@@ -400,13 +400,13 @@ describe("AdminHubClientsPage", () => {
       expect(text).toContain("other-org/own: A team we know");
       // A row kept through a transfer covers no client, and the admin can still remove it.
       expect(text).toContain(
-        "Bound to the owner with GitHub id 90. Not active: the hub recorded another owner.",
+        "Bound to the owner with GitHub id 90. Not active: the broker recorded another owner.",
       );
-      // Nothing goes to the hub without a reason.
+      // Nothing goes to the broker without a reason.
       expect(button(page.rootElement, "Skip the sign-in page for every app").disabled).toBe(true);
 
       await act(async () =>
-        type(page.rootElement, "#admin-hub-clients-sign-in-page-change-reason", "Launch week"),
+        type(page.rootElement, "#admin-broker-clients-sign-in-page-change-reason", "Launch week"),
       );
       await act(async () => {
         button(page.rootElement, "Skip the sign-in page for every app").click();
@@ -419,7 +419,7 @@ describe("AdminHubClientsPage", () => {
       });
 
       await act(async () =>
-        type(page.rootElement, "#admin-hub-clients-sign-in-page-change-reason", "Done"),
+        type(page.rootElement, "#admin-broker-clients-sign-in-page-change-reason", "Done"),
       );
       await act(async () => {
         button(page.rootElement, "Show").click();
@@ -432,7 +432,7 @@ describe("AdminHubClientsPage", () => {
         reason: "Done",
       });
 
-      // A repository by name, which samebase.com resolves at the hub or on GitHub.
+      // A repository by name, which samebase.com resolves at the broker or on GitHub.
       testState.lookupRepository.mockResolvedValue({
         status: "found",
         repositoryId: "555",
@@ -452,10 +452,12 @@ describe("AdminHubClientsPage", () => {
       expect(document.querySelector("[role=dialog]")?.textContent).toContain(
         "Skip the sign-in page for octocat/Hello-World?",
       );
-      await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Ours"));
+      await act(async () =>
+        type(document.body, "#admin-broker-clients-sign-in-page-reason", "Ours"),
+      );
       await act(async () => {
         document
-          .querySelector<HTMLFormElement>("#admin-hub-clients-sign-in-page-form")
+          .querySelector<HTMLFormElement>("#admin-broker-clients-sign-in-page-form")
           ?.requestSubmit();
         await Promise.resolve();
       });
@@ -470,7 +472,7 @@ describe("AdminHubClientsPage", () => {
   });
 
   it("binds a skip to the recorded owner, names it, and says when the repository moved on", async () => {
-    // cl_test was registered by owner 11; the hub has recorded owner 65 since.
+    // cl_test was registered by owner 11; the broker has recorded owner 65 since.
     const [first, ...rest] = overview.clientList.clients;
     testState.readOverview.mockResolvedValue({
       ...overview,
@@ -502,10 +504,12 @@ describe("AdminHubClientsPage", () => {
       expect(dialog?.textContent).toContain("trusts the owner with GitHub id 65,");
       expect(dialog?.textContent).toContain("registered by an earlier owner, GitHub id 11");
 
-      await act(async () => type(document.body, "#admin-hub-clients-sign-in-page-reason", "Known"));
+      await act(async () =>
+        type(document.body, "#admin-broker-clients-sign-in-page-reason", "Known"),
+      );
       await act(async () => {
         document
-          .querySelector<HTMLFormElement>("#admin-hub-clients-sign-in-page-form")
+          .querySelector<HTMLFormElement>("#admin-broker-clients-sign-in-page-form")
           ?.requestSubmit();
         await Promise.resolve();
       });
@@ -516,7 +520,7 @@ describe("AdminHubClientsPage", () => {
         reason: "Known",
       });
       expect(document.body.textContent).toContain(
-        "The hub recorded another owner of the repository.",
+        "The broker recorded another owner of the repository.",
       );
     } finally {
       await page.unmount();
@@ -524,7 +528,7 @@ describe("AdminHubClientsPage", () => {
   });
 
   it("grants a private connector to a client's repository from its menu, bound to the recorded owner", async () => {
-    // The hub's policy gives cl_test the public pair; the private pair needs a grant.
+    // The broker's policy gives cl_test the public pair; the private pair needs a grant.
     const [first, ...rest] = overview.clientList.clients;
     testState.readOverview.mockResolvedValue({
       ...overview,
@@ -561,10 +565,10 @@ describe("AdminHubClientsPage", () => {
       await act(async () => {
         google.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
       });
-      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      await act(async () => type(document.body, "#admin-broker-clients-connectors-reason", "Ours"));
       await act(async () => {
         document
-          .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+          .querySelector<HTMLFormElement>("#admin-broker-clients-connectors-form")
           ?.requestSubmit();
         await Promise.resolve();
       });
@@ -603,13 +607,13 @@ describe("AdminHubClientsPage", () => {
     await act(async () => {
       google?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
     });
-    await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+    await act(async () => type(document.body, "#admin-broker-clients-connectors-reason", "Ours"));
   }
 
   async function submitConnectorsDialog() {
     await act(async () => {
       document
-        .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+        .querySelector<HTMLFormElement>("#admin-broker-clients-connectors-form")
         ?.requestSubmit();
       await Promise.resolve();
     });
@@ -632,7 +636,7 @@ describe("AdminHubClientsPage", () => {
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
 
       const text = page.rootElement.textContent;
-      expect(text).toContain("Refused: google: Moderation is off: the hub changed nothing.");
+      expect(text).toContain("Refused: google: Moderation is off: the broker changed nothing.");
       expect(text).not.toContain("Saved:");
     } finally {
       await page.unmount();
@@ -685,7 +689,7 @@ describe("AdminHubClientsPage", () => {
     });
     testState.changeConnectorGrant
       .mockResolvedValueOnce({ status: "on", result: "changed" })
-      .mockRejectedValueOnce(new Error("The hub is down"));
+      .mockRejectedValueOnce(new Error("The broker is down"));
     const page = await renderPage();
     try {
       const trigger = Array.from(document.querySelectorAll("button")).find(
@@ -710,13 +714,13 @@ describe("AdminHubClientsPage", () => {
           label?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
         });
       }
-      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      await act(async () => type(document.body, "#admin-broker-clients-connectors-reason", "Ours"));
       const reads = testState.readOverview.mock.calls.length;
       // The reload after the save fails: the overview, and the dialog with it, go away.
-      testState.readOverview.mockRejectedValueOnce(new Error("The hub is down"));
+      testState.readOverview.mockRejectedValueOnce(new Error("The broker is down"));
       await act(async () => {
         document
-          .querySelector<HTMLFormElement>("#admin-hub-clients-connectors-form")
+          .querySelector<HTMLFormElement>("#admin-broker-clients-connectors-form")
           ?.requestSubmit();
         await Promise.resolve();
       });
@@ -725,8 +729,8 @@ describe("AdminHubClientsPage", () => {
       expect(testState.changeConnectorGrant).toHaveBeenCalledTimes(2);
       expect(testState.readOverview.mock.calls.length).toBeGreaterThan(reads);
       const text = page.rootElement.textContent;
-      expect(text).toContain("Saved: google. Refused: github: The hub refused the change.");
-      expect(text).toContain("Could not reach the identity hub.");
+      expect(text).toContain("Saved: google. Refused: github: The broker refused the change.");
+      expect(text).toContain("Could not reach the identity broker.");
     } finally {
       await page.unmount();
     }
@@ -738,11 +742,11 @@ describe("AdminHubClientsPage", () => {
       await act(async () => button(page.rootElement, "Connector grants 1").click());
       const text = page.rootElement.textContent;
       expect(text).toContain("google for other-org/own: Our other app");
-      expect(text).toContain("Not active: the hub recorded another owner.");
+      expect(text).toContain("Not active: the broker recorded another owner.");
       expect(button(page.rootElement, "Revoke").disabled).toBe(true);
 
       await act(async () =>
-        type(page.rootElement, "#admin-hub-clients-connector-grants-reason", "Done"),
+        type(page.rootElement, "#admin-broker-clients-connector-grants-reason", "Done"),
       );
       await act(async () => {
         button(page.rootElement, "Revoke").click();
@@ -760,7 +764,7 @@ describe("AdminHubClientsPage", () => {
     }
   });
 
-  it("asks for a repository's ids when neither the hub nor GitHub knows its name", async () => {
+  it("asks for a repository's ids when neither the broker nor GitHub knows its name", async () => {
     testState.lookupRepository.mockResolvedValue({ status: "not_found" });
     const page = await renderPage();
     const submit = async () =>
@@ -781,7 +785,7 @@ describe("AdminHubClientsPage", () => {
       });
       await submit();
       expect(testState.lookupRepository).toHaveBeenCalledTimes(1);
-      // No client of the repository: every connector of the hub is a choice.
+      // No client of the repository: every connector of the broker is a choice.
       expect(document.querySelector("[role=dialog]")?.textContent).toContain(
         "Connectors of octo-org/secret",
       );
@@ -791,7 +795,7 @@ describe("AdminHubClientsPage", () => {
       await act(async () => {
         google?.querySelector<HTMLElement>("[data-slot=checkbox]")?.click();
       });
-      await act(async () => type(document.body, "#admin-hub-clients-connectors-reason", "Ours"));
+      await act(async () => type(document.body, "#admin-broker-clients-connectors-reason", "Ours"));
       await submitConnectorsDialog();
       expect(testState.changeConnectorGrant).toHaveBeenLastCalledWith({
         repositoryId: "555",

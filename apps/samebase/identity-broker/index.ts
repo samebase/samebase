@@ -1,4 +1,4 @@
-// samebase.com's identity hub (packages/identity-broker) at https://auth.samebase.com,
+// Samebase's identity broker (packages/identity-broker) at https://auth.samebase.com,
 // which the stage `prod` of alchemy.run.ts deploys. Production, the previews of pull requests and
 // the development stages register on it, each with its own key.
 //
@@ -13,7 +13,8 @@ import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker
 import * as Connections from "@samebase/identity-broker/connections";
 import * as Connectors from "@samebase/identity-broker/connectors";
 
-export default class Hub extends Cloudflare.Worker<Hub>()(
+// The logical id "Hub" and the script name stay: Alchemy's state and Cloudflare hold them.
+export default class Broker extends Cloudflare.Worker<Broker>()(
   "Hub",
   {
     ...brokerWorkerProps,

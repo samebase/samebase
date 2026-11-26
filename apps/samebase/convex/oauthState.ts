@@ -85,7 +85,7 @@ export const createOauthState = internalMutation({
       case "convex":
       case "cloudflare":
         if (args.clientId !== undefined)
-          throw new Error("Resource authorization uses the configured hub client.");
+          throw new Error("Resource authorization uses the configured broker client.");
         return await ctx.db.insert("providerOAuthCallbackStates", {
           provider: args.provider,
           ...commonState,
