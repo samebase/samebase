@@ -21,7 +21,7 @@
   },
   "include": [
     "src",
-    "test/conformance/hub.ts",
+    "test/conformance/broker.ts",
     "test/conformance/admin.ts",
     "test/convex-app/convex"
   ],

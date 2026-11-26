@@ -231,7 +231,7 @@ function check(checks: Checks, invariant: string, holds: boolean, message: strin
 }
 
 /**
- * `noServerError`: no answer of the hub is a 500. `returnOnCard`: the hub sends the browser to the
+ * `noServerError`: no answer of the broker is a 500. `returnOnCard`: the broker sends the browser to the
  * card's return address only while the card holds it.
  */
 function checkAnswer(checks: Checks, label: string, response: Response, client: Client) {
@@ -386,11 +386,11 @@ async function registerClient(
     owner: string;
   },
 ) {
-  const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/hub/callback`;
+  const redirectUri = `https://app-a-${spec.stage}.r${spec.repository}.example/auth/broker/callback`;
   const created = await world.h.registerClient({
     appName: `app-a-${spec.repository}`,
     redirectUri,
-    otherRedirectUris: ["https://elsewhere.example/auth/hub/callback"],
+    otherRedirectUris: ["https://elsewhere.example/auth/broker/callback"],
     connectors: [...spec.connectors],
     confirm: spec.confirm,
     gates: [repositoryKey(spec.repository), ownerKey(spec.owner)],
@@ -417,8 +417,8 @@ const writeCard = (world: World, client: Client) =>
     connectors: [...client.connectors],
     confirm: client.confirm,
     redirectUris: client.redirect
-      ? [client.redirectUri, "https://elsewhere.example/auth/hub/callback"]
-      : ["https://elsewhere.example/auth/hub/callback"],
+      ? [client.redirectUri, "https://elsewhere.example/auth/broker/callback"]
+      : ["https://elsewhere.example/auth/broker/callback"],
     gates: [repositoryKey(client.repository), ownerKey(client.ownerId)],
   }));
 
@@ -555,7 +555,7 @@ async function playContinue(
   story.trace.push(`${label}: to ${hop.connector}, ${upstream.handle}`);
 }
 
-/** Sends the provider's callback and waits until the provider holds its code exchange, or the hub answered. */
+/** Sends the provider's callback and waits until the provider holds its code exchange, or the broker answered. */
 async function playCallbackStart(
   world: World,
   model: Model,
@@ -803,11 +803,11 @@ async function playCommand(
 }
 
 /**
- * Plays one story on a fresh hub. At its end it releases every held callback with the provider's
+ * Plays one story on a fresh broker. At its end it releases every held callback with the provider's
  * refusal, so no request runs into the next story.
  */
 async function play(commands: Command[], checks: Checks, story: Story) {
-  // The hub logs each failed provider exchange by its class name, and each sign-in.
+  // The broker logs each failed provider exchange by its class name, and each sign-in.
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   vi.spyOn(console, "info").mockImplementation(() => undefined);
   const fetch = stubFetch();
@@ -981,7 +981,7 @@ describe("RFC 136 property C regressions", () => {
       ],
       "noSignInWhenStopped",
     );
-    // The hub's own error page: the address is not on the card when the step refuses.
+    // The broker's own error page: the address is not on the card when the step refuses.
     expect(trace).toContain("callback finish A1 (C1, fake) with identity: 400 ");
     expect(trace).toContain("redeem: no code yet, skipped");
   });

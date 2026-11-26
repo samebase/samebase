@@ -8,14 +8,14 @@
 // (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
-import { hub, stack } from "@samebase/identity-broker";
-import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
+import { identityBroker, stack } from "@samebase/identity-broker";
+import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connectors from "@samebase/identity-broker/connectors";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
-  { ...hubWorkerProps, main: import.meta.url, name: "identity-broker-effect-example-hub-prod" },
-  hub({
+  { ...brokerWorkerProps, main: import.meta.url, name: "identity-broker-effect-example-hub-prod" },
+  identityBroker({
     // The script's workers.dev address. src/hub-client.ts names it too, and does not import this
     // module: the Site's bundle would carry the whole hub.
     issuer: "https://identity-broker-effect-example-hub-prod.pfp.workers.dev",

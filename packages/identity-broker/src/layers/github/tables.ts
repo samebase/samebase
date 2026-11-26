@@ -1,5 +1,5 @@
 // The tables of the GitHub layer, its fields of a card (`github`), and its view of a step, which
-// reaches every table of the hub (src/store/tables.ts): it writes the cards.
+// reaches every table of the broker (src/store/tables.ts): it writes the cards.
 import { Context, Schema } from "effect";
 import type { Tables } from "../../store/tables.ts";
 import { n, s, type TxShape } from "../../store/Tx.ts";
@@ -144,7 +144,7 @@ export const githubTables = {
   },
 } as const;
 
-/** The layer's view of a step: every table of the hub, with the cards' `github` fields. */
+/** The layer's view of a step: every table of the broker, with the cards' `github` fields. */
 export class GithubTx extends Context.Service<GithubTx, TxShape<Tables>>()(
   "identity-broker/layers/github/GithubTx",
 ) {}

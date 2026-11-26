@@ -1,4 +1,4 @@
-// The schedule of the test hub's cleanup alarm, which needs no Cloudflare runtime. hub.ts wires it
+// The schedule of the test broker's cleanup alarm, which needs no Cloudflare runtime. broker.ts wires it
 // to the Durable Object; the Node tests import it.
 
 /** The retry delay of the cleanup job: a batch that throws is tried again an hour later. */
@@ -6,7 +6,7 @@ export const FALLBACK_MS = 60 * 60 * 1000;
 /** The delay to the next batch of a cleanup run that has more to delete. */
 export const NEXT_BATCH_MS = 1000;
 
-/** The next daily cleanup, at 04:17 UTC as the Convex hub's cron, strictly after `now`. */
+/** The next daily cleanup, at 04:17 UTC as the Convex broker's cron, strictly after `now`. */
 export function nextDailyAt(now: number): number {
   const day = new Date(now);
   const today = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 4, 17);

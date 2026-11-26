@@ -1,12 +1,12 @@
 // The plans of a conformance run.
 //
-// OP plans: the suite is the client and the hub the OpenID Provider. The suite's browser opens the
-// hub's sign-in page, clicks "Continue with Fake", and the fake provider sends it straight back.
+// OP plans: the suite is the client and the broker the OpenID Provider. The suite's browser opens the
+// broker's sign-in page, clicks "Continue with Fake", and the fake provider sends it straight back.
 //
-// RP plan: the suite is the OpenID Provider and the hub's `suite` connector the client under test.
-// The driver below plays the user's browser: it starts a sign-in at the hub, follows the hub to the
-// suite and back, and reads where the hub sends the user: a code (the hub accepted the suite's
-// answer) or an error (the hub refused it).
+// RP plan: the suite is the OpenID Provider and the broker's `suite` connector the client under test.
+// The driver below plays the user's browser: it starts a sign-in at the broker, follows the broker to the
+// suite and back, and reads where the broker sends the user: a code (the broker accepted the suite's
+// answer) or an error (the broker refused it).
 import { createHash, randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
@@ -30,8 +30,8 @@ export const BASIC_RP_PLAN = "oidcc-client-basic-certification-test-plan";
 export const RP_PLAN = "oidcc-client-test-plan";
 /**
  * The modules of the Basic RP plan (OIDCCClientBasicTestPlan of the suite), which the gate runs
- * from the general plan with the hub's `client_secret_post`. Not `oidcc-client-test-client-secret-
- * basic`: it requires `client_secret_basic`, which the hub's connectors do not send.
+ * from the general plan with the broker's `client_secret_post`. Not `oidcc-client-test-client-secret-
+ * basic`: it requires `client_secret_basic`, which the broker's connectors do not send.
  */
 export const BASIC_RP_MODULES = [
   "oidcc-client-test",
@@ -49,7 +49,7 @@ export const BASIC_RP_MODULES = [
   "oidcc-client-test-scope-userinfo-claims",
 ];
 
-/** The hub's error pages whose text the suite's browser captures as the expected result. */
+/** The broker's error pages whose text the suite's browser captures as the expected result. */
 const EXPECTED_ERROR_PAGES: Readonly<Record<string, string>> = {
   "oidcc-response-type-missing": "Invalid sign-in request|Sign-in refused",
   "oidcc-ensure-registered-redirect-uri": "Invalid redirect URI",
@@ -95,7 +95,7 @@ export const opConfig = (clients: {
             match: `${ISSUER}/authorize*`,
             commands: [
               // A module that asks for a screenshot of a second login (prompt=login, max_age)
-              // gets the hub's sign-in page; a module that asks for none skips this.
+              // gets the broker's sign-in page; a module that asks for none skips this.
               ["wait", "xpath", "//*", 5, "[\\s\\S]*", "update-image-placeholder-optional"],
               ["click", "xpath", "//a[contains(@href,'/continue?')]", "optional"],
             ],
@@ -148,7 +148,7 @@ export async function runOpPlan(args: {
           return undefined;
         }
         stalledSince ??= Date.now();
-        return Date.now() - stalledSince > 3000 ? "hub error page, no callback" : undefined;
+        return Date.now() - stalledSince > 3000 ? "broker error page, no callback" : undefined;
       },
     });
     args.report(run);
@@ -157,8 +157,8 @@ export async function runOpPlan(args: {
   return runs;
 }
 
-/** What the hub did with one sign-in through the `suite` connector. */
-export type HubOutcome =
+/** What the broker did with one sign-in through the `suite` connector. */
+export type BrokerOutcome =
   | { readonly kind: "accepted"; readonly detail: string }
   | { readonly kind: "rejected"; readonly detail: string }
   | { readonly kind: "stuck"; readonly detail: string };
@@ -170,8 +170,8 @@ const cookiePairs = (setCookie: string | string[] | undefined) =>
 
 const pageTitle = (html: string) => /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? "no title";
 
-/** One sign-in at the hub with the RP driver's client, as a browser with a cookie jar does. */
-export async function signInThroughSuite(https: Https, client: Client): Promise<HubOutcome> {
+/** One sign-in at the broker with the RP driver's client, as a browser with a cookie jar does. */
+export async function signInThroughSuite(https: Https, client: Client): Promise<BrokerOutcome> {
   const verifier = randomBytes(32).toString("base64url");
   const state = randomBytes(16).toString("base64url");
   const authorize = new URL(`${ISSUER}/authorize`);
@@ -238,9 +238,9 @@ export async function signInThroughSuite(https: Https, client: Client): Promise<
   return { kind: "stuck", detail: "too many redirects" };
 }
 
-export type RpRun = ModuleRun & { readonly hub: HubOutcome };
+export type RpRun = ModuleRun & { readonly broker: BrokerOutcome };
 
-/** The RP plan: one module, then one sign-in at the hub, then the suite's verdict. */
+/** The RP plan: one module, then one sign-in at the broker, then the suite's verdict. */
 export async function runRpPlan(args: {
   suite: Suite;
   https: Https;
@@ -273,8 +273,8 @@ export async function runRpPlan(args: {
     }
     const id = await args.suite.startModule(plan.id, module.testModule, module.variant);
     await args.suite.waitUntilWaiting(id);
-    const hub = await signInThroughSuite(args.https, args.driverClient);
-    // A module that waits for a UserInfo request after the hub is done never gets one: the hub's
+    const broker = await signInThroughSuite(args.https, args.driverClient);
+    // A module that waits for a UserInfo request after the broker is done never gets one: the broker's
     // connector reads the identity from the id_token. Its own 5 s timeout (`waitTimeoutSeconds`)
     // ends the modules that expect no further request.
     const doneAt = Date.now() + 7_000;
@@ -285,10 +285,10 @@ export async function runRpPlan(args: {
       deadlineMs: 15_000,
       shouldStop: async () => {
         await sleep(0);
-        return Date.now() > doneAt ? "the hub made no further request" : undefined;
+        return Date.now() > doneAt ? "the broker made no further request" : undefined;
       },
     });
-    const rpRun = { ...run, hub };
+    const rpRun = { ...run, broker };
     args.report(rpRun);
     runs.push(rpRun);
   }

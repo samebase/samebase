@@ -13,7 +13,7 @@ import {
   type LoginAge,
 } from "./connectors/upstream.ts";
 import { errorPage, htmlResponse } from "./html.ts";
-import { logHubEvent } from "./hubEvents.ts";
+import { logBrokerEvent } from "./brokerEvents.ts";
 import {
   signAccessToken,
   signIdToken,
@@ -39,7 +39,14 @@ import {
   readParameters,
   redirect,
 } from "./responses.ts";
-import { Fetch, HubConfig, Keys, LiveGates, SignInPage, type HubConfigShape } from "./services.ts";
+import {
+  Fetch,
+  BrokerConfig,
+  Keys,
+  LiveGates,
+  SignInPage,
+  type BrokerConfigShape,
+} from "./services.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "./subject.ts";
 import type { Return } from "../rules/schemas.ts";
 
@@ -53,9 +60,9 @@ const AUTH_TIME_SKEW_SECONDS = 60;
 const SCOPES = ["openid", "email", "profile"];
 
 /** The configured connectors of these names, in this order. A name no longer configured is skipped. */
-const connectorsNamed = (hub: HubConfigShape, names: ReadonlyArray<string>): Connector[] =>
+const connectorsNamed = (broker: BrokerConfigShape, names: ReadonlyArray<string>): Connector[] =>
   names.flatMap((name) => {
-    const connector = hub.connectorsByName.get(name);
+    const connector = broker.connectorsByName.get(name);
     return connector === undefined ? [] : [connector];
   });
 
@@ -65,9 +72,9 @@ const connectorsNamed = (hub: HubConfigShape, names: ReadonlyArray<string>): Con
  * `__Host-` needs Path=/, so a path issuer uses a plain name scoped to its path. A connection's
  * request uses the same cookies.
  */
-export function txnCookies(hub: HubConfigShape) {
-  const prefix = hub.prefix === "" ? "__Host-broker_txn_" : "broker_txn_";
-  const attributes = `Path=${hub.prefix === "" ? "/" : hub.prefix}; HttpOnly; Secure; SameSite=Lax`;
+export function txnCookies(broker: BrokerConfigShape) {
+  const prefix = broker.prefix === "" ? "__Host-broker_txn_" : "broker_txn_";
+  const attributes = `Path=${broker.prefix === "" ? "/" : broker.prefix}; HttpOnly; Secure; SameSite=Lax`;
   /** The transaction cookies the browser sent, by request id. */
   const read = (request: Request): Map<string, string> => {
     const cookies = new Map<string, string>();
@@ -112,7 +119,7 @@ const invalidRedirectPage = () =>
   errorPage("Invalid redirect URI", "The redirect_uri is not one registered for this client.", 400);
 
 /**
- * A refusal before the user continued from the hub's page, or, with no page, before the redirect
+ * A refusal before the user continued from the broker's page, or, with no page, before the redirect
  * to the provider: an error page, for every client. The user has not accepted the return address,
  * so nothing sends the user there (RFC 9700 section 4.11.2; a departure from OIDC Core section
  * 3.1.2.6, named in docs/design.md).
@@ -121,7 +128,7 @@ const refusePage = (description: string) => errorPage("Sign-in refused", descrip
 
 /**
  * An authorization error at `back`, the return address that a step read on the card, with the
- * app's state; with no such address, the hub's own error page. The hub sends the user to no
+ * app's state; with no such address, the broker's own error page. The broker sends the user to no
  * address that is not on the card (RFC 6749 section 4.1.2.1).
  */
 export const toApp = (
@@ -132,7 +139,7 @@ export const toApp = (
     ? refusePage(answer.description)
     : authorizationError({ ...answer, redirectUri: back.redirectUri, state: back.state });
 
-/** The live gates of the hub's registration layer, read for one sign-in step. */
+/** The live gates of the broker's registration layer, read for one sign-in step. */
 const liveGates = Effect.gen(function* () {
   return yield* (yield* LiveGates).read;
 });
@@ -143,11 +150,11 @@ const keySet = Effect.gen(function* () {
   return yield* parseKeySet(raw === undefined ? undefined : Redacted.value(raw)).pipe(Effect.orDie);
 });
 
-const callbackUrl = (hub: HubConfigShape, connector: Connector) =>
-  `${hub.issuer}/connectors/${connector.name}/callback`;
+const callbackUrl = (broker: BrokerConfigShape, connector: Connector) =>
+  `${broker.issuer}/connectors/${connector.name}/callback`;
 
-const metadata = (hub: HubConfigShape, registration: boolean) => {
-  const { issuer } = hub;
+const metadata = (broker: BrokerConfigShape, registration: boolean) => {
+  const { issuer } = broker;
   return {
     issuer,
     authorization_endpoint: `${issuer}/authorize`,
@@ -156,11 +163,11 @@ const metadata = (hub: HubConfigShape, registration: boolean) => {
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     // The client registration endpoint of RFC 7591, when a layer mounts it.
     ...(registration ? { registration_endpoint: `${issuer}/register` } : {}),
-    // The terms of the hub's sign-in service (OpenID Connect Discovery).
-    ...(hub.service === undefined ? {} : { op_tos_uri: hub.service.terms }),
+    // The terms of the broker's sign-in service (OpenID Connect Discovery).
+    ...(broker.service === undefined ? {} : { op_tos_uri: broker.service.terms }),
     scopes_supported: SCOPES,
     // An extension: the configured connectors. What a client may use is on its card.
-    connectors_supported: hub.configured,
+    connectors_supported: broker.configured,
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code"],
@@ -201,8 +208,8 @@ export const discovery = (options: {
   readonly extend: (document: Metadata) => object;
 }) =>
   Effect.fn("discovery")(function* (_request: Request) {
-    const hub = yield* HubConfig;
-    return json(options.extend(metadata(hub, options.registration)), 200, {
+    const broker = yield* BrokerConfig;
+    return json(options.extend(metadata(broker, options.registration)), 200, {
       "Cache-Control": "public, max-age=300",
     });
   });
@@ -238,7 +245,7 @@ const freshLoginRefusal =
 /**
  * Sends the user to a connector for a stored request, with what the caller found for the
  * request's login age on it (`loginAgeOn`). `refuse` answers a refusal of the step, with the
- * return address that the step read on the card: the hub's error page from `/authorize`, where the
+ * return address that the step read on the card: the broker's error page from `/authorize`, where the
  * user has not continued, and `toApp` from `/continue`, where the user has.
  */
 const startConnector = Effect.fn("startConnector")(function* (args: {
@@ -247,7 +254,7 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
   loginAge: LoginAge;
   refuse: (back: Return | undefined, error: string, description: string) => Response;
 }) {
-  const hub = yield* HubConfig;
+  const broker = yield* BrokerConfig;
   const { fetch } = yield* Fetch;
   const { connector } = args;
   // A provider whose metadata cannot be read answers 500, as the source's thrown error.
@@ -255,7 +262,7 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
     try: () =>
       startUpstream({
         connector,
-        callbackUrl: callbackUrl(hub, connector),
+        callbackUrl: callbackUrl(broker, connector),
         loginAge: args.loginAge,
         fetch,
       }),
@@ -268,7 +275,7 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
     upstreamStateHash: yield* sha256HexEffect(start.state),
     upstreamCodeVerifier: start.codeVerifier,
     ...(start.nonce === undefined ? {} : { upstreamNonce: start.nonce }),
-    configured: hub.configured,
+    configured: broker.configured,
     liveGates: yield* liveGates,
     now,
   });
@@ -297,12 +304,12 @@ const startConnector = Effect.fn("startConnector")(function* (args: {
   return redirect(start.url);
 });
 
-const continueHref = (hub: HubConfigShape, requestId: string, connector: Connector) =>
-  `${hub.prefix}/continue?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
+const continueHref = (broker: BrokerConfigShape, requestId: string, connector: Connector) =>
+  `${broker.prefix}/continue?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
 
 export const authorize = Effect.fn("authorize")(function* (request: Request) {
-  const hub = yield* HubConfig;
-  const cookies = txnCookies(hub);
+  const broker = yield* BrokerConfig;
+  const cookies = txnCookies(broker);
   const params = yield* Effect.promise(() => readParameters(request));
   if (params === null) {
     return oauthError(415, "invalid_request", "A POST must be application/x-www-form-urlencoded.");
@@ -324,7 +331,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     return invalidRedirectPage();
   }
   if (params.has("resource")) {
-    // A hub without the connections part serves no API resource; with it, the router sends a
+    // A broker without the connections part serves no API resource; with it, the router sends a
     // request with `resource` to the part.
     return errorPage("API authorization refused", "Request one configured API resource.", 400);
   }
@@ -332,9 +339,9 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   if (!rest.ok) {
     return refusePage(rest.description);
   }
-  /** A refusal of a stop, the card or a limit, which the hub's operator can act on. */
+  /** A refusal of a stop, the card or a limit, which the broker's operator can act on. */
   const refused = (reason: string, page: Response) => {
-    logHubEvent({
+    logBrokerEvent({
       event: "sign_in_refused",
       clientId: card.clientId,
       ref: card.ref,
@@ -362,7 +369,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
   }
   // A login age that the one connector of the snapshot cannot serve is refused before anything is
   // stored or spent; the stored set is checked again below.
-  const offered = connectorsNamed(hub, named.length === 0 ? card.connectors : named);
+  const offered = connectorsNamed(broker, named.length === 0 ? card.connectors : named);
   const snapshotDirect = offered.length === 1 && !card.confirm ? offered[0] : undefined;
   if (snapshotDirect !== undefined && loginAgeOn(snapshotDirect, asked) === undefined) {
     return refusePage(freshLoginRefusal);
@@ -381,7 +388,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     ...(rest.value.nonce === undefined ? {} : { nonce: rest.value.nonce }),
     codeChallenge: rest.value.codeChallenge,
     requested: named,
-    configured: hub.configured,
+    configured: broker.configured,
     liveGates: yield* liveGates,
     ...asked,
     txnCookieHash: yield* sha256HexEffect(txnCookie),
@@ -407,7 +414,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     }
   }
   // The stored set and `confirm`, as the rule read them from the card in its own step.
-  const stored = connectorsNamed(hub, created.connectors);
+  const stored = connectorsNamed(broker, created.connectors);
   // One stored connector and no page to show: straight to it (decision 5 of RFC 137).
   const direct = stored.length === 1 && !created.confirm ? stored[0] : undefined;
   const setCookie = cookies.set(requestId, txnCookie);
@@ -435,10 +442,10 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
       connectors: stored.map((connector) => ({
         label: connector.label,
         provider: connector.provider,
-        href: continueHref(hub, requestId, connector),
+        href: continueHref(broker, requestId, connector),
       })),
       scopes: created.confirm ? scopes : null,
-      hub: hub.service ?? null,
+      broker: broker.service ?? null,
     }),
     200,
   );
@@ -453,8 +460,8 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
  * and the request expires.
  */
 export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Request) {
-  const hub = yield* HubConfig;
-  const cookies = txnCookies(hub);
+  const broker = yield* BrokerConfig;
+  const cookies = txnCookies(broker);
   const url = new URL(request.url);
   const requestId = url.searchParams.get("request") ?? "";
   const stored = yield* command("authRequests.get", { requestId });
@@ -470,7 +477,7 @@ export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Re
   }
   const refuse = (back: Return | undefined, error: string, description: string) =>
     toApp(back, {
-      issuer: hub.issuer,
+      issuer: broker.issuer,
       clearCookie: cookies.clear(request, requestId),
       error,
       description,
@@ -481,7 +488,7 @@ export const continueSignIn = Effect.fn("continueSignIn")(function* (request: Re
   // The page's link carries the connector, so a user can edit it: only one of the request's set
   // goes on. The page offered no other, so an edited link gets no redirect.
   const name = url.searchParams.get("connector") ?? "";
-  const connector = hub.connectorsByName.get(name);
+  const connector = broker.connectorsByName.get(name);
   if (connector === undefined || !stored.connectors.includes(name)) {
     return errorPage("Unknown connector", "That sign-in method is not offered here.", 404);
   }
@@ -519,12 +526,12 @@ const providerSignInFailed = (error: unknown) =>
     className: className(error),
   });
 
-/** The provider's redirect back to the hub, for one connector. */
+/** The provider's redirect back to the broker, for one connector. */
 export const upstreamCallback = (connector: Connector) =>
   Effect.fn("upstreamCallback")(function* (request: Request) {
-    const hub = yield* HubConfig;
+    const broker = yield* BrokerConfig;
     const { fetch } = yield* Fetch;
-    const cookies = txnCookies(hub);
+    const cookies = txnCookies(broker);
     const url = new URL(request.url);
     const state = url.searchParams.get("state");
     if (state === null) {
@@ -542,7 +549,7 @@ export const upstreamCallback = (connector: Connector) =>
       upstreamStateHash: yield* sha256HexEffect(state),
       connector: connector.name,
       txnCookieHashes,
-      configured: hub.configured,
+      configured: broker.configured,
       liveGates: yield* liveGates,
       now,
     });
@@ -559,7 +566,7 @@ export const upstreamCallback = (connector: Connector) =>
     // Each answer to the app goes to the return address that its own step read on the card.
     const answer = (back: Return | null | undefined, error: string, description: string) =>
       toApp(back ?? undefined, {
-        issuer: hub.issuer,
+        issuer: broker.issuer,
         clearCookie: cookies.clear(request, claim.requestId),
         error,
         description,
@@ -580,7 +587,7 @@ export const upstreamCallback = (connector: Connector) =>
         try: async () => {
           const upstream = await finishUpstream({
             connector,
-            callbackUrl: callbackUrl(hub, connector),
+            callbackUrl: callbackUrl(broker, connector),
             currentUrl: url,
             state,
             codeVerifier: claim.upstreamCodeVerifier,
@@ -663,7 +670,7 @@ export const upstreamCallback = (connector: Connector) =>
         authTime,
         codeHash: yield* sha256HexEffect(code),
         codeExpiresAt: now + CODE_TTL_MS,
-        configured: hub.configured,
+        configured: broker.configured,
         liveGates: yield* liveGates,
         now,
       });
@@ -676,7 +683,7 @@ export const upstreamCallback = (connector: Connector) =>
       }
       return authorizationResponse({
         redirectUri: completed.back.redirectUri,
-        issuer: hub.issuer,
+        issuer: broker.issuer,
         state: completed.back.state,
         clearCookie: cookies.clear(request, claim.requestId),
         params: { code },
@@ -701,7 +708,7 @@ export const upstreamCallback = (connector: Connector) =>
   });
 
 export const token = Effect.fn("token")(function* (request: Request) {
-  const hub = yield* HubConfig;
+  const broker = yield* BrokerConfig;
   const params = yield* Effect.promise(() => readParameters(request));
   // RFC 6749 section 5.2: every token error but invalid_client answers 400.
   if (params === null) {
@@ -742,7 +749,7 @@ export const token = Effect.fn("token")(function* (request: Request) {
     redirectUri: validation.value.redirectUri,
     codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
     ...(resource === undefined ? {} : { resource }),
-    configured: hub.configured,
+    configured: broker.configured,
     liveGates: yield* liveGates,
     now,
   });
@@ -752,7 +759,7 @@ export const token = Effect.fn("token")(function* (request: Request) {
       : oauthError(400, exchange.error, exchange.description);
   }
   const keys = yield* keySet;
-  const connector = hub.connectorsByName.get(exchange.identity.connector);
+  const connector = broker.connectorsByName.get(exchange.identity.connector);
   if (connector === undefined) {
     return yield* Effect.die(
       new Error(`The connector "${exchange.identity.connector}" of a sign-in is gone`),
@@ -778,13 +785,13 @@ export const token = Effect.fn("token")(function* (request: Request) {
     Promise.all([
       signIdToken({
         keySet: keys,
-        issuer: hub.issuer,
+        issuer: broker.issuer,
         clientId: exchange.clientId,
         claims,
         authTime: exchange.authTime,
         nonce: exchange.nonce,
       }),
-      signAccessToken({ keySet: keys, issuer: hub.issuer, clientId: exchange.clientId, claims }),
+      signAccessToken({ keySet: keys, issuer: broker.issuer, clientId: exchange.clientId, claims }),
     ]),
   );
   yield* command("signIns.record", {
@@ -794,7 +801,7 @@ export const token = Effect.fn("token")(function* (request: Request) {
     sub,
     at: now,
   });
-  logHubEvent({
+  logBrokerEvent({
     event: "sign_in",
     clientId: exchange.clientId,
     ref: exchange.ref,
@@ -811,7 +818,7 @@ export const token = Effect.fn("token")(function* (request: Request) {
 });
 
 export const userinfo = Effect.fn("userinfo")(function* (request: Request) {
-  const hub = yield* HubConfig;
+  const broker = yield* BrokerConfig;
   // Only the Authorization header (RFC 6750 section 2.1): a token in the body or query is none.
   const bearer = readBearerToken(request.headers.get("authorization"));
   if (bearer === null) {
@@ -819,7 +826,7 @@ export const userinfo = Effect.fn("userinfo")(function* (request: Request) {
   }
   const keys = yield* keySet;
   const verified = yield* Effect.promise(() =>
-    verifyAccessToken({ keySet: keys, issuer: hub.issuer, token: bearer }),
+    verifyAccessToken({ keySet: keys, issuer: broker.issuer, token: bearer }),
   );
   // A deleted card's tokens die with it (RFC 7592 section 2.3). A stop, a removed connector or
   // return address leaves tokens already issued usable until they expire.

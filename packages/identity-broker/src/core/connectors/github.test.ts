@@ -121,7 +121,7 @@ test("a /user response without an id is an error", async () => {
 
 /**
  * A sign-in through the broker's GitHub callback. The query has the shape of a real GitHub
- * callback to the hub on 2026-10-29, `code`, then `iss` (RFC 9207), then `state`; the code and
+ * callback to the broker on 2026-10-29, `code`, then `iss` (RFC 9207), then `state`; the code and
  * the state are this test's own. An `iss` of `undefined` leaves the parameter out.
  */
 async function signInWithIss(
@@ -130,7 +130,7 @@ async function signInWithIss(
 ) {
   const h = await createBroker({ config: { connectors: [connector] } });
   h.fetch.plan({ match: () => true, respond: github });
-  const redirectUri = "https://app.test/oauth/hub/callback";
+  const redirectUri = "https://app.test/oauth/broker/callback";
   const { clientId } = await h.registerClient({ appName: "My app", redirectUri });
   const { challenge } = await pkce();
   const authorize = new URL(`${h.issuer}/authorize`);

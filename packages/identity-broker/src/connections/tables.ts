@@ -1,6 +1,6 @@
 // The tables of the connections part and its view of a step. A connection request lives from
-// `/authorize` to the code exchange (10 min at most), and its code 60 s. The hub keeps no other
-// provider token: the client holds the provider's tokens. A hub that does not mount the part
+// `/authorize` to the code exchange (10 min at most), and its code 60 s. The broker keeps no other
+// provider token: the client holds the provider's tokens. A broker that does not mount the part
 // keeps these tables empty.
 import { Context, Schema } from "effect";
 import type { Tables } from "../store/tables.ts";
@@ -13,7 +13,7 @@ const opt = Schema.optionalKey;
 /** What the provider's token endpoint gave at the code exchange (RFC 6749 section 5.1). */
 export const ProviderTokens = Schema.Struct({
   accessToken: Str,
-  /** The granted scope: the provider's answer, else the scope the hub asked for. */
+  /** The granted scope: the provider's answer, else the scope the broker asked for. */
   scope: Str,
   expiresAt: opt(Num),
   refreshToken: opt(Str),
@@ -33,8 +33,8 @@ const requestFields = {
 };
 
 /**
- * `upstream` until the provider's callback claims it, `claimed` while the hub redeems the
- * provider's code, and `completed` with the provider's tokens until the client redeems the hub's
+ * `upstream` until the provider's callback claims it, `claimed` while the broker redeems the
+ * provider's code, and `completed` with the provider's tokens until the client redeems the broker's
  * code. There is no page before the provider, so no `pending`.
  */
 export const ConnectionRequest = Schema.Union([
@@ -67,7 +67,7 @@ export const connectionTables = {
   },
 } as const;
 
-/** The part's view of a step: every table of the hub. Its rules read cards through the core's `Tx`. */
+/** The part's view of a step: every table of the broker. Its rules read cards through the core's `Tx`. */
 export class ConnectionsTx extends Context.Service<ConnectionsTx, TxShape<Tables>>()(
   "identity-broker/connections/ConnectionsTx",
 ) {}

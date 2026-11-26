@@ -15,7 +15,7 @@ const T = 1_700_000_000_000;
 
 describe.each(hosts)("%s", (_name, make) => {
   /** Cards 1a and 1b share the budget `budget-1`; card 2 has `budget-2`. */
-  const hub = () => {
+  const broker = () => {
     const t = make({ now: T });
     seed(
       t,
@@ -60,7 +60,7 @@ describe.each(hosts)("%s", (_name, make) => {
   const stored = (t: TestHost) => rowsOf(t, "authRequests", "by_request_id").length;
 
   test("a cold budget takes a burst of 240, and the refusal stores no request", () => {
-    const t = hub();
+    const t = broker();
     expect(burst(t, 240).every(Boolean)).toBe(true);
     expect(signIn(t)).toBe(false);
     expect(stored(t)).toBe(240);
@@ -70,7 +70,7 @@ describe.each(hosts)("%s", (_name, make) => {
   });
 
   test("one sign-in comes back 500 ms after the bucket is empty, not before", () => {
-    const t = hub();
+    const t = broker();
     burst(t, 240);
     t.setNow(T + 499);
     expect(signIn(t)).toBe(false);
@@ -80,7 +80,7 @@ describe.each(hosts)("%s", (_name, make) => {
   });
 
   test("an idle budget saves at most 240", () => {
-    const t = hub();
+    const t = broker();
     burst(t, 240);
     t.setNow(T + 60 * 60_000);
     expect(burst(t, 240).every(Boolean)).toBe(true);
@@ -88,7 +88,7 @@ describe.each(hosts)("%s", (_name, make) => {
   });
 
   test("a step with an older clock refills nothing", () => {
-    const t = hub();
+    const t = broker();
     burst(t, 240);
     t.setNow(T - 60_000);
     expect(signIn(t)).toBe(false);
@@ -97,7 +97,7 @@ describe.each(hosts)("%s", (_name, make) => {
   });
 
   test("a step that rolls back after storing the request spends no budget", () => {
-    const t = hub();
+    const t = broker();
     expect(() =>
       t.withTx((tx) =>
         Effect.gen(function* () {

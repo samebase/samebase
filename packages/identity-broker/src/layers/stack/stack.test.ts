@@ -1,8 +1,8 @@
-// The stack layer's rules over HTTP: `POST /register` with one of the hub's named keys, the cards
+// The stack layer's rules over HTTP: `POST /register` with one of the broker's named keys, the cards
 // that a key writes, and the RFC 7592 read and delete with each client's own token.
 import { Config, Redacted, Schema } from "effect";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import type { HubConfigInput } from "../../core/services.ts";
+import type { BrokerConfigInput } from "../../core/services.ts";
 import { sha256Hex } from "../../core/subject.ts";
 import {
   createBroker,
@@ -26,7 +26,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** A key of the hub's settings with `value`. */
+/** A key of the broker's settings with `value`. */
 const keyOf = (value: string, permanent?: boolean): StackKey => ({
   key: Config.succeed(Redacted.make(value)),
   ...(permanent === undefined ? {} : { permanent }),
@@ -36,16 +36,16 @@ const keyOf = (value: string, permanent?: boolean): StackKey => ({
 const absentKey: StackKey = { key: Config.Redacted("IDENTITY_BROKER_TEST_ABSENT_KEY") };
 
 /**
- * The hub on the stack layer with `keys` (by default a production key that may make permanent
+ * The broker on the stack layer with `keys` (by default a production key that may make permanent
  * clients and a preview key), and the fake provider's connectors `fake` and `other`. The settings
  * object stays the test's, so a test can withdraw a key.
  */
-async function createStackHub(
+async function createStackBroker(
   keys: Record<string, StackKey> = {
     production: keyOf(PRODUCTION_KEY, true),
     preview: keyOf(PREVIEW_KEY),
   },
-  config: Partial<HubConfigInput> = {},
+  config: Partial<BrokerConfigInput> = {},
 ) {
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
@@ -57,9 +57,9 @@ async function createStackHub(
   h.clock.set(EPOCH);
   return { ...h, keys, cards: () => h.memory.db.contents().clients };
 }
-type StackHub = Awaited<ReturnType<typeof createStackHub>>;
+type StackBroker = Awaited<ReturnType<typeof createStackBroker>>;
 
-/** The body that IdentityHub.Client sends, with `overrides`. */
+/** The body that the Alchemy client resource sends, with `overrides`. */
 const body = (overrides: Record<string, unknown> = {}) => ({
   redirect_uris: [CALLBACK],
   software_id: "apps/example",
@@ -71,7 +71,7 @@ const body = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const register = (h: StackHub, bearer: string | null, overrides: Record<string, unknown> = {}) =>
+const register = (h: StackBroker, bearer: string | null, overrides: Record<string, unknown> = {}) =>
   h.fetchBroker(`${h.issuer}/register`, {
     method: "POST",
     headers: {
@@ -89,22 +89,22 @@ const NewClient = Schema.Struct({
 });
 const Refusal = Schema.Struct({ error: Schema.String });
 
-/** A client of `bearer`, which the hub must register. */
-async function registered(h: StackHub, bearer: string, overrides: Record<string, unknown> = {}) {
+/** A client of `bearer`, which the broker must register. */
+async function registered(h: StackBroker, bearer: string, overrides: Record<string, unknown> = {}) {
   const response = await register(h, bearer, overrides);
   expect(response.status).toBe(201);
   return Schema.decodeUnknownSync(NewClient)(await response.json());
 }
 
 /** An RFC 7592 request of `method` to `clientId`'s record with `token`. */
-const manage = (h: StackHub, method: "GET" | "DELETE", clientId: string, token: string) =>
+const manage = (h: StackBroker, method: "GET" | "DELETE", clientId: string, token: string) =>
   h.fetchBroker(`${h.issuer}/register/${clientId}`, {
     method,
     headers: { Authorization: `Bearer ${token}` },
   });
 
 /** `/authorize` for `clientId` with `fake` named, and the PKCE verifier of the request. */
-async function authorize(h: StackHub, clientId: string) {
+async function authorize(h: StackBroker, clientId: string) {
   const { verifier, challenge } = await pkce();
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
@@ -120,14 +120,14 @@ async function authorize(h: StackHub, clientId: string) {
   return { response: await h.fetchBroker(url), verifier };
 }
 
-/** `/authorize` for `clientId`: `provider` when the hub sends the user on. */
-async function signIn(h: StackHub, clientId: string) {
+/** `/authorize` for `clientId`: `provider` when the broker sends the user on. */
+async function signIn(h: StackBroker, clientId: string) {
   const { response } = await authorize(h, clientId);
   return response.status === 302 ? "provider" : `status ${response.status}`;
 }
 
 /** A sign-in of `clientId` up to the code at its return address, with the request's verifier. */
-async function codeOf(h: StackHub, clientId: string) {
+async function codeOf(h: StackBroker, clientId: string) {
   const { response, verifier } = await authorize(h, clientId);
   const provider = new URL(response.headers.get("location") ?? "");
   const callback = new URL(provider.searchParams.get("redirect_uri") ?? "");
@@ -141,7 +141,7 @@ async function codeOf(h: StackHub, clientId: string) {
 
 /** The token request of `client` for `code`. */
 const redeem = (
-  h: StackHub,
+  h: StackBroker,
   client: typeof NewClient.Type,
   issued: { code: string; verifier: string },
 ) =>
@@ -163,15 +163,15 @@ describe("POST /register with a key", () => {
     ["a wrong key", "not-a-key"],
     ["no key", null],
   ])("refuses %s with 401 and writes nothing", async (_name, bearer) => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const response = await register(h, bearer);
     expect(response.status).toBe(401);
     expect(h.cards()).toEqual([]);
   });
 
-  test("a hub without a configured key refuses every registration", async () => {
+  test("a broker without a configured key refuses every registration", async () => {
     for (const keys of [{}, { preview: absentKey }]) {
-      const h = await createStackHub(keys);
+      const h = await createStackBroker(keys);
       expect((await register(h, PREVIEW_KEY)).status).toBe(401);
       expect((await register(h, "")).status).toBe(401);
       expect(h.cards()).toEqual([]);
@@ -179,14 +179,14 @@ describe("POST /register with a key", () => {
   });
 
   test("a key whose configuration is missing is skipped, and the other key still works", async () => {
-    const h = await createStackHub({ production: absentKey, preview: keyOf(PREVIEW_KEY) });
+    const h = await createStackBroker({ production: absentKey, preview: keyOf(PREVIEW_KEY) });
     expect((await register(h, PRODUCTION_KEY)).status).toBe(401);
     await registered(h, PREVIEW_KEY);
     expect(h.cards().map((card) => card.ref)).toEqual(["stack:preview:pr-1"]);
   });
 
   test("the matching key's name is the card's budget, gate and reference", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const client = await registered(h, PREVIEW_KEY);
     expect(h.cards()).toEqual([
       {
@@ -216,7 +216,7 @@ describe("POST /register with a key", () => {
   });
 
   test("a key that may make permanent clients registers a production client with no removal date", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     await registered(h, PRODUCTION_KEY, { client_name: "prod", deployment_type: "production" });
     expect(h.cards().map((card) => [card.ref, card.budget, card.gates, card.removeAt])).toEqual([
       ["stack:production:prod", "stack:production", ["stack:production"], undefined],
@@ -224,7 +224,7 @@ describe("POST /register with a key", () => {
   });
 
   test("a key that may not make permanent clients cannot register a production client", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const response = await register(h, PREVIEW_KEY, {
       client_name: "prod",
       deployment_type: "production",
@@ -237,7 +237,7 @@ describe("POST /register with a key", () => {
   });
 
   test("the name of the client, its connectors and its return addresses are checked", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     for (const overrides of [
       { client_name: undefined },
       { client_name: "a:b" },
@@ -252,7 +252,7 @@ describe("POST /register with a key", () => {
   });
 
   test("two keys give two budgets", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const preview = await registered(h, PREVIEW_KEY);
     const production = await registered(h, PRODUCTION_KEY, {
       client_name: "prod",
@@ -269,7 +269,7 @@ describe("POST /register with a key", () => {
   });
 
   test("a stop of one key refuses the sign-ins of its clients and not of the other key's", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const preview = await registered(h, PREVIEW_KEY);
     const production = await registered(h, PRODUCTION_KEY, {
       client_name: "prod",
@@ -282,10 +282,10 @@ describe("POST /register with a key", () => {
   });
 
   test.each([
-    ["removed from the hub's settings", undefined],
+    ["removed from the broker's settings", undefined],
     ["set to the empty string", keyOf("")],
   ])("a key %s refuses its clients' sign-ins and their codes", async (_name, replacement) => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const preview = await registered(h, PREVIEW_KEY);
     const production = await registered(h, PRODUCTION_KEY, {
       client_name: "prod",
@@ -308,7 +308,7 @@ describe("POST /register with a key", () => {
 
 describe("the client's own record (RFC 7592)", () => {
   test("a read renews: a new removal date, and the connectors from the enrollment", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const client = await registered(h, PREVIEW_KEY, { connectors: ["fake", "other"] });
     await h.editCard(client.client_id, (card) => ({ ...card, connectors: [] }));
     h.clock.advance(1_000);
@@ -327,7 +327,7 @@ describe("the client's own record (RFC 7592)", () => {
   });
 
   test("a card's connections are its key's, at the registration and at each read", async () => {
-    const h = await createStackHub({
+    const h = await createStackBroker({
       preview: { ...keyOf(PREVIEW_KEY), connections: ["github", "cloudflare", "github"] },
     });
     const client = await registered(h, PREVIEW_KEY);
@@ -339,8 +339,8 @@ describe("the client's own record (RFC 7592)", () => {
     expect(h.cards().map((card) => card.connections)).toEqual([["convex"]]);
   });
 
-  test("a read is refused after the key left the hub's configuration", async () => {
-    const h = await createStackHub();
+  test("a read is refused after the key left the broker's configuration", async () => {
+    const h = await createStackBroker();
     const client = await registered(h, PREVIEW_KEY);
     const before = h.cards();
     delete h.keys["preview"];
@@ -351,7 +351,7 @@ describe("the client's own record (RFC 7592)", () => {
   });
 
   test("a read of a stopped key's client answers 403 and renews nothing", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const client = await registered(h, PREVIEW_KEY);
     const before = h.cards();
     await h.setStop("stack:preview", true);
@@ -363,7 +363,7 @@ describe("the client's own record (RFC 7592)", () => {
   });
 
   test("a temporary client deletes itself; a production client cannot", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const preview = await registered(h, PREVIEW_KEY);
     const production = await registered(h, PRODUCTION_KEY, {
       client_name: "prod",
@@ -380,7 +380,7 @@ describe("the client's own record (RFC 7592)", () => {
   });
 
   test("one client's token reaches no other client, and a key reaches no client", async () => {
-    const h = await createStackHub();
+    const h = await createStackBroker();
     const first = await registered(h, PREVIEW_KEY);
     const second = await registered(h, PREVIEW_KEY, { client_name: "pr-2" });
     const before = h.cards();
@@ -393,7 +393,7 @@ describe("the client's own record (RFC 7592)", () => {
 });
 
 test("discovery names the registration endpoint", async () => {
-  const h = await createStackHub();
+  const h = await createStackBroker();
   const metadata = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
   expect(await metadata.json()).toMatchObject({
     registration_endpoint: `${h.issuer}/register`,
@@ -401,8 +401,8 @@ test("discovery names the registration endpoint", async () => {
   });
 });
 
-test("a hub without a service names no terms: not in discovery, the answer, or the page", async () => {
-  const h = await createStackHub(undefined, { service: undefined });
+test("a broker without a service names no terms: not in discovery, the answer, or the page", async () => {
+  const h = await createStackBroker(undefined, { service: undefined });
   const metadata = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
   expect(await metadata.json()).not.toHaveProperty("op_tos_uri");
   const response = await register(h, PREVIEW_KEY, { connectors: ["fake", "other"] });

@@ -23,7 +23,7 @@ export const MAX_APP_LENGTH = 64;
 // narrow the value that was read (`Schema.is`), so the members that they do not name stay on it.
 
 /**
- * The client metadata of a registration request that a hub reads (RFC 7591 section 2), but
+ * The client metadata of a registration request that a broker reads (RFC 7591 section 2), but
  * `redirect_uris`, which has its own error. Any other member is ignored, as that section requires,
  * but the ones in `UNSUPPORTED_MEMBERS`. A layer reads the members that it needs: one body serves
  * every layer.
@@ -35,10 +35,10 @@ const RequestBody = Schema.Struct({
   software_version: Schema.optionalKey(Schema.String),
   /** The deployment's name, such as its stage. */
   client_name: Schema.optionalKey(Schema.String),
-  /** The hub's own member: the kind of deployment, which a layer may hold to its own rule. */
+  /** The broker's own member: the kind of deployment, which a layer may hold to its own rule. */
   deployment_type: Schema.optionalKey(Schema.Literals(["production", "preview", "development"])),
   /**
-   * The enrollment, the hub's own member: at least one connector name. Duplicates collapse. Absent:
+   * The enrollment, the broker's own member: at least one connector name. Duplicates collapse. Absent:
    * every connector that this registration may enroll in.
    */
   connectors: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -46,12 +46,12 @@ const RequestBody = Schema.Struct({
   token_endpoint_auth_method: Schema.optionalKey(
     Schema.Literals(["client_secret_post", "client_secret_basic"]),
   ),
-  /** The hub answers its own values: a client asks for nothing here that the hub does not have. */
+  /** The broker answers its own values: a client asks for nothing here that the broker does not have. */
   grant_types: Schema.optionalKey(
     Schema.Array(Schema.Literals(["authorization_code", "refresh_token"])),
   ),
   response_types: Schema.optionalKey(Schema.Array(Schema.Literal("code"))),
-  // The one value of each that the hub has (OpenID Connect Registration section 2).
+  // The one value of each that the broker has (OpenID Connect Registration section 2).
   application_type: Schema.optionalKey(Schema.Literal("web")),
   subject_type: Schema.optionalKey(Schema.Literal("public")),
   id_token_signed_response_alg: Schema.optionalKey(Schema.Literal("RS256")),
@@ -61,7 +61,7 @@ const RequestBody = Schema.Struct({
 const RedirectUris = Schema.Struct({ redirect_uris: Schema.Array(Schema.String) });
 
 /**
- * Members of OpenID Connect Registration that the hub cannot honor, so a request with one is refused
+ * Members of OpenID Connect Registration that the broker cannot honor, so a request with one is refused
  * rather than given a client that ignores it. Any member with `_encrypted_response_` or
  * `_encryption_` in its name is one too.
  */
@@ -71,7 +71,7 @@ const UNSUPPORTED_MEMBERS = new Set([
   "request_object_signing_alg",
 ]);
 
-/** A registration error of RFC 7591 section 3.2.2. `reason` and `allowed` are the hub's own members. */
+/** A registration error of RFC 7591 section 3.2.2. `reason` and `allowed` are the broker's own members. */
 export function invalid(
   error: "invalid_redirect_uri" | "invalid_client_metadata",
   description: string,
@@ -90,7 +90,7 @@ export const invalidConnectors = (allowed: readonly string[]) =>
 
 /**
  * The answer to a good token whose holder may not do this (RFC 6750 section 3.1). `reason` is the
- * hub's own member: the rule that refused the request.
+ * broker's own member: the rule that refused the request.
  */
 export const insufficientScope = (description: string, more: { reason?: string } = {}) =>
   json({ error: "insufficient_scope", error_description: description, ...more }, 403, {
@@ -146,7 +146,7 @@ export const readClientMetadata = Effect.fnUntraced(function* (request: Request)
   ) {
     return invalid(
       "invalid_client_metadata",
-      "The hub supports only web clients with public subjects and RS256, without encryption.",
+      "The broker supports only web clients with public subjects and RS256, without encryption.",
     );
   }
   const softwareVersion = body.software_version ?? "unknown";
@@ -183,9 +183,9 @@ export const readClientMetadata = Effect.fnUntraced(function* (request: Request)
 /**
  * The client information response (RFC 7591 section 3.2.1), without what only the first holds.
  * `software_id` names the app, the same for every deployment of it; `client_name` names the
- * deployment. `grant_types` is the hub's own, as discovery's `grant_types_supported`: this package
+ * deployment. `grant_types` is the broker's own, as discovery's `grant_types_supported`: this package
  * configures no API resource, so a client gets no refresh token (design section 9 item 1).
- * `connectors` is the enrollment, the hub's own field.
+ * `connectors` is the enrollment, the broker's own field.
  */
 export function clientInformation(args: {
   issuer: string;
@@ -236,19 +236,19 @@ export const newClientCredentials = Effect.gen(function* () {
 
 /**
  * The body of a 201 answer (RFC 7591 section 3.2.1): the client's registered metadata, its secret,
- * and its RFC 7592 token, which go to nothing else. `issuer` and `terms` (when the hub has terms) are the hub's own members.
+ * and its RFC 7592 token, which go to nothing else. `issuer` and `terms` (when the broker has terms) are the broker's own members.
  */
 export function newClient(
-  hub: { readonly issuer: string; readonly terms: string | undefined },
+  broker: { readonly issuer: string; readonly terms: string | undefined },
   credentials: Effect.Success<typeof newClientCredentials>,
   client: Omit<Parameters<typeof clientInformation>[0], "issuer" | "clientId">,
 ) {
   return {
-    ...clientInformation({ ...client, issuer: hub.issuer, clientId: credentials.clientId }),
+    ...clientInformation({ ...client, issuer: broker.issuer, clientId: credentials.clientId }),
     client_secret: credentials.clientSecret,
     registration_access_token: credentials.registrationAccessToken,
-    issuer: hub.issuer,
-    ...(hub.terms === undefined ? {} : { terms: hub.terms }),
+    issuer: broker.issuer,
+    ...(broker.terms === undefined ? {} : { terms: broker.terms }),
   };
 }
 
@@ -271,7 +271,7 @@ export const managementRequest = Effect.fnUntraced(function* (request: Request) 
 });
 
 /**
- * The answer to an RFC 7592 read. The hub stores only the hash of the registration access token, so
+ * The answer to an RFC 7592 read. The broker stores only the hash of the registration access token, so
  * the read echoes the token that the request presented (RFC 7592 section 3). It never has the
  * client's secret.
  */

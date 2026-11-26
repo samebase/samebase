@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { invalidToken } from "../../core/responses.ts";
-import { HubConfig } from "../../core/services.ts";
+import { BrokerConfig } from "../../core/services.ts";
 import { insufficientScope, managementRequest, readAnswer } from "../clientRegistration.ts";
 import { command, GithubSettings } from "./settings.ts";
 
@@ -16,13 +16,13 @@ export const readClient = Effect.fn("readClient")(function* (request: Request) {
   if (target instanceof Response) {
     return target;
   }
-  const hub = yield* HubConfig;
+  const broker = yield* BrokerConfig;
   const { allowList } = yield* GithubSettings;
   const result = yield* command("github.renew", {
     clientId: target.clientId,
     registrationTokenHash: target.registrationTokenHash,
     allowList,
-    configured: hub.configured,
+    configured: broker.configured,
   });
   if (!result.ok) {
     // RFC 7592 section 2.1: a client that is gone answers 401, one that may not read answers 403.
@@ -32,7 +32,7 @@ export const readClient = Effect.fn("readClient")(function* (request: Request) {
   }
   return readAnswer(
     {
-      issuer: hub.issuer,
+      issuer: broker.issuer,
       clientId: target.clientId,
       createdAt: result.createdAt,
       redirectUris: result.redirectUris,
@@ -49,7 +49,7 @@ export const readClient = Effect.fn("readClient")(function* (request: Request) {
 /**
  * `DELETE <prefix>/register/<client>`: a preview or development client deletes itself (RFC 7592
  * section 2.3). A production client cannot: a stack destroy can leave a production deployment
- * running, and the hub cannot know that it stopped.
+ * running, and the broker cannot know that it stopped.
  */
 export const deleteClient = Effect.fn("deleteClient")(function* (request: Request) {
   const target = yield* managementRequest(request);

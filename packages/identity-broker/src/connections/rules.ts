@@ -3,8 +3,8 @@
 // admission of a refresh, the client authentication of a revocation, and cleanup. Every step reads
 // the client's card in its own transaction, with the same two forms of stop as sign-in: a row of
 // `stops`, and a gate that the registration layer no longer has (`isStopped`). A connection goes
-// on only while its provider is in the card's `connections` and among the hub's configured
-// providers. The hub keeps no provider token after the code exchange: the client holds them.
+// on only while its provider is in the card's `connections` and among the broker's configured
+// providers. The broker keeps no provider token after the code exchange: the client holds them.
 import { Effect, Schema } from "effect";
 import { spendBudget } from "../rules/authRequests.ts";
 import { cardRow, isStopped, used } from "../rules/clients.ts";
@@ -28,9 +28,9 @@ export const BATCH = 200;
 /** A configured provider, as a step knows it: its name on cards and its resource URL. */
 const Provider = Schema.Struct({ name: Str, resource: Str });
 
-/** What every connection step knows of the hub now. */
-const hubNow = { providers: Schema.Array(Provider), liveGates: Schema.Array(GateNamespace) };
-type HubNow = {
+/** What every connection step knows of the broker now. */
+const brokerNow = { providers: Schema.Array(Provider), liveGates: Schema.Array(GateNamespace) };
+type BrokerNow = {
   readonly providers: ReadonlyArray<typeof Provider.Type>;
   readonly liveGates: ReadonlyArray<GateNamespace>;
 };
@@ -41,7 +41,7 @@ type ConnectionRequest = Doc<"connectionRequests">;
 
 /**
  * A refusal of the card, a stop or a gate, the card's `connections`, or a limit, for the route's
- * `hub_event` line. `ref` is null when the card is gone.
+ * `broker_event` line. `ref` is null when the card is gone.
  */
 export const Refused = Schema.Struct({
   reason: Schema.Literals(["card", "stopped", "connections", "rate_limited"]),
@@ -58,8 +58,8 @@ const refused = (
 ): Refused => ({ reason, clientId: card.clientId, ref: card.ref, resource });
 
 /** Whether the card may use the provider of `resource`: configured, and in its `connections`. */
-const offers = (card: Doc<"clients">, resource: string, hub: HubNow) => {
-  const provider = hub.providers.find((candidate) => candidate.resource === resource);
+const offers = (card: Doc<"clients">, resource: string, broker: BrokerNow) => {
+  const provider = broker.providers.find((candidate) => candidate.resource === resource);
   return provider !== undefined && card.connections.includes(provider.name);
 };
 
@@ -67,7 +67,7 @@ const offers = (card: Doc<"clients">, resource: string, hub: HubNow) => {
  * Whether `request` may go on now: the card exists and holds the return address, no gate refuses
  * it, and it offers the provider. `back` is the return address when the card holds it.
  */
-const admission = Effect.fnUntraced(function* (request: ConnectionRequest, hub: HubNow) {
+const admission = Effect.fnUntraced(function* (request: ConnectionRequest, broker: BrokerNow) {
   const back = yield* returnTo(request);
   const card = yield* cardRow(request.clientId);
   if (card === undefined) {
@@ -77,10 +77,10 @@ const admission = Effect.fnUntraced(function* (request: ConnectionRequest, hub: 
   if (back === undefined) {
     return { ok: false, back, refused: refused("card", card.doc, request.resource) } as const;
   }
-  if (yield* isStopped(card.doc, hub.liveGates)) {
+  if (yield* isStopped(card.doc, broker.liveGates)) {
     return { ok: false, back, refused: refused("stopped", card.doc, request.resource) } as const;
   }
-  if (!offers(card.doc, request.resource, hub)) {
+  if (!offers(card.doc, request.resource, broker)) {
     return {
       ok: false,
       back,
@@ -150,7 +150,7 @@ export const CreateArgs = Schema.Struct({
   txnCookieHash: Str,
   upstreamStateHash: Str,
   upstreamCodeVerifier: Str,
-  ...hubNow,
+  ...brokerNow,
   now: Num,
   expiresAt: Num,
 });
@@ -225,7 +225,7 @@ export const ClaimArgs = Schema.Struct({
   resource: Str,
   /** SHA-256 hex of each transaction cookie the callback carried. */
   txnCookieHashes: Strs,
-  ...hubNow,
+  ...brokerNow,
   now: Num,
 });
 export const ClaimResult = Schema.Union([
@@ -286,7 +286,7 @@ export const CompleteArgs = Schema.Struct({
   tokens: ProviderTokens,
   codeHash: Str,
   codeExpiresAt: Num,
-  ...hubNow,
+  ...brokerNow,
   now: Num,
 });
 export const CompleteResult = Schema.Union([
@@ -301,7 +301,7 @@ export const CompleteResult = Schema.Union([
 ]);
 
 /**
- * The provider gave its tokens after a claim: the hub's code can be handed out, unless the
+ * The provider gave its tokens after a claim: the broker's code can be handed out, unless the
  * connection may no longer go on (a stop, a card change, or a removed return address committed
  * while the provider answered): the request is then deleted and nothing is issued.
  */
@@ -368,7 +368,7 @@ export const ExchangeArgs = Schema.Struct({
   codeChallengeOfVerifier: Str,
   /** The `resource` of the token request: optional, as in the Convex broker (RFC 8707). */
   resource: opt(Str),
-  ...hubNow,
+  ...brokerNow,
   now: Num,
 });
 const Refusal = Schema.Struct({
@@ -382,7 +382,7 @@ export const ExchangeResult = Schema.Union([
   /** The code is not a connection's: the core's sign-in redeems it, or refuses it. */
   Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("not_found") }),
   Refusal,
-  /** The provider's tokens, which the hub no longer holds, and the card's `ref`. */
+  /** The provider's tokens, which the broker no longer holds, and the card's `ref`. */
   Schema.Struct({ ok: Schema.Literal(true), tokens: ProviderTokens, ref: Str, resource: Str }),
 ]);
 type ExchangeResult = typeof ExchangeResult.Type;
@@ -397,7 +397,7 @@ const refuse = (
  * Redeems a connection's code: single use, bound to the client, its return address and its PKCE
  * challenge (RFC 6749 section 4.1.3, RFC 7636), and to the request's resource (RFC 8707). The code
  * is looked up first, so a sign-in code is left to the core untouched. On success the code and the
- * request are deleted, so the hub keeps no provider token and a replay finds no code; the
+ * request are deleted, so the broker keeps no provider token and a replay finds no code; the
  * provider's tokens go to the client, and a temporary card lives on.
  */
 export const exchangeCode = Effect.fnUntraced(function* (
@@ -464,9 +464,9 @@ export const exchangeCode = Effect.fnUntraced(function* (
 
 export const AdmitRefreshArgs = Schema.Struct({
   ...ClientAuth,
-  /** Required on refresh: the hub keeps no grant that knows it. */
+  /** Required on refresh: the broker keeps no grant that knows it. */
   resource: Str,
-  ...hubNow,
+  ...brokerNow,
   now: Num,
 });
 export const AdmitRefreshResult = Schema.Union([
@@ -481,7 +481,7 @@ export const AdmitRefreshResult = Schema.Union([
 ]);
 
 /**
- * The admission of a refresh (RFC 6749 section 6), before the hub forwards the client's refresh
+ * The admission of a refresh (RFC 6749 section 6), before the broker forwards the client's refresh
  * token to the provider: the client authenticates, no gate refuses it, and it may use the
  * provider of `resource` now. An admitted refresh renews a temporary card. The token itself is
  * the provider's to judge.

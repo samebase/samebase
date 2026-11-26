@@ -1,9 +1,10 @@
-// What a host of the hub needs, on any platform. The README's "Write your own host" shows its use.
+// What a host of the broker needs, on any platform. The README's "Write your own host" shows its
+// use.
 
-// The hub: `makeHandle(registration, part)` gives `(request) => Effect<Response>`, where `part` is
+// The broker: `makeHandle(registration, part)` gives `(request) => Effect<Response>`, where `part` is
 // what `makeConnections` of `./connections` gives, or absent.
 export {
-  hubLogger,
+  brokerLogger,
   makeHandle,
   type CoreServices,
   type PublicRegistration,
@@ -15,17 +16,17 @@ export { CommandFailed } from "./core/command.ts";
 // The services a host provides. Time is Effect's `Clock`.
 export {
   Fetch,
-  HubConfig,
-  HubConfigError,
+  BrokerConfig,
+  BrokerConfigError,
   Keys,
   Random,
   SignInPage,
-  type HubConfigInput,
+  type BrokerConfigInput,
   type ServiceSettings,
 } from "./core/services.ts";
 export type { Connector, ConnectorSpec, Secret } from "./core/connectors/types.ts";
-export { hubSettings, type HubSettings } from "./hosts/settings.ts";
-export { hub, hubRuntime } from "./core/hub.ts";
+export { brokerSettings, type BrokerSettings } from "./hosts/settings.ts";
+export { identityBroker, brokerRuntime } from "./core/identityBroker.ts";
 
 // The Store and its command contract.
 export { Store, StoreUnavailable, type StoreShape } from "./store/Store.ts";

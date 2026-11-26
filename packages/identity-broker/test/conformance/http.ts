@@ -1,4 +1,4 @@
-// HTTPS requests of the run to the hub's issuer, the suite and the fake provider. Each trusts only
+// HTTPS requests of the run to the broker's issuer, the suite and the fake provider. Each trusts only
 // the run's certificate bundle, never follows a redirect, and connects to 127.0.0.1 for
 // `localhost.emobix.co.uk`, so no request depends on public DNS.
 import type { LookupFunction } from "node:net";

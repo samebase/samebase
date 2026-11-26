@@ -1,7 +1,7 @@
 /// <reference types="vite-plus/client" />
 // The core's sign-in tests that need no synchronous step, on the Convex store under convex-test:
 // each `createBroker` gets a fresh convex-test backend whose app is the component's functions, and
-// its Store is the hub's (`convexStore`), one call of the command's own function. The step clock
+// its Store is the broker's (`convexStore`), one call of the command's own function. The step clock
 // is the test clock, through Effect's `Clock`. The other test files of src/core/sqlite.test.ts read
 // and seed rows in a synchronous step (`run`, `withTx`, `db.contents`), which a Convex
 // transaction cannot give, so they are not here.
@@ -11,7 +11,7 @@ import { useTestStore } from "../../core/testing/harness.ts";
 import { microtaskScheduler } from "../../store/Store.ts";
 import { api } from "./component/_generated/api.ts";
 import schema from "./component/schema.ts";
-import { convexStore } from "./hub.ts";
+import { convexStore } from "./broker.ts";
 import { commandFunctions } from "./references.ts";
 import { convexTx } from "./tx.ts";
 

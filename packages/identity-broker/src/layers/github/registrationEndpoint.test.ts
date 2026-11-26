@@ -1,30 +1,30 @@
 // The port of registrationEndpoint.test.ts of the Convex broker: `POST /register` as RFC 7591
 // describes it. openid-client registers with its own `dynamicClientRegistration` and signs in,
-// discovery names the endpoint, and the client metadata that the hub reads, defaults, refuses, or
+// discovery names the endpoint, and the client metadata that the broker reads, defaults, refuses, or
 // ignores.
 import { Config } from "effect";
 import * as client from "openid-client";
 import { describe, expect, it } from "vite-plus/test";
 import * as Connectors from "../../core/connectors/index.ts";
-import { hub } from "../../core/hub.ts";
+import { identityBroker } from "../../core/identityBroker.ts";
 import { createBroker, TEST_SERVICE, txnCookie } from "../../core/testing/harness.ts";
 import { github } from "./routes.ts";
 import {
-  createHub,
+  createGithubBroker,
   ISSUER,
-  postHubClient,
+  postBrokerClient,
   PRODUCTION_CALLBACK,
   REPOSITORY_ID,
   signToken,
   skipSignInPage,
   stubProviders,
-  type Hub,
-} from "./testing/hub.ts";
+  type GithubBroker,
+} from "./testing/broker.ts";
 
 const refusalBody = (error: string) => ({ error, error_description: expect.any(String) });
 
 /** Every request openid-client makes goes to the broker's handler. */
-function brokerFetch(h: { fetchBroker: Hub["fetchBroker"] }): client.CustomFetch {
+function brokerFetch(h: { fetchBroker: GithubBroker["fetchBroker"] }): client.CustomFetch {
   return async (url, options) => {
     // openid-client posts strings and URLSearchParams; nothing else crosses this stub.
     const body =
@@ -40,7 +40,7 @@ function brokerFetch(h: { fetchBroker: Hub["fetchBroker"] }): client.CustomFetch
  * Registers with openid-client's own `dynamicClientRegistration` and `metadata`, then signs in with
  * the client as it registered: HTTP Basic, which openid-client does not choose by itself.
  */
-async function registerAndSignIn(h: Hub, metadata: Partial<client.ClientMetadata>) {
+async function registerAndSignIn(h: GithubBroker, metadata: Partial<client.ClientMetadata>) {
   const registered = await client.dynamicClientRegistration(new URL(ISSUER), metadata, undefined, {
     initialAccessToken: await signToken(h),
     [client.customFetch]: brokerFetch(h),
@@ -85,7 +85,7 @@ async function registerAndSignIn(h: Hub, metadata: Partial<client.ClientMetadata
 
 describe("POST /register with a standard client library", () => {
   it("registers with openid-client and the GitHub token, and the client signs in", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     skipSignInPage(h);
     await stubProviders(h);
 
@@ -114,7 +114,7 @@ describe("POST /register with a standard client library", () => {
   });
 
   it("registers with openid-client and only redirect_uris, and the client signs in", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     skipSignInPage(h);
     await stubProviders(h);
 
@@ -130,14 +130,14 @@ describe("POST /register with a standard client library", () => {
 });
 
 describe("discovery", () => {
-  it("is on a hub that names its service: strangers register here", () => {
+  it("is on a broker that names its service: strangers register here", () => {
     const google = Connectors.google({
       clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
       clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
     });
-    // @ts-expect-error A hub on the `github` layer needs `service`.
-    hub({ issuer: ISSUER, connectors: [google], registration: github([]) });
-    hub({
+    // @ts-expect-error A broker on the `github` layer needs `service`.
+    identityBroker({ issuer: ISSUER, connectors: [google], registration: github([]) });
+    identityBroker({
       issuer: ISSUER,
       connectors: [google],
       registration: github([]),
@@ -146,13 +146,13 @@ describe("discovery", () => {
   });
 
   it("names the registration endpoint and the terms with the layer's routes", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
 
     const document = await h.fetchBroker(`${ISSUER}/.well-known/openid-configuration`);
 
     expect(await document.json()).toMatchObject({
       registration_endpoint: `${ISSUER}/register`,
-      op_tos_uri: "https://hub.example.com/terms",
+      op_tos_uri: "https://broker.example.com/terms",
     });
   });
 
@@ -179,10 +179,10 @@ describe("the client metadata", () => {
     ["client_secret_basic", "client_secret_basic", "client_secret_basic"],
     ["client_secret_post", "client_secret_post", "client_secret_post"],
   ])("registers %s at the token endpoint as %s", async (_, method, registered) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await stubProviders(h);
 
-    const response = await postHubClient(h, await signToken(h), {
+    const response = await postBrokerClient(h, await signToken(h), {
       token_endpoint_auth_method: method,
     });
 
@@ -194,10 +194,10 @@ describe("the client metadata", () => {
   it.each(["none", "private_key_jwt", "tls_client_auth"])(
     "refuses the token endpoint auth method %s",
     async (method) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), {
+      const response = await postBrokerClient(h, await signToken(h), {
         token_endpoint_auth_method: method,
       });
 
@@ -208,10 +208,10 @@ describe("the client metadata", () => {
   );
 
   it("ignores fields it does not read, and names the client by its stage", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await stubProviders(h);
 
-    const response = await postHubClient(h, await signToken(h), {
+    const response = await postBrokerClient(h, await signToken(h), {
       client_name: "x",
       logo_uri: "https://ideal-dolphin-15.convex.site/logo.png",
       contacts: ["octo@example.com"],
@@ -231,7 +231,7 @@ describe("the client metadata", () => {
   });
 
   it("reads the JSON body whatever its Content-Type says", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await stubProviders(h);
 
     const response = await h.fetchBroker(`${ISSUER}/register`, {
@@ -245,7 +245,7 @@ describe("the client metadata", () => {
 });
 
 /** `POST /register` of a good body with `authorization`, or no Authorization header for null. */
-async function postWithAuthorization(h: Hub, authorization: string | null) {
+async function postWithAuthorization(h: GithubBroker, authorization: string | null) {
   return await h.fetchBroker(`${ISSUER}/register`, {
     method: "POST",
     headers: {
@@ -263,7 +263,7 @@ describe("the Bearer token (RFC 6750 section 3.1)", () => {
     ["the word Bearer alone", "Bearer"],
     ["a token with a space in it", "Bearer one two"],
   ])("answers 401 with the realm challenge and no body for %s", async (_, authorization) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const fileRequests = await stubProviders(h);
 
     const response = await postWithAuthorization(h, authorization);
@@ -275,7 +275,7 @@ describe("the Bearer token (RFC 6750 section 3.1)", () => {
   });
 
   it("takes the scheme in any case", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await stubProviders(h);
 
     const response = await postWithAuthorization(h, `bEaReR ${await signToken(h)}`);

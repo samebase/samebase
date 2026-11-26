@@ -9,9 +9,9 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { pkce, txnCookie } from "../../core/testing/harness.ts";
 import {
   createClient,
-  createHub,
+  createGithubBroker,
   OWNER_ID,
-  postHubClient,
+  postBrokerClient,
   PRODUCTION_CALLBACK,
   pullRequestClaims,
   readNewClient,
@@ -19,9 +19,9 @@ import {
   REPOSITORY_ID,
   signToken,
   stubProviders,
-  type Hub,
+  type GithubBroker,
   type NewClient,
-} from "./testing/hub.ts";
+} from "./testing/broker.ts";
 import { setBlock, setExemption } from "./testing/seeds.ts";
 
 afterEach(() => {
@@ -30,9 +30,9 @@ afterEach(() => {
 
 /**
  * `/authorize` for the client with `fake` named, as an app's button sends it: `provider` when it
- * goes straight to the provider, `page` when the hub shows its page.
+ * goes straight to the provider, `page` when the broker shows its page.
  */
-async function signIn(h: Hub, client: NewClient) {
+async function signIn(h: GithubBroker, client: NewClient) {
   const { challenge } = await pkce();
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
@@ -58,33 +58,33 @@ async function signIn(h: Hub, client: NewClient) {
   return { response, went };
 }
 
-const exemption = (h: Hub, on: boolean, ownerId = OWNER_ID) =>
+const exemption = (h: GithubBroker, on: boolean, ownerId = OWNER_ID) =>
   setExemption(h.memory, { repositoryId: REPOSITORY_ID, ownerId }, on);
 
 /** A client of a run whose proof is one second newer than the last, of `claims`. */
-async function registerLater(h: Hub, claims: Record<string, unknown>) {
+async function registerLater(h: GithubBroker, claims: Record<string, unknown>) {
   h.clock.advance(1_000);
   await stubProviders(h);
-  const response = await postHubClient(h, await signToken(h, claims));
+  const response = await postBrokerClient(h, await signToken(h, claims));
   expect(response.status).toBe(201);
   return await readNewClient(response);
 }
 
-async function quietHub() {
-  const h = await createHub();
+async function quietBroker() {
+  const h = await createGithubBroker();
   vi.spyOn(console, "info").mockImplementation(() => undefined);
   return h;
 }
 
 describe("the exemptions from the sign-in page", () => {
   it("change nothing while the table is empty", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     const client = await createClient(h);
     expect((await signIn(h, client)).went).toBe("page");
   });
 
   it("reach the repository's cards at their next renewal, previews included, not other repositories'", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     const production = await createClient(h);
     const preview = await registerLater(h, pullRequestClaims);
     const other = await createClient(h, { repository_id: "81" });
@@ -99,7 +99,7 @@ describe("the exemptions from the sign-in page", () => {
   });
 
   it("bind one repository's row to its current owner through transfers", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     exemption(h, true);
     const ownersClient = await createClient(h);
     expect((await signIn(h, ownersClient)).went).toBe("provider");
@@ -116,7 +116,7 @@ describe("the exemptions from the sign-in page", () => {
   });
 
   it("bind a row to the new owner when the admin sets it after a transfer", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     exemption(h, true);
     await createClient(h);
     const newOwnersClient = await registerLater(h, { repository_owner_id: "66" });
@@ -130,7 +130,7 @@ describe("the exemptions from the sign-in page", () => {
   });
 
   it("let a sign-in that passed /authorize finish after its card shows the page again", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     exemption(h, true);
     const client = await createClient(h);
     const { response, went } = await signIn(h, client);
@@ -150,7 +150,7 @@ describe("the exemptions from the sign-in page", () => {
   });
 
   it("lose to a stop of the repository or of its owner", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     exemption(h, true);
     const client = await createClient(h);
     for (const kind of ["repository", "owner"] as const) {
@@ -163,10 +163,10 @@ describe("the exemptions from the sign-in page", () => {
   });
 
   it("cover every app and deployment of its repository registered after it", async () => {
-    const h = await quietHub();
+    const h = await quietBroker();
     exemption(h, true);
     const first = await createClient(h);
-    const second = await postHubClient(h, await signToken(h), { software_id: "second" });
+    const second = await postBrokerClient(h, await signToken(h), { software_id: "second" });
     expect(second.status).toBe(201);
     const clients = [first, await registerLater(h, pullRequestClaims), await readNewClient(second)];
     for (const client of clients) {

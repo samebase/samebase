@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.42.0
+
+- Breaking: one name for the package's software, "identity broker". Each export with "hub" in its
+  name has a new name, and the old name is gone:
+  - `hub` -> `identityBroker`
+  - `hubRuntime` -> `brokerRuntime`
+  - `hubSettings` -> `brokerSettings`, `HubSettings` -> `BrokerSettings`
+  - `hubLogger` -> `brokerLogger`
+  - `HubConfig` -> `BrokerConfig` (service key `identity-broker/core/BrokerConfig`),
+    `HubConfigError` -> `BrokerConfigError`, `HubConfigInput` -> `BrokerConfigInput`
+  - `./convex`: `convexHub` -> `convexBroker`
+  - `./cloudflare`: `HubObject` -> `BrokerStoreObject`, `HUB_INSTANCE` ->
+    `BROKER_STORE_INSTANCE_NAME`, `hubWorkerProps` -> `brokerWorkerProps`
+  - `./testing`: `hubLogLine` -> `brokerLogLine`; the `hub` field of `createBroker`'s result ->
+    `broker`
+  - The `hub` field of the sign-in page's facts -> `broker`
+  - `./moderation/api`: the `HttpApi` id `identity-hub-moderation` -> `identity-broker-moderation`.
+    The routes under `/moderation` are the same.
+- Breaking for log filters: the log markers `hub_event` -> `broker_event`, `hub_error` ->
+  `broker_error`, and `hub_clients:github_unavailable` -> `broker_clients:github_unavailable`.
+- Error messages and `error_description` texts say "broker". The `error` codes are the same.
+- Stored data and the wire do not change. The Durable Object keeps its class name `Hub` (now
+  `BROKER_STORE_CLASS_ID` of `./cloudflare`) and its instance name `connections`, so a deployed
+  broker keeps its data. The subpaths `./convex` and `./cloudflare` are the same; only their files
+  moved.
+
 ## 0.41.0
 
 - A positive `max_age` means "a login that is not older than this", as OpenID Connect Core section

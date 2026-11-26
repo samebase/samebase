@@ -17,10 +17,10 @@ export const AllowList = Schema.Union([
   Schema.Array(Schema.Struct({ ownerId: Str, repositoryId: opt(Str) })),
 ]);
 
-/** What a command that writes a card reads of the hub's settings. */
+/** What a command that writes a card reads of the broker's settings. */
 const settings = {
   allowList: AllowList,
-  /** The hub's configured connector names. */
+  /** The broker's configured connector names. */
   configured: Strs,
 };
 
@@ -156,7 +156,7 @@ export const RenewResult = Schema.Union([
 
 export const ConnectorGrantsArgs = Schema.Struct({ configured: Strs });
 
-/** A change of a grant or an exemption, refused while the hub records another owner. */
+/** A change of a grant or an exemption, refused while the broker records another owner. */
 export const OwnerChangeResult = Schema.Union([
   Schema.Struct({ ok: Schema.Literal(true), changed: Schema.Boolean }),
   Schema.Struct({ ok: Schema.Literal(false), error: Schema.Literal("owner_changed") }),

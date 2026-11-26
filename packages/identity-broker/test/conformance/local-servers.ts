@@ -1,20 +1,20 @@
 // The two local HTTPS servers of a conformance run, both with the run's self-signed certificate.
 //
-// - The TLS proxy: the hub's issuer. It forwards every request to the hub in workerd. With the PKCE
+// - The TLS proxy: the broker's issuer. It forwards every request to the broker in workerd. With the PKCE
 //   adapter on, it adds S256 PKCE to an authorization request that has none, and the matching
-//   verifier to that code's token request: the OP plans of the suite send no PKCE, which the hub
+//   verifier to that code's token request: the OP plans of the suite send no PKCE, which the broker
 //   requires. The adapter changes nothing else: no other parameter, no response, no suite check.
-// - The fake OpenID provider: the hub's `fake` connector in the OP plans. It signs in one test user
+// - The fake OpenID provider: the broker's `fake` connector in the OP plans. It signs in one test user
 //   with no password and keeps a session per browser: it reuses the time of that browser's last
 //   login while a request's `max_age` allows it, and logs in again for `prompt=login`,
-//   `max_age=0`, an exceeded `max_age`, or no session. The OP plans test the hub as a provider,
+//   `max_age=0`, an exceeded `max_age`, or no session. The OP plans test the broker as a provider,
 //   not this upstream.
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { request as httpRequest } from "node:http";
 import { createServer, type Server } from "node:https";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { FAKE_ISSUER, HUB_PORT, ISSUER, OP_ALIAS, SUITE_URL } from "./addresses.ts";
+import { FAKE_ISSUER, BROKER_PORT, ISSUER, OP_ALIAS, SUITE_URL } from "./addresses.ts";
 
 export type Tls = { readonly key: string; readonly cert: string };
 
@@ -50,8 +50,8 @@ const s256 = (verifier: string) => createHash("sha256").update(verifier).digest(
 export type PkceAdapter = { enabled: boolean };
 
 /**
- * The hub's issuer, on all interfaces: the suite's containers reach it through the Docker host.
- * The path and query reach the hub unchanged; the hub reads only the path.
+ * The broker's issuer, on all interfaces: the suite's containers reach it through the Docker host.
+ * The path and query reach the broker unchanged; the broker reads only the path.
  */
 export async function startProxy(tls: Tls, port: number, adapter: PkceAdapter) {
   const verifierByState = new Map<string, string>();
@@ -86,7 +86,7 @@ export async function startProxy(tls: Tls, port: number, adapter: PkceAdapter) {
     const upstream = httpRequest(
       {
         host: "127.0.0.1",
-        port: HUB_PORT,
+        port: BROKER_PORT,
         path: `${url.pathname}${url.search}`,
         method: request.method,
         headers,
@@ -94,7 +94,7 @@ export async function startProxy(tls: Tls, port: number, adapter: PkceAdapter) {
       (answer) => {
         const location = answer.headers.location;
         if (adapter.enabled && location !== undefined) {
-          // The hub's redirect to the suite's callback: remember the code's verifier.
+          // The broker's redirect to the suite's callback: remember the code's verifier.
           const target = new URL(location, ISSUER);
           const code = target.searchParams.get("code");
           const verifier = verifierByState.get(target.searchParams.get("state") ?? "");
@@ -108,7 +108,7 @@ export async function startProxy(tls: Tls, port: number, adapter: PkceAdapter) {
     );
     upstream.on("error", () => {
       response.writeHead(502);
-      response.end("The local hub is not running.");
+      response.end("The local broker is not running.");
     });
     upstream.end(body);
   };
@@ -120,10 +120,10 @@ const json = (response: ServerResponse, status: number, value: unknown) => {
   response.end(JSON.stringify(value));
 };
 
-/** The callback of the hub's `fake` connector: the only return address the fake provider takes. */
+/** The callback of the broker's `fake` connector: the only return address the fake provider takes. */
 const FAKE_CALLBACK = `${ISSUER}/connectors/fake/callback`;
 
-/** The fake OpenID provider, on loopback: only the hub calls it. */
+/** The fake OpenID provider, on loopback: only the broker calls it. */
 export async function startFakeUpstream(
   tls: Tls,
   port: number,
@@ -235,7 +235,7 @@ export async function startFakeUpstream(
     response.writeHead(404);
     return response.end();
   };
-  // All addresses, as the proxy: the suite's browser follows the hub's redirect here from a
+  // All addresses, as the proxy: the suite's browser follows the broker's redirect here from a
   // container. On Linux a container reaches the host only on the bridge address, not on loopback.
   return await listen(createServer(tls, served(handle)), port, "0.0.0.0");
 }

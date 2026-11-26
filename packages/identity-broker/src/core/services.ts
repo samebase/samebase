@@ -9,20 +9,20 @@ import { signInPage, type SignInPageFunction } from "./html.ts";
 import { isSecureUrl } from "./protocol.ts";
 
 /**
- * The hub's sign-in service as strangers meet it: the page before the provider, discovery and the
- * registration answer. A hub with a public registration layer needs it.
+ * The broker's sign-in service as strangers meet it: the page before the provider, discovery and the
+ * registration answer. A broker with a public registration layer needs it.
  */
 export type ServiceSettings = {
-  /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
+  /** The name of the broker's sign-in service as users know it, such as `Samebase`. */
   readonly name: string;
-  /** The terms of the hub's sign-in service: discovery's `op_tos_uri`. */
+  /** The terms of the broker's sign-in service: discovery's `op_tos_uri`. */
   readonly terms: string;
-  /** The privacy notice of the hub's sign-in service, linked under the sign-in page. */
+  /** The privacy notice of the broker's sign-in service, linked under the sign-in page. */
   readonly privacy: string;
 };
 
-/** What a host gives `HubConfig.make`. */
-export type HubConfigInput = {
+/** What a host gives `BrokerConfig.make`. */
+export type BrokerConfigInput = {
   /**
    * The issuer URL: https, or http on a loopback host, with no query or fragment. A dedicated
    * hostname with the issuer at `/` gets `__Host-` transaction cookies; a path issuer gets plain
@@ -34,7 +34,7 @@ export type HubConfigInput = {
   readonly service?: ServiceSettings | undefined;
 };
 
-export type HubConfigShape = {
+export type BrokerConfigShape = {
   /** The issuer with its final slash removed. */
   readonly issuer: string;
   /** The issuer's pathname with its final slash removed: `""` for an issuer at `/`. */
@@ -46,24 +46,27 @@ export type HubConfigShape = {
   readonly service: ServiceSettings | undefined;
 };
 
-/** A host's configuration that the hub cannot run with. The message names the wrong setting. */
-export class HubConfigError extends Schema.TaggedError<HubConfigError>()("HubConfigError", {
-  message: Schema.String,
-}) {}
+/** A host's configuration that the broker cannot run with. The message names the wrong setting. */
+export class BrokerConfigError extends Schema.TaggedError<BrokerConfigError>()(
+  "BrokerConfigError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /** The issuer as a URL: https, or http on a loopback host, with no credentials, query or fragment. */
 export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
   const issuerUrl = yield* Effect.try({
     try: () => new URL(issuer),
-    catch: () => new HubConfigError({ message: "The issuer must be a URL" }),
+    catch: () => new BrokerConfigError({ message: "The issuer must be a URL" }),
   });
   if (!isSecureUrl(issuerUrl)) {
-    return yield* new HubConfigError({
+    return yield* new BrokerConfigError({
       message: "The issuer must be https, or http on a loopback host for local development",
     });
   }
   if (issuerUrl.username !== "" || issuerUrl.password !== "") {
-    return yield* new HubConfigError({ message: "The issuer must not have credentials" });
+    return yield* new BrokerConfigError({ message: "The issuer must not have credentials" });
   }
   if (
     issuerUrl.search !== "" ||
@@ -71,7 +74,9 @@ export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
     issuer.includes("?") ||
     issuer.includes("#")
   ) {
-    return yield* new HubConfigError({ message: "The issuer must not have a query or fragment" });
+    return yield* new BrokerConfigError({
+      message: "The issuer must not have a query or fragment",
+    });
   }
   return issuerUrl;
 });
@@ -86,68 +91,68 @@ export const parseHttpsUrl = Effect.fnUntraced(function* (
 ) {
   const url = yield* Effect.try({
     try: () => new URL(value),
-    catch: () => new HubConfigError({ message: `${label} must be a URL` }),
+    catch: () => new BrokerConfigError({ message: `${label} must be a URL` }),
   });
   if (url.protocol !== "https:") {
-    return yield* new HubConfigError({ message: `${label} must be https` });
+    return yield* new BrokerConfigError({ message: `${label} must be https` });
   }
   if (url.username !== "" || url.password !== "") {
-    return yield* new HubConfigError({ message: `${label} must not have credentials` });
+    return yield* new BrokerConfigError({ message: `${label} must not have credentials` });
   }
   if (url.hash !== "" || value.includes("#")) {
-    return yield* new HubConfigError({ message: `${label} must not have a fragment` });
+    return yield* new BrokerConfigError({ message: `${label} must not have a fragment` });
   }
   if (options?.allowQuery !== true && (url.search !== "" || value.includes("?"))) {
-    return yield* new HubConfigError({ message: `${label} must not have a query` });
+    return yield* new BrokerConfigError({ message: `${label} must not have a query` });
   }
   return url;
 });
 
-/** The checks of `HubConfig.make` that need no secret, so a hub runs them before it reads one. */
+/** The checks of `BrokerConfig.make` that need no secret, so a broker runs them before it reads one. */
 export const checkConnectors = Effect.fnUntraced(function* (
   connectors: ReadonlyArray<
     Pick<Connector, "kind" | "name" | "provider" | "label" | "issuer" | "scopes">
   >,
 ) {
   if (new Set(connectors.map((connector) => connector.name)).size !== connectors.length) {
-    return yield* new HubConfigError({ message: "Connector names must be unique" });
+    return yield* new BrokerConfigError({ message: "Connector names must be unique" });
   }
   if (connectors.length === 0) {
-    return yield* new HubConfigError({ message: "At least one connector is required" });
+    return yield* new BrokerConfigError({ message: "At least one connector is required" });
   }
   // A provider is the first part of every `sub` its connectors make, so it holds no colon, and
   // its connectors sign in the accounts of one issuer: another issuer could reuse an upstream id.
   const providerIssuers = new Map<string, string>();
   for (const connector of connectors) {
     if (!SAFE_NAME.test(connector.name)) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `Connector "${connector.name}" has a name that is not [a-z0-9-]+`,
       });
     }
     if (!SAFE_NAME.test(connector.provider)) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `Connector "${connector.name}" has a provider that is not [a-z0-9-]+`,
       });
     }
     if (connector.label.trim().length === 0) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `Connector "${connector.name}" must have a non-empty label`,
       });
     }
     yield* parseHttpsUrl(connector.issuer, `Connector "${connector.name}" issuer`);
     if (connector.scopes.some((scope) => scope.length === 0 || /\s/.test(scope))) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `Connector "${connector.name}" has an invalid scope`,
       });
     }
     if (connector.kind === "oidc" && !connector.scopes.includes("openid")) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `OIDC connector "${connector.name}" must include the "openid" scope`,
       });
     }
     const issuerOfProvider = providerIssuers.get(connector.provider) ?? connector.issuer;
     if (issuerOfProvider !== connector.issuer) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `The connectors of provider "${connector.provider}" have two issuers`,
       });
     }
@@ -155,20 +160,20 @@ export const checkConnectors = Effect.fnUntraced(function* (
   }
 });
 
-export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
-  "identity-broker/core/HubConfig",
+export class BrokerConfig extends Context.Service<BrokerConfig, BrokerConfigShape>()(
+  "identity-broker/core/BrokerConfig",
 ) {
   /**
    * Checks a host's configuration as `defineIdentityBroker` does, with the same messages: a wrong
    * configuration stops the host where it builds its services, not a sign-in half way.
    */
-  static readonly make = Effect.fnUntraced(function* (input: HubConfigInput) {
+  static readonly make = Effect.fnUntraced(function* (input: BrokerConfigInput) {
     const issuerUrl = yield* parseIssuer(input.issuer);
     yield* checkConnectors(input.connectors);
     const connectorsByName = new Map(
       input.connectors.map((connector) => [connector.name, connector]),
     );
-    return HubConfig.of({
+    return BrokerConfig.of({
       issuer: issuerUrl.href.replace(/\/$/, ""),
       prefix: issuerUrl.pathname.replace(/\/$/, ""),
       connectors: input.connectors,
@@ -179,12 +184,13 @@ export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
   });
 
   /** The checked configuration of `input`. */
-  static readonly layer = (input: HubConfigInput) => Layer.effect(HubConfig, HubConfig.make(input));
+  static readonly layer = (input: BrokerConfigInput) =>
+    Layer.effect(BrokerConfig, BrokerConfig.make(input));
 }
 
 /**
  * The page before the provider (src/core/html.ts): a function from its facts to a whole HTML
- * document. The hub answers it with its own headers; its error pages stay the hub's own.
+ * document. The broker answers it with its own headers; its error pages stay the broker's own.
  */
 export class SignInPage extends Context.Service<
   SignInPage,
@@ -208,7 +214,7 @@ export class Keys extends Context.Service<
 }
 
 /**
- * The gate namespaces that the hub's registration layer owns, with the gates of each that the hub
+ * The gate namespaces that the broker's registration layer owns, with the gates of each that the broker
  * has now. Every sign-in step reads them in its request and gives them to its command;
  * `makeHandle` provides them from the layer (src/core/router.ts).
  */
@@ -236,7 +242,7 @@ export class Random extends Context.Service<
 }
 
 /**
- * Every outgoing HTTP request of the hub: provider discovery, token exchange, the providers' user
+ * Every outgoing HTTP request of the broker: provider discovery, token exchange, the providers' user
  * APIs, and a layer's own requests. oauth4webapi gets it as its custom fetch
  * (`oauthFetch` in src/core/connectors/upstream.ts). Tests give a stub that fails on an unplanned
  * call.

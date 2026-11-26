@@ -13,7 +13,7 @@ const hosts = testHosts(() => new DatabaseSync(":memory:"));
 const now = 1_700_000_000_000;
 /** The S256 challenge stored at `/authorize`, and the core's challenge of the right verifier. */
 const challenge = "challenge-of-verifier";
-/** The hub's configured connectors, and the set of the card of "cl". */
+/** The broker's configured connectors, and the set of the card of "cl". */
 const CONNECTORS = ["g", "github", "google"];
 const GATES = ["layer:repository:1", "layer:owner:65"];
 
@@ -323,7 +323,7 @@ describe.each(hosts)("%s", (_name, make) => {
       });
       expect(get(t)).toMatchObject({ connectors: ["github"] });
       expect(rowsOf(t, "signInBudgets", "by_key")).toMatchObject([{ key: "layer:1" }]);
-      // A connector that the hub no longer configures is not stored either.
+      // A connector that the broker no longer configures is not stored either.
       expect(create(t, { requestId: "r2", configured: ["g"] })).toMatchObject({
         ok: true,
         connectors: ["g"],

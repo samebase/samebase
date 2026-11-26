@@ -1,6 +1,6 @@
 // Test helpers of the GitHub layer (`POST /register`, `/register/<client>`), on the memory Store
 // and the core services of src/core/testing/harness.ts. No test framework import: a helper returns
-// values, and the test asserts. The port of hub.test.helper.ts of the Convex broker.
+// values, and the test asserts. The port of the Convex broker's test helpers.
 import { Effect, Schema } from "effect";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
 import {
@@ -26,21 +26,21 @@ export const OWNER_ID = "65";
 export const APP_HASH = "4c9a75cca717efb68c856f26ba825073";
 export const APP_ID = `gh-${REPOSITORY_ID}-${APP_HASH}`;
 export const PRODUCTION_HOST = "https://ideal-dolphin-15.convex.site";
-export const PRODUCTION_CALLBACK = `${PRODUCTION_HOST}/auth/hub/callback`;
+export const PRODUCTION_CALLBACK = `${PRODUCTION_HOST}/auth/broker/callback`;
 /** A development server's return address on a local backend. */
-export const LOOPBACK_CALLBACK = "http://127.0.0.1:3211/auth/hub/callback";
+export const LOOPBACK_CALLBACK = "http://127.0.0.1:3211/auth/broker/callback";
 export const JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 /** The start of every test's clock: 2027-01-15, a whole second. */
 export const EPOCH = 1_800_000_000_000;
 
-/** The names of the test hub's two connectors, both of the fake provider. */
-export const HUB_CONNECTORS = ["fake", "other"] as const;
+/** The names of the test broker's two connectors, both of the fake provider. */
+export const BROKER_CONNECTORS = ["fake", "other"] as const;
 
 /** Every repository and owner that a test of this layer names, each with each. */
 const TEST_REPOSITORIES = [REPOSITORY_ID, "75", "76", "80", "81", "101", "102"];
 const TEST_OWNERS = [OWNER_ID, "66", "90", "201", "202"];
 
-/** The test hub's allow-list: every pair of a test repository and a test owner. */
+/** The test broker's allow-list: every pair of a test repository and a test owner. */
 export const TEST_ALLOW_LIST: typeof AllowList.Type = TEST_REPOSITORIES.flatMap((repositoryId) =>
   TEST_OWNERS.map((ownerId) => ({ repositoryId, ownerId })),
 );
@@ -51,7 +51,7 @@ export const TEST_ALLOW_LIST: typeof AllowList.Type = TEST_REPOSITORIES.flatMap(
  * allow-list `allowList` (every test repository and owner by default), which `setAllowList`
  * changes for the next command. The clock starts at `EPOCH`.
  */
-export async function createHub(
+export async function createGithubBroker(
   options: {
     allowList?: typeof AllowList.Type;
     seed?: number;
@@ -89,7 +89,7 @@ export async function createHub(
     rows: () => broker.memory.db.contents(),
   };
 }
-export type Hub = Awaited<ReturnType<typeof createHub>>;
+export type GithubBroker = Awaited<ReturnType<typeof createGithubBroker>>;
 
 let signingKeys:
   | Promise<{ privateKey: CryptoKey; publicJwk: JWK; foreignKey: CryptoKey }>
@@ -111,7 +111,7 @@ function githubKeys() {
 /**
  * The claims of the example token on
  * https://docs.github.com/en/actions/concepts/security/openid-connect, read on 2026-11-01. Only `aud`,
- * the hub's issuer, and the claims that a test names differ, and the times are set when a test
+ * the broker's issuer, and the claims that a test names differ, and the times are set when a test
  * signs.
  */
 const documentedClaims = {
@@ -142,9 +142,9 @@ const documentedClaims = {
 };
 export const pullRequestClaims = { event_name: "pull_request", ref: "refs/pull/12/merge" };
 
-/** A GitHub Actions OIDC token issued at the hub's clock time. */
+/** A GitHub Actions OIDC token issued at the broker's clock time. */
 export async function signToken(
-  h: Pick<Hub, "clock">,
+  h: Pick<GithubBroker, "clock">,
   claims: Record<string, unknown> = {},
   options: { foreign?: true; expiresInSeconds?: number; withoutExpiry?: true } = {},
 ): Promise<string> {
@@ -164,7 +164,7 @@ export const jsonResponse = (value: unknown, status = 200) =>
  * this repository. Returns the requests for the file. A later call's plans win over an earlier's.
  */
 export async function stubProviders(
-  h: Pick<Hub, "fetch">,
+  h: Pick<GithubBroker, "fetch">,
   host: (request: Request) => Response | Promise<Response> = () =>
     jsonResponse({ repository: REPOSITORY_ID }),
 ) {
@@ -183,11 +183,11 @@ export async function stubProviders(
 
 /**
  * `POST /register` with the client metadata of the app `my-app`, which `body` changes: a member set
- * to `undefined` is left out. The client posts its secret; the hub's own default is
+ * to `undefined` is left out. The client posts its secret; the broker's own default is
  * `client_secret_basic`.
  */
-export async function postHubClient(
-  h: Hub,
+export async function postBrokerClient(
+  h: GithubBroker,
   token: string,
   body: Record<string, unknown> = {},
 ): Promise<Response> {
@@ -240,11 +240,11 @@ export const readNewClient = async (response: Response): Promise<NewClient> =>
 
 /** A client of a run of main in the repository of `claims`, which must be created. */
 export async function createClient(
-  h: Hub,
+  h: GithubBroker,
   claims: { repository_id?: string; repository_owner_id?: string; repository?: string } = {},
 ): Promise<NewClient> {
   await stubProviders(h, () => jsonResponse({ repository: claims.repository_id ?? REPOSITORY_ID }));
-  const response = await postHubClient(h, await signToken(h, claims));
+  const response = await postBrokerClient(h, await signToken(h, claims));
   if (response.status !== 201) {
     throw new Error(`POST /register answered ${response.status}`);
   }
@@ -252,7 +252,7 @@ export async function createClient(
 }
 
 /** The initial access token of the app `my-app`, from a new production client of a run of main. */
-export async function createInitialAccessToken(h: Hub): Promise<string> {
+export async function createInitialAccessToken(h: GithubBroker): Promise<string> {
   const token = (await createClient(h)).initial_access_token;
   if (token === undefined) {
     throw new Error("The production answer holds no initial access token.");
@@ -261,8 +261,8 @@ export async function createInitialAccessToken(h: Hub): Promise<string> {
 }
 
 /** A development client on `LOOPBACK_CALLBACK`, which must be created. */
-export async function createDevelopmentClient(h: Hub, token: string): Promise<NewClient> {
-  const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+export async function createDevelopmentClient(h: GithubBroker, token: string): Promise<NewClient> {
+  const response = await postBrokerClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
   if (response.status !== 201) {
     throw new Error(`POST /register answered ${response.status}`);
   }
@@ -271,7 +271,7 @@ export async function createDevelopmentClient(h: Hub, token: string): Promise<Ne
 
 /** A read of the client's own record (RFC 7592), which renews it: 200, or 403 when it is stopped. */
 export async function readOwnRecord(
-  h: Hub,
+  h: GithubBroker,
   client: { registration_client_uri: string; registration_access_token: string },
 ) {
   const response = await h.fetchBroker(client.registration_client_uri, {
@@ -287,7 +287,7 @@ export async function readOwnRecord(
  * the seed of the cap and eviction tests.
  */
 export function seedClient(
-  h: Hub,
+  h: GithubBroker,
   args: {
     repositoryId: string;
     ownerId?: string;
@@ -357,7 +357,7 @@ export function seedClient(
  * registers after this call send a sign-in with one offered connector straight to it. For tests
  * about what follows the page.
  */
-export function skipSignInPage(h: Hub) {
+export function skipSignInPage(h: GithubBroker) {
   setExemption(h.memory, { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }, true);
 }
 
@@ -368,7 +368,7 @@ export function skipSignInPage(h: Hub) {
  * it sends the browser nowhere.
  */
 export async function signIn(
-  h: Hub,
+  h: GithubBroker,
   client: { client_id: string; client_secret: string },
   redirectUri: string,
 ) {
@@ -411,7 +411,7 @@ export async function signIn(
 
 /** Sets or removes the stop of a repository or an owner. */
 export function setBlock(
-  h: Hub,
+  h: GithubBroker,
   change: { action: "block" | "unblock"; kind: "repository" | "owner"; githubId: string },
 ) {
   setStop(h.memory, { kind: change.kind, githubId: change.githubId }, change.action === "block");

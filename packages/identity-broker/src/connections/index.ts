@@ -1,4 +1,4 @@
-// The connection providers that a hub takes in its `connections`, and the connections part of a
+// The connection providers that a broker takes in its `connections`, and the connections part of a
 // host that builds its own runtime.
 import { Schema } from "effect";
 import type { ClientSecrets } from "../core/connectors/types.ts";
@@ -21,15 +21,15 @@ export const oauth = <R1 = never, R2 = never>(
     readonly issuer: string;
     readonly authorizationEndpoint: string;
     readonly tokenEndpoint: string;
-    /** The provider's RFC 7009 endpoint, which the hub's `/revoke` calls. */
+    /** The provider's RFC 7009 endpoint, which the broker's `/revoke` calls. */
     readonly revocationEndpoint?: string;
-    /** The scopes the hub asks for, whatever the client requests. Default: none. */
+    /** The scopes the broker asks for, whatever the client requests. Default: none. */
     readonly scopes?: ReadonlyArray<string>;
     /** Default: `client_secret_basic` (RFC 6749 section 2.3.1). */
     readonly tokenEndpointAuthMethod?: ConnectionProvider["tokenEndpointAuthMethod"];
     /** Sends `prompt=select_account`. Default: off. */
     readonly selectAccount?: boolean;
-    /** The provider sends `iss` on its callback (RFC 9207), which the hub then requires. */
+    /** The provider sends `iss` on its callback (RFC 9207), which the broker then requires. */
     readonly authorizationResponseIssParameterSupported?: boolean;
     readonly mapTokenError?: ConnectionProvider["mapTokenError"];
   },
@@ -72,11 +72,11 @@ export const convex = <R1 = never, R2 = never>(options: ClientSecrets<R1, R2>) =
   });
 
 /**
- * Cloudflare OAuth applications, with API permission scopes. The hub adds `offline_access`: a
+ * Cloudflare OAuth applications, with API permission scopes. The broker adds `offline_access`: a
  * Cloudflare access token lasts one hour, and the client needs a refresh token to go on. The
  * resource URL keeps its final slash. The revocation endpoint (RFC 7009) is the one that
- * `wrangler logout` calls. `scopes` are the Cloudflare API scopes that the hub's clients need,
- * such as `workers-scripts.write`; the hub's Cloudflare OAuth client must list each one.
+ * `wrangler logout` calls. `scopes` are the Cloudflare API scopes that the broker's clients need,
+ * such as `workers-scripts.write`; the broker's Cloudflare OAuth client must list each one.
  */
 export const cloudflare = <R1 = never, R2 = never>(
   options: ClientSecrets<R1, R2> & { readonly scopes: ReadonlyArray<string> },
@@ -116,7 +116,7 @@ const githubTokenError = async (response: Response) => {
 
 /**
  * The user access tokens of a GitHub App: the App's permissions set their access, not a scope.
- * GitHub sends `iss` on its callback (RFC 9207), which the hub then requires. GitHub has no
+ * GitHub sends `iss` on its callback (RFC 9207), which the broker then requires. GitHub has no
  * revocation endpoint of RFC 7009.
  */
 export const github = <R1 = never, R2 = never>(options: ClientSecrets<R1, R2>) =>

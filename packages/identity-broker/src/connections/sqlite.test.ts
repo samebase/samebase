@@ -1,5 +1,5 @@
 // The connections part's HTTP tests on the node:sqlite Store: the same test file as on the memory
-// Store, each hub on a fresh in-memory SQLite database.
+// Store, each broker on a fresh in-memory SQLite database.
 import { DatabaseSync } from "node:sqlite";
 import { sqliteTestStore, useTestStore } from "../core/testing/harness.ts";
 

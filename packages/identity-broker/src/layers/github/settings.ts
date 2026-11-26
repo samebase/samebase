@@ -6,7 +6,7 @@ import type { AllowList } from "./schemas.ts";
 
 /**
  * The repositories whose cards get every configured connector while the named owner owns them, and
- * whether the hub pauses every app. Each command that writes a card gets the allow-list whole: a
+ * whether the broker pauses every app. Each command that writes a card gets the allow-list whole: a
  * change reaches a card at its next registration, renewal or rewrite.
  */
 export class GithubSettings extends Context.Service<

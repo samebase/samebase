@@ -1,5 +1,5 @@
-// The Alchemy stack of the test hub: the Worker and its SQLite Durable Object of
-// src/hosts/cloudflare/hub.ts, as src/hub.ts declares them. Run from this folder, with each secret
+// The Alchemy stack of the test broker: the Worker and its SQLite Durable Object of
+// src/hosts/cloudflare/broker.ts, as src/broker.ts declares them. Run from this folder, with each secret
 // read from a file into its environment variable:
 //   IDENTITY_BROKER_KEYS="$(cat <file>)" GOOGLE_CLIENT_ID=... pnpm exec alchemy deploy --stage dev-spike
 //
@@ -9,7 +9,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
-import Hub from "./src/hub.ts";
+import Broker from "./src/broker.ts";
 
 const accountId = "fe57d01d7ab41f60d00ba1aade20eb33";
 
@@ -17,7 +17,7 @@ export default Alchemy.Stack(
   "identity-broker-effect",
   { providers: Cloudflare.providers(), state: Cloudflare.state({ accountId }) },
   Effect.gen(function* () {
-    const worker = yield* Hub;
+    const worker = yield* Broker;
     return { url: worker.url };
   }),
 );

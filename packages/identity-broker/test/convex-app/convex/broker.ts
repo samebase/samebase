@@ -1,16 +1,16 @@
-// The test app's hub, at the deployment's own site URL, with one connector: the fake OpenID
+// The test app's broker, at the deployment's own site URL, with one connector: the fake OpenID
 // provider of the core's tests (`fakeOidcUpstream` in src/core/testing/harness.ts), whose issuer,
 // client id and client secret these are. The test on a real backend (../backend.test.ts) serves
 // that provider and sets the environment variables of the local deployment: the signing keys and
 // `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
 import { Config, Effect, Layer, Redacted } from "effect";
-import { convexHub } from "../../../src/hosts/convex/hub.ts";
-import { github, HubConfig, hubRuntime, Keys, SignInPage } from "../../../src/index.ts";
+import { convexBroker } from "../../../src/hosts/convex/broker.ts";
+import { github, BrokerConfig, brokerRuntime, Keys, SignInPage } from "../../../src/index.ts";
 import { moderation } from "../../../src/moderation/server.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";
 
-// The fake provider listens on plain HTTP on loopback, and the hub's requests to its https issuer
+// The fake provider listens on plain HTTP on loopback, and the broker's requests to its https issuer
 // go there: the local backend on macOS trusts only the system's certificates, and oauth4webapi
 // sends no request to an issuer that is not https. Every other request is unchanged. The fake
 // provider answers no redirect, and the Convex runtime's `Request` has no `redirect` getter, so
@@ -34,7 +34,7 @@ globalThis.fetch = async (input, init) => {
 const settings = Layer.unwrap(
   Effect.gen(function* () {
     const issuer = yield* Config.String("CONVEX_SITE_URL");
-    return HubConfig.layer({
+    return BrokerConfig.layer({
       issuer,
       connectors: [
         {
@@ -53,17 +53,17 @@ const settings = Layer.unwrap(
       // `TEST_SERVICE` of src/core/testing/harness.ts, so that discovery is the memory host's in
       // the test.
       service: {
-        name: "Test hub",
-        terms: "https://hub.example.com/terms",
-        privacy: "https://hub.example.com/privacy",
+        name: "Test broker",
+        terms: "https://broker.example.com/terms",
+        privacy: "https://broker.example.com/privacy",
       },
     }).pipe(Layer.orDie);
   }),
 ).pipe(Layer.merge(SignInPage.layer()), Layer.merge(Keys.layer));
 
-export const hub = convexHub(
+export const broker = convexBroker(
   components.identityBroker,
-  hubRuntime(
+  brokerRuntime(
     settings,
     github([{ repositoryId: "1", ownerId: "65" }], {
       moderation: moderation({ key: Config.Redacted("MODERATION_KEY") }),
@@ -71,4 +71,4 @@ export const hub = convexHub(
   ),
 );
 
-export const cleanup = hub.cleanup;
+export const cleanup = broker.cleanup;

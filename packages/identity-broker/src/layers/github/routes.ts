@@ -54,9 +54,9 @@ export type GithubOptions = {
 };
 
 /**
- * The GitHub layer as a hub's one registration layer: its routes with the allow-list, the
+ * The GitHub layer as a broker's one registration layer: its routes with the allow-list, the
  * repositories whose cards get every configured connector while the named owner owns them. While
- * the hub is paused, its gates refuse every card of the layer.
+ * the broker is paused, its gates refuse every card of the layer.
  */
 export const github = (
   allowList: typeof AllowList.Type,

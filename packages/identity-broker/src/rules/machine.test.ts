@@ -127,12 +127,12 @@ const card = (clientId: string, secretHash: string): Doc<"clients"> => ({
 
 /** One state search: the alphabet over `requestIds`, every state up to `depth` steps from the start. */
 const search = (requestIds: ReadonlyArray<string>, depth: number) => {
-  const hub = makeMemoryStore({ now: 0 });
-  seed(hub, "clients", [card("cl", "sec"), card("cl2", "sec2")]);
+  const broker = makeMemoryStore({ now: 0 });
+  seed(broker, "clients", [card("cl", "sec"), card("cl2", "sec2")]);
   const actions = alphabet(requestIds);
 
-  const run = <N extends CommandName>(name: N, args: Args<N>): Result<N> => hub.run(name, args);
-  const docs = () => hub.db.contents();
+  const run = <N extends CommandName>(name: N, args: Args<N>): Result<N> => broker.run(name, args);
+  const docs = () => broker.db.contents();
   const requestOf = (r: string) => docs().authRequests.find((request) => request.requestId === r);
   const codeOf = (r: string) => docs().authorizationCodes.find((code) => code.requestId === r);
   const cardOf = () => docs().clients.find((client) => client.clientId === "cl");
@@ -174,8 +174,8 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
 
   // oxlint-disable-next-line complexity -- one case per action of the alphabet, each with its property checks.
   const apply = (model: Model, action: Action): Model => {
-    hub.db.restore(model.snapshot);
-    hub.setNow(model.now);
+    broker.db.restore(model.snapshot);
+    broker.setNow(model.now);
     const { now } = model;
     keyLive = model.keyLive;
     const liveGates = [{ prefix: NAMESPACE, live: keyLive ? ["key:b"] : [] }];
@@ -384,22 +384,22 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
       }
       case "stop":
         if (docs().stops.some((stop) => stop.key === action.gate)) {
-          remove(hub, "stops", "by_key", [action.gate]);
+          remove(broker, "stops", "by_key", [action.gate]);
         } else {
-          seed(hub, "stops", [{ key: action.gate, at: now }]);
+          seed(broker, "stops", [{ key: action.gate, at: now }]);
         }
         break;
       case "live":
         next = { ...next, keyLive: !keyLive };
         break;
       case "connector":
-        patch(hub, "clients", "by_client_id", ["cl"], (doc) => ({
+        patch(broker, "clients", "by_client_id", ["cl"], (doc) => ({
           ...doc,
           connectors: doc.connectors.includes("h") ? ["g"] : CONNECTORS,
         }));
         break;
       case "redirect":
-        patch(hub, "clients", "by_client_id", ["cl"], (doc) => ({
+        patch(broker, "clients", "by_client_id", ["cl"], (doc) => ({
           ...doc,
           redirectUris: doc.redirectUris.includes(redirectUri)
             ? [otherUri]
@@ -407,7 +407,10 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         }));
         break;
       case "confirm":
-        patch(hub, "clients", "by_client_id", ["cl"], (doc) => ({ ...doc, confirm: !doc.confirm }));
+        patch(broker, "clients", "by_client_id", ["cl"], (doc) => ({
+          ...doc,
+          confirm: !doc.confirm,
+        }));
         break;
       case "cleanup":
         run("lifecycle.cleanup", { now, signInRetentionMs: 90 * 86_400_000 });
@@ -429,20 +432,20 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         ).toBe(false);
       }
     }
-    return { ...next, snapshot: hub.db.snapshot() };
+    return { ...next, snapshot: broker.db.snapshot() };
   };
 
   const keyOf = (model: Model) =>
-    JSON.stringify([hub.db.contents(), model.now, model.created, model.redeemed, model.keyLive]);
+    JSON.stringify([broker.db.contents(), model.now, model.created, model.redeemed, model.keyLive]);
 
   const start: Model = {
-    snapshot: hub.db.snapshot(),
+    snapshot: broker.db.snapshot(),
     now: 0,
     created: [],
     redeemed: {},
     keyLive: true,
   };
-  hub.db.restore(start.snapshot);
+  broker.db.restore(start.snapshot);
   const seen = new Set<string>([keyOf(start)]);
   let frontier: Array<Model> = [start];
   let transitions = 0;
@@ -453,7 +456,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         const next = apply(model, action);
         transitions += 1;
         if (next === model) continue;
-        hub.db.restore(next.snapshot);
+        broker.db.restore(next.snapshot);
         const key = keyOf(next);
         if (!seen.has(key)) {
           seen.add(key);

@@ -30,7 +30,7 @@ export const UpstreamIdentity = Schema.Struct({
  * beside these: a write of the core spreads the stored document, so they stay.
  */
 export const cardFields = {
-  /** Random, made by the hub. */
+  /** Random, made by the broker. */
   clientId: Str,
   /** The exact return addresses, sorted and unique. */
   redirectUris: Schema.Array(Str),

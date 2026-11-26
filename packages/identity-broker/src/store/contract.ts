@@ -551,9 +551,9 @@ export const signInCleanup = {
   more: false,
 };
 
-/** The one connection provider of `connectionCommands`, and the hub's state of the moment. */
+/** The one connection provider of `connectionCommands`, and the broker's state of the moment. */
 const provider = { name: "cloudflare", resource: "https://api.cloudflare.com/client/v4/" };
-const hubNow = { providers: [provider], liveGates: [] };
+const brokerNow = { providers: [provider], liveGates: [] };
 const clientAuth = {
   clientId: "client-2",
   clientSecretHash: "s",
@@ -573,7 +573,7 @@ const createRequest = (requestId: string): Command => ({
     txnCookieHash: "cookie",
     upstreamStateHash: `sh-${requestId}`,
     upstreamCodeVerifier: "v",
-    ...hubNow,
+    ...brokerNow,
     now: T,
     expiresAt: T + 600_000,
   },
@@ -586,7 +586,7 @@ const exchange: Command = {
     codeHash: "ch",
     redirectUri: "https://app.test/cb",
     codeChallengeOfVerifier: "challenge",
-    ...hubNow,
+    ...brokerNow,
     now: T,
   },
 };
@@ -625,7 +625,7 @@ const connectionCommands: ReadonlyArray<Command> = [
       upstreamStateHash: "sh-c1",
       resource: provider.resource,
       txnCookieHashes: ["cookie"],
-      ...hubNow,
+      ...brokerNow,
       now: T,
     },
   },
@@ -636,7 +636,7 @@ const connectionCommands: ReadonlyArray<Command> = [
       tokens: { accessToken: "a", scope: "x", expiresAt: T + 3_600_000, refreshToken: "u1" },
       codeHash: "ch",
       codeExpiresAt: T + 60_000,
-      ...hubNow,
+      ...brokerNow,
       now: T,
     },
   },
@@ -644,7 +644,7 @@ const connectionCommands: ReadonlyArray<Command> = [
   exchange,
   {
     name: "connections.admitRefresh",
-    args: { ...clientAuth, resource: provider.resource, ...hubNow, now: T },
+    args: { ...clientAuth, resource: provider.resource, ...brokerNow, now: T },
   },
   { name: "connections.authenticate", args: clientAuth },
   createRequest("c2"),

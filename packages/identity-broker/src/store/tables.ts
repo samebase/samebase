@@ -1,4 +1,4 @@
-// The one table catalog of a hub: the core's tables (src/rules/tables.ts), each layer's, with
+// The one table catalog of a broker: the core's tables (src/rules/tables.ts), each layer's, with
 // each layer's fields and indexes added to the card, and the connections part's
 // (src/connections/tables.ts). The adapters, the hosts and the Convex schema
 // read this declaration; the core's rules read only their own part through their `Tx`.

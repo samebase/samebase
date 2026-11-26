@@ -4,13 +4,13 @@
 [![npm](https://img.shields.io/npm/v/@samebase/identity-broker)](https://www.npmjs.com/package/@samebase/identity-broker)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-An OpenID Provider (a **hub**) that holds one OAuth client at Google and GitHub for all your apps
-and for each of their preview and development deploys. Each deploy registers its exact callback URL
-at the hub ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html)), and its users sign in with the
-OpenID Connect code flow and PKCE. The hub keeps no user accounts: `sub` is the provider's name and
-the provider's id of the user, such as `google:104325678901234567890`.
+An OpenID Provider (an **identity broker**) that holds one OAuth client at Google and GitHub for all
+your apps and for each of their preview and development deploys. Each deploy registers its exact
+callback URL at the broker ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591.html)), and its users
+sign in with the OpenID Connect code flow and PKCE. The broker keeps no user accounts: `sub` is the
+provider's name and the provider's id of the user, such as `google:104325678901234567890`.
 
-The hub runs on any platform that can answer a `Request` with a `Response`, over storage that you
+The broker runs on any platform that can answer a `Request` with a `Response`, over storage that you
 bring. The package has two ready hosts: Convex, as a component of your app, and Cloudflare, as a
 Worker with one Durable Object.
 
@@ -23,15 +23,15 @@ and answers, and the errors of RFC 6750.
 
 ## Registration
 
-A hub mounts one registration layer, which decides who may register a client:
+A broker mounts one registration layer, which decides who may register a client:
 
 - `github(allowList, options)`: a GitHub Actions workflow registers with its OIDC token. The
   allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric ids: an entry
   without `repositoryId` covers every repository of that owner. A repository it covers gets every
-  connector of the hub; another one gets only what a connector grant gives it
+  connector of the broker; another one gets only what a connector grant gives it
   ([Moderation](#moderation)). `options.paused`, a `Config<boolean>` read in each request, refuses
   every registration and every sign-in step while it is `true`.
-- `stack({ keys })`: a client registers with one of the hub's keys, as `IdentityHub.Client` of
+- `stack({ keys })`: a client registers with one of the broker's keys, as the client resource of
   [`@samebase/alchemy-convex`](https://www.npmjs.com/package/@samebase/alchemy-convex) does. A key
   with `permanent: true` may make production clients; the clients of other keys get a removal date.
 
@@ -54,16 +54,16 @@ export default app;
 ```
 
 ```ts
-// convex/hub.ts
+// convex/broker.ts
 import { Config } from "effect";
-import { github, hub as identityHub } from "@samebase/identity-broker";
+import { github, identityBroker } from "@samebase/identity-broker";
 import * as Connectors from "@samebase/identity-broker/connectors";
-import { convexHub } from "@samebase/identity-broker/convex";
+import { convexBroker } from "@samebase/identity-broker/convex";
 import { components } from "./_generated/api";
 
-export const hub = convexHub(
+export const broker = convexBroker(
   components.identityBroker,
-  identityHub({
+  identityBroker({
     // The deployment's site URL, or a custom domain in front of it.
     issuer: "https://happy-animal-123.convex.site",
     connectors: [
@@ -81,16 +81,16 @@ export const hub = convexHub(
   }),
 );
 
-export const cleanup = hub.cleanup;
+export const cleanup = broker.cleanup;
 ```
 
 ```ts
 // convex/http.ts
 import { httpRouter } from "convex/server";
-import { hub } from "./hub";
+import { broker } from "./broker";
 
 const http = httpRouter();
-hub.addHttpRoutes(http);
+broker.addHttpRoutes(http);
 export default http;
 ```
 
@@ -100,13 +100,14 @@ import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 
 const crons = cronJobs();
-crons.cron("identity hub cleanup", "17 4 * * *", internal.hub.cleanup, {});
+crons.cron("identity broker cleanup", "17 4 * * *", internal.broker.cleanup, {});
 export default crons;
 ```
 
-The hub answers every path of the site that the app's own routes do not.
+The broker answers every path of the site that the app's own routes do not.
 
-Each command of the hub is its own function of the component, such as `authRequests:exchangeCode`.
+Each command of the broker is its own function of the component, such as
+`authRequests:exchangeCode`.
 
 ## On Cloudflare
 
@@ -115,24 +116,24 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 ```
 
 ```ts
-// src/hub.ts
+// src/broker.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
-import { hub, stack } from "@samebase/identity-broker";
-import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
+import { identityBroker, stack } from "@samebase/identity-broker";
+import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connectors from "@samebase/identity-broker/connectors";
 
-export default class Hub extends Cloudflare.Worker<Hub>()(
-  "Hub",
+export default class Broker extends Cloudflare.Worker<Broker>()(
+  "Broker",
   {
-    ...hubWorkerProps,
+    ...brokerWorkerProps,
     main: import.meta.url,
-    name: "example-identity-hub",
+    name: "example-identity-broker",
     // A domain in a Cloudflare zone of the account. Without it, the workers.dev address.
     domain: "auth.example.com",
     workersDev: false,
   },
-  hub({
+  identityBroker({
     issuer: "https://auth.example.com",
     connectors: [
       Connectors.google({
@@ -142,8 +143,8 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
     ],
     registration: stack({
       keys: {
-        preview: { key: Config.Redacted("HUB_PREVIEW_KEY") },
-        production: { key: Config.Redacted("HUB_PRODUCTION_KEY"), permanent: true },
+        preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") },
+        production: { key: Config.Redacted("BROKER_PRODUCTION_KEY"), permanent: true },
       },
     }),
   }).pipe(Effect.provide(DurableObjectStore)),
@@ -155,30 +156,31 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Config, Effect } from "effect";
-import Hub from "./src/hub.ts";
+import Broker from "./src/broker.ts";
 
 export default Alchemy.Stack(
-  "example-identity-hub",
+  "example-identity-broker",
   { providers: Cloudflare.providers() },
   Effect.gen(function* () {
-    const hub = yield* Hub;
-    // The hub reads `stack`'s keys in each request, so the stack binds them.
-    yield* hub.bind("RegistrationKeys", {
+    const broker = yield* Broker;
+    // The broker reads `stack`'s keys in each request, so the stack binds them.
+    yield* broker.bind("RegistrationKeys", {
       env: {
-        HUB_PREVIEW_KEY: yield* Config.Redacted("HUB_PREVIEW_KEY"),
-        HUB_PRODUCTION_KEY: yield* Config.Redacted("HUB_PRODUCTION_KEY"),
+        BROKER_PREVIEW_KEY: yield* Config.Redacted("BROKER_PREVIEW_KEY"),
+        BROKER_PRODUCTION_KEY: yield* Config.Redacted("BROKER_PRODUCTION_KEY"),
       },
     });
-    return { url: hub.url };
+    return { url: broker.url };
   }),
 );
 ```
 
-`alchemy deploy` deploys the Worker. The Worker's name, the object's class `Hub` and its one
-instance are the address of all the hub's data: a new name starts with empty storage.
+`alchemy deploy` deploys the Worker. The Worker's name, the object's class (`BROKER_STORE_CLASS_ID`)
+and its one instance (`BROKER_STORE_INSTANCE_NAME`) are the address of all the broker's data: a new
+name starts with empty storage.
 
 A secret can also be another Effect, such as a Secrets Store secret through
-`Cloudflare.SecretsStore.ReadSecret`. The hub then builds at its first request.
+`Cloudflare.SecretsStore.ReadSecret`. The broker then builds at its first request.
 
 ## Connectors and connections
 
@@ -199,10 +201,10 @@ Connectors.oidc({
 });
 ```
 
-The hub keeps no session, so the provider answers an app's `prompt=login` and `max_age`. Set
+The broker keeps no session, so the provider answers an app's `prompt=login` and `max_age`. Set
 `promptLogin: true` when the provider documents `prompt=login`: a request with `prompt=login` or
 `max_age=0` then goes upstream as a forced login. Set `maxAge: true` when the provider obeys
-`max_age` and returns `auth_time`: a positive `max_age` then goes upstream as itself, and the hub
+`max_age` and returns `auth_time`: a positive `max_age` then goes upstream as itself, and the broker
 accepts the provider's login when its `auth_time` is within that age. With only `promptLogin`, a
 positive `max_age` is a forced login. A connector with neither answers such a request with
 `login_required`. Both are off by default, and `google` and `github` have neither.
@@ -238,13 +240,13 @@ const connections = [
 `oauth` sends the client secret with HTTP Basic authentication unless `tokenEndpointAuthMethod` is
 `client_secret_post`.
 
-Give them to `hub(options)` as `connections`. The hub checks the names, providers, issuers and
-resources of both lists at its start.
+Give them to `identityBroker(options)` as `connections`. The broker checks the names, providers,
+issuers and resources of both lists at its start.
 
 ## Moderation
 
-The GitHub layer can mount the moderation API, for the hub's administrator page. Every request needs
-the moderation key as a Bearer token.
+The GitHub layer can mount the moderation API, for the broker's administrator page. Every request
+needs the moderation key as a Bearer token.
 
 ```ts
 import { Config } from "effect";
@@ -252,13 +254,13 @@ import { github } from "@samebase/identity-broker";
 import { moderation } from "@samebase/identity-broker/moderation";
 
 const registration = github("any", {
-  moderation: moderation({ key: Config.Redacted("IDENTITY_HUB_MODERATION_KEY") }),
+  moderation: moderation({ key: Config.Redacted("IDENTITY_BROKER_MODERATION_KEY") }),
 });
 ```
 
-Give `registration` to `hub(options)`. A hub without `moderation` has no `/moderation` route. The
-hub reads the key in each request, and refuses every request while it is unset or empty. On
-Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound.
+Give `registration` to `identityBroker(options)`. A broker without `moderation` has no `/moderation`
+route. The broker reads the key in each request, and refuses every request while it is unset or
+empty. On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound.
 
 | Request                                    | Answer                                                               |
 | ------------------------------------------ | -------------------------------------------------------------------- |
@@ -312,23 +314,24 @@ An error answer is a JSON object with `error` and `error_description`
 ([RFC 6749 section 5.2](https://www.rfc-editor.org/rfc/rfc6749.html#section-5.2)), and every answer
 has `Cache-Control: no-store`. The typed client fails with the error's class.
 
-| Status | `error`             | When                                                                                       |
-| ------ | ------------------- | ------------------------------------------------------------------------------------------ |
-| 401    |                     | No Bearer token: no body, and `WWW-Authenticate: Bearer realm="moderation"`                |
-| 401    | `invalid_token`     | Not the key, with `WWW-Authenticate: Bearer error="invalid_token"` (RFC 6750 section 3.1)  |
-| 400    | `invalid_request`   | A path, query or body that does not decode                                                 |
-| 400    | `unknown_connector` | A grant of a connector that the hub does not have                                          |
-| 409    | `owner_changed`     | A grant or an exemption for an owner while the hub records another owner of the repository |
+| Status | `error`             | When                                                                                          |
+| ------ | ------------------- | --------------------------------------------------------------------------------------------- |
+| 401    |                     | No Bearer token: no body, and `WWW-Authenticate: Bearer realm="moderation"`                   |
+| 401    | `invalid_token`     | Not the key, with `WWW-Authenticate: Bearer error="invalid_token"` (RFC 6750 section 3.1)     |
+| 400    | `invalid_request`   | A path, query or body that does not decode                                                    |
+| 400    | `unknown_connector` | A grant of a connector that the broker does not have                                          |
+| 409    | `owner_changed`     | A grant or an exemption for an owner while the broker records another owner of the repository |
 
 ## Write your own host
 
-`makeHandle(registration)` of `@samebase/identity-broker` is the whole hub: an Effect program from a
-`Request` to a `Response`. It never fails; an error answers 500. A host provides its services:
+`makeHandle(registration)` of `@samebase/identity-broker` is the whole broker: an Effect program
+from a `Request` to a `Response`. It never fails; an error answers 500. A host provides its
+services:
 
 - `Store`: your storage (below).
-- `hubSettings(settings)`: the issuer, the connectors, the service (optional) and the signing keys
-  (`keys`, by default `IDENTITY_BROKER_KEYS` read with Effect's `Config`).
-- `Random.layer`, `Fetch.layer` and `hubLogger`: `crypto.getRandomValues`, `fetch` with no
+- `brokerSettings(settings)`: the issuer, the connectors, the service (optional) and the signing
+  keys (`keys`, by default `IDENTITY_BROKER_KEYS` read with Effect's `Config`).
+- `Random.layer`, `Fetch.layer` and `brokerLogger`: `crypto.getRandomValues`, `fetch` with no
   redirects, and one JSON log line per entry. Time is Effect's `Clock`.
 
 For connections, give `makeHandle` the part that `makeConnections(connections)` of
@@ -345,7 +348,7 @@ transaction:
   `command.readOnly` is true, the `Tx` may refuse writes.
 - The database may retry a transaction after a write conflict, as Convex does. The `Store` never
   sends a command again after a lost answer, because it may have committed: it fails with
-  `StoreUnavailable`, and the hub answers 500.
+  `StoreUnavailable`, and the broker answers 500.
 - For SQLite, `sqlTx(exec, isOpen, readOnly)` is the `Tx`, and `ensureLayout(exec)` makes the
   tables. Other storage implements `TxShape` over `tables`, each table's schema and indexes.
 
@@ -355,7 +358,7 @@ expired rows, each batch its own commands.
 A host on Node with `node:sqlite`:
 
 ```ts
-// hub.ts
+// broker.ts
 import type { DatabaseSync } from "node:sqlite";
 import { Clock, Config, Effect, Layer } from "effect";
 import {
@@ -363,8 +366,8 @@ import {
   decodeCommand,
   ensureLayout,
   Fetch,
-  hubLogger,
-  hubSettings,
+  brokerLogger,
+  brokerSettings,
   makeHandle,
   Random,
   sqlTx,
@@ -404,13 +407,13 @@ export const makeStore = (database: DatabaseSync) => {
   return { store, transaction };
 };
 
-export const makeHub = (database: DatabaseSync) => {
+export const makeBroker = (database: DatabaseSync) => {
   const { store } = makeStore(database);
   const handle = makeHandle(
-    stack({ keys: { preview: { key: Config.Redacted("HUB_PREVIEW_KEY") } } }),
+    stack({ keys: { preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } } }),
   );
   const services = Layer.mergeAll(
-    hubSettings({
+    brokerSettings({
       issuer: "https://auth.example.com",
       connectors: [
         Connectors.google({
@@ -422,7 +425,7 @@ export const makeHub = (database: DatabaseSync) => {
     Random.layer,
     Fetch.layer,
     Layer.succeed(Store, store),
-    hubLogger,
+    brokerLogger,
   );
   return {
     /** A fetch handler, for `Deno.serve`, `Bun.serve` or any server of `Request` and `Response`. */
@@ -447,14 +450,14 @@ and a sign-in and a connection through the `Store`. It needs `fast-check`, and r
 runner. With Vitest:
 
 ```ts
-// hub.test.ts
+// broker.test.ts
 import { DatabaseSync } from "node:sqlite";
 import { Effect } from "effect";
 import { test } from "vitest";
 import { checkStore } from "@samebase/identity-broker/testing";
-import { makeStore } from "./hub.ts";
+import { makeStore } from "./broker.ts";
 
-test("the hub's storage passes the host test kit", async () => {
+test("the broker's storage passes the host test kit", async () => {
   await checkStore(() => {
     const { store, transaction } = makeStore(new DatabaseSync(":memory:"));
     return { store, transaction: async (body) => transaction((tx) => Effect.runSync(body(tx))) };
@@ -477,11 +480,12 @@ test("the hub's storage passes the host test kit", async () => {
 
 On Convex, set them on the deployment, for example
 `npx convex env set IDENTITY_BROKER_KEYS < keys.json`. On Cloudflare, `alchemy deploy` binds each
-`Config` secret that the hub reads at its start to the Worker as a secret, with the value of the
+`Config` secret that the broker reads at its start to the Worker as a secret, with the value of the
 deploying shell's variable of that name. These are the secrets of `connectors`, `connections` and
-`keys` that are a bare `Config`, not one inside another Effect. The hub reads the other `Config`
+`keys` that are a bare `Config`, not one inside another Effect. The broker reads the other `Config`
 values in each request: the keys of `stack`, the moderation `key` and `paused` of `github`. The
-stack binds those, as `hub.bind(...)` in `alchemy.run.ts` shows ([On Cloudflare](#on-cloudflare)).
+stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
+([On Cloudflare](#on-cloudflare)).
 
 At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/<name>/callback`
 for a connector, such as `<issuer>/connectors/google/callback`, and

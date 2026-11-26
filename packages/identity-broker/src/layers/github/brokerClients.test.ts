@@ -1,4 +1,4 @@
-// The port of hubClients.test.ts of the Convex broker: `POST /register` through the router, on the
+// The port of the Convex broker's client registration tests: `POST /register` through the router, on the
 // memory Store, with the source's two connectors `fake` and `other` of one fake provider.
 import { Effect, Schema } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -7,7 +7,7 @@ import {
   APP_ID,
   createClient,
   createDevelopmentClient,
-  createHub,
+  createGithubBroker,
   createInitialAccessToken,
   EPOCH,
   ISSUER,
@@ -16,7 +16,7 @@ import {
   LOOPBACK_CALLBACK,
   NewClient,
   OWNER_ID,
-  postHubClient,
+  postBrokerClient,
   PRODUCTION_CALLBACK,
   PRODUCTION_HOST,
   pullRequestClaims,
@@ -28,8 +28,8 @@ import {
   signToken,
   stubProviders,
   TEST_ALLOW_LIST,
-  type Hub,
-} from "./testing/hub.ts";
+  type GithubBroker,
+} from "./testing/broker.ts";
 import { setGrant } from "./testing/seeds.ts";
 
 const decodeNewClient = Schema.decodeUnknownSync(NewClient);
@@ -41,7 +41,7 @@ afterEach(() => {
 /** The 401 body of a refused Bearer token (RFC 6750 section 3). */
 const INVALID_TOKEN = { error: "invalid_token", error_description: "The token is invalid." };
 
-/** The body of a JSON refusal: `error`, its fixed `error_description`, and the hub's own members. */
+/** The body of a JSON refusal: `error`, its fixed `error_description`, and the broker's own members. */
 const refusalBody = (error: string, more: Record<string, unknown> = {}) => ({
   error,
   error_description: expect.any(String),
@@ -57,12 +57,12 @@ async function expectInsufficientScope(response: Response, reason?: string) {
   );
 }
 
-const clientRow = (h: Hub, clientId: string) =>
+const clientRow = (h: GithubBroker, clientId: string) =>
   h.rows().clients.find((row) => row.clientId === clientId);
-const registrationEvents = (h: Hub) => h.rows().events;
+const registrationEvents = (h: GithubBroker) => h.rows().events;
 
 function seedWindow(
-  h: Hub,
+  h: GithubBroker,
   row: { scope: "repository" | "owner" | "new_owners"; githubId: string; count: number },
   startedAt = h.clock.now(),
 ) {
@@ -70,7 +70,10 @@ function seedWindow(
 }
 
 /** Rewrites each rate limit row: `change` answers the new count, or null to delete the row. */
-function changeWindows(h: Hub, change: (row: { scope: string; count: number }) => number | null) {
+function changeWindows(
+  h: GithubBroker,
+  change: (row: { scope: string; count: number }) => number | null,
+) {
   h.memory.withTx((tx) =>
     Effect.gen(function* () {
       const rows = yield* tx.query("rateLimits", "by_scope_and_github_id", {
@@ -91,7 +94,7 @@ function changeWindows(h: Hub, change: (row: { scope: string; count: number }) =
 }
 
 /** Deletes every initial access token row. */
-function deleteInitialAccessTokens(h: Hub) {
+function deleteInitialAccessTokens(h: GithubBroker) {
   h.memory.withTx((tx) =>
     Effect.gen(function* () {
       const rows = yield* tx.query("initialAccessTokens", "by_token_hash", {
@@ -106,7 +109,7 @@ function deleteInitialAccessTokens(h: Hub) {
   );
 }
 
-function insertInitialAccessToken(h: Hub, row: { tokenHash: string; app: string }) {
+function insertInitialAccessToken(h: GithubBroker, row: { tokenHash: string; app: string }) {
   h.memory.withTx((tx) =>
     Effect.asVoid(
       tx.insert("initialAccessTokens", {
@@ -138,10 +141,10 @@ const streamedResponse = (chunks: string[]) =>
 describe("POST /register", () => {
   describe("a new client", () => {
     it("needs no Samebase account, and answers the client with the terms", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       expect(response.status).toBe(201);
       expect(response.headers.get("Content-Type")).toMatch(/^application\/json/);
@@ -168,14 +171,14 @@ describe("POST /register", () => {
         client_secret: expect.any(String),
         registration_access_token: expect.any(String),
         issuer: ISSUER,
-        terms: "https://hub.example.com/terms",
+        terms: "https://broker.example.com/terms",
         initial_access_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
         repository: REPOSITORY_ID,
       });
     });
 
     it("creates the client in the repository's tenant, under its owner", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const client = await createClient(h);
 
       expect(clientRow(h, client.client_id)).toMatchObject({
@@ -204,10 +207,10 @@ describe("POST /register", () => {
     });
 
     it("records the enrollment sorted and unique, and the client's own record repeats it", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), {
+      const response = await postBrokerClient(h, await signToken(h), {
         connectors: ["other", "fake", "other"],
       });
       const client = await readNewClient(response);
@@ -222,23 +225,23 @@ describe("POST /register", () => {
     });
 
     it("puts a preview in the app of its name, on the exact address that the run sent", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h, pullRequestClaims), {
-        redirect_uris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub"],
+      const response = await postBrokerClient(h, await signToken(h, pullRequestClaims), {
+        redirect_uris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/broker"],
       });
       const client = await readNewClient(response);
 
       expect(clientRow(h, client.client_id)).toMatchObject({
-        redirectUris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/hub"],
+        redirectUris: ["https://calm-cow-456.eu-west-1.convex.site/api/auth/callback/broker"],
         removeAt: EPOCH + 14 * 24 * 60 * 60 * 1_000,
         github: { appId: APP_ID, deploymentType: "preview", clientName: "pr-12" },
       });
     });
 
     it("records what the token said, with the client id and no secret", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const client = await createClient(h);
 
       const rows = h.rows();
@@ -271,7 +274,7 @@ describe("POST /register", () => {
     });
 
     it("keeps the secret and the token out of every log", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const logs = (["log", "info", "warn", "error", "debug"] as const).map((method) =>
         vi.spyOn(console, method).mockImplementation(() => undefined),
       );
@@ -293,17 +296,17 @@ describe("POST /register", () => {
       }
     });
 
-    it("logs one hub_event line per answer, with the repository, app, and deployment", async () => {
-      const h = await createHub();
+    it("logs one broker_event line per answer, with the repository, app, and deployment", async () => {
+      const h = await createGithubBroker();
       const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
       const client = await createClient(h);
       await createDevelopmentClient(h, client.initial_access_token ?? "");
       await stubProviders(h, () => new Response("Not Found", { status: 404 }));
-      expect((await postHubClient(h, await signToken(h))).status).toBe(400);
+      expect((await postBrokerClient(h, await signToken(h))).status).toBe(400);
 
       const line = (event: string, deployment: string, reason: string | null) =>
-        `hub_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment, reason })}`;
+        `broker_event ${JSON.stringify({ event, repository: "octo-org/octo-repo", app: "my-app", deployment, reason })}`;
       expect(info.mock.calls).toEqual([
         [line("registration", "production", null)],
         [line("registration", "development", null)],
@@ -312,7 +315,7 @@ describe("POST /register", () => {
     });
 
     it("records nothing when the store refuses, and says why", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       // The tenant's budget of apps is full, so the rule refuses a new app of the repository.
       for (let index = 0; index < 10; index += 1) {
         seedClient(h, {
@@ -326,7 +329,7 @@ describe("POST /register", () => {
       }
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       await expectInsufficientScope(response, "too_many_apps");
       expect(registrationEvents(h)).toEqual([]);
@@ -334,7 +337,7 @@ describe("POST /register", () => {
     });
 
     it("refuses a production client when every production client of the app has signed someone in", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       for (let index = 0; index < 30; index += 1) {
         seedClient(h, {
           repositoryId: REPOSITORY_ID,
@@ -348,11 +351,14 @@ describe("POST /register", () => {
       }
       await stubProviders(h);
 
-      await expectInsufficientScope(await postHubClient(h, await signToken(h)), "too_many_clients");
+      await expectInsufficientScope(
+        await postBrokerClient(h, await signToken(h)),
+        "too_many_clients",
+      );
     });
 
     it("refuses an app whose id another tenant holds", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       seedClient(h, {
         repositoryId: "99",
         appId: APP_ID,
@@ -363,14 +369,14 @@ describe("POST /register", () => {
       });
       await stubProviders(h);
 
-      await expectInsufficientScope(await postHubClient(h, await signToken(h)), "app_taken");
+      await expectInsufficientScope(await postBrokerClient(h, await signToken(h)), "app_taken");
     });
   });
 
   describe("the allow-list and the grants", () => {
-    it("refuses an enrollment outside the hub's connectors, the allow-list's and the grants', and names the allowed ones", async () => {
+    it("refuses an enrollment outside the broker's connectors, the allow-list's and the grants', and names the allowed ones", async () => {
       // The repository is not on the allow-list; its owner has a grant of `other`.
-      const h = await createHub({ allowList: [] });
+      const h = await createGithubBroker({ allowList: [] });
       setGrant(
         h.memory,
         { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, connector: "other" },
@@ -378,11 +384,11 @@ describe("POST /register", () => {
       );
       const fileRequests = await stubProviders(h);
 
-      const unknown = await postHubClient(h, await signToken(h), { connectors: ["okta"] });
-      const disallowed = await postHubClient(h, await signToken(h), {
+      const unknown = await postBrokerClient(h, await signToken(h), { connectors: ["okta"] });
+      const disallowed = await postBrokerClient(h, await signToken(h), {
         connectors: ["fake", "other"],
       });
-      const allowed = await postHubClient(h, await signToken(h), { connectors: ["other"] });
+      const allowed = await postBrokerClient(h, await signToken(h), { connectors: ["other"] });
 
       const refusal = refusalBody("invalid_client_metadata", {
         reason: "invalid_connectors",
@@ -407,12 +413,12 @@ describe("POST /register", () => {
       ["a connector name with a capital", ["Fake"]],
       ["a connector name with a space", ["fake other"]],
       ["a connector name over 64 characters", ["a".repeat(65)]],
-      ["a connector the hub does not have", ["fake", "okta"]],
+      ["a connector the broker does not have", ["fake", "okta"]],
     ])("answers invalid_connectors with the allowed names for %s", async (_, connectors) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), { connectors });
+      const response = await postBrokerClient(h, await signToken(h), { connectors });
 
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual(
@@ -428,7 +434,7 @@ describe("POST /register", () => {
 
     it("enrolls in every allowed connector without `connectors`, and refuses when none is allowed", async () => {
       // The allow-list names the test repository, and not repository 81.
-      const h = await createHub({
+      const h = await createGithubBroker({
         allowList: [{ repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }],
       });
       await stubProviders(h, (request) =>
@@ -437,9 +443,9 @@ describe("POST /register", () => {
         }),
       );
 
-      const all = await postHubClient(h, await signToken(h), { connectors: undefined });
-      const none = await postHubClient(h, await signToken(h, { repository_id: "81" }), {
-        redirect_uris: ["https://r81.example.com/auth/hub/callback"],
+      const all = await postBrokerClient(h, await signToken(h), { connectors: undefined });
+      const none = await postBrokerClient(h, await signToken(h, { repository_id: "81" }), {
+        redirect_uris: ["https://r81.example.com/auth/broker/callback"],
         connectors: undefined,
       });
 
@@ -452,7 +458,7 @@ describe("POST /register", () => {
     });
 
     it("the development command refuses a token row that differs from any fact the handler read, and writes nothing", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const token = await createInitialAccessToken(h);
       const facts = {
         tokenHash: await sha256Hex(token),
@@ -494,13 +500,14 @@ describe("POST /register", () => {
   });
 
   describe("the GitHub token", () => {
-    const tokens: Record<string, (h: Hub) => Promise<string>> = {
+    const tokens: Record<string, (h: GithubBroker) => Promise<string>> = {
       "a bad signature": (h) => signToken(h, {}, { foreign: true }),
       "a wrong audience": (h) => signToken(h, { aud: "https://github.com/octo-org" }),
-      "a token for another hub": (h) => signToken(h, { aud: "https://auth.other-hub.example" }),
-      "a token for the audience every hub shared before 0.27.0": (h) =>
+      "a token for another broker": (h) =>
+        signToken(h, { aud: "https://auth.other-broker.example" }),
+      "a token for the audience every broker shared before 0.27.0": (h) =>
         signToken(h, { aud: "samebase" }),
-      "an audience list that holds this hub": (h) => signToken(h, { aud: [ISSUER, "other"] }),
+      "an audience list that holds this broker": (h) => signToken(h, { aud: [ISSUER, "other"] }),
       "a wrong issuer": (h) => signToken(h, { iss: "https://issuer.example.test" }),
       "an expired token": (h) => signToken(h, {}, { expiresInSeconds: -60 }),
       "a token that never expires": (h) => signToken(h, {}, { withoutExpiry: true }),
@@ -509,10 +516,10 @@ describe("POST /register", () => {
     };
 
     it.each(Object.entries(tokens))("refuses %s and touches no table", async (_, sign) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await sign(h));
+      const response = await postBrokerClient(h, await sign(h));
 
       expect(response.status).toBe(401);
       expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
@@ -522,7 +529,7 @@ describe("POST /register", () => {
     });
 
     it("answers 502, not 401, when GitHub's key set cannot be read", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       vi.spyOn(console, "log").mockImplementation(() => undefined);
       h.fetch.plan({
@@ -530,17 +537,17 @@ describe("POST /register", () => {
         respond: () => new Response("Service Unavailable", { status: 503 }),
       });
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       expect(response.status).toBe(502);
       expect(await response.json()).toEqual(refusalBody("github_unavailable"));
     });
 
     it("reads GitHub's key set with a time limit", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      await postHubClient(h, await signToken(h));
+      await postBrokerClient(h, await signToken(h));
 
       const keyRequest = h.fetch.requests.find((request) => request.url === JWKS_URL);
       expect(keyRequest?.signal).toBeInstanceOf(AbortSignal);
@@ -555,20 +562,20 @@ describe("POST /register", () => {
       ["a pull request head ref", { event_name: "pull_request", ref: "refs/pull/12/head" }],
       ["pull request zero", { event_name: "pull_request", ref: "refs/pull/0/merge" }],
     ])("refuses %s", async (_, claims) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h, claims));
+      const response = await postBrokerClient(h, await signToken(h, claims));
 
       await expectInsufficientScope(response, "run_not_allowed");
       expect(fileRequests).toEqual([]);
     });
 
     it("accepts a workflow_dispatch run on main", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(
+      const response = await postBrokerClient(
         h,
         await signToken(h, { event_name: "workflow_dispatch", ref: "refs/heads/main" }),
       );
@@ -600,10 +607,10 @@ describe("POST /register", () => {
       ["an encrypted userinfo", { userinfo_encrypted_response_enc: "A128GCM" }],
       ["encrypted request objects", { request_object_encryption_alg: "RSA-OAEP" }],
     ])("answers 400 invalid_client_metadata for %s and fetches nothing", async (_, body) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), body);
+      const response = await postBrokerClient(h, await signToken(h), body);
 
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual(refusalBody("invalid_client_metadata"));
@@ -617,7 +624,7 @@ describe("POST /register", () => {
       ["text that is not JSON", "redirect_uris"],
       ["no body", undefined],
     ])("answers 400 invalid_client_metadata for %s", async (_, body) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
       const response = await h.fetchBroker(`${h.issuer}/register`, {
@@ -637,10 +644,10 @@ describe("POST /register", () => {
     ])(
       "takes software_id %s, and answers the full form in the answer and the read",
       async (_, softwareId, full) => {
-        const h = await createHub();
+        const h = await createGithubBroker();
         await stubProviders(h);
 
-        const response = await postHubClient(h, await signToken(h), { software_id: softwareId });
+        const response = await postBrokerClient(h, await signToken(h), { software_id: softwareId });
         const client = await readNewClient(response);
         const record = await h.fetchBroker(client.registration_client_uri, {
           headers: { Authorization: `Bearer ${client.registration_access_token}` },
@@ -658,12 +665,12 @@ describe("POST /register", () => {
     );
 
     it("registers an app name with a slash and its full form into the same app", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
       const answers: NewClient[] = [];
       for (const softwareId of ["a/b", `gh-${REPOSITORY_ID}/a/b`]) {
-        const response = await postHubClient(h, await signToken(h), { software_id: softwareId });
+        const response = await postBrokerClient(h, await signToken(h), { software_id: softwareId });
         expect(response.status).toBe(201);
         answers.push(await readNewClient(response));
       }
@@ -682,21 +689,21 @@ describe("POST /register", () => {
       ["a repository id that extends the proof's", `gh-${REPOSITORY_ID}1/app`],
       ["a repository id that the proof's extends", `gh-${REPOSITORY_ID.slice(0, -1)}/app`],
     ])("refuses software_id with %s, and creates no client", async (_, softwareId) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), { software_id: softwareId });
+      const response = await postBrokerClient(h, await signToken(h), { software_id: softwareId });
 
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual(refusalBody("invalid_client_metadata"));
       expect(h.rows().clients).toEqual([]);
     });
 
-    it("takes the members that hold the hub's one value, and answers them", async () => {
-      const h = await createHub();
+    it("takes the members that hold the broker's one value, and answers them", async () => {
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), {
+      const response = await postBrokerClient(h, await signToken(h), {
         application_type: "web",
         subject_type: "public",
         id_token_signed_response_alg: "RS256",
@@ -714,16 +721,16 @@ describe("POST /register", () => {
     });
 
     it("never quotes the request in error_description", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
       const marker = "quoted-marker";
 
       const answers = [
-        await postHubClient(h, await signToken(h), { software_id: `gh-75/${marker}` }),
-        await postHubClient(h, await signToken(h), { software_version: marker.repeat(30) }),
-        await postHubClient(h, await signToken(h), { redirect_uris: [`https://${marker}/#x`] }),
-        await postHubClient(h, await signToken(h), { connectors: [marker] }),
-        await postHubClient(h, await signToken(h), { application_type: marker }),
+        await postBrokerClient(h, await signToken(h), { software_id: `gh-75/${marker}` }),
+        await postBrokerClient(h, await signToken(h), { software_version: marker.repeat(30) }),
+        await postBrokerClient(h, await signToken(h), { redirect_uris: [`https://${marker}/#x`] }),
+        await postBrokerClient(h, await signToken(h), { connectors: [marker] }),
+        await postBrokerClient(h, await signToken(h), { application_type: marker }),
       ];
 
       for (const answer of answers) {
@@ -770,10 +777,10 @@ describe("POST /register", () => {
         { redirect_uris: [PRODUCTION_CALLBACK, `${PRODUCTION_CALLBACK}#top`] },
       ],
     ])("answers 400 invalid_redirect_uri for %s and fetches nothing", async (_, body) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), body);
+      const response = await postBrokerClient(h, await signToken(h), body);
 
       expect(response.status).toBe(400);
       expect(await response.json()).toEqual(refusalBody("invalid_redirect_uri"));
@@ -782,10 +789,10 @@ describe("POST /register", () => {
     });
 
     it("accepts an app of exactly 64 characters", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h), {
+      const response = await postBrokerClient(h, await signToken(h), {
         software_id: "a".repeat(64),
       });
 
@@ -795,11 +802,11 @@ describe("POST /register", () => {
 
   describe("the host", () => {
     it("reads the file at the root of the return address's origin, with no redirects and no credentials", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
 
-      await postHubClient(h, await signToken(h), {
-        redirect_uris: ["https://app.example.com:8443/api/auth/callback/hub?x=1"],
+      await postBrokerClient(h, await signToken(h), {
+        redirect_uris: ["https://app.example.com:8443/api/auth/callback/broker?x=1"],
       });
 
       expect(
@@ -824,12 +831,12 @@ describe("POST /register", () => {
     });
 
     it("verifies each distinct origin once and stores the addresses sorted and unique", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const fileRequests = await stubProviders(h);
-      const connections = `${PRODUCTION_HOST}/oauth/hub/callback`;
-      const other = "https://other.example.com/auth/hub/callback";
+      const connections = `${PRODUCTION_HOST}/oauth/broker/callback`;
+      const other = "https://other.example.com/auth/broker/callback";
 
-      const response = await postHubClient(h, await signToken(h), {
+      const response = await postBrokerClient(h, await signToken(h), {
         redirect_uris: [connections, PRODUCTION_CALLBACK, other, PRODUCTION_CALLBACK],
       });
 
@@ -846,7 +853,7 @@ describe("POST /register", () => {
     });
 
     it("refuses the whole list when the second origin fails, and creates nothing", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       // The first origin serves the file; the second does not.
       let fetches = 0;
       const fileRequests = await stubProviders(h, () =>
@@ -855,8 +862,8 @@ describe("POST /register", () => {
           : new Response("Not Found", { status: 404 }),
       );
 
-      const response = await postHubClient(h, await signToken(h), {
-        redirect_uris: [PRODUCTION_CALLBACK, "https://other.example.com/auth/hub/callback"],
+      const response = await postBrokerClient(h, await signToken(h), {
+        redirect_uris: [PRODUCTION_CALLBACK, "https://other.example.com/auth/broker/callback"],
       });
 
       expect(response.status).toBe(400);
@@ -919,10 +926,10 @@ describe("POST /register", () => {
       ],
       ["another id", () => jsonResponse({ repository: "999" }), "repository_mismatch"],
     ])("refuses on %s, creates nothing, and never shows the body", async (_, host, reason) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h, host);
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
       const text = await response.text();
 
       expect(response.status).toBe(400);
@@ -944,10 +951,10 @@ describe("POST /register", () => {
         },
       ],
     ])("accepts the id as %s", async (_, host) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await stubProviders(h, host);
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       expect(response.status).toBe(201);
     });
@@ -958,11 +965,11 @@ describe("POST /register", () => {
       ["repository", REPOSITORY_ID],
       ["owner", OWNER_ID],
     ] as const)("refuses a blocked %s before it fetches the file", async (kind, githubId) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       setBlock(h, { action: "block", kind, githubId });
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       await expectInsufficientScope(response, "blocked");
       expect(fileRequests).toEqual([]);
@@ -976,13 +983,13 @@ describe("POST /register", () => {
     ] as const)(
       "refuses a %s blocked while the file was fetched, and creates no client",
       async (kind, githubId) => {
-        const h = await createHub();
+        const h = await createGithubBroker();
         await stubProviders(h, () => {
           setBlock(h, { action: "block", kind, githubId });
           return jsonResponse({ repository: REPOSITORY_ID });
         });
 
-        const response = await postHubClient(h, await signToken(h));
+        const response = await postBrokerClient(h, await signToken(h));
 
         await expectInsufficientScope(response, "blocked");
         expect(registrationEvents(h)).toEqual([]);
@@ -991,7 +998,7 @@ describe("POST /register", () => {
     );
 
     it("blocking an owner stops each of its repositories, and unblocking restores only those with no other block", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const first = await createClient(h);
       const second = await createClient(h, { repository_id: "75", repository: "octo-org/two" });
       const other = await createClient(h, {
@@ -1025,11 +1032,11 @@ describe("POST /register", () => {
       ["owner", { scope: "owner", githubId: OWNER_ID, count: 100 }],
       ["new_owners", { scope: "new_owners", githubId: "", count: 50 }],
     ] as const)("limits the window %s, and fetches nothing", async (window, row) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       seedWindow(h, row);
       const fileRequests = await stubProviders(h);
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       expect(response.status).toBe(429);
       expect(response.headers.get("Retry-After")).toBeNull();
@@ -1038,13 +1045,13 @@ describe("POST /register", () => {
     });
 
     it("counts each request against the repository and the owner, and a new owner only once it registers", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       let host = () => new Response("Not Found", { status: 404 });
       await stubProviders(h, () => host());
       const token = await signToken(h);
 
-      await postHubClient(h, token);
-      await postHubClient(h, token);
+      await postBrokerClient(h, token);
+      await postBrokerClient(h, token);
 
       // A failed host check uses no new-owner allowance.
       expect(h.rows().rateLimits).toEqual([
@@ -1053,8 +1060,8 @@ describe("POST /register", () => {
       ]);
 
       host = () => jsonResponse({ repository: REPOSITORY_ID });
-      expect((await postHubClient(h, token)).status).toBe(201);
-      expect((await postHubClient(h, await signToken(h, pullRequestClaims))).status).toBe(201);
+      expect((await postBrokerClient(h, token)).status).toBe(201);
+      expect((await postBrokerClient(h, await signToken(h, pullRequestClaims))).status).toBe(201);
 
       expect(h.rows().rateLimits).toEqual(
         expect.arrayContaining([
@@ -1065,7 +1072,7 @@ describe("POST /register", () => {
     });
 
     it("refuses a new owner when other new owners filled the window during its host check", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       seedWindow(h, { scope: "new_owners", githubId: "", count: 49 });
       await stubProviders(h, () => {
         // Another new owner registers while this request fetches its verification file.
@@ -1073,7 +1080,7 @@ describe("POST /register", () => {
         return jsonResponse({ repository: REPOSITORY_ID });
       });
 
-      const response = await postHubClient(h, await signToken(h));
+      const response = await postBrokerClient(h, await signToken(h));
 
       expect(response.status).toBe(429);
       expect(await response.json()).toEqual(refusalBody("rate_limited", { window: "new_owners" }));
@@ -1081,7 +1088,7 @@ describe("POST /register", () => {
     });
 
     it("does not count an owner with a registration as new, and still limits the others", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       await createClient(h);
       // The owner's window has ended, so only its registration says that it is not new.
       changeWindows(h, (row) =>
@@ -1089,8 +1096,8 @@ describe("POST /register", () => {
       );
       await stubProviders(h);
 
-      const known = await postHubClient(h, await signToken(h));
-      const stranger = await postHubClient(
+      const known = await postBrokerClient(h, await signToken(h));
+      const stranger = await postBrokerClient(
         h,
         await signToken(h, { repository_id: "80", repository_owner_id: "90" }),
       );
@@ -1101,13 +1108,13 @@ describe("POST /register", () => {
     });
 
     it("starts a new window after an hour", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       seedWindow(h, { scope: "repository", githubId: REPOSITORY_ID, count: 30 });
       const token = await signToken(h, {}, { expiresInSeconds: 7_200 });
       h.clock.advance(60 * 60 * 1_000 + 1);
       await stubProviders(h);
 
-      const response = await postHubClient(h, token);
+      const response = await postBrokerClient(h, token);
 
       expect(response.status).toBe(201);
       expect(h.rows().rateLimits).toEqual(
@@ -1118,26 +1125,26 @@ describe("POST /register", () => {
     });
 
     it("keeps a window full until exactly an hour has passed", async () => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       seedWindow(h, { scope: "repository", githubId: REPOSITORY_ID, count: 30 });
       const token = await signToken(h, {}, { expiresInSeconds: 7_200 });
       await stubProviders(h);
 
       h.clock.advance(60 * 60 * 1_000 - 1);
-      expect((await postHubClient(h, token)).status).toBe(429);
+      expect((await postBrokerClient(h, token)).status).toBe(429);
       h.clock.advance(1);
-      expect((await postHubClient(h, token)).status).toBe(201);
+      expect((await postBrokerClient(h, token)).status).toBe(201);
     });
   });
 });
 
 describe("the initial access token", () => {
   it("comes with a production client and its row, and never with a preview", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const production = await createClient(h);
     await stubProviders(h);
 
-    const previewResponse = await postHubClient(h, await signToken(h, pullRequestClaims));
+    const previewResponse = await postBrokerClient(h, await signToken(h, pullRequestClaims));
     const preview: unknown = await previewResponse.json();
 
     expect(previewResponse.status).toBe(201);
@@ -1156,12 +1163,12 @@ describe("the initial access token", () => {
   });
 
   it("is replaced by the next production client, and the first one stops", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const first = await createInitialAccessToken(h);
     const second = await createInitialAccessToken(h);
     await stubProviders(h);
 
-    const refused = await postHubClient(h, first, { redirect_uris: [LOOPBACK_CALLBACK] });
+    const refused = await postBrokerClient(h, first, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     expect(first).not.toBe(second);
     expect(refused.status).toBe(401);
@@ -1171,29 +1178,29 @@ describe("the initial access token", () => {
   });
 
   it("stops at the first GitHub run under another owner, also of a preview", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     await stubProviders(h);
 
-    const sameOwner = await postHubClient(h, await signToken(h, pullRequestClaims));
+    const sameOwner = await postBrokerClient(h, await signToken(h, pullRequestClaims));
     expect(sameOwner.status).toBe(201);
     expect(h.rows().initialAccessTokens).toHaveLength(1);
     // Another owner's token must be newer than the newest accepted one, by `iat` in seconds.
-    const sameSecond = await postHubClient(
+    const sameSecond = await postBrokerClient(
       h,
       await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
     );
     await expectInsufficientScope(sameSecond, "stale_proof");
     expect(h.rows().initialAccessTokens).toHaveLength(1);
     h.clock.advance(1_000);
-    const transferred = await postHubClient(
+    const transferred = await postBrokerClient(
       h,
       await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
     );
 
     expect(transferred.status).toBe(201);
     expect(h.rows().initialAccessTokens).toEqual([]);
-    expect((await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] })).status).toBe(
+    expect((await postBrokerClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] })).status).toBe(
       401,
     );
   });
@@ -1201,12 +1208,12 @@ describe("the initial access token", () => {
 
 describe("POST /register with the initial access token", () => {
   it("registers a development client on a loopback address without a fetch", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     const fileRequests = await stubProviders(h);
     const fetchedBefore = h.fetch.requests.length;
 
-    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+    const response = await postBrokerClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     expect(response.status).toBe(201);
     expect(h.fetch.requests).toHaveLength(fetchedBefore);
@@ -1232,7 +1239,7 @@ describe("POST /register with the initial access token", () => {
       client_secret: expect.any(String),
       registration_access_token: expect.any(String),
       issuer: ISSUER,
-      terms: "https://hub.example.com/terms",
+      terms: "https://broker.example.com/terms",
     });
     const clientId = client.client_id;
     expect(clientRow(h, clientId)).toMatchObject({
@@ -1259,19 +1266,19 @@ describe("POST /register with the initial access token", () => {
     ]);
   });
 
-  it.each(["http://[::1]:3211/auth/hub/callback", "http://localhost:5173/callback"])(
+  it.each(["http://[::1]:3211/auth/broker/callback", "http://localhost:5173/callback"])(
     "accepts the loopback address %s",
     async (redirectUri) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const token = await createInitialAccessToken(h);
       await stubProviders(h);
 
-      expect((await postHubClient(h, token, { redirect_uris: [redirectUri] })).status).toBe(201);
+      expect((await postBrokerClient(h, token, { redirect_uris: [redirectUri] })).status).toBe(201);
     },
   );
 
   it("enrolls a development client in what the allow-list and the grants give at its registration", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const production = await createClient(h);
     const token = production.initial_access_token ?? "";
     await stubProviders(h);
@@ -1279,11 +1286,11 @@ describe("POST /register with the initial access token", () => {
     h.setAllowList([]);
     setGrant(h.memory, { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID, connector: "fake" }, true);
 
-    const refused = await postHubClient(h, token, {
+    const refused = await postBrokerClient(h, token, {
       redirect_uris: [LOOPBACK_CALLBACK],
       connectors: ["fake", "other"],
     });
-    const accepted = await postHubClient(h, token, {
+    const accepted = await postBrokerClient(h, token, {
       redirect_uris: [LOOPBACK_CALLBACK],
       connectors: ["fake"],
     });
@@ -1298,7 +1305,7 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("evicts the oldest preview or development client at that budget's cap, never a production one", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const production = await createClient(h);
     const token = production.initial_access_token ?? "";
     for (let index = 0; index < 30; index += 1) {
@@ -1327,12 +1334,12 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("needs the verification file for an https address", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     const missing = await stubProviders(h, () => new Response("Not Found", { status: 404 }));
 
-    const refused = await postHubClient(h, token, {
-      redirect_uris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
+    const refused = await postBrokerClient(h, token, {
+      redirect_uris: ["https://calm-cow-456.convex.site/auth/broker/callback"],
     });
 
     expect(refused.status).toBe(400);
@@ -1341,8 +1348,8 @@ describe("POST /register with the initial access token", () => {
     );
     expect(missing).toHaveLength(1);
     const served = await stubProviders(h);
-    const accepted = await postHubClient(h, token, {
-      redirect_uris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
+    const accepted = await postBrokerClient(h, token, {
+      redirect_uris: ["https://calm-cow-456.convex.site/auth/broker/callback"],
     });
     expect(accepted.status).toBe(201);
     expect(served.map((request) => [request.url, request.redirect])).toEqual([
@@ -1351,18 +1358,18 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("refuses another app of the repository, in either form of software_id", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     await stubProviders(h);
 
     for (const softwareId of ["other-app", `gh-${REPOSITORY_ID}/other-app`]) {
-      const response = await postHubClient(h, token, {
+      const response = await postBrokerClient(h, token, {
         software_id: softwareId,
         redirect_uris: [LOOPBACK_CALLBACK],
       });
       await expectInsufficientScope(response, "app_mismatch");
     }
-    const full = await postHubClient(h, token, {
+    const full = await postBrokerClient(h, token, {
       software_id: `gh-${REPOSITORY_ID}/my-app`,
       redirect_uris: [LOOPBACK_CALLBACK],
     });
@@ -1370,15 +1377,15 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("refuses a token whose row was deleted while the file was fetched", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     await stubProviders(h, () => {
       deleteInitialAccessTokens(h);
       return jsonResponse({ repository: REPOSITORY_ID });
     });
 
-    const response = await postHubClient(h, token, {
-      redirect_uris: ["https://calm-cow-456.convex.site/auth/hub/callback"],
+    const response = await postBrokerClient(h, token, {
+      redirect_uris: ["https://calm-cow-456.convex.site/auth/broker/callback"],
     });
 
     expect(response.status).toBe(401);
@@ -1388,7 +1395,7 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("refuses a token whose owner no longer owns the repository, and keeps the recorded owner", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     // Another app of the tenant records owner 66, as after a transfer whose run made no client of
     // `my-app`; the token's row still names owner 65.
@@ -1404,7 +1411,7 @@ describe("POST /register with the initial access token", () => {
     await stubProviders(h);
     const before = h.rows().clients;
 
-    const refused = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+    const refused = await postBrokerClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
     expect(refused.status).toBe(401);
     expect(await refused.json()).toEqual(INVALID_TOKEN);
     expect(h.rows().clients).toEqual(before);
@@ -1415,13 +1422,13 @@ describe("POST /register with the initial access token", () => {
     ["repository", REPOSITORY_ID],
     ["owner", OWNER_ID],
   ] as const)("refuses a blocked %s", async (kind, githubId) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     setBlock(h, { action: "block", kind, githubId });
     const before = h.rows().rateLimits;
     await stubProviders(h);
 
-    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+    const response = await postBrokerClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     await expectInsufficientScope(response, "blocked");
     expect(h.rows().rateLimits).toEqual(before);
@@ -1431,20 +1438,20 @@ describe("POST /register with the initial access token", () => {
     ["repository", { scope: "repository", githubId: REPOSITORY_ID, count: 30 }],
     ["owner", { scope: "owner", githubId: OWNER_ID, count: 100 }],
   ] as const)("is limited in the %s window", async (window, row) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     changeWindows(h, () => null);
     seedWindow(h, { scope: row.scope, githubId: row.githubId, count: row.count });
     await stubProviders(h);
 
-    const response = await postHubClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
+    const response = await postBrokerClient(h, token, { redirect_uris: [LOOPBACK_CALLBACK] });
 
     expect(response.status).toBe(429);
     expect(await response.json()).toEqual(refusalBody("rate_limited", { window }));
   });
 
   it("counts in the repository and owner windows, and not in the new-owners window", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     // A new-owners window that is full, and an owner whose own window has ended.
     changeWindows(h, (row) =>
@@ -1464,7 +1471,7 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("never tries a JWT that fails verification as a token, and refuses other shapes", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await createInitialAccessToken(h);
     const badJwt = await signToken(h, {}, { foreign: true });
     // A row whose hash is the bad JWT's: only the opaque path would find it.
@@ -1472,7 +1479,7 @@ describe("POST /register with the initial access token", () => {
     await stubProviders(h);
 
     for (const bearer of [badJwt, "one.dot", "four.parts.in.it"]) {
-      const response = await postHubClient(h, bearer, { redirect_uris: [LOOPBACK_CALLBACK] });
+      const response = await postBrokerClient(h, bearer, { redirect_uris: [LOOPBACK_CALLBACK] });
       expect(response.status).toBe(401);
       expect(response.headers.get("WWW-Authenticate")).toBe('Bearer error="invalid_token"');
       expect(await response.json()).toEqual(INVALID_TOKEN);
@@ -1482,10 +1489,10 @@ describe("POST /register with the initial access token", () => {
   });
 
   it("answers 401 for a token that no row has", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await stubProviders(h);
 
-    const response = await postHubClient(h, "unknown-token", {
+    const response = await postBrokerClient(h, "unknown-token", {
       redirect_uris: [LOOPBACK_CALLBACK],
     });
 
@@ -1500,7 +1507,7 @@ describe("POST /register with the initial access token", () => {
 // rule is weakened, such as a timestamp that stops advancing or an hour that becomes a second.
 describe("registration rules at their edges", () => {
   it("keeps the newest accepted proof's time when an older proof of the current owner arrives late", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const first = await signToken(h, { repository_owner_id: "65" });
     h.clock.set(EPOCH + 10_000);
     const olderOfNewOwner = await signToken(h, { repository_owner_id: "66" });
@@ -1511,21 +1518,25 @@ describe("registration rules at their edges", () => {
     h.clock.set(EPOCH + 21_000);
     await stubProviders(h);
 
-    expect((await postHubClient(h, first)).status).toBe(201);
-    expect((await postHubClient(h, newestOfNewOwner)).status).toBe(201);
+    expect((await postBrokerClient(h, first)).status).toBe(201);
+    expect((await postBrokerClient(h, newestOfNewOwner)).status).toBe(201);
     // Accepted, but older than the newest: the recorded time must not move back to it.
-    expect((await postHubClient(h, olderOfNewOwner)).status).toBe(201);
+    expect((await postBrokerClient(h, olderOfNewOwner)).status).toBe(201);
     // Newer than the late proof, older than the newest: the old owner cannot come back with it.
-    const refused = await postHubClient(h, retainedOfOldOwner);
+    const refused = await postBrokerClient(h, retainedOfOldOwner);
     expect(refused.status).toBe(403);
     expect(await refused.json()).toMatchObject({ reason: "stale_proof" });
   });
 
   it("replaces only the initial access token of the app that registered", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await stubProviders(h);
-    expect((await postHubClient(h, await signToken(h), { software_id: "app-a" })).status).toBe(201);
-    expect((await postHubClient(h, await signToken(h), { software_id: "app-b" })).status).toBe(201);
+    expect((await postBrokerClient(h, await signToken(h), { software_id: "app-a" })).status).toBe(
+      201,
+    );
+    expect((await postBrokerClient(h, await signToken(h), { software_id: "app-b" })).status).toBe(
+      201,
+    );
     // Known tokens for both apps, so the test can present app B's old one.
     const oldTokenB = "initial-access-token-of-app-b";
     deleteInitialAccessTokens(h);
@@ -1535,9 +1546,11 @@ describe("registration rules at their edges", () => {
     });
     insertInitialAccessToken(h, { tokenHash: await sha256Hex(oldTokenB), app: "app-b" });
 
-    expect((await postHubClient(h, await signToken(h), { software_id: "app-b" })).status).toBe(201);
+    expect((await postBrokerClient(h, await signToken(h), { software_id: "app-b" })).status).toBe(
+      201,
+    );
 
-    const refused = await postHubClient(h, oldTokenB, {
+    const refused = await postBrokerClient(h, oldTokenB, {
       software_id: "app-b",
       redirect_uris: [LOOPBACK_CALLBACK],
     });
@@ -1551,12 +1564,12 @@ describe("registration rules at their edges", () => {
   });
 
   it("keeps a full hourly window full a second later", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     seedWindow(h, { scope: "repository", githubId: REPOSITORY_ID, count: 30 }, EPOCH);
     h.clock.set(EPOCH + 1_001);
     await stubProviders(h);
 
-    expect((await postHubClient(h, await signToken(h))).status).toBe(429);
+    expect((await postBrokerClient(h, await signToken(h))).status).toBe(429);
   });
 
   it.each([
@@ -1565,11 +1578,11 @@ describe("registration rules at their edges", () => {
     "https://name@deployment.example.test/auth/callback",
     "https://:secret@deployment.example.test/auth/callback",
   ])("refuses a development client whose return address is %s", async (redirectUri) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     await stubProviders(h);
 
-    const response = await postHubClient(h, token, { redirect_uris: [redirectUri] });
+    const response = await postBrokerClient(h, token, { redirect_uris: [redirectUri] });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual(refusalBody("invalid_redirect_uri"));
   });

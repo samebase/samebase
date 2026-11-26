@@ -2,10 +2,10 @@
 
 ## Decision
 
-The hub keeps no session, so the provider decides the age of a login. A positive `max_age` goes
-upstream as itself to an OIDC connector with `maxAge: true`, and the hub accepts the login when the
-id_token's `auth_time` is not later than now plus 60 seconds and not older than `max_age`, with no
-tolerance. Else the app gets `login_required`. `prompt=login` and `max_age=0` stay forced logins.
+The broker keeps no session, so the provider decides the age of a login. A positive `max_age` goes
+upstream as itself to an OIDC connector with `maxAge: true`, and the broker accepts the login when
+the id_token's `auth_time` is not later than now plus 60 seconds and not older than `max_age`, with
+no tolerance. Else the app gets `login_required`. `prompt=login` and `max_age=0` stay forced logins.
 
 ## The standard
 
@@ -51,7 +51,7 @@ The others keep a session of their own, check the age against it, and do not sen
 - A forced login for every `max_age`, as 0.40.0 did. It asks for more than the standard: a login of
   a minute ago satisfies `max_age=300`. The conformance module `oidcc-max-age-10000` then passed
   only when two forced logins fell in one clock second. It stays for a connector with `promptLogin`
-  and no `maxAge`, where a new login is the only evidence the hub can get.
+  and no `maxAge`, where a new login is the only evidence the broker can get.
 - A second, forced login attempt when `auth_time` is old or missing. The standard does not require
   it, Keycloak does not do it, and the callback would have to send a claimed request upstream again
   with a new state, nonce and PKCE pair. The app can send `max_age=0` itself.

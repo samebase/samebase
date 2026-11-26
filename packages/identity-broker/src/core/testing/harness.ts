@@ -29,18 +29,18 @@ import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
 import { readConnector } from "../../hosts/settings.ts";
-import { hubLogger, makeHandle, type Part, type Registration } from "../router.ts";
+import { brokerLogger, makeHandle, type Part, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { github, google } from "../connectors/index.ts";
 import type { Connector, OidcConnector } from "../connectors/types.ts";
 import { createKeySet, type KeySet } from "../keys.ts";
 import {
   Fetch,
-  HubConfig,
+  BrokerConfig,
   Keys,
   Random,
   SignInPage,
-  type HubConfigInput,
+  type BrokerConfigInput,
   type ServiceSettings,
 } from "../services.ts";
 import type { SignInPageFunction } from "../html.ts";
@@ -167,7 +167,7 @@ export function testKeys(json: string | undefined) {
 
 export const TEST_ISSUER = "https://auth.example.com";
 
-/** The two connectors of the hub, with fake credentials. */
+/** The two connectors of the broker, with fake credentials. */
 export function testConnectors(): Connector[] {
   return Effect.runSync(
     Effect.all([
@@ -187,53 +187,53 @@ export function testConnectors(): Connector[] {
   );
 }
 
-/** The test hub's sign-in service. */
+/** The test broker's sign-in service. */
 export const TEST_SERVICE: ServiceSettings = {
-  name: "Test hub",
-  terms: "https://hub.example.com/terms",
-  privacy: "https://hub.example.com/privacy",
+  name: "Test broker",
+  terms: "https://broker.example.com/terms",
+  privacy: "https://broker.example.com/privacy",
 };
 
 /**
  * Every core service but `Store`, as one layer, with the handles a test needs to steer them, and
- * the hub's logger, so a test that reads the console reads the hub's own log lines. `config`
+ * the broker's logger, so a test that reads the console reads the broker's own log lines. `config`
  * overrides the issuer, the connectors and the service.
  */
 export async function coreServices(
-  config: Partial<HubConfigInput> = {},
+  config: Partial<BrokerConfigInput> = {},
   seed = 1,
   /** A stub that the test made first, to plan a fake provider whose connector the config needs. */
   fetch: StubFetch = stubFetch(),
-  /** The hub's own page before the provider; the default page without it. */
+  /** The broker's own page before the provider; the default page without it. */
   signInPage?: SignInPageFunction,
 ) {
   const clock = testClock();
   const keySet = await testKeySet();
   const keys = testKeys(JSON.stringify(keySet));
-  const hub = Effect.runSync(
-    HubConfig.make({
+  const broker = Effect.runSync(
+    BrokerConfig.make({
       issuer: config.issuer ?? TEST_ISSUER,
       connectors: config.connectors ?? testConnectors(),
       service: "service" in config ? config.service : TEST_SERVICE,
     }),
   );
   const layer = Layer.mergeAll(
-    Layer.succeed(HubConfig, hub),
+    Layer.succeed(BrokerConfig, broker),
     SignInPage.layer(signInPage),
     Layer.succeed(Keys, keys.service),
     Layer.succeed(Random, seededRandom(seed)),
     Layer.succeed(Fetch, fetch.service),
     Layer.succeed(Clock.Clock, clock.clock),
-    hubLogger,
+    brokerLogger,
   );
-  return { layer, fetch, clock, keys, keySet, hub };
+  return { layer, fetch, clock, keys, keySet, broker };
 }
 
 /**
- * One console line of the hub's logger (`hubLogger` in src/core/router.ts). A line with another
+ * One console line of the broker's logger (`brokerLogger` in src/core/router.ts). A line with another
  * member, such as a cause, does not decode.
  */
-const decodeHubLogLine = Schema.decodeUnknownSync(
+const decodeBrokerLogLine = Schema.decodeUnknownSync(
   Schema.fromJsonString(
     Schema.Struct({
       message: Schema.Unknown,
@@ -247,9 +247,9 @@ const decodeHubLogLine = Schema.decodeUnknownSync(
   { onExcessProperty: "error" },
 );
 
-/** A line of the hub's logger without its time and fiber, which differ on each run. */
-export function hubLogLine(line: unknown) {
-  const { message, level, annotations, spans } = decodeHubLogLine(line);
+/** A line of the broker's logger without its time and fiber, which differ on each run. */
+export function brokerLogLine(line: unknown) {
+  const { message, level, annotations, spans } = decodeBrokerLogLine(line);
   return { message, level, annotations, spans };
 }
 
@@ -415,10 +415,10 @@ export async function checkStore(
  */
 export async function createBroker(
   options: {
-    config?: Partial<HubConfigInput>;
+    config?: Partial<BrokerConfigInput>;
     seed?: number;
     registration?: Registration;
-    /** An optional part of the hub, such as connections. */
+    /** An optional part of the broker, such as connections. */
     part?: Part;
     fetch?: StubFetch;
     signInPage?: SignInPageFunction;
@@ -477,7 +477,7 @@ export async function createBroker(
     const secretHash = await sha256Hex(clientSecret);
     const now = clock.now();
     const connectors = [
-      ...new Set(args.connectors ?? core.hub.connectors.map((connector) => connector.name)),
+      ...new Set(args.connectors ?? core.broker.connectors.map((connector) => connector.name)),
     ].sort();
     await memory.seed((tx) =>
       Effect.asVoid(
@@ -536,7 +536,7 @@ export async function createBroker(
     registerClient,
     editCard,
     setStop,
-    issuer: core.hub.issuer,
+    issuer: core.broker.issuer,
     failCommands: (commands: ((name: string) => boolean) | null) => {
       failing.commands = commands;
     },

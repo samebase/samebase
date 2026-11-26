@@ -4,7 +4,7 @@
 import { Effect, type Redacted } from "effect";
 import type * as oauth from "oauth4webapi";
 import type { ClientSecrets } from "../core/connectors/types.ts";
-import { HubConfigError, parseHttpsUrl } from "../core/services.ts";
+import { BrokerConfigError, parseHttpsUrl } from "../core/services.ts";
 
 /** One configured provider. `name` is what a card's `connections` names. */
 export type ConnectionProvider = {
@@ -16,7 +16,7 @@ export type ConnectionProvider = {
     readonly token_endpoint: string;
   };
   readonly tokenEndpointAuthMethod: "client_secret_post" | "client_secret_basic";
-  /** The scopes the hub asks for, whatever the client requests. */
+  /** The scopes the broker asks for, whatever the client requests. */
   readonly scopes: ReadonlyArray<string>;
   /** Sends `prompt=select_account`: the provider shows its account picker each time. */
   readonly selectAccount: boolean;
@@ -26,7 +26,7 @@ export type ConnectionProvider = {
   readonly clientSecret: Redacted.Redacted<string>;
 };
 
-/** A connection provider as `hub` takes it, its two secrets unread. */
+/** A connection provider as `broker` takes it, its two secrets unread. */
 export type ConnectionSpec<R = never> = Omit<ConnectionProvider, "clientId" | "clientSecret"> &
   ClientSecrets<R>;
 
@@ -40,19 +40,19 @@ export const checkProviders = Effect.fnUntraced(function* (
   providers: ReadonlyArray<Pick<ConnectionProvider, "name" | "resource" | "server" | "scopes">>,
 ) {
   if (providers.length === 0) {
-    return yield* new HubConfigError({ message: "The connections setting names no provider" });
+    return yield* new BrokerConfigError({ message: "The connections setting names no provider" });
   }
   if (new Set(providers.map((provider) => provider.name)).size !== providers.length) {
-    return yield* new HubConfigError({ message: "Connection names must be unique" });
+    return yield* new BrokerConfigError({ message: "Connection names must be unique" });
   }
   // RFC 8707 section 2: a resource is an absolute URI with no fragment.
   for (const provider of providers) {
     if (!SAFE_NAME.test(provider.name)) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `Connection "${provider.name}" has a name that is not [a-z0-9-]+`,
       });
     }
-    const invalid = new HubConfigError({
+    const invalid = new BrokerConfigError({
       message: `Connection "${provider.name}" has a resource that is not an absolute URI with no fragment`,
     });
     if (provider.resource.includes("#") || INVALID_URI_CHAR.test(provider.resource)) {
@@ -78,13 +78,13 @@ export const checkProviders = Effect.fnUntraced(function* (
       );
     }
     if (provider.scopes.some((scope) => scope.length === 0 || /\s/.test(scope))) {
-      return yield* new HubConfigError({
+      return yield* new BrokerConfigError({
         message: `Connection "${provider.name}" has an invalid scope`,
       });
     }
   }
   if (new Set(providers.map((provider) => provider.resource)).size !== providers.length) {
-    return yield* new HubConfigError({ message: "Connection resources must be unique" });
+    return yield* new BrokerConfigError({ message: "Connection resources must be unique" });
   }
 });
 

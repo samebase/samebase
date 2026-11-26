@@ -6,7 +6,7 @@ import { command } from "./command.ts";
 const SIGN_IN_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
- * One batch of the hub's daily cleanup through the `Store`: expired connection requests and codes,
+ * One batch of the broker's daily cleanup through the `Store`: expired connection requests and codes,
  * then the core's expired rows, each command its own transaction. Answers whether rows older than
  * `cutoff` are left. A host runs batches with one `cutoff` until none are left.
  */

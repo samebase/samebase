@@ -157,7 +157,7 @@ const parseKey = Effect.fnUntraced(function* (entry: unknown) {
 });
 
 /**
- * Parses the env var. Fails on anything that is not a complete key set: a hub without keys is
+ * Parses the env var. Fails on anything that is not a complete key set: a broker without keys is
  * down. It checks the shape only; `assertKeySetUsable` signs and verifies with the keys.
  */
 export const parseKeySet = Effect.fnUntraced(function* (raw: string | undefined) {

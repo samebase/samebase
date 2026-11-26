@@ -1,6 +1,6 @@
-// The hub's calls to a connection provider: the authorization URL with the hub's own state and
+// The broker's calls to a connection provider: the authorization URL with the broker's own state and
 // PKCE (RFC 7636), the code exchange (RFC 6749 section 4.1.3), and the refresh (section 6) and
-// revocation (RFC 7009) that the hub forwards with its own client authentication. Every request
+// revocation (RFC 7009) that the broker forwards with its own client authentication. Every request
 // goes through the core's `Fetch`. Errors propagate; the handler decides what they mean.
 import { Redacted } from "effect";
 import * as oauth from "oauth4webapi";
@@ -8,12 +8,12 @@ import { oauthFetch, type FetchFunction } from "../core/connectors/upstream.ts";
 import type { ConnectionProvider } from "./providers.ts";
 import type { ProviderTokens } from "./tables.ts";
 
-/** A refresh or a revocation that the hub forwards ends after this time. */
+/** A refresh or a revocation that the broker forwards ends after this time. */
 const FORWARD_TIMEOUT_MS = 30 * 1000;
 
 type Tokens = typeof ProviderTokens.Type;
 
-/** The authorization URL for `provider`, with fresh state and PKCE pair of the hub's own. */
+/** The authorization URL for `provider`, with fresh state and PKCE pair of the broker's own. */
 export async function startConnection(provider: ConnectionProvider, callbackUrl: string) {
   const url = new URL(provider.server.authorization_endpoint);
   const state = oauth.generateRandomState();
@@ -51,7 +51,7 @@ const tokensOf = (
 
 /**
  * The provider's callback: validates it (with `iss` when the provider sends one, RFC 9207) and
- * redeems the provider's code. An omitted scope is the scope the hub asked for (RFC 6749 section
+ * redeems the provider's code. An omitted scope is the scope the broker asked for (RFC 6749 section
  * 5.1).
  */
 export async function finishConnection(args: {
@@ -87,9 +87,9 @@ export async function finishConnection(args: {
 }
 
 /**
- * The provider's refresh of the client's refresh token, with the hub's client authentication. An
+ * The provider's refresh of the client's refresh token, with the broker's client authentication. An
  * omitted scope stays omitted: on refresh it means the original grant (RFC 6749 section 6), which
- * the hub does not keep.
+ * the broker does not keep.
  */
 export async function refreshConnection(args: {
   provider: ConnectionProvider;

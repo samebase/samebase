@@ -11,15 +11,15 @@ import fc from "fast-check";
 import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import {
-  createHub,
+  createGithubBroker,
   jsonResponse,
   LOOPBACK_CALLBACK,
-  postHubClient,
+  postBrokerClient,
   setBlock,
   signToken,
   stubProviders,
-  type Hub,
-} from "./testing/hub.ts";
+  type GithubBroker,
+} from "./testing/broker.ts";
 import { setGrant } from "./testing/seeds.ts";
 
 /** The start of every story. */
@@ -31,7 +31,7 @@ const APPS = ["app-a", "app-b"] as const;
 const STAGES = ["prod", "pr-1", "pr-2"] as const;
 /** The enrollments a registration asks for, by name. */
 const ENROLLMENTS = { fake: ["fake"], both: ["fake", "other"], other: ["other"] } as const;
-/** The hub's configured connectors: what an allow-listed repository gets. */
+/** The broker's configured connectors: what an allow-listed repository gets. */
 const CONFIGURED = ["fake", "other"] as const;
 /**
  * What the allow-list names, by name: every repository with every owner, each repository with
@@ -94,7 +94,7 @@ type Command =
   | { kind: "transfer"; repository: Repository; owner: Owner }
   | { kind: "block"; action: "block" | "unblock"; scope: "repository"; githubId: Repository }
   | { kind: "block"; action: "block" | "unblock"; scope: "owner"; githubId: Owner }
-  /** The hub's allow-list changes; it reaches a card at its next write. */
+  /** The broker's allow-list changes; it reaches a card at its next write. */
   | { kind: "allowList"; list: AllowListName }
   /** The admin grants `other` to a repository for one owner, or revokes it. */
   | { kind: "grant"; repository: Repository; owner: Owner; on: boolean }
@@ -230,7 +230,7 @@ function check(checks: Checks, invariant: string, holds: boolean, message: strin
 /** One played story: the trace of what each command did, with logical handles only. */
 type Story = { trace: string[]; commands: number };
 
-/** No answer of the hub is a 500. */
+/** No answer of the broker is a 500. */
 function checkAnswer(checks: Checks, what: string, response: Response) {
   check(checks, "noServerError", response.status !== 500, `${what} answered 500`);
 }
@@ -286,7 +286,7 @@ function deferred<T>() {
 }
 
 /** The outside parties of one story: GitHub's owners and keys, and the hosts' files. */
-async function createWorld(h: Hub, repositories: Record<string, string>) {
+async function createWorld(h: GithubBroker, repositories: Record<string, string>) {
   const owners = new Map(Object.entries(repositories));
   let host: { outcome: HostOutcome; repositoryId: string } = {
     outcome: "present",
@@ -411,7 +411,7 @@ function createModel(allowList: AllowListName) {
   };
 }
 type Model = ReturnType<typeof createModel>;
-type Rows = ReturnType<Hub["rows"]>;
+type Rows = ReturnType<GithubBroker["rows"]>;
 
 const isBlocked = (model: Model, repository: string, ownerId: string) =>
   model.blocks.has(`repository:${repository}`) || model.blocks.has(`owner:${ownerId}`);
@@ -588,7 +588,7 @@ function checkNewOwners(checks: Checks, before: Rows, after: Rows, newOwnerRegis
 }
 
 /** The checks of the whole state after every command. */
-function checkState(h: Hub, model: Model, checks: Checks) {
+function checkState(h: GithubBroker, model: Model, checks: Checks) {
   const rows = h.rows();
   for (const app of rows.apps) {
     const seen = model.apps.get(app.appId);
@@ -688,7 +688,7 @@ function checkState(h: Hub, model: Model, checks: Checks) {
 }
 
 async function playRun(
-  h: Hub,
+  h: GithubBroker,
   world: World,
   model: Model,
   command: Extract<Command, { kind: "run" }>,
@@ -728,7 +728,7 @@ async function playRun(
   const body = {
     software_id: command.app,
     redirect_uris: [
-      `https://${command.app}-${proof.stage}.r${proof.repository}.example/auth/hub/callback`,
+      `https://${command.app}-${proof.stage}.r${proof.repository}.example/auth/broker/callback`,
     ],
     software_version: "abc123",
     connectors: [...ENROLLMENTS[command.enrollment]],
@@ -738,7 +738,7 @@ async function playRun(
   let response: Response;
   if (command.host === "blockedWhileFetched" || command.host === "grantLostWhileFetched") {
     const hold = world.hosts.holdNext();
-    const pending = postHubClient(h, proof.token, body);
+    const pending = postBrokerClient(h, proof.token, body);
     const reached = await Promise.race([hold.reached, pending.then(() => false)]);
     if (reached && command.host === "blockedWhileFetched") {
       setBlock(h, { action: "block", kind: "repository", githubId: proof.repository });
@@ -756,7 +756,7 @@ async function playRun(
     hold.release();
     response = await pending;
   } else {
-    response = await postHubClient(h, proof.token, body);
+    response = await postBrokerClient(h, proof.token, body);
   }
   const after = h.rows();
   const accepted = response.status === 201;
@@ -850,7 +850,7 @@ async function playRun(
 }
 
 async function playDevelopment(
-  h: Hub,
+  h: GithubBroker,
   world: World,
   model: Model,
   command: Extract<Command, { kind: "development" }>,
@@ -870,11 +870,11 @@ async function playDevelopment(
   const redirectUri =
     command.redirect === "loopback"
       ? LOOPBACK_CALLBACK
-      : `https://${app}-dev.r${token.repository}.example/auth/hub/callback`;
+      : `https://${app}-dev.r${token.repository}.example/auth/broker/callback`;
   const valid = tokenValid(model, token);
   const blocked = isBlocked(model, token.repository, token.ownerId);
   const before = h.rows();
-  const response = await postHubClient(h, token.value, {
+  const response = await postBrokerClient(h, token.value, {
     software_id: app,
     redirect_uris: [redirectUri],
     software_version: "dev-1",
@@ -949,7 +949,7 @@ async function playDevelopment(
 }
 
 async function playClient(
-  h: Hub,
+  h: GithubBroker,
   model: Model,
   command: Extract<Command, { kind: "renew" | "deleteOwn" }>,
   checks: Checks,
@@ -1002,7 +1002,7 @@ async function playClient(
 }
 
 async function playCommand(
-  h: Hub,
+  h: GithubBroker,
   world: World,
   model: Model,
   command: Command,
@@ -1068,10 +1068,10 @@ async function playCommand(
   }
 }
 
-/** Plays one story on a fresh hub, from the epoch, and checks the invariants after each command. */
+/** Plays one story on a fresh broker, from the epoch, and checks the invariants after each command. */
 async function play(commands: Command[], checks: Checks, story: Story) {
   const model = createModel("everyone");
-  const h = await createHub({ allowList: ALLOW_LISTS[model.allowList] });
+  const h = await createGithubBroker({ allowList: ALLOW_LISTS[model.allowList] });
   h.clock.set(EPOCH);
   const world = await createWorld(h, {
     [REPOSITORIES[0]]: OWNERS[0],

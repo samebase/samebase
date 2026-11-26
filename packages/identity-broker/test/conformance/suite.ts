@@ -152,7 +152,7 @@ export function makeSuite(https: Https, resultsDir: string) {
     },
     /**
      * Whether the suite's browser has nothing left to do and its last page was an HTTP 4xx or 5xx
-     * page: the module waits for a callback that the hub's error page will never send.
+     * page: the module waits for a callback that the broker's error page will never send.
      */
     browserStalledOnErrorPage: async (id: string) => {
       const browser = decodeJson(Browser, await api(`/api/runner/browser/${id}`));

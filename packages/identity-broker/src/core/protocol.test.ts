@@ -11,8 +11,8 @@ const CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
 describe("redirect URIs", () => {
   test("https without fragment, or http on loopback", () => {
-    expect(parseRedirectUri("https://app.example.com/oauth/hub/callback")).not.toBeNull();
-    expect(parseRedirectUri("http://127.0.0.1:3210/oauth/hub/callback")).not.toBeNull();
+    expect(parseRedirectUri("https://app.example.com/oauth/broker/callback")).not.toBeNull();
+    expect(parseRedirectUri("http://127.0.0.1:3210/oauth/broker/callback")).not.toBeNull();
     expect(parseRedirectUri("http://localhost:3210/cb")).not.toBeNull();
     expect(parseRedirectUri("http://app.example.com/cb")).toBeNull();
     expect(parseRedirectUri("https://app.example.com/cb#frag")).toBeNull();

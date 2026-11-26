@@ -1,4 +1,4 @@
-// The one command catalog of a hub: the core's commands (src/rules/commands.ts), each layer's, and
+// The one command catalog of a broker: the core's commands (src/rules/commands.ts), each layer's, and
 // the connections part's.
 // A host runs a command of this closed list by name, as one step over a `Tx` of src/store/tables.ts
 // that serves the core's view and each layer's view.

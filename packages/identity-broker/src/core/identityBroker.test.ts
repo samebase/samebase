@@ -17,8 +17,8 @@ import type { ConnectionSpec } from "../connections/providers.ts";
 import { makeMemoryStore } from "../hosts/memory.ts";
 import * as Connectors from "./connectors/index.ts";
 import type { ConnectorSpec, Secret } from "./connectors/types.ts";
-import { hub } from "./hub.ts";
-import { hubLogLine, TEST_ISSUER, TEST_SERVICE } from "./testing/harness.ts";
+import { identityBroker } from "./identityBroker.ts";
+import { brokerLogLine, TEST_ISSUER, TEST_SERVICE } from "./testing/harness.ts";
 
 class PerRequestTag extends Context.Service<PerRequestTag, string>()("test/PerRequestTag") {}
 class SecretsA extends Context.Service<SecretsA, string>()("test/SecretsA") {}
@@ -40,11 +40,11 @@ const google = {
   clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
 };
 
-type Options = Parameters<typeof hub<ConnectorSpec, ConnectionSpec, Secret>>[0];
+type Options = Parameters<typeof identityBroker<ConnectorSpec, ConnectionSpec, Secret>>[0];
 
 const start = (options: Options, values: Record<string, string>) => {
   const asked: string[] = [];
-  const run = hub(options).pipe(
+  const run = identityBroker(options).pipe(
     Effect.provide(makeMemoryStore().layer),
     Effect.provideService(ConfigProvider.ConfigProvider, recordingProvider(values, asked)),
   );
@@ -77,7 +77,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("with every secret a Config, the hub reads each when it runs, and a missing one stops it", async () => {
+test("with every secret a Config, the broker reads each when it runs, and a missing one stops it", async () => {
   const options = {
     issuer: TEST_ISSUER,
     connectors: [Connectors.google(google)],
@@ -141,9 +141,9 @@ test("a failed build answers 500 with a fixed reason code, logs no error text, a
   const failed = await answer(built.fetch, new Request(`${TEST_ISSUER}/.well-known/jwks.json`));
   expect(failed.status).toBe(500);
   expect(await failed.json()).toEqual({ error: "server_error" });
-  expect(logged.mock.calls.map(([line]) => hubLogLine(line))).toEqual([
+  expect(logged.mock.calls.map(([line]) => brokerLogLine(line))).toEqual([
     {
-      message: "hub_error",
+      message: "broker_error",
       level: "ERROR",
       annotations: {
         category: "start_failed",
@@ -171,9 +171,9 @@ test("a wrapped Config that is missing logs reason missing_config on a lazy buil
   const built = await Effect.runPromise(started.run);
   const logged = vi.spyOn(console, "error").mockImplementation(() => {});
   expect(await discovery(built.fetch)).toBe(500);
-  expect(logged.mock.calls.map(([line]) => hubLogLine(line))).toEqual([
+  expect(logged.mock.calls.map(([line]) => brokerLogLine(line))).toEqual([
     {
-      message: "hub_error",
+      message: "broker_error",
       level: "ERROR",
       annotations: {
         category: "start_failed",
@@ -184,7 +184,7 @@ test("a wrapped Config that is missing logs reason missing_config on a lazy buil
   ]);
 });
 
-test("a lazy hub gives each request its own per-event context, and keeps the start's configuration and logger", async () => {
+test("a lazy broker gives each request its own per-event context, and keeps the start's configuration and logger", async () => {
   const scopes: Array<Scope.Scope> = [];
   const options = {
     issuer: TEST_ISSUER,
@@ -212,7 +212,7 @@ test("a lazy hub gives each request its own per-event context, and keeps the sta
               }
               const span = yield* Effect.currentSpan.pipe(Effect.option);
               const parentSpan = Option.flatMap(span, ({ parent }) => parent);
-              const key = yield* Config.option(Config.String("HUB_PREVIEW_KEY"));
+              const key = yield* Config.option(Config.String("BROKER_PREVIEW_KEY"));
               return Response.json({
                 url: Option.getOrNull(Option.map(request, ({ url }) => url)),
                 tag: Option.getOrNull(tag),
@@ -237,7 +237,7 @@ test("a lazy hub gives each request its own per-event context, and keeps the sta
   const started = start(options, {
     GOOGLE_CLIENT_ID: "id",
     IDENTITY_BROKER_KEYS: "{}",
-    HUB_PREVIEW_KEY: "preview-key",
+    BROKER_PREVIEW_KEY: "preview-key",
   });
   const built = await Effect.runPromise(started.run);
 
@@ -269,9 +269,9 @@ test("a lazy hub gives each request its own per-event context, and keeps the sta
 
   const logged = vi.spyOn(console, "error").mockImplementation(() => {});
   expect((await answer(built.fetch, new Request(`${TEST_ISSUER}/defect`))).status).toBe(500);
-  expect(logged.mock.calls.map(([line]) => hubLogLine(line))).toEqual([
+  expect(logged.mock.calls.map(([line]) => brokerLogLine(line))).toEqual([
     {
-      message: "hub_error",
+      message: "broker_error",
       level: "ERROR",
       annotations: { route: "/defect", category: "defect" },
       spans: {},
@@ -308,15 +308,15 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
       expected: "The issuer must be https, or http on a loopback host for local development",
     },
     {
-      config: { ...options, issuer: "https://hub.example.com?" },
+      config: { ...options, issuer: "https://broker.example.com?" },
       expected: "The issuer must not have a query or fragment",
     },
     {
-      config: { ...options, issuer: "https://hub.example.com#" },
+      config: { ...options, issuer: "https://broker.example.com#" },
       expected: "The issuer must not have a query or fragment",
     },
     {
-      config: { ...options, issuer: "https://user:pass@hub.example.com" },
+      config: { ...options, issuer: "https://user:pass@broker.example.com" },
       expected: "The issuer must not have credentials",
     },
     {
@@ -491,7 +491,7 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
   expect(reads).toBe(0);
 });
 
-test("a lazy hub of any OIDC and OAuth connector and connection names them in order in discovery", async () => {
+test("a lazy broker of any OIDC and OAuth connector and connection names them in order in discovery", async () => {
   const secret = Effect.succeed(Redacted.make("secret"));
   const started = start(
     {
@@ -553,7 +553,7 @@ test("secrets that need two different services in one connectors array are each 
     });
   const asked: string[] = [];
   const built = await Effect.runPromise(
-    hub({
+    identityBroker({
       issuer: TEST_ISSUER,
       connectors: [
         Connectors.google({ clientId: google.clientId, clientSecret: readFrom(SecretsA) }),

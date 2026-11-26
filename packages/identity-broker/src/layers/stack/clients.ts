@@ -22,9 +22,9 @@ export const CreateArgs = Schema.Struct({
   /** No removal date: the request asked for production, and the key may make permanent clients. */
   permanent: Schema.Boolean,
   client: StackClient,
-  /** The hub's configured connector names. */
+  /** The broker's configured connector names. */
   configured: Strs,
-  /** The connection providers of the client's key, as the hub's settings name them. */
+  /** The connection providers of the client's key, as the broker's settings name them. */
   connections: Strs,
 });
 export const CreateResult = Schema.Struct({ createdAt: Schema.Finite });
@@ -32,7 +32,7 @@ export const CreateResult = Schema.Struct({ createdAt: Schema.Finite });
 const ManageArgs = { clientId: Str, registrationTokenHash: Str };
 export const RenewArgs = Schema.Struct({
   ...ManageArgs,
-  /** The keys that the hub has now, by name, each with its connection providers. */
+  /** The keys that the broker has now, by name, each with its connection providers. */
   keys: Schema.Array(Schema.Struct({ name: Str, connections: Strs })),
   configured: Strs,
 });
@@ -92,7 +92,7 @@ const managedCard = Effect.fnUntraced(function* (clientId: string, registrationT
 /**
  * A deploy of a client reads it (RFC 7592 section 2.1), which also renews it: a temporary card gets
  * a new removal date, its connectors are its enrollment of those configured now, and its
- * connections are its key's now. A key that the hub no longer has renews nothing, and a stopped
+ * connections are its key's now. A key that the broker no longer has renews nothing, and a stopped
  * card is not renewed.
  */
 export const renew = Effect.fnUntraced(function* (args: typeof RenewArgs.Type, step: Step) {

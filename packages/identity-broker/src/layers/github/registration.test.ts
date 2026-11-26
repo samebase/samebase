@@ -10,11 +10,11 @@ import {
   APP_ID,
   createClient,
   createDevelopmentClient,
-  createHub,
+  createGithubBroker,
   createInitialAccessToken,
   EPOCH,
   OWNER_ID,
-  postHubClient,
+  postBrokerClient,
   pullRequestClaims,
   readNewClient,
   readOwnRecord,
@@ -26,9 +26,9 @@ import {
   skipSignInPage,
   stubProviders,
   PRODUCTION_CALLBACK,
-  type Hub,
+  type GithubBroker,
   type NewClient,
-} from "./testing/hub.ts";
+} from "./testing/broker.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -36,13 +36,13 @@ afterEach(() => {
 
 const LEASE_MS = 14 * 24 * 60 * 60 * 1000;
 
-const clientRow = (h: Hub, clientId: string) =>
+const clientRow = (h: GithubBroker, clientId: string) =>
   h.rows().clients.find((row) => row.clientId === clientId);
 
 /** A preview client of the pull request `number`, which must be created. */
-async function createPreview(h: Hub, number = 12): Promise<NewClient> {
+async function createPreview(h: GithubBroker, number = 12): Promise<NewClient> {
   await stubProviders(h);
-  const response = await postHubClient(
+  const response = await postBrokerClient(
     h,
     await signToken(h, { event_name: "pull_request", ref: `refs/pull/${number}/merge` }),
   );
@@ -57,7 +57,7 @@ const configuration = (client: NewClient, token: string, method: string) => ({
 
 describe("RFC 7592 client management", () => {
   test("a read answers without the secret, and only with the client's own token", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const client = await createPreview(h);
     const other = await createPreview(h, 13);
     expect(client.registration_client_uri).toBe(`${h.issuer}/register/${client.client_id}`);
@@ -109,7 +109,7 @@ describe("RFC 7592 client management", () => {
   ])(
     "a %s with %s answers 401 with the realm challenge and no body (RFC 6750 section 3)",
     async (method, _, authorization) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const client = await createPreview(h);
       const response = await h.fetchBroker(client.registration_client_uri, {
         method,
@@ -124,7 +124,7 @@ describe("RFC 7592 client management", () => {
   );
 
   test.each(["GET", "DELETE"])("a %s without a client id answers invalid_token", async (method) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const client = await createPreview(h);
     const response = await h.fetchBroker(`${h.issuer}/register/`, {
       method,
@@ -136,7 +136,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("a read renews a preview client and never dates a production client", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const preview = await createPreview(h);
     const production = await createClient(h);
     expect(clientRow(h, preview.client_id)?.removeAt).toBe(EPOCH + LEASE_MS);
@@ -156,7 +156,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("a read changes no metadata and no credential, and writes the card from the allow-list of its step", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const client = await createPreview(h);
     const before = clientRow(h, client.client_id);
     h.clock.advance(1_000);
@@ -175,7 +175,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("a production client cannot delete itself", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const client = await createClient(h);
     const own = configuration(client, client.registration_access_token, "DELETE");
     const response = await h.fetchBroker(own.url, own.init);
@@ -192,7 +192,7 @@ describe("RFC 7592 client management", () => {
     ["the client's token", true],
     ["no token", false],
   ])("an update with %s answers 405 and changes nothing", async (_, withToken) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const client = await createClient(h);
     const before = h.rows();
     const response = await h.fetchBroker(client.registration_client_uri, {
@@ -210,7 +210,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("a delete removes only the client that asks, also while stopped, and a gone client answers 401", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const client = await createPreview(h);
     const other = await createPreview(h, 13);
     setBlock(h, { action: "block", kind: "repository", githubId: REPOSITORY_ID });
@@ -232,7 +232,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("a development client deletes itself too", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const development = await createDevelopmentClient(h, await createInitialAccessToken(h));
     const own = configuration(development, development.registration_access_token, "DELETE");
     expect((await h.fetchBroker(own.url, own.init)).status).toBe(204);
@@ -240,7 +240,7 @@ describe("RFC 7592 client management", () => {
   });
 
   test("/userinfo answers the access token of a stopped client and refuses a deleted client's (RFC 7592 section 2.3)", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     skipSignInPage(h);
     const client = await createPreview(h);
     const tokens = await signIn(h, client, PRODUCTION_CALLBACK);
@@ -268,7 +268,7 @@ describe("RFC 7592 client management", () => {
 
 describe("the lease", () => {
   test("a development client gets a removal date, renews it, and cleanup deletes it after the date", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const development = await createDevelopmentClient(h, await createInitialAccessToken(h));
     expect(clientRow(h, development.client_id)?.removeAt).toBe(EPOCH + LEASE_MS);
 
@@ -287,7 +287,7 @@ describe("the lease", () => {
   });
 
   test("a preview app over its cap loses the client renewed longest ago", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const first = await createPreview(h, 1);
     h.clock.advance(1_000);
     const second = await createPreview(h, 2);
@@ -319,7 +319,7 @@ describe("the blocks at renewal", () => {
   ] as const)(
     "a renewal while the %s is blocked answers 403, and the unblock restores it",
     async (kind, githubId) => {
-      const h = await createHub();
+      const h = await createGithubBroker();
       const development = await createDevelopmentClient(h, await createInitialAccessToken(h));
       const before = clientRow(h, development.client_id);
       setBlock(h, { action: "block", kind, githubId });
@@ -342,12 +342,12 @@ describe("the blocks at renewal", () => {
   );
 
   test("a block of the repository's recorded owner stops the renewal of a client that another owner registered", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const preview = await createPreview(h);
     // The repository moves to owner 66 with a newer proof: the tenant records the new owner.
     h.clock.advance(1_000);
     await stubProviders(h);
-    const moved = await postHubClient(
+    const moved = await postBrokerClient(
       h,
       await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
     );

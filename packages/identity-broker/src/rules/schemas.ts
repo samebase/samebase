@@ -8,11 +8,11 @@ const Bool = Schema.Boolean;
 const Strs = Schema.Array(Str);
 const opt = Schema.optionalKey;
 
-/** The hub's configured connector names, in the order discovery names them. */
+/** The broker's configured connector names, in the order discovery names them. */
 const configured = Strs;
 
 /**
- * A namespace of card gates that a layer owns, with the gates of it that the hub has now: a card
+ * A namespace of card gates that a layer owns, with the gates of it that the broker has now: a card
  * with a gate that starts with `prefix` and is not in `live` is refused, as a stop on that gate
  * refuses it. A gate outside every prefix is not affected.
  */
@@ -26,7 +26,7 @@ export type Return = typeof Return.Type;
 
 /**
  * The return address of a refusal, given only when the step read it on the client's card. Absent:
- * the card is gone or no longer holds the address, and the hub sends the user nowhere (RFC 6749
+ * the card is gone or no longer holds the address, and the broker sends the user nowhere (RFC 6749
  * section 4.1.2.1).
  */
 const back = Schema.optionalKey(Return);
