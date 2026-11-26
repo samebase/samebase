@@ -28,7 +28,7 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { formatTime, type HubClient, ownerOf } from "@/components/hubClients/hubClient";
+import { formatTime, type BrokerClient, ownerOf } from "@/components/brokerClients/brokerClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,7 +51,7 @@ import {
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
-import { HUB_CLIENTS_GROUP_VALUES, type HubClientsRouteSearch } from "@/routeSearch/hubClients";
+import { BROKER_CLIENTS_GROUP_VALUES, type BrokerClientsRouteSearch } from "@/routeSearch/brokerClients";
 import type { SearchPatch } from "@/routing/searchFlags";
 
 /** A client expires this close to its removal time gets the amber badge. */
@@ -70,7 +70,7 @@ const features = tableFeatures({
   filterFns: { arrHas: filterFn_arrHas },
 });
 
-const columnHelper = createColumnHelper<typeof features, HubClient>();
+const columnHelper = createColumnHelper<typeof features, BrokerClient>();
 
 /**
 The filters, each a column that only filters and groups. The URL holds the selected values under the
@@ -142,8 +142,8 @@ const STAGE_DOT_CLASS = {
 
 const STAGE_ORDER = { production: 0, preview: 1, development: 2 } as const;
 
-/** The hub names a client after its stage: `prod`, `pr-<number>`, or `development`. */
-function stageLabel(client: HubClient) {
+/** The broker names a client after its stage: `prod`, `pr-<number>`, or `development`. */
+function stageLabel(client: BrokerClient) {
   switch (client.deploymentType) {
     case "production":
       return "Production";
@@ -156,7 +156,7 @@ function stageLabel(client: HubClient) {
   }
 }
 
-function StageBadge({ client }: { client: HubClient }) {
+function StageBadge({ client }: { client: BrokerClient }) {
   return (
     <Badge variant="outline" className={STAGE_BADGE_CLASS[client.deploymentType]}>
       {stageLabel(client)}
@@ -182,7 +182,7 @@ function NoSignInBadge() {
   return <Badge variant="secondary">No sign-in</Badge>;
 }
 
-function RegisteredBy({ client }: { client: HubClient }) {
+function RegisteredBy({ client }: { client: BrokerClient }) {
   const { registeredBy } = client;
   if (registeredBy.kind === "initial_access_token") {
     return (
@@ -206,11 +206,11 @@ const readFilterValues = (value: string | undefined) =>
   value === undefined ? [] : value.split(",").filter((part) => part.length > 0);
 
 /**
-The clients of the identity hub, filtered and grouped by the page's URL search, grouped by repository
+The clients of the identity broker, filtered and grouped by the page's URL search, grouped by repository
 by default. The admin page lists every owner with the owner filter and grouping; an organization's
 page lists its own repositories without them. Each page adds its own menu items.
 */
-export function HubClientsTable({
+export function BrokerClientsTable({
   clients,
   limitReached,
   now,
@@ -221,18 +221,18 @@ export function HubClientsTable({
   clientActions,
   groupActions,
 }: {
-  clients: readonly HubClient[];
+  clients: readonly BrokerClient[];
   limitReached: boolean;
   now: number;
-  search: HubClientsRouteSearch;
-  onSearchChange: (patch: SearchPatch<HubClientsRouteSearch>) => void;
+  search: BrokerClientsRouteSearch;
+  onSearchChange: (patch: SearchPatch<BrokerClientsRouteSearch>) => void;
   /** The owner filter and the owner grouping, off on a page of one owner. */
   owners: boolean;
-  blocked: (client: HubClient) => boolean;
+  blocked: (client: BrokerClient) => boolean;
   /** The page's own menu items of a client, after the copy items. */
-  clientActions: (client: HubClient) => ReactNode;
+  clientActions: (client: BrokerClient) => ReactNode;
   /** The page's own menu items of a group, after Open on GitHub. */
-  groupActions: (first: HubClient, group: "repository" | "owner") => ReactNode;
+  groupActions: (first: BrokerClient, group: "repository" | "owner") => ReactNode;
 }) {
   const [query, setQuery] = useState(search.q ?? "");
   const [expanded, setExpanded] = useState<ExpandedState>(true);
@@ -257,13 +257,13 @@ export function HubClientsTable({
           client.registeredBy.kind === "github" ? client.registeredBy.githubActorLogin : "",
         ].some((text) => text.toLowerCase().includes(needle)),
     );
-    const groupKey = (client: HubClient) =>
+    const groupKey = (client: BrokerClient) =>
       group === "owner" ? ownerOf(client) : client.registeredBy.githubRepository;
     const newest = new Map<string, number>();
     for (const client of matching) {
       newest.set(groupKey(client), Math.max(newest.get(groupKey(client)) ?? 0, client.createdAt));
     }
-    const prNumber = (client: HubClient) =>
+    const prNumber = (client: BrokerClient) =>
       client.deploymentType === "preview" ? Number(client.clientName.replace(/^pr-/, "")) : 0;
     return matching.sort(
       (a, b) =>
@@ -367,7 +367,7 @@ export function HubClientsTable({
             value={group}
             onValueChange={(next) =>
               onSearchChange({
-                group: HUB_CLIENTS_GROUP_VALUES.find((value) => value === next) ?? null,
+                group: BROKER_CLIENTS_GROUP_VALUES.find((value) => value === next) ?? null,
               })
             }
           >
@@ -479,7 +479,7 @@ function FacetFilter({
       <PopoverContent align="start" className="w-56 gap-0 p-1">
         {options.map((option) => {
           const checked = selected.includes(option.value);
-          const id = `hub-clients-${label}-${option.value}`;
+          const id = `broker-clients-${label}-${option.value}`;
           return (
             <Label
               key={option.value}
@@ -521,11 +521,11 @@ function GroupRow({
   blocked,
   groupActions,
 }: {
-  row: Row<typeof features, HubClient>;
+  row: Row<typeof features, BrokerClient>;
   group: "repository" | "owner";
   now: number;
   blocked: boolean;
-  groupActions: (first: HubClient, group: "repository" | "owner") => ReactNode;
+  groupActions: (first: BrokerClient, group: "repository" | "owner") => ReactNode;
 }) {
   const leaves = row.getLeafRows().map((leaf) => leaf.original);
   const first = leaves[0];
@@ -608,14 +608,14 @@ function GroupRow({
 
 /**
 The connectors a client enrolled in, each marked when only an admin's grant allows it or when it may
-not be used now: the hub's policy and the grants no longer allow it, or the client cannot sign in.
+not be used now: the broker's policy and the grants no longer allow it, or the client cannot sign in.
 */
 /** The hosts of the client's return addresses, each once: one for most clients. */
-function hostsOf(client: HubClient) {
+function hostsOf(client: BrokerClient) {
   return [...new Set(client.redirectUris.map((uri) => new URL(uri).host))].join(", ");
 }
 
-function connectorsText(client: HubClient) {
+function connectorsText(client: BrokerClient) {
   return client.connectors
     .map((name) =>
       client.usableConnectors === null || !client.usableConnectors.includes(name)
@@ -637,14 +637,14 @@ function ClientRow({
   onToggle,
   clientActions,
 }: {
-  client: HubClient;
+  client: BrokerClient;
   indented: boolean;
   showRepository: boolean;
   now: number;
   blocked: boolean;
   open: boolean;
   onToggle: () => void;
-  clientActions: (client: HubClient) => ReactNode;
+  clientActions: (client: BrokerClient) => ReactNode;
 }) {
   const copy = (value: string) => {
     void navigator.clipboard.writeText(value);

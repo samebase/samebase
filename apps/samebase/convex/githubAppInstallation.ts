@@ -28,14 +28,14 @@ import {
   verifyGitHubAppConnectionInstallation,
 } from "./githubApp";
 import {
-  buildHubAuthorizationUrl,
+  buildBrokerAuthorizationUrl,
   exchangeResourceOAuthCode,
   expiringResourceTokens,
   finishResourceOAuth,
-  HUB_GRANT_IDLE_MS,
-  hubCallbackOrigin,
-  readHubAuthorizationError,
-  revokeHubRefreshToken,
+  BROKER_GRANT_IDLE_MS,
+  brokerCallbackOrigin,
+  readBrokerAuthorizationError,
+  revokeBrokerRefreshToken,
 } from "./hubResourceOAuth";
 import { vGitHubAppSetupPurpose } from "./githubAppSetupModel";
 import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
@@ -129,7 +129,7 @@ async function revokeUncommittedGitHubUserTokens(tokens: {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
   }
-  await revokeHubRefreshToken("github", tokens.refreshToken);
+  await revokeBrokerRefreshToken("github", tokens.refreshToken);
 }
 
 /**
@@ -237,7 +237,7 @@ async function buildGitHubUserAuthorizationSetupUrl(
     undefined,
     codeVerifier,
   );
-  return await buildHubAuthorizationUrl({ provider: "github", state, codeVerifier });
+  return await buildBrokerAuthorizationUrl({ provider: "github", state, codeVerifier });
 }
 
 export const createSetupState = internalMutation({
@@ -524,7 +524,7 @@ export const getGitHubAppInstallationUrl = mutation({
   handler: async (ctx, args) => {
     await requireMatchingGitHubUserAuthorization(ctx.db, ctx.viewer.userId);
     return {
-      callbackOrigin: hubCallbackOrigin(),
+      callbackOrigin: brokerCallbackOrigin(),
       setupUrl: await buildGitHubAppSetupUrl(ctx, ctx.viewer.userId, args.returnToPath),
     };
   },
@@ -548,7 +548,7 @@ export const getGitHubAppReconnectUrl = mutation({
     }
     await requireMatchingGitHubUserAuthorization(ctx.db, ctx.viewer.userId);
     return {
-      callbackOrigin: hubCallbackOrigin(),
+      callbackOrigin: brokerCallbackOrigin(),
       setupUrl: await buildGitHubAppReconnectSetupUrl(ctx, {
         organizationId,
         returnToPath: args.returnToPath,
@@ -566,7 +566,7 @@ export const getGitHubUserAuthorizationUrl = mutation({
   returns: vGitHubAuthorizationStart,
   handler: async (ctx, args) => {
     return {
-      callbackOrigin: hubCallbackOrigin(),
+      callbackOrigin: brokerCallbackOrigin(),
       setupUrl: await buildGitHubUserAuthorizationSetupUrl(ctx, {
         returnToPath: args.returnToPath,
         userId: ctx.viewer.userId,
@@ -606,8 +606,8 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
     : await finishGitHubSetup(ctx, url, setupState);
 });
 
-/** The one callback a deployment registers at the hub, for GitHub and for the API providers. */
-export const finishHubOAuth = httpAction(async (ctx, request) => {
+/** The one callback a deployment registers at the broker, for GitHub and for the API providers. */
+export const finishBrokerOAuth = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const setupState = await readSetupState(ctx, url);
   if (setupState === null) return await finishResourceOAuth(ctx, request);
@@ -615,7 +615,7 @@ export const finishHubOAuth = httpAction(async (ctx, request) => {
     return new Response("Invalid OAuth state", { status: 400 });
   }
   try {
-    readHubAuthorizationError(url, setupState.state);
+    readBrokerAuthorizationError(url, setupState.state);
   } catch {
     return new Response("Invalid OAuth authorization response", { status: 400 });
   }
@@ -802,7 +802,7 @@ async function finishGitHubSetup(
                   plaintext: tokens.refreshToken,
                   aad: githubUserAuthorizationAad(setupState.userId, "refreshToken"),
                 }),
-                refreshTokenExpiresAt: now + HUB_GRANT_IDLE_MS,
+                refreshTokenExpiresAt: now + BROKER_GRANT_IDLE_MS,
                 githubUserId: githubUser.githubUserId,
                 githubUserLogin: githubUser.githubUserLogin,
               },

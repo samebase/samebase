@@ -29,9 +29,9 @@ const app = defineApp({
     IDENTITY_HUB_CLIENT_ID: v.string(),
     IDENTITY_HUB_CLIENT_SECRET: v.string(),
     IDENTITY_HUB_ISSUER: v.string(),
-    // The public identity hub, where apps made from the starter sign in (samebase/identity-hub):
-    // its issuer and the key of its moderation endpoints, which /admin/hub-clients calls through
-    // hubClients/moderation.ts. Set by hand. Unset, as in CI: the page says that moderation is off.
+    // The public identity broker, where apps made from the starter sign in (samebase/identity-hub):
+    // its issuer and the key of its moderation endpoints, which /admin/broker-clients calls through
+    // brokerClients/moderation.ts. Set by hand. Unset, as in CI: the page says that moderation is off.
     PUBLIC_IDENTITY_HUB_ISSUER: v.optional(v.string()),
     PUBLIC_IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
@@ -52,13 +52,14 @@ app.use(auth, {
     AUTH_JWKS: app.env.AUTH_JWKS,
   },
 });
-// GitHub and Google sign-in run through the team's identity hub, an OpenID Provider at
+// GitHub and Google sign-in run through the team's identity broker, an OpenID Provider at
 // IDENTITY_HUB_ISSUER, with one client per deployment for both methods and for the provider
-// connections (convex/hubResourceOAuth.ts). The client holds two return addresses: the hub sends a
-// sign-in back to <site>/auth/hub/callback, next to the other sign-in routes under /auth, and a
+// connections (convex/hubResourceOAuth.ts). The client holds two return addresses: the broker sends
+// a sign-in back to <site>/auth/hub/callback, next to the other sign-in routes under /auth, and a
 // connection back to <site>/oauth/hub/callback (convex/http.ts). Convex refuses to bind the
 // component's required variables to optional ones, so every deployment holds the three
-// IDENTITY_HUB_ variables; a linked worktree and CI hold no-hub values.
+// IDENTITY_HUB_ variables; a linked worktree and CI hold no-hub values. The variable names, the
+// callback paths and the `authHub` mount stay: deployments and broker registrations hold them.
 app.use(oauth, {
   name: "authHub",
   httpPrefix: "/auth/hub",

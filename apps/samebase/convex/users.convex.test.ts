@@ -65,8 +65,8 @@ function stubCloudflareApiTokenAccounts(
   return fetch;
 }
 
-function stubResourceHub(): void {
-  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+function stubResourceBroker(): void {
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
   vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
 }
@@ -974,12 +974,12 @@ describe("organization provider status", () => {
     );
   });
 
-  it("tells the owner to reconnect when the hub refuses a Cloudflare grant", async () => {
+  it("tells the owner to reconnect when the broker refuses a Cloudflare grant", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
     });
     const asOwner = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
-    stubResourceHub();
+    stubResourceBroker();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ error: "invalid_grant" }, { status: 400 })),
@@ -995,12 +995,12 @@ describe("organization provider status", () => {
     });
   });
 
-  it("keeps a failed Cloudflare check retryable while the hub is unavailable", async () => {
+  it("keeps a failed Cloudflare check retryable while the broker is unavailable", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
     });
     const asOwner = t.withIdentity({ subject: userId, tokenIdentifier: `test:${userId}` });
-    stubResourceHub();
+    stubResourceBroker();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ error: "temporarily_unavailable" }, { status: 503 })),
@@ -1021,7 +1021,7 @@ describe("organization provider status", () => {
       subject: userId,
       tokenIdentifier: `test:${userId}`,
     });
-    stubResourceHub();
+    stubResourceBroker();
     const fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
       if (url.pathname === "/token") {

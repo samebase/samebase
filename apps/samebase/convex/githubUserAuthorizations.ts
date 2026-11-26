@@ -19,9 +19,9 @@ import { action, query } from "./functions";
 import { createGitHubUserOctokit, revokeGitHubAppUserToken } from "./githubApp";
 import {
   expiringResourceTokens,
-  HUB_GRANT_IDLE_MS,
+  BROKER_GRANT_IDLE_MS,
   refreshResourceOAuthToken,
-  revokeHubRefreshToken,
+  revokeBrokerRefreshToken,
 } from "./hubResourceOAuth";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
@@ -664,7 +664,7 @@ async function revokeGitHubUserAuthorizationAtProvider(
   } catch {
     throw new Error("Failed to revoke GitHub user authorization.");
   }
-  await revokeHubRefreshToken(
+  await revokeBrokerRefreshToken(
     "github",
     await openSecret({
       sealed: authorization.refreshToken,
@@ -894,7 +894,7 @@ async function resolveGitHubUserOctokitFromUse(
         plaintext: refreshed.refreshToken,
         aad: githubUserAuthorizationAad(userId, "refreshToken"),
       }),
-      refreshTokenExpiresAt: now + HUB_GRANT_IDLE_MS,
+      refreshTokenExpiresAt: now + BROKER_GRANT_IDLE_MS,
     });
     return attachGitHubBackoff(ctx, createGitHubUserOctokit(refreshed.accessToken), {
       kind: "user",

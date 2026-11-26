@@ -34,7 +34,7 @@ data.
 - **Delete it:** run the **Destroy app** workflow. It deletes the Convex project and its data. The
   repository stays.
 - **Sign-in:** guests and Google accounts can sign in. The first deploy gets Google sign-in from
-  Samebase's identity hub, with no Samebase account.
+  the public identity broker, with no Samebase account.
 
 Samebase does the three steps with one click, connects by OAuth instead of a pasted token, and shows
 what every app deployed.

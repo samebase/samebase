@@ -5,6 +5,10 @@ import { useRouter } from "@tanstack/react-router";
 import { ConvexHttpClient } from "convex/browser";
 import { useCallback, useEffect } from "react";
 import { api } from "../convex/_generated/api";
+import {
+  BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
+  BROKER_GOOGLE_ACCOUNT_PROVIDER_ID,
+} from "../convex/identity/accountModel";
 import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
@@ -49,20 +53,20 @@ const deferredPostHogResetClient: PostHogResetClient = {
 };
 
 /**
- * Starts the redirect to the identity hub, which signs in with the provider of the button. The
+ * Starts the redirect to the identity broker, which signs in with the provider of the button. The
  * browser leaves the page when the start succeeds, and the Convex Auth client finishes the sign-in
- * when the hub returns to `redirectTo`, a path on this origin.
+ * when the broker returns to `redirectTo`, a path on this origin.
  */
 function useOAuthSignIn() {
   const { signIn: signInWithGithub } = useOauthSignIn({
-    providerName: "hub-github",
-    startSignIn: api.auth.startSignInWithIdentityHubGithub,
-    completeSignIn: api.auth.completeSignInWithIdentityHubGithub,
+    providerName: BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
+    startSignIn: api.auth.startSignInWithIdentityBrokerGithub,
+    completeSignIn: api.auth.completeSignInWithIdentityBrokerGithub,
   });
   const { signIn: signInWithGoogle } = useOauthSignIn({
-    providerName: "hub-google",
-    startSignIn: api.auth.startSignInWithIdentityHubGoogle,
-    completeSignIn: api.auth.completeSignInWithIdentityHubGoogle,
+    providerName: BROKER_GOOGLE_ACCOUNT_PROVIDER_ID,
+    startSignIn: api.auth.startSignInWithIdentityBrokerGoogle,
+    completeSignIn: api.auth.completeSignInWithIdentityBrokerGoogle,
   });
 
   return useCallback(

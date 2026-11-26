@@ -73,7 +73,7 @@ function resolveConnection(seed: Awaited<ReturnType<typeof seedConnection>>) {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
-  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
   vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
 });
@@ -86,11 +86,11 @@ afterEach(() => {
 
 describe("Cloudflare connection refresh", () => {
   it.each([
-    { name: "expired OAuth", auth: oauth, endpoint: "https://hub.example.test/token" },
+    { name: "expired OAuth", auth: oauth, endpoint: "https://broker.example.test/token" },
     {
       name: "expiring OAuth",
       auth: { ...oauth, credentialExpiresAt: now + 60_000 },
-      endpoint: "https://hub.example.test/token",
+      endpoint: "https://broker.example.test/token",
     },
     {
       name: "expired MCP OAuth",
@@ -192,7 +192,7 @@ describe("Cloudflare connection refresh", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("records a hub invalid grant and releases its token lease", async () => {
+  it("records a broker invalid grant and releases its token lease", async () => {
     const seed = await seedConnection(oauth);
     vi.stubGlobal(
       "fetch",
@@ -223,7 +223,7 @@ describe("Cloudflare connection refresh", () => {
           { status: 401, headers: { "WWW-Authenticate": 'Basic realm="token"' } },
         ),
     },
-  ])("keeps the connection when the hub $name", async ({ response }) => {
+  ])("keeps the connection when the broker $name", async ({ response }) => {
     const seed = await seedConnection(oauth);
     vi.stubGlobal(
       "fetch",

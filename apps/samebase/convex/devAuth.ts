@@ -197,7 +197,7 @@ function buildPreviewSeedOrganizationConfigs(args: {
 
 /**
 The GitHub owner of the worktree's seeded organization, or null on a CI backend, which has none. The
-worktree connects Convex and Cloudflare through the identity hub, so the seed holds no provider
+worktree connects Convex and Cloudflare through the identity broker, so the seed holds no provider
 credential.
 */
 function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
@@ -226,7 +226,7 @@ function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
 /**
  * A local worktree seeds a password account. A preview seeds only a user with
  * the verified `DEV_SEED_AUTH_EMAIL`, which GitHub sign-in through the
- * identity hub reaches by that verified email.
+ * identity broker reaches by that verified email.
  */
 function readSeedAccountConfig():
   | {

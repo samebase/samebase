@@ -8,17 +8,17 @@ import {
   routeSearchValueParam,
 } from "@/routing/searchParamMetadata";
 
-export const HUB_CLIENTS_GROUP_VALUES = ["owner", "none"] as const;
+export const BROKER_CLIENTS_GROUP_VALUES = ["owner", "none"] as const;
 /** An organization's page lists one owner's clients, so it groups by repository or not at all. */
-export const ORGANIZATION_HUB_CLIENTS_GROUP_VALUES = ["none"] as const;
+export const ORGANIZATION_BROKER_CLIENTS_GROUP_VALUES = ["none"] as const;
 
 /**
-The hub clients pages keep their search, filters, and grouping in the URL, so a filtered view is a
+The broker clients pages keep their search, filters, and grouping in the URL, so a filtered view is a
 link. A filter holds comma-separated values, such as `stage=preview,development`. No `group` groups
 by repository. The admin page lists every owner; an organization's page lists its own repositories
 and has no owner filter.
 */
-const RouteSearchSchema_adminHubClients = defineRouteSearchParams({
+const RouteSearchSchema_adminBrokerClients = defineRouteSearchParams({
   q: routeSearchValueParam(routeSearchNonEmptyString, {
     access: "access_admin",
     sampleValue: "samebase",
@@ -49,16 +49,16 @@ const RouteSearchSchema_adminHubClients = defineRouteSearchParams({
     suggestion: "route",
     valueType: "freeform",
   }),
-  group: routeSearchValueParam(routeSearchStringValue(HUB_CLIENTS_GROUP_VALUES), {
+  group: routeSearchValueParam(routeSearchStringValue(BROKER_CLIENTS_GROUP_VALUES), {
     access: "access_admin",
     sampleValue: "owner",
     suggestion: "route",
-    valueSuggestions: HUB_CLIENTS_GROUP_VALUES,
+    valueSuggestions: BROKER_CLIENTS_GROUP_VALUES,
     valueType: "options",
   }),
 });
 
-const RouteSearchSchema_organizationHubClients = defineRouteSearchParams({
+const RouteSearchSchema_organizationBrokerClients = defineRouteSearchParams({
   q: routeSearchValueParam(routeSearchNonEmptyString, {
     access: "access_dashboard",
     sampleValue: "my-app",
@@ -83,34 +83,34 @@ const RouteSearchSchema_organizationHubClients = defineRouteSearchParams({
     suggestion: "route",
     valueType: "freeform",
   }),
-  group: routeSearchValueParam(routeSearchStringValue(ORGANIZATION_HUB_CLIENTS_GROUP_VALUES), {
+  group: routeSearchValueParam(routeSearchStringValue(ORGANIZATION_BROKER_CLIENTS_GROUP_VALUES), {
     access: "access_dashboard",
     sampleValue: "none",
     suggestion: "route",
-    valueSuggestions: ORGANIZATION_HUB_CLIENTS_GROUP_VALUES,
+    valueSuggestions: ORGANIZATION_BROKER_CLIENTS_GROUP_VALUES,
     valueType: "options",
   }),
 });
 
 /** The search of either page: an organization's page is the admin page's without `owner`. */
-export type HubClientsRouteSearch = InferRouteSearch<typeof RouteSearchSchema_adminHubClients>;
+export type BrokerClientsRouteSearch = InferRouteSearch<typeof RouteSearchSchema_adminBrokerClients>;
 
-export const ADMIN_HUB_CLIENTS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
-  readRouteSearchParamMetadata(RouteSearchSchema_adminHubClients),
+export const ADMIN_BROKER_CLIENTS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  readRouteSearchParamMetadata(RouteSearchSchema_adminBrokerClients),
 );
 
-export const ORGANIZATION_HUB_CLIENTS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
-  readRouteSearchParamMetadata(RouteSearchSchema_organizationHubClients),
+export const ORGANIZATION_BROKER_CLIENTS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  readRouteSearchParamMetadata(RouteSearchSchema_organizationBrokerClients),
 );
 
-export function validateAdminHubClientsRouteSearch(
+export function validateAdminBrokerClientsRouteSearch(
   search: Record<string, unknown>,
-): HubClientsRouteSearch {
-  return RouteSearchSchema_adminHubClients.parse(search);
+): BrokerClientsRouteSearch {
+  return RouteSearchSchema_adminBrokerClients.parse(search);
 }
 
-export function validateOrganizationHubClientsRouteSearch(
+export function validateOrganizationBrokerClientsRouteSearch(
   search: Record<string, unknown>,
-): InferRouteSearch<typeof RouteSearchSchema_organizationHubClients> {
-  return RouteSearchSchema_organizationHubClients.parse(search);
+): InferRouteSearch<typeof RouteSearchSchema_organizationBrokerClients> {
+  return RouteSearchSchema_organizationBrokerClients.parse(search);
 }

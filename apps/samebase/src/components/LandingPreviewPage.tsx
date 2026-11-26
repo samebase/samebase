@@ -79,7 +79,7 @@ const LANDING_PARTS = [
   {
     name: "samebase/identity-hub",
     meta: "Template · MIT",
-    description: "identity-broker as a hub you deploy. Ours runs at id.samebase.com.",
+    description: "identity-broker, ready to deploy. Ours runs at id.samebase.com.",
     href: "https://github.com/samebase/identity-hub",
   },
   {

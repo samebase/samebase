@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { api, components, internal } from "../_generated/api";
+import { BROKER_GITHUB_ACCOUNT_PROVIDER_ID } from "../identity/accountModel";
 import { makeConvexTest, stubConvexAuthEnv } from "../test.setup";
 
 afterEach(() => {
@@ -600,10 +601,10 @@ describe("account deletion with Convex Auth 2", () => {
     const issuer = "https://samebase-test.convex.site";
     const email = "deleted-github-user@example.invalid";
     const password = "deleted-user-password-1234";
-    // The arguments that the hub-github method passes to the core for a first sign-in.
+    // The arguments that the broker's GitHub method passes to the core for a first sign-in.
     const githubSignUp = {
       claims: {
-        providerName: "hub-github",
+        providerName: BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
         providerAccountId: "github:deleted-account",
         profile: {
           id: "github:deleted-account",
@@ -633,7 +634,7 @@ describe("account deletion with Convex Auth 2", () => {
     await t.mutation(internal.authAdmin.createOrUpdatePasswordAccount, { email, password });
     await expect(
       t.query(components.auth.public.getUserIdByAccount, {
-        provider: "hub-github",
+        provider: BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
         providerAccountId: "github:deleted-account",
       }),
     ).resolves.toBe(userId);
@@ -665,10 +666,10 @@ describe("account deletion with Convex Auth 2", () => {
       t.mutation(components.authPassword.public.verifyPassword, { userId, password }),
     ).rejects.toThrow(`No password stored for userId ${userId}.`);
 
-    // The hub method signs up a subject that the core does not know.
+    // The broker method signs up a subject that the core does not know.
     await expect(
       t.query(components.auth.public.getUserIdByAccount, {
-        provider: "hub-github",
+        provider: BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
         providerAccountId: "github:deleted-account",
       }),
     ).resolves.toBeNull();

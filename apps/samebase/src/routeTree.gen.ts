@@ -44,8 +44,8 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
+import { Route as adminBrokerClientsRouteImport } from "./routes/admin-broker-clients";
 import { Route as adminEmailsRouteImport } from "./routes/admin-emails";
-import { Route as adminHubClientsRouteImport } from "./routes/admin-hub-clients";
 import { Route as adminUsersRouteImport } from "./routes/admin-users";
 import { Route as oauthProviderCompleteRouteImport } from "./routes/oauth-provider-complete";
 import { Route as orgRouteImport } from "./routes/org";
@@ -57,8 +57,8 @@ import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menge
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
+import { Route as orgBrokerClientsRouteImport } from "./routes/org-broker-clients";
 import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
-import { Route as orgHubClientsRouteImport } from "./routes/org-hub-clients";
 import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
 import { Route as orgProvidersRouteImport } from "./routes/org-providers";
 import { Route as orgRepositoriesRouteImport } from "./routes/org-repositories";
@@ -246,14 +246,14 @@ const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   path: "/admin/account-deletions",
   getParentRoute: () => authedRoute,
 } as any);
+const adminBrokerClientsRoute = adminBrokerClientsRouteImport.update({
+  id: "/admin/broker-clients",
+  path: "/admin/broker-clients",
+  getParentRoute: () => authedRoute,
+} as any);
 const adminEmailsRoute = adminEmailsRouteImport.update({
   id: "/admin/emails",
   path: "/admin/emails",
-  getParentRoute: () => authedRoute,
-} as any);
-const adminHubClientsRoute = adminHubClientsRouteImport.update({
-  id: "/admin/hub-clients",
-  path: "/admin/hub-clients",
   getParentRoute: () => authedRoute,
 } as any);
 const adminUsersRoute = adminUsersRouteImport.update({
@@ -313,14 +313,14 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
+const orgBrokerClientsRoute = orgBrokerClientsRouteImport.update({
+  id: "/org/$owner/broker-clients",
+  path: "/org/$owner/broker-clients",
+  getParentRoute: () => authedRoute,
+} as any);
 const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
   id: "/org/$owner/connect-repo",
   path: "/org/$owner/connect-repo",
-  getParentRoute: () => authedRoute,
-} as any);
-const orgHubClientsRoute = orgHubClientsRouteImport.update({
-  id: "/org/$owner/hub-clients",
-  path: "/org/$owner/hub-clients",
   getParentRoute: () => authedRoute,
 } as any);
 const orgNewAppRoute = orgNewAppRouteImport.update({
@@ -417,8 +417,8 @@ export interface FileRoutesByFullPath {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/repo/": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/broker-clients": typeof adminBrokerClientsRoute;
   "/admin/emails": typeof adminEmailsRoute;
-  "/admin/hub-clients": typeof adminHubClientsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
@@ -429,8 +429,8 @@ export interface FileRoutesByFullPath {
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/org/$owner/broker-clients": typeof orgBrokerClientsRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
-  "/org/$owner/hub-clients": typeof orgHubClientsRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
   "/org/$owner/repositories": typeof orgRepositoriesRoute;
@@ -479,8 +479,8 @@ export interface FileRoutesByTo {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/repo": typeof repositoryDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/broker-clients": typeof adminBrokerClientsRoute;
   "/admin/emails": typeof adminEmailsRoute;
-  "/admin/hub-clients": typeof adminHubClientsRoute;
   "/admin/users": typeof adminUsersRoute;
   "/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/org/$owner": typeof orgRoute;
@@ -491,8 +491,8 @@ export interface FileRoutesByTo {
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/org/$owner/broker-clients": typeof orgBrokerClientsRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
-  "/org/$owner/hub-clients": typeof orgHubClientsRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
   "/org/$owner/repositories": typeof orgRepositoriesRoute;
@@ -543,8 +543,8 @@ export interface FileRoutesById {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/_authed/repo/": typeof repositoryDashboardRootRoute;
   "/_authed/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/_authed/admin/broker-clients": typeof adminBrokerClientsRoute;
   "/_authed/admin/emails": typeof adminEmailsRoute;
-  "/_authed/admin/hub-clients": typeof adminHubClientsRoute;
   "/_authed/admin/users": typeof adminUsersRoute;
   "/_authed/oauth/provider-complete": typeof oauthProviderCompleteRoute;
   "/_authed/org/$owner": typeof orgRoute;
@@ -555,8 +555,8 @@ export interface FileRoutesById {
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/_authed/org/$owner/broker-clients": typeof orgBrokerClientsRoute;
   "/_authed/org/$owner/connect-repo": typeof orgConnectRepoRoute;
-  "/_authed/org/$owner/hub-clients": typeof orgHubClientsRoute;
   "/_authed/org/$owner/new-app": typeof orgNewAppRoute;
   "/_authed/org/$owner/providers": typeof orgProvidersRoute;
   "/_authed/org/$owner/repositories": typeof orgRepositoriesRoute;
@@ -607,8 +607,8 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/repo/"
     | "/admin/account-deletions"
+    | "/admin/broker-clients"
     | "/admin/emails"
-    | "/admin/hub-clients"
     | "/admin/users"
     | "/oauth/provider-complete"
     | "/org/$owner"
@@ -619,8 +619,8 @@ export interface FileRouteTypes {
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
+    | "/org/$owner/broker-clients"
     | "/org/$owner/connect-repo"
-    | "/org/$owner/hub-clients"
     | "/org/$owner/new-app"
     | "/org/$owner/providers"
     | "/org/$owner/repositories"
@@ -669,8 +669,8 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/repo"
     | "/admin/account-deletions"
+    | "/admin/broker-clients"
     | "/admin/emails"
-    | "/admin/hub-clients"
     | "/admin/users"
     | "/oauth/provider-complete"
     | "/org/$owner"
@@ -681,8 +681,8 @@ export interface FileRouteTypes {
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
+    | "/org/$owner/broker-clients"
     | "/org/$owner/connect-repo"
-    | "/org/$owner/hub-clients"
     | "/org/$owner/new-app"
     | "/org/$owner/providers"
     | "/org/$owner/repositories"
@@ -732,8 +732,8 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/_authed/repo/"
     | "/_authed/admin/account-deletions"
+    | "/_authed/admin/broker-clients"
     | "/_authed/admin/emails"
-    | "/_authed/admin/hub-clients"
     | "/_authed/admin/users"
     | "/_authed/oauth/provider-complete"
     | "/_authed/org/$owner"
@@ -744,8 +744,8 @@ export interface FileRouteTypes {
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
+    | "/_authed/org/$owner/broker-clients"
     | "/_authed/org/$owner/connect-repo"
-    | "/_authed/org/$owner/hub-clients"
     | "/_authed/org/$owner/new-app"
     | "/_authed/org/$owner/providers"
     | "/_authed/org/$owner/repositories"
@@ -1041,18 +1041,18 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminAccountDeletionsRouteImport;
       parentRoute: typeof authedRoute;
     };
+    "/_authed/admin/broker-clients": {
+      id: "/_authed/admin/broker-clients";
+      path: "/admin/broker-clients";
+      fullPath: "/admin/broker-clients";
+      preLoaderRoute: typeof adminBrokerClientsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
     "/_authed/admin/emails": {
       id: "/_authed/admin/emails";
       path: "/admin/emails";
       fullPath: "/admin/emails";
       preLoaderRoute: typeof adminEmailsRouteImport;
-      parentRoute: typeof authedRoute;
-    };
-    "/_authed/admin/hub-clients": {
-      id: "/_authed/admin/hub-clients";
-      path: "/admin/hub-clients";
-      fullPath: "/admin/hub-clients";
-      preLoaderRoute: typeof adminHubClientsRouteImport;
       parentRoute: typeof authedRoute;
     };
     "/_authed/admin/users": {
@@ -1132,18 +1132,18 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof mcpConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/_authed/org/$owner/broker-clients": {
+      id: "/_authed/org/$owner/broker-clients";
+      path: "/org/$owner/broker-clients";
+      fullPath: "/org/$owner/broker-clients";
+      preLoaderRoute: typeof orgBrokerClientsRouteImport;
+      parentRoute: typeof authedRoute;
+    };
     "/_authed/org/$owner/connect-repo": {
       id: "/_authed/org/$owner/connect-repo";
       path: "/org/$owner/connect-repo";
       fullPath: "/org/$owner/connect-repo";
       preLoaderRoute: typeof orgConnectRepoRouteImport;
-      parentRoute: typeof authedRoute;
-    };
-    "/_authed/org/$owner/hub-clients": {
-      id: "/_authed/org/$owner/hub-clients";
-      path: "/org/$owner/hub-clients";
-      fullPath: "/org/$owner/hub-clients";
-      preLoaderRoute: typeof orgHubClientsRouteImport;
       parentRoute: typeof authedRoute;
     };
     "/_authed/org/$owner/new-app": {
@@ -1236,15 +1236,15 @@ interface authedRouteChildren {
   testRoute: typeof testRoute;
   repositoryDashboardRootRoute: typeof repositoryDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
+  adminBrokerClientsRoute: typeof adminBrokerClientsRoute;
   adminEmailsRoute: typeof adminEmailsRoute;
-  adminHubClientsRoute: typeof adminHubClientsRoute;
   adminUsersRoute: typeof adminUsersRoute;
   oauthProviderCompleteRoute: typeof oauthProviderCompleteRoute;
   orgRoute: typeof orgRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   repositoryFileRoute: typeof repositoryFileRoute;
+  orgBrokerClientsRoute: typeof orgBrokerClientsRoute;
   orgConnectRepoRoute: typeof orgConnectRepoRoute;
-  orgHubClientsRoute: typeof orgHubClientsRoute;
   orgNewAppRoute: typeof orgNewAppRoute;
   orgProvidersRoute: typeof orgProvidersRoute;
   orgRepositoriesRoute: typeof orgRepositoriesRoute;
@@ -1268,15 +1268,15 @@ const authedRouteChildren: authedRouteChildren = {
   testRoute: testRoute,
   repositoryDashboardRootRoute: repositoryDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
+  adminBrokerClientsRoute: adminBrokerClientsRoute,
   adminEmailsRoute: adminEmailsRoute,
-  adminHubClientsRoute: adminHubClientsRoute,
   adminUsersRoute: adminUsersRoute,
   oauthProviderCompleteRoute: oauthProviderCompleteRoute,
   orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
   repositoryFileRoute: repositoryFileRoute,
+  orgBrokerClientsRoute: orgBrokerClientsRoute,
   orgConnectRepoRoute: orgConnectRepoRoute,
-  orgHubClientsRoute: orgHubClientsRoute,
   orgNewAppRoute: orgNewAppRoute,
   orgProvidersRoute: orgProvidersRoute,
   orgRepositoriesRoute: orgRepositoriesRoute,

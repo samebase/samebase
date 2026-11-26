@@ -124,7 +124,7 @@ export const checkCloudflareConnectionAccess = action({
           { organizationId, userId: ctx.viewer.userId },
         );
       } catch (error) {
-        // The resolver records a grant the hub refused. Only a reconnect repairs it, not a reload.
+        // The resolver records a grant the broker refused. Only a reconnect repairs it, not a reload.
         const current = await ctx.runQuery(
           internal.organizationProviderCredentials.loadForProviderStatus,
           { organizationId, userId: ctx.viewer.userId },

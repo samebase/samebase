@@ -261,14 +261,14 @@ async function startDeletion(seed: Seed) {
 
 describe("organization provider credential lifecycle", () => {
   it.each([
-    { operation: "disconnect", hubAvailable: true },
-    { operation: "replace", hubAvailable: true },
-    { operation: "disconnect", hubAvailable: false },
+    { operation: "disconnect", brokerAvailable: true },
+    { operation: "replace", brokerAvailable: true },
+    { operation: "disconnect", brokerAvailable: false },
   ] as const)(
-    "commits $operation before revoking a hub grant (hub available: $hubAvailable)",
-    async ({ operation, hubAvailable }) => {
+    "commits $operation before revoking a broker grant (broker available: $brokerAvailable)",
+    async ({ operation, brokerAvailable }) => {
       vi.useFakeTimers();
-      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
       vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
       vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
       try {
@@ -280,7 +280,7 @@ describe("organization provider credential lifecycle", () => {
           await ctx.db.insert("organizationProviderCredentials", {
             organizationId: seed.organizationId,
             cloudflare: {
-              auth: cloudflareOAuth("hub"),
+              auth: cloudflareOAuth("broker"),
               connectedByUserId: seed.connectorId,
               updatedAt: Date.now(),
             },
@@ -289,16 +289,16 @@ describe("organization provider credential lifecycle", () => {
         await sealTestCredentials(seed.t);
         const before = await loadProviderState(seed.t, seed.organizationId);
         if (before.credentials?.cloudflare === undefined)
-          throw new Error("Expected the hub credential.");
+          throw new Error("Expected the broker credential.");
         const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
           const request = new Request(input, init);
-          expect(request.url).toBe("https://hub.example.test/revoke");
+          expect(request.url).toBe("https://broker.example.test/revoke");
           const body = await request.formData();
-          expect(body.get("token")).toBe("refresh-hub");
+          expect(body.get("token")).toBe("refresh-broker");
           expect(body.get("token_type_hint")).toBe("refresh_token");
           expect(body.get("resource")).toBe("https://api.cloudflare.com/client/v4/");
           expect(body.get("client_id")).toBe("resource-client");
-          if (!hubAvailable) throw new Error("Hub unavailable");
+          if (!brokerAvailable) throw new Error("Broker unavailable");
           return new Response(null, { status: 200 });
         });
         vi.stubGlobal("fetch", fetch);

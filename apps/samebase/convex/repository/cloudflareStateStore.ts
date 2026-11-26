@@ -419,7 +419,7 @@ export async function readRepositoryCloudflareStacks(
       userId: args.userId,
     });
   } catch {
-    // The resolver records a grant that the hub refused to refresh. Only a reconnect repairs it.
+    // The resolver records a grant that the broker refused to refresh. Only a reconnect repairs it.
     const current = await ctx.runQuery(
       internal.organizationProviderCredentials.loadForProviderStatus,
       { organizationId, userId: args.userId },

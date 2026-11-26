@@ -94,7 +94,7 @@ const storageBoundaryScenarios = [
     completionEventType: "convex-oauth-complete",
     provider: "convex",
     path: "/oauth/hub/callback",
-    tokenEndpoint: "https://hub.example.test/token",
+    tokenEndpoint: "https://broker.example.test/token",
     tokenResponse: {
       access_token: "convex-access-token",
       token_type: "bearer",
@@ -105,7 +105,7 @@ const storageBoundaryScenarios = [
     completionEventType: "cloudflare-oauth-complete",
     provider: "cloudflare",
     path: "/oauth/hub/callback",
-    tokenEndpoint: "https://hub.example.test/token",
+    tokenEndpoint: "https://broker.example.test/token",
     tokenResponse: {
       access_token: "cloudflare-access-token",
       token_type: "bearer",
@@ -139,7 +139,7 @@ const reusedCloudflareGrantScenarios = [
   {
     provider: "cloudflare",
     path: "/oauth/hub/callback",
-    tokenEndpoint: "https://hub.example.test/token",
+    tokenEndpoint: "https://broker.example.test/token",
     clientId: undefined,
     codeVerifier: undefined,
     auth: {
@@ -331,7 +331,7 @@ async function completeAsOwner(
   args: { provider: OAuthProvider; path: string; state: string; userId: Id<"users"> },
 ): Promise<string> {
   const callbackResponse = await t.fetch(
-    `${args.path}?iss=https%3A%2F%2Fhub.example.test&code=provider-code&state=${args.state}`,
+    `${args.path}?iss=https%3A%2F%2Fbroker.example.test&code=provider-code&state=${args.state}`,
   );
   await expectCompletionResponse(callbackResponse, {
     eventType: readCompletionEventType(args.provider),
@@ -354,9 +354,9 @@ async function completeAsOwner(
   );
 }
 
-async function expectHubRevocation(request: Request | undefined, token: string) {
-  if (request === undefined) throw new Error("Expected hub revocation request.");
-  expect(request.url).toBe("https://hub.example.test/revoke");
+async function expectBrokerRevocation(request: Request | undefined, token: string) {
+  if (request === undefined) throw new Error("Expected broker revocation request.");
+  expect(request.url).toBe("https://broker.example.test/revoke");
   expect(request.method).toBe("POST");
   const body = await request.formData();
   expect(body.get("token")).toBe(token);
@@ -368,7 +368,7 @@ async function expectHubRevocation(request: Request | undefined, token: string) 
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://hub.example.test");
+  vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
   vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
   vi.stubEnv("CONVEX_SITE_URL", "https://samebase.com");
@@ -432,7 +432,7 @@ describe("provider OAuth callback organization returns", () => {
     { label: "wrong", query: "&iss=https%3A%2F%2Fother.example.test" },
     {
       label: "duplicate",
-      query: "&iss=https%3A%2F%2Fhub.example.test&iss=https%3A%2F%2Fhub.example.test",
+      query: "&iss=https%3A%2F%2Fbroker.example.test&iss=https%3A%2F%2Fbroker.example.test",
     },
   ])("rejects a $label issuer without consuming callback state", async ({ query }) => {
     const t = makeConvexTest();
@@ -568,7 +568,7 @@ describe("provider OAuth callback organization returns", () => {
       vi.stubGlobal("fetch", providerFetch);
 
       const response = await t.fetch(
-        `${scenario.path}?iss=https%3A%2F%2Fhub.example.test&code=provider-code&state=${state}`,
+        `${scenario.path}?iss=https%3A%2F%2Fbroker.example.test&code=provider-code&state=${state}`,
       );
 
       expect(response.status).toBe(400);
@@ -639,7 +639,7 @@ describe("provider OAuth callback organization returns", () => {
       vi.stubEnv("SITE_URL", "https://samebase.com");
 
       const response = await t.fetch(
-        `${scenario.path}?iss=https%3A%2F%2Fhub.example.test&error=access_denied&state=${state}`,
+        `${scenario.path}?iss=https%3A%2F%2Fbroker.example.test&error=access_denied&state=${state}`,
         {
           redirect: "manual",
         },
@@ -737,7 +737,7 @@ describe("provider OAuth callback organization returns", () => {
       vi.stubGlobal("fetch", providerFetch);
 
       const response = await t.fetch(
-        `${scenario.path}?iss=https%3A%2F%2Fhub.example.test&code=provider-code&state=${state}`,
+        `${scenario.path}?iss=https%3A%2F%2Fbroker.example.test&code=provider-code&state=${state}`,
       );
 
       await expectCompletionResponse(response, {
@@ -953,7 +953,7 @@ describe("provider OAuth callback organization returns", () => {
       const revocations: Request[] = [];
       const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
-        if (request.url === "https://hub.example.test/revoke") {
+        if (request.url === "https://broker.example.test/revoke") {
           revocations.push(request);
           return new Response(null, { status: 200 });
         }
@@ -993,7 +993,7 @@ describe("provider OAuth callback organization returns", () => {
       expect(fetch).toHaveBeenCalledTimes(scenario.provider === "cloudflare" ? 2 : 1);
       if (scenario.provider === "cloudflare") {
         expect(revocations).toHaveLength(1);
-        await expectHubRevocation(revocations[0], scenario.tokenResponse.refresh_token);
+        await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
       }
       expect(returnUrl).toBe(
         buildAuthorizationErrorUrl("https://samebase.com/org/oauth-owner/providers", {
@@ -1075,7 +1075,7 @@ describe("provider OAuth callback organization returns", () => {
       const revocations: Request[] = [];
       const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
-        if (request.url === "https://hub.example.test/revoke") {
+        if (request.url === "https://broker.example.test/revoke") {
           revocations.push(request);
           // Cleanup failure must preserve the original connection error.
           return new Response(null, { status: scenario.accountCase === "no_accounts" ? 503 : 200 });
@@ -1122,7 +1122,7 @@ describe("provider OAuth callback organization returns", () => {
       expect(fetch).toHaveBeenCalledTimes(scenario.provider === "cloudflare" ? 2 : 1);
       if (scenario.provider === "cloudflare") {
         expect(revocations).toHaveLength(1);
-        await expectHubRevocation(revocations[0], scenario.tokenResponse.refresh_token);
+        await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
       }
     },
   );
@@ -1216,7 +1216,7 @@ describe("provider OAuth callback organization returns", () => {
       const revocations: Request[] = [];
       const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
-        if (request.url === "https://hub.example.test/revoke") {
+        if (request.url === "https://broker.example.test/revoke") {
           revocations.push(request);
           return new Response(null, { status: 200 });
         }
@@ -1273,7 +1273,7 @@ describe("provider OAuth callback organization returns", () => {
       expect(fetch).toHaveBeenCalledTimes(scenario.provider === "cloudflare" ? 2 : 1);
       if (scenario.provider === "cloudflare") {
         expect(revocations).toHaveLength(1);
-        await expectHubRevocation(revocations[0], scenario.tokenResponse.refresh_token);
+        await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
       }
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
@@ -1532,7 +1532,7 @@ describe("provider OAuth completion binding", () => {
 
       // The provider sends the victim's browser to the callback with the victim's code.
       const callbackResponse = await t.fetch(
-        `${scenario.path}?iss=https%3A%2F%2Fhub.example.test&code=victim-code&state=${state}`,
+        `${scenario.path}?iss=https%3A%2F%2Fbroker.example.test&code=victim-code&state=${state}`,
       );
 
       expect(callbackResponse.status).toBe(200);

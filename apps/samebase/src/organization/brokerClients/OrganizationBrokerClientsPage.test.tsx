@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ViewerOrganization } from "@/organization/context";
-import { OrganizationHubClientsPage } from "./OrganizationHubClientsPage";
+import { OrganizationBrokerClientsPage } from "./OrganizationBrokerClientsPage";
 
 const testState = vi.hoisted(() => ({
   readClients: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
       getFunctionName(reference) ===
-      getFunctionName(api.hubClients.moderation.readClientsOfOrganization)
+      getFunctionName(api.brokerClients.moderation.readClientsOfOrganization)
         ? testState.readClients
         : testState.deleteClient,
   };
@@ -83,7 +83,7 @@ async function renderPage() {
   await act(async () => {
     root.render(
       <QueryClientProvider client={new QueryClient()}>
-        <OrganizationHubClientsPage
+        <OrganizationBrokerClientsPage
           organization={organization}
           search={{}}
           onSearchChange={() => undefined}
@@ -116,7 +116,7 @@ async function openClientMenu() {
   });
 }
 
-describe("OrganizationHubClientsPage", () => {
+describe("OrganizationBrokerClientsPage", () => {
   beforeEach(() => {
     testState.readClients.mockReset();
     testState.readClients.mockResolvedValue({ status: "on", clients: [production] });
@@ -140,11 +140,11 @@ describe("OrganizationHubClientsPage", () => {
     }
   });
 
-  it("says when this deployment does not read the hub", async () => {
+  it("says when this deployment does not read the broker", async () => {
     testState.readClients.mockResolvedValue({ status: "off" });
     const page = await renderPage();
     try {
-      expect(page.rootElement.textContent).toContain("does not read the identity hub");
+      expect(page.rootElement.textContent).toContain("does not read the identity broker");
     } finally {
       await page.unmount();
     }
