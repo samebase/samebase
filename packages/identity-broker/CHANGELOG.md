@@ -2,18 +2,19 @@
 
 ## 0.40.0
 
-- `connectors` is an array, in the order that the sign-in page and discovery name them. The
-  `Connectors` export of the main entry makes each one: `Connectors.google` and `Connectors.github`,
-  `Connectors.oidc` for any OpenID Connect provider, and `Connectors.oauth` for a plain OAuth 2.0
-  provider with its own `identity` function.
+- `connectors` is an array, in the order that the sign-in page and discovery name them. The new
+  entry `./connectors` makes each one: `google`, `github`, `oidc` for any OpenID Connect provider,
+  and `oauth` for a plain OAuth 2.0 provider with its own `identity` function. `oidc` and `oauth`
+  also take `tokenEndpointAuthMethod` (`client_secret_post` or `client_secret_basic`).
 - `connections` is an array too, made with `convex`, `cloudflare`, `github` and `oauth` of the new
   entry `./connections`. `oauth` takes the endpoints, the exact `resource` and the issuer of another
   OAuth 2.0 server. A hub without connections imports none of them.
 - `makeConnections` is an export of `./connections` and takes the array. The third argument of
   `hubRuntime` is the array.
-- The hub checks at its start, before it reads a secret, that connector names are unique, that each
-  provider is `[a-z0-9-]+` with one issuer, and that connection names and resources are unique, each
-  resource an absolute URI with no fragment.
+- The hub checks at its start, before it reads any secret, that connector and connection names and
+  providers are `[a-z0-9-]+` and unique, that connector labels are non-empty, that upstream issuers
+  and endpoints are HTTPS, that OIDC connectors include `openid`, and that connection resources are
+  unique absolute URIs with no fragment or whitespace.
 - Gone: the `{ google, github }` and `{ convex, cloudflare, github }` objects, `ConnectionSettings`,
   and `makeConnections` of the main entry.
 

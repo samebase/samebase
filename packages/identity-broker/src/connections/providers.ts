@@ -4,7 +4,7 @@
 import { Effect, type Redacted } from "effect";
 import type * as oauth from "oauth4webapi";
 import type { ClientSecrets } from "../core/connectors/types.ts";
-import { HubConfigError, parseIssuer, parseSecureEndpoint } from "../core/services.ts";
+import { HubConfigError, parseHttpsUrl } from "../core/services.ts";
 
 /** One configured provider. `name` is what a card's `connections` names. */
 export type ConnectionProvider = {
@@ -31,6 +31,9 @@ export type ConnectionSpec<R = never> = Omit<ConnectionProvider, "clientId" | "c
   ClientSecrets<R>;
 
 const SAFE_NAME = /^[a-z0-9-]+$/;
+// RFC 3986 disallows whitespace and ASCII control characters inside a raw URI string.
+// eslint-disable-next-line no-control-regex -- RFC 3986 URI check rejects raw ASCII controls.
+const INVALID_URI_CHAR = /[\s\u0000-\u001f\u007f]/;
 
 /** The checks of the connections setting that need no secret. */
 export const checkProviders = Effect.fnUntraced(function* (
@@ -52,23 +55,26 @@ export const checkProviders = Effect.fnUntraced(function* (
     const invalid = new HubConfigError({
       message: `Connection "${provider.name}" has a resource that is not an absolute URI with no fragment`,
     });
-    yield* Effect.try({ try: () => new URL(provider.resource), catch: () => invalid });
-    if (provider.resource.includes("#")) {
+    if (provider.resource.includes("#") || INVALID_URI_CHAR.test(provider.resource)) {
       return yield* invalid;
     }
-    yield* parseIssuer(provider.server.issuer);
-    yield* parseSecureEndpoint(
+    yield* Effect.try({ try: () => new URL(provider.resource), catch: () => invalid });
+    yield* parseHttpsUrl(provider.server.issuer, `Connection "${provider.name}" issuer`);
+    yield* parseHttpsUrl(
       provider.server.authorization_endpoint,
       `Connection "${provider.name}" authorizationEndpoint`,
+      { allowQuery: true },
     );
-    yield* parseSecureEndpoint(
+    yield* parseHttpsUrl(
       provider.server.token_endpoint,
       `Connection "${provider.name}" tokenEndpoint`,
+      { allowQuery: true },
     );
     if (provider.server.revocation_endpoint !== undefined) {
-      yield* parseSecureEndpoint(
+      yield* parseHttpsUrl(
         provider.server.revocation_endpoint,
         `Connection "${provider.name}" revocationEndpoint`,
+        { allowQuery: true },
       );
     }
     if (provider.scopes.some((scope) => scope.length === 0 || /\s/.test(scope))) {

@@ -1,6 +1,5 @@
 import { Predicate, Redacted, Schema } from "effect";
 import * as oauth from "oauth4webapi";
-import { isSecureUrl } from "../protocol.ts";
 import type { OauthConnector, OidcConnector, UpstreamIdentity } from "./types.ts";
 
 /**
@@ -85,7 +84,7 @@ export async function startUpstream(args: {
   }
   const url = new URL(as.authorization_endpoint);
   if (
-    !isSecureUrl(url) ||
+    url.protocol !== "https:" ||
     url.username !== "" ||
     url.password !== "" ||
     as.authorization_endpoint.includes("#")

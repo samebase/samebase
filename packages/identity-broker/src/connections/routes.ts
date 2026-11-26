@@ -6,6 +6,7 @@
 // authentication. Each step that moves a connection on is one command that reads the card in its
 // own transaction (rules.ts); every call to the provider is outside a command.
 import { Cause, Clock, Effect, Exit, Result } from "effect";
+import type { SecretServices } from "../core/connectors/types.ts";
 import { errorPage } from "../core/html.ts";
 import { logHubEvent } from "../core/hubEvents.ts";
 import {
@@ -572,9 +573,14 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
  * The connections part of a hub over `specs`, checked before any secret is read, then with each
  * provider's secrets read. A host reads it where it reads its connectors' secrets.
  */
-export const makeConnections = Effect.fnUntraced(function* <R>(
-  specs: ReadonlyArray<ConnectionSpec<R>>,
-) {
+export const makeConnections = Effect.fnUntraced(function* <
+  Connection extends ConnectionSpec<unknown>,
+>(specs: ReadonlyArray<Connection>) {
   yield* checkProviders(specs);
-  return connectionsPart(yield* Effect.forEach(specs, readProvider));
+  return connectionsPart(
+    yield* Effect.forEach(
+      specs as ReadonlyArray<ConnectionSpec<SecretServices<Connection>>>,
+      readProvider,
+    ),
+  );
 });

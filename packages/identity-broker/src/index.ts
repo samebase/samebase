@@ -23,7 +23,6 @@ export {
   type HubConfigInput,
   type ServiceSettings,
 } from "./core/services.ts";
-export * as Connectors from "./core/connectors/index.ts";
 export type { Connector, ConnectorSpec, Secret } from "./core/connectors/types.ts";
 export { hubSettings, type HubSettings } from "./hosts/settings.ts";
 export { hub, hubRuntime } from "./core/hub.ts";

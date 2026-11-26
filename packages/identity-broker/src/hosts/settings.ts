@@ -4,9 +4,16 @@
 // services. The registration layer is not
 // a setting: the app's hub module gives the host the routes of the one layer it mounts.
 import { Config, Effect, Layer } from "effect";
-import type { ConnectorSpec, Secret } from "../core/connectors/types.ts";
+import type { ConnectorSpec, Secret, SecretServices } from "../core/connectors/types.ts";
 import type { SignInPageFunction } from "../core/html.ts";
-import { HubConfig, Keys, SignInPage, type ServiceSettings } from "../core/services.ts";
+import {
+  checkConnectors,
+  HubConfig,
+  Keys,
+  parseIssuer,
+  SignInPage,
+  type ServiceSettings,
+} from "../core/services.ts";
 
 /** The signing keys of a hub whose options name none. */
 export const defaultKeys = Config.Redacted("IDENTITY_BROKER_KEYS");
@@ -38,15 +45,30 @@ export type HubSettings<R = never> = {
 
 /**
  * The hub's configuration, its page before the provider and its signing keys. A configuration that
- * the hub cannot run with stops the runtime where it builds its services.
+ * the hub cannot run with stops the runtime where it builds its services, before any secret is
+ * read.
  */
-export const hubSettings = <R>(options: HubSettings<R>) =>
+export const hubSettings = <
+  Connector extends ConnectorSpec<unknown>,
+  KeySecret extends Secret<unknown> = never,
+  R = SecretServices<Connector> | Effect.Services<KeySecret>,
+>(
+  options: {
+    readonly connectors: ReadonlyArray<Connector>;
+    readonly keys?: KeySecret;
+  } & Omit<HubSettings<NoInfer<R>>, "connectors" | "keys">,
+) =>
   Layer.mergeAll(
     Layer.unwrap(
       Effect.gen(function* () {
+        yield* parseIssuer(options.issuer).pipe(Effect.orDie);
+        yield* checkConnectors(options.connectors).pipe(Effect.orDie);
         return HubConfig.layer({
           issuer: options.issuer,
-          connectors: yield* Effect.forEach(options.connectors, readConnector),
+          connectors: yield* Effect.forEach(
+            options.connectors as ReadonlyArray<ConnectorSpec<R>>,
+            readConnector,
+          ),
           service: options.service,
         }).pipe(Layer.orDie);
       }),
@@ -54,6 +76,8 @@ export const hubSettings = <R>(options: HubSettings<R>) =>
     SignInPage.layer(options.signInPage),
     Layer.effect(
       Keys,
-      Effect.map(options.keys ?? defaultKeys, (keys) => Keys.of({ read: () => keys })),
+      Effect.map((options.keys ?? defaultKeys) as Secret<R>, (keys) =>
+        Keys.of({ read: () => keys }),
+      ),
     ),
   );

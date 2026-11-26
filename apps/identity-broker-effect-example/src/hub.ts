@@ -8,8 +8,9 @@
 // (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
+import { hub, stack } from "@samebase/identity-broker";
 import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
-import { Connectors, hub, stack } from "@samebase/identity-broker";
+import * as Connectors from "@samebase/identity-broker/connectors";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",

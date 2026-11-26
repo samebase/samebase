@@ -78,22 +78,27 @@ export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
 
 const SAFE_NAME = /^[a-z0-9-]+$/;
 
-/** A secure endpoint URL: https or loopback http, with no credentials or fragment. */
-export const parseSecureEndpoint = Effect.fnUntraced(function* (value: string, label: string) {
+/** An upstream HTTPS URL, with no credentials or fragment, and optionally no query string. */
+export const parseHttpsUrl = Effect.fnUntraced(function* (
+  value: string,
+  label: string,
+  options?: { readonly allowQuery?: boolean },
+) {
   const url = yield* Effect.try({
     try: () => new URL(value),
     catch: () => new HubConfigError({ message: `${label} must be a URL` }),
   });
-  if (!isSecureUrl(url)) {
-    return yield* new HubConfigError({
-      message: `${label} must be https, or http on a loopback host for local development`,
-    });
+  if (url.protocol !== "https:") {
+    return yield* new HubConfigError({ message: `${label} must be https` });
   }
   if (url.username !== "" || url.password !== "") {
     return yield* new HubConfigError({ message: `${label} must not have credentials` });
   }
   if (url.hash !== "" || value.includes("#")) {
     return yield* new HubConfigError({ message: `${label} must not have a fragment` });
+  }
+  if (options?.allowQuery !== true && (url.search !== "" || value.includes("?"))) {
+    return yield* new HubConfigError({ message: `${label} must not have a query` });
   }
   return url;
 });
@@ -129,7 +134,7 @@ export const checkConnectors = Effect.fnUntraced(function* (
         message: `Connector "${connector.name}" must have a non-empty label`,
       });
     }
-    yield* parseIssuer(connector.issuer);
+    yield* parseHttpsUrl(connector.issuer, `Connector "${connector.name}" issuer`);
     if (connector.scopes.some((scope) => scope.length === 0 || /\s/.test(scope))) {
       return yield* new HubConfigError({
         message: `Connector "${connector.name}" has an invalid scope`,

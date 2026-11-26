@@ -78,11 +78,11 @@ const startFailureReason = (
   return "defect";
 };
 
-const buildRuntime = <E, R, RC = never>(
+const buildRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
   settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
   registration: Registration,
-  connections?: ReadonlyArray<ConnectionSpec<RC>>,
-): Effect.Effect<Hub, unknown, Store | R | RC> =>
+  connections?: ReadonlyArray<Connection>,
+): Effect.Effect<Hub, unknown, Store | R | SecretServices<Connection>> =>
   Effect.gen(function* () {
     const part = connections === undefined ? undefined : yield* makeConnections(connections);
     const handle = makeHandle(registration, part);
@@ -112,11 +112,11 @@ const buildRuntime = <E, R, RC = never>(
  * The hub over its settings, built when this runs. The scope of `settings` closes when the build
  * ends, so `settings` must hold no finalizer that a request needs.
  */
-export const hubRuntime = <E, R, RC = never>(
+export const hubRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
   settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
   registration: Registration,
-  connections?: ReadonlyArray<ConnectionSpec<RC>>,
-): Effect.Effect<Hub, never, Store | R | RC> =>
+  connections?: ReadonlyArray<Connection>,
+): Effect.Effect<Hub, never, Store | R | SecretServices<Connection>> =>
   buildRuntime(settings, registration, connections).pipe(cannotStart);
 
 /** Reads each `Config` secret now; with another kind of secret the hub builds at the first request. */
@@ -135,7 +135,24 @@ export const hub = <
   } & HubOptions<NoInfer<R>>,
 ): Effect.Effect<Hub<R>, never, Store> =>
   Effect.gen(function* () {
-    const build = buildRuntime(hubSettings(options), options.registration, options.connections);
+    yield* Effect.gen(function* () {
+      yield* parseIssuer(options.issuer);
+      yield* checkConnectors(options.connectors);
+      if (options.connections !== undefined) {
+        yield* checkProviders(options.connections);
+      }
+    }).pipe(cannotStart);
+    const build = buildRuntime(
+      hubSettings({
+        issuer: options.issuer,
+        connectors: options.connectors,
+        ...(options.keys === undefined ? {} : { keys: options.keys }),
+        ...(options.service === undefined ? {} : { service: options.service }),
+        ...(options.signInPage === undefined ? {} : { signInPage: options.signInPage }),
+      }),
+      options.registration,
+      options.connections,
+    );
     const specs = [...options.connectors, ...(options.connections ?? [])];
     const secrets = [
       options.keys ?? defaultKeys,
@@ -152,13 +169,6 @@ export const hub = <
         yield* config.pipe(cannotStart);
       }
     }
-    yield* Effect.gen(function* () {
-      yield* parseIssuer(options.issuer);
-      yield* checkConnectors(options.connectors);
-      if (options.connections !== undefined) {
-        yield* checkProviders(options.connections);
-      }
-    }).pipe(cannotStart);
     // Also carries the start's configuration provider, which each build reads.
     const start = yield* Effect.context<Store>();
     let built: Hub | undefined;

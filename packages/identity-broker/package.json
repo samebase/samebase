@@ -21,6 +21,7 @@
     "./_generated/component.js": "./src/hosts/convex/component/_generated/component.ts",
     "./convex": "./src/hosts/convex/hub.ts",
     "./cloudflare": "./src/hosts/cloudflare/hub.ts",
+    "./connectors": "./src/core/connectors/index.ts",
     "./connections": "./src/connections/index.ts",
     "./moderation": "./src/moderation/server.ts",
     "./moderation/api": "./src/moderation/api.ts",
@@ -46,6 +47,10 @@
       "./cloudflare": {
         "types": "./dist/hosts/cloudflare/hub.d.ts",
         "default": "./dist/hosts/cloudflare/hub.js"
+      },
+      "./connectors": {
+        "types": "./dist/core/connectors/index.d.ts",
+        "default": "./dist/core/connectors/index.js"
       },
       "./connections": {
         "types": "./dist/connections/index.d.ts",

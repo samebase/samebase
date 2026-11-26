@@ -380,13 +380,13 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
           Connectors.oidc({
             name: "okta",
             label: "Okta",
-            issuer: "http://okta.example.com",
+            issuer: "http://127.0.0.1:8080",
             clientId: google.clientId,
             clientSecret,
           }),
         ],
       },
-      expected: "The issuer must be https, or http on a loopback host for local development",
+      expected: 'Connector "okta" issuer must be https',
     },
     {
       config: {
@@ -454,6 +454,10 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
       expected: 'Connection "api" has a resource that is not an absolute URI with no fragment',
     },
     {
+      config: { ...options, connections: [connection("api", "https://api.example.com/v1 test")] },
+      expected: 'Connection "api" has a resource that is not an absolute URI with no fragment',
+    },
+    {
       config: {
         ...options,
         connections: [
@@ -461,21 +465,22 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
             name: "api",
             resource: "https://api.example.com",
             issuer: "https://api.example.com",
-            authorizationEndpoint: "http://api.example.com/authorize",
+            authorizationEndpoint: "http://127.0.0.1:8080/authorize",
             tokenEndpoint: "https://api.example.com/token",
             clientId: google.clientId,
             clientSecret,
           }),
         ],
       },
-      expected:
-        'Connection "api" authorizationEndpoint must be https, or http on a loopback host for local development',
+      expected: 'Connection "api" authorizationEndpoint must be https',
     },
   ];
+  // Empty Config values prove static checks fail before any Config secret is read.
   for (const { config, expected } of cases) {
-    const started = start(config, { GOOGLE_CLIENT_ID: "id", IDENTITY_BROKER_KEYS: "{}" });
+    const started = start(config, {});
     const exit = await Effect.runPromiseExit(started.run);
     expect(Exit.isFailure(exit)).toBe(true);
+    expect(started.asked).toEqual([]);
     if (Exit.isFailure(exit)) {
       const message = Cause.prettyErrors(exit.cause)
         .map((error) => error.message)

@@ -2,8 +2,9 @@
 // is the workers.dev address of its script.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
+import * as Connectors from "./core/connectors/index.ts";
 import { DurableObjectStore, hubWorkerProps } from "./hosts/cloudflare/hub.ts";
-import { Connectors, github, hub } from "./index.ts";
+import { github, hub } from "./index.ts";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",

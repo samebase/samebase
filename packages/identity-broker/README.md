@@ -56,7 +56,8 @@ export default app;
 ```ts
 // convex/hub.ts
 import { Config } from "effect";
-import { Connectors, github, hub as identityHub } from "@samebase/identity-broker";
+import { github, hub as identityHub } from "@samebase/identity-broker";
+import * as Connectors from "@samebase/identity-broker/connectors";
 import { convexHub } from "@samebase/identity-broker/convex";
 import { components } from "./_generated/api";
 
@@ -117,8 +118,9 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 // src/hub.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
+import { hub, stack } from "@samebase/identity-broker";
 import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
-import { Connectors, hub, stack } from "@samebase/identity-broker";
+import * as Connectors from "@samebase/identity-broker/connectors";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
@@ -181,12 +183,13 @@ A secret can also be another Effect, such as a Secrets Store secret through
 ## Connectors and connections
 
 `connectors` are the providers that users sign in with, in the order that the sign-in page and
-discovery name them. `Connectors.google` and `Connectors.github` are ready; `Connectors.oidc` is any
-OpenID Connect provider found through discovery, and `Connectors.oauth` a plain OAuth 2.0 provider
-with your own `identity` function. Each connector's callback is
-`<issuer>/connectors/<name>/callback`.
+discovery name them. `@samebase/identity-broker/connectors` has `google` and `github`, `oidc` for
+any OpenID Connect provider found through discovery, and `oauth` for a plain OAuth 2.0 provider with
+your own `identity` function. Each connector's callback is `<issuer>/connectors/<name>/callback`.
 
 ```ts
+import * as Connectors from "@samebase/identity-broker/connectors";
+
 Connectors.oidc({
   name: "okta",
   label: "Okta",
@@ -202,15 +205,15 @@ the `resource` of RFC 8707. `@samebase/identity-broker/connections` has `convex`
 `<issuer>/connections/<name>/callback`.
 
 ```ts
-import { cloudflare, oauth } from "@samebase/identity-broker/connections";
+import * as Connections from "@samebase/identity-broker/connections";
 
 const connections = [
-  cloudflare({
+  Connections.cloudflare({
     clientId: Config.Redacted("CLOUDFLARE_CLIENT_ID"),
     clientSecret: Config.Redacted("CLOUDFLARE_CLIENT_SECRET"),
     scopes: ["workers-scripts.read"],
   }),
-  oauth({
+  Connections.oauth({
     name: "example",
     resource: "https://api.example.com",
     // The provider's `iss` (RFC 9207), or else the origin of its token endpoint.
@@ -349,7 +352,6 @@ import type { DatabaseSync } from "node:sqlite";
 import { Clock, Config, Effect, Layer } from "effect";
 import {
   cleanupBatch,
-  Connectors,
   decodeCommand,
   ensureLayout,
   Fetch,
@@ -364,6 +366,7 @@ import {
   type Tables,
   type TxShape,
 } from "@samebase/identity-broker";
+import * as Connectors from "@samebase/identity-broker/connectors";
 
 export const makeStore = (database: DatabaseSync) => {
   const exec: Exec = (sql, params) => database.prepare(sql).all(...params);
