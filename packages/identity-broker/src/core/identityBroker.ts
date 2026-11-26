@@ -11,6 +11,7 @@ import {
   makeHandle,
   serverError,
   type CoreServices,
+  type PrivateRegistration,
   type PublicRegistration,
   type Registration,
 } from "./router.ts";
@@ -33,8 +34,6 @@ type Broker<R = never> = {
     HttpServerRequest.HttpServerRequest | R
   >;
 };
-
-type PrivateRegistration = Registration & { readonly public?: never };
 
 /** One layer, or a list of layers whose routes do not collide (src/core/router.ts). */
 type Registrations = Registration | ReadonlyArray<Registration>;

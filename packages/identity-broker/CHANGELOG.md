@@ -15,7 +15,9 @@
 - New: `identityBroker({ registration })` and `makeHandle` take one layer or a list. The broker
   refuses to start when two routes have the same method, path and match (so the GitHub and the keys
   layers cannot go together: both own `POST /register`), when two layers resolve ids, or when a
-  public layer has no `service`.
+  public layer has no `service`. `Registration.githubActions` and `metadataDocuments()` have the
+  type `PublicRegistration`; `Registration.keys` and `metadataDocuments({ hosts })` have the new
+  type `PrivateRegistration`, which needs no `service`.
 - New: `POST /moderation/site-stops` stops or releases every client of one site of the metadata
   layer. The typed client has `moderation.changeSiteStop`.
 - Breaking for a host of your own: `makeHandle(registration, part)` is now an Effect that needs the

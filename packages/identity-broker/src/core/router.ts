@@ -77,6 +77,9 @@ export type Registration<R = never> = {
 /** A registration layer where strangers register, so `identityBroker(options)` needs the broker's `service`. */
 export type PublicRegistration<R = never> = Registration<R> & { readonly public: true };
 
+/** A registration layer that no stranger uses: a broker with only such layers needs no `service`. */
+export type PrivateRegistration<R = never> = Registration<R> & { readonly public?: never };
+
 /** What a handler of a part needs: the core's services and the live gates of the request. */
 type PartEffect<A> = Effect.Effect<A, RouteError, CoreServices | LiveGates>;
 

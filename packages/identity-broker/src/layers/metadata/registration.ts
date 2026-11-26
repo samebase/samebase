@@ -6,7 +6,12 @@
 import { Effect } from "effect";
 import { checkDocument, fetchDocument, refusals, type RefusalCode } from "../../cimd/reader.ts";
 import { logBrokerEvent } from "../../core/brokerEvents.ts";
-import type { PublicRegistration, Registration, Resolve } from "../../core/router.ts";
+import type {
+  PrivateRegistration,
+  PublicRegistration,
+  Registration,
+  Resolve,
+} from "../../core/router.ts";
 import { BrokerConfig, Fetch } from "../../core/services.ts";
 import { isDnsName } from "../clientRegistration.ts";
 import { command } from "./commands.ts";
@@ -182,7 +187,7 @@ const invalid = (code: RefusalCode | PolicyCode) =>
  */
 export function metadataDocuments(
   options: MetadataOptions & { readonly hosts: ReadonlyArray<string> },
-): Registration;
+): PrivateRegistration;
 export function metadataDocuments(options?: MetadataOptions): PublicRegistration;
 export function metadataDocuments(options: MetadataOptions = {}): Registration {
   const resolve = resolver({

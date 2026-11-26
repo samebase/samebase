@@ -8,6 +8,7 @@ export {
   brokerLogger,
   makeHandle,
   type CoreServices,
+  type PrivateRegistration,
   type PublicRegistration,
   type Registration,
   type Resolve,
