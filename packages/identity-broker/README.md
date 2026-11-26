@@ -25,17 +25,19 @@ and answers, and the errors of RFC 6750.
 
 A broker mounts one registration layer, which decides who may register a client:
 
-- `github(allowList, options)`: a GitHub Actions workflow registers with its OIDC token. The
-  allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric ids: an entry
-  without `repositoryId` covers every repository of that owner. A repository it covers gets every
-  connector of the broker; another one gets only what a connector grant gives it
+- `Registration.githubActions(allowList, options)`: a GitHub Actions workflow registers with its
+  OIDC token. The allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric
+  ids: an entry without `repositoryId` covers every repository of that owner. A repository it covers
+  gets every connector of the broker; another one gets only what a connector grant gives it
   ([Moderation](#moderation)). `options.paused`, a `Config<boolean>` read in each request, refuses
   every registration and every sign-in step while it is `true`.
-- `stack({ keys })`: a client registers with one of the broker's keys, as `IdentityBroker.Client`
-  with `key` does ([An app that uses a broker](#an-app-that-uses-a-broker)). A key with
-  `permanent: true` may make production clients; the clients of other keys get a removal date.
+- `Registration.keys(keys)`: a client registers with one of the broker's keys, as
+  `IdentityBroker.Client` with `key` does ([An app that uses a broker](#an-app-that-uses-a-broker)).
+  `keys` maps each key's name to a `Registration.Key`. A key with `permanent: true` may make
+  production clients; the clients of other keys get a removal date.
 
-Both are exports of `@samebase/identity-broker/registration`.
+Both are exports of `@samebase/identity-broker/registration`
+(`import * as Registration from "@samebase/identity-broker/registration"`).
 
 ## On Convex
 
@@ -73,7 +75,7 @@ export const broker = convexBroker(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: Registration.github([{ repositoryId: "123456789", ownerId: "987654321" }]),
+    registration: Registration.githubActions([{ repositoryId: "123456789", ownerId: "987654321" }]),
     service: {
       name: "Example",
       terms: "https://example.com/terms",
@@ -143,11 +145,9 @@ export default class Broker extends Cloudflare.Worker<Broker>()(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: Registration.stack({
-      keys: {
-        preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") },
-        production: { key: Config.Redacted("BROKER_PRODUCTION_KEY"), permanent: true },
-      },
+    registration: Registration.keys({
+      preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") },
+      production: { key: Config.Redacted("BROKER_PRODUCTION_KEY"), permanent: true },
     }),
   }).pipe(Effect.provide(DurableObjectStore)),
 ) {}
@@ -165,7 +165,7 @@ export default Alchemy.Stack(
   { providers: Cloudflare.providers() },
   Effect.gen(function* () {
     const broker = yield* Broker;
-    // The broker reads `stack`'s keys in each request, so the stack binds them.
+    // The broker reads the keys of `Registration.keys` in each request, so the stack binds them.
     yield* broker.bind("RegistrationKeys", {
       env: {
         BROKER_PREVIEW_KEY: yield* Config.Redacted("BROKER_PREVIEW_KEY"),
@@ -428,22 +428,23 @@ issuers and resources of both lists at its start.
 
 ## Moderation
 
-The GitHub layer can mount the moderation API, for the broker's administrator page. Every request
-needs the moderation key as a Bearer token.
+`Registration.githubActions` can mount the moderation API, for the broker's administrator page.
+Every request needs the moderation key as a Bearer token.
 
 ```ts
 import { Config } from "effect";
 import { moderation } from "@samebase/identity-broker/moderation";
 import * as Registration from "@samebase/identity-broker/registration";
 
-const registration = Registration.github("any", {
+const registration = Registration.githubActions("any", {
   moderation: moderation({ key: Config.Redacted("IDENTITY_BROKER_MODERATION_KEY") }),
 });
 ```
 
 Give `registration` to `identityBroker(options)`. A broker without `moderation` has no `/moderation`
 route. The broker reads the key in each request, and refuses every request while it is unset or
-empty. On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound.
+empty. On Cloudflare, bind it to the Worker in your stack, as the keys of `Registration.keys` are
+bound.
 
 | Request                                    | Answer                                                               |
 | ------------------------------------------ | -------------------------------------------------------------------- |
@@ -593,7 +594,7 @@ export const makeStore = (database: DatabaseSync) => {
 export const makeBroker = (database: DatabaseSync) => {
   const { store } = makeStore(database);
   const handle = makeHandle(
-    Registration.stack({ keys: { preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } } }),
+    Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } }),
   );
   const services = Layer.mergeAll(
     brokerSettings({
@@ -659,15 +660,15 @@ test("the broker's storage passes the host test kit", async () => {
   ```
 
 - Each name of a `Config` in your settings, such as `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
-  the keys of `stack`.
+  the keys of `Registration.keys`.
 
 On Convex, set them on the deployment, for example
 `npx convex env set IDENTITY_BROKER_KEYS < keys.json`. On Cloudflare, `alchemy deploy` binds each
 `Config` secret that the broker reads at its start to the Worker as a secret, with the value of the
 deploying shell's variable of that name. These are the secrets of `connectors`, `connections` and
 `keys` that are a bare `Config`, not one inside another Effect. The broker reads the other `Config`
-values in each request: the keys of `stack`, the moderation `key` and `paused` of `github`. The
-stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
+values in each request: the keys of `Registration.keys`, the moderation `key` and `paused` of
+`Registration.githubActions`. The stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
 ([On Cloudflare](#on-cloudflare)).
 
 At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/<name>/callback`

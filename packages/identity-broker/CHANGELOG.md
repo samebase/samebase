@@ -19,12 +19,16 @@
   `IdentityBroker.DISABLED` of `@samebase/alchemy-convex/identity-broker` with
   `import { BROKER_DISABLED } from "@samebase/identity-broker/client"`; `./alchemy` does not export
   it.
-- Breaking: the registration layers `github` and `stack`, and the types `StackKey` and
-  `StackSettings`, move from the root entry to the new entry
+- Breaking: the registration layers move from the root entry to the new entry
   `@samebase/identity-broker/registration`, named after the option `registration` of
-  `identityBroker`. Import `* as Registration from "@samebase/identity-broker/registration"` and
-  write `registration: Registration.stack({...})` or `Registration.github([...])`. The root keeps
-  the types `Registration` and `PublicRegistration`.
+  `identityBroker`, and get new names. Import
+  `* as Registration from "@samebase/identity-broker/registration"`:
+  - `github` -> `Registration.githubActions`, with the same arguments.
+  - `stack({ keys })` -> `Registration.keys(keys)`: it takes the record of keys directly, such as
+    `Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } })`.
+  - type `StackKey` -> `Registration.Key`. The type `StackSettings` is gone.
+  - Stored and wire values do not change, such as the card reference `stack:<name>`. The root keeps
+    the types `Registration` and `PublicRegistration`.
 - Breaking: the entry `./moderation/api` is now `./moderation-api`. Import
   `@samebase/identity-broker/moderation-api` in place of `@samebase/identity-broker/moderation/api`.
   Its exports are the same.

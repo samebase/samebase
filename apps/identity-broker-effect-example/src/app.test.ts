@@ -33,11 +33,9 @@ async function createTestHub() {
       issuer: HUB,
       connectors: [{ ...google.connector, name: "google", provider: "google", label: "Google" }],
     },
-    registration: Registration.stack({
-      keys: {
-        production: { key: Config.succeed(Redacted.make(PRODUCTION_KEY)), permanent: true },
-        preview: { key: Config.succeed(Redacted.make(PREVIEW_KEY)) },
-      },
+    registration: Registration.keys({
+      production: { key: Config.succeed(Redacted.make(PRODUCTION_KEY)), permanent: true },
+      preview: { key: Config.succeed(Redacted.make(PREVIEW_KEY)) },
     }),
   });
   // The app checks the ID token's times against the real clock.

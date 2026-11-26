@@ -55,7 +55,7 @@ export async function createGithubBroker(
   options: {
     allowList?: typeof AllowList.Type;
     seed?: number;
-    /** The routes of `moderation` (src/moderation/server.ts), mounted as `github` does. */
+    /** The routes of `moderation` (src/moderation/server.ts), mounted as `githubActions` does. */
     moderation?: ReadonlyArray<Route<GithubSettings>>;
   } = {},
 ) {

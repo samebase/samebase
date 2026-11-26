@@ -26,7 +26,7 @@ import { keyRef } from "./clients.ts";
 import { command } from "./commands.ts";
 
 /** One key of the broker. */
-export type StackKey = {
+export type Key = {
   /** The key: a secret of the broker's host, such as `Config.Redacted("BROKER_PREVIEW_KEY")`. */
   readonly key: Config.Config<Redacted.Redacted<string>>;
   /** Clients of this key may be permanent: production clients, with no removal date. */
@@ -38,11 +38,6 @@ export type StackKey = {
   readonly connections?: ReadonlyArray<string>;
 };
 
-export type StackSettings = {
-  /** The keys by name. The name is the card's budget and gate: `stack:<name>`. */
-  readonly keys: Readonly<Record<string, StackKey>>;
-};
-
 /** A client's name: its stage, such as `prod` or `pr-12`. It is part of the card's `ref`. */
 const CLIENT_NAME = /^[A-Za-z0-9._-]{1,64}$/;
 
@@ -50,8 +45,8 @@ const CLIENT_NAME = /^[A-Za-z0-9._-]{1,64}$/;
  * The keys that the broker has now, each with the SHA-256 hex of its value, read in the request. A key
  * whose `Config` is missing or whose value is empty is not one of them.
  */
-const configuredKeys = (settings: StackSettings) =>
-  Effect.forEach(Object.entries(settings.keys), ([name, entry]) =>
+const configuredKeys = (settings: Readonly<Record<string, Key>>) =>
+  Effect.forEach(Object.entries(settings), ([name, entry]) =>
     Effect.gen(function* () {
       const value = yield* Config.option(entry.key);
       return Option.isNone(value) || Redacted.value(value.value) === ""
@@ -71,7 +66,7 @@ const configuredKeys = (settings: StackSettings) =>
   );
 
 /** `POST <prefix>/register` with one of the broker's keys as the Bearer. */
-const registerClient = (settings: StackSettings) =>
+const registerClient = (settings: Readonly<Record<string, Key>>) =>
   Effect.fn("stack.registerClient")(function* (request: Request) {
     const bearer = readBearerToken(request.headers.get("authorization"));
     if (bearer === null) {
@@ -139,7 +134,7 @@ const registerClient = (settings: StackSettings) =>
   });
 
 /** `GET <prefix>/register/<client>`: a deploy of a client reads it, which renews it. */
-const readClient = (settings: StackSettings) =>
+const readClient = (settings: Readonly<Record<string, Key>>) =>
   Effect.fn("stack.readClient")(function* (request: Request) {
     const target = yield* managementRequest(request);
     if (target instanceof Response) {
@@ -203,11 +198,12 @@ const deleteClient = Effect.fn("stack.deleteClient")(function* (request: Request
 });
 
 /**
- * The stack layer as a broker's one registration layer: its routes with its keys, and its gates. A
- * card's gate `stack:<name>` is live while the broker has the key of that name, so a key removed from
- * the settings refuses every sign-in step of its clients.
+ * The stack layer as a broker's one registration layer: its routes with its keys by name, and its
+ * gates. The name is the card's budget and gate: `stack:<name>`. That gate is live while the broker
+ * has the key of that name, so a key removed from the settings refuses every sign-in step of its
+ * clients.
  */
-export const stack = (settings: StackSettings): Registration => ({
+export const keys = (settings: Readonly<Record<string, Key>>): Registration => ({
   routes: [
     {
       method: "POST",

@@ -33,7 +33,7 @@ export type BrokerSettings<R = never> = {
   readonly keys?: Secret<R>;
   /**
    * The name, terms and privacy notice that the sign-in page shows and discovery names. Without it
-   * they show nothing; a public registration layer such as `github` needs it.
+   * they show nothing; a public registration layer such as `githubActions` needs it.
    */
   readonly service?: ServiceSettings;
   /**

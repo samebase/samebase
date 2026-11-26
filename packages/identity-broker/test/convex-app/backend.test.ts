@@ -27,7 +27,7 @@ import {
   txnCookie,
   type StubFetch,
 } from "../../src/core/testing/harness.ts";
-import { github } from "../../src/layers/github/routes.ts";
+import { githubActions } from "../../src/layers/github/routes.ts";
 import { ModerationApi, ModerationKey } from "../../src/moderation/api.ts";
 import {
   connectionCleanup,
@@ -254,7 +254,7 @@ const memoryBroker = async (): Promise<TestBroker> => {
   const h = await createBroker({
     fetch: upstream,
     config: { issuer: siteUrl, connectors: [idp.connector] },
-    registration: github(ALLOW_LIST),
+    registration: githubActions(ALLOW_LIST),
   });
   h.clock.set(Date.now());
   return {

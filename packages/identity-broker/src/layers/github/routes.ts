@@ -58,7 +58,7 @@ export type GithubOptions = {
  * repositories whose cards get every configured connector while the named owner owns them. While
  * the broker is paused, its gates refuse every card of the layer.
  */
-export const github = (
+export const githubActions = (
   allowList: typeof AllowList.Type,
   options: GithubOptions = {},
 ): PublicRegistration => {

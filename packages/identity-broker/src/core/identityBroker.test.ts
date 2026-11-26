@@ -201,7 +201,7 @@ test("a lazy broker gives each request its own per-event context, and keeps the 
           path: "/probe",
           match: "exact",
           template: "/probe",
-          // Reads a `Config` in the request, as the keys of `stack` are read, and checks per-event services.
+          // Reads a `Config` in the request, as `keys` reads its keys, and checks per-event services.
           handler: () =>
             Effect.gen(function* () {
               const request = yield* Effect.serviceOption(HttpServerRequest.HttpServerRequest);

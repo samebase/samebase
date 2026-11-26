@@ -13,7 +13,7 @@ import {
   txnCookie,
 } from "../../core/testing/harness.ts";
 import { LEASE_MS } from "../../rules/clients.ts";
-import { stack, type StackKey } from "./routes.ts";
+import * as Registration from "./routes.ts";
 
 const PRODUCTION_KEY = "production-key-value";
 const PREVIEW_KEY = "preview-key-value";
@@ -27,21 +27,21 @@ afterEach(() => {
 });
 
 /** A key of the broker's settings with `value`. */
-const keyOf = (value: string, permanent?: boolean): StackKey => ({
+const keyOf = (value: string, permanent?: boolean): Registration.Key => ({
   key: Config.succeed(Redacted.make(value)),
   ...(permanent === undefined ? {} : { permanent }),
 });
 
 /** A key whose `Config` names a variable that no host sets. */
-const absentKey: StackKey = { key: Config.Redacted("IDENTITY_BROKER_TEST_ABSENT_KEY") };
+const absentKey: Registration.Key = { key: Config.Redacted("IDENTITY_BROKER_TEST_ABSENT_KEY") };
 
 /**
  * The broker on the stack layer with `keys` (by default a production key that may make permanent
- * clients and a preview key), and the fake provider's connectors `fake` and `other`. The settings
+ * clients and a preview key), and the fake provider's connectors `fake` and `other`. The keys
  * object stays the test's, so a test can withdraw a key.
  */
 async function createStackBroker(
-  keys: Record<string, StackKey> = {
+  keys: Record<string, Registration.Key> = {
     production: keyOf(PRODUCTION_KEY, true),
     preview: keyOf(PREVIEW_KEY),
   },
@@ -52,7 +52,7 @@ async function createStackBroker(
   const h = await createBroker({
     fetch,
     config: { connectors: [connector, { ...connector, name: "other", label: "Other" }], ...config },
-    registration: stack({ keys }),
+    registration: Registration.keys(keys),
   });
   h.clock.set(EPOCH);
   return { ...h, keys, cards: () => h.memory.db.contents().clients };

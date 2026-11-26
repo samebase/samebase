@@ -72,21 +72,19 @@ export default class Broker extends Cloudflare.Worker<Broker>()(
       ],
       // Three keys, each for clients that may use the three connections: a preview or development
       // client has a removal date, a production client is permanent.
-      registration: Registration.stack({
-        keys: {
-          preview: {
-            key: Config.Redacted("SAMEBASE_HUB_PREVIEW_KEY"),
-            connections: ["convex", "cloudflare", "github"],
-          },
-          development: {
-            key: Config.Redacted("SAMEBASE_HUB_DEVELOPMENT_KEY"),
-            connections: ["convex", "cloudflare", "github"],
-          },
-          production: {
-            key: Config.Redacted("SAMEBASE_HUB_PRODUCTION_KEY"),
-            permanent: true,
-            connections: ["convex", "cloudflare", "github"],
-          },
+      registration: Registration.keys({
+        preview: {
+          key: Config.Redacted("SAMEBASE_HUB_PREVIEW_KEY"),
+          connections: ["convex", "cloudflare", "github"],
+        },
+        development: {
+          key: Config.Redacted("SAMEBASE_HUB_DEVELOPMENT_KEY"),
+          connections: ["convex", "cloudflare", "github"],
+        },
+        production: {
+          key: Config.Redacted("SAMEBASE_HUB_PRODUCTION_KEY"),
+          permanent: true,
+          connections: ["convex", "cloudflare", "github"],
         },
       }),
       service: {
