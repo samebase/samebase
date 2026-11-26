@@ -1,17 +1,17 @@
 # Client ID Metadata Documents: the reader
 
-`@samebase/identity-broker/cimd` reads and checks an OAuth Client ID Metadata Document, as
+`@samebase/identity-broker/cimd` reads and checks an OAuth Client ID Metadata Document (CIMD), as
 [draft-ietf-oauth-client-id-metadata-document-03](https://www.ietf.org/archive/id/draft-ietf-oauth-client-id-metadata-document-03.html)
 defines it. It has the rules of the draft that need no policy of a server. It knows nothing of the
 broker: no store, no client card, no layer. Its only dependency is `effect`.
 
 | Function                   | What it does                                                                                                                                                             |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `parseClientId(raw)`       | The rules of section 3 on the raw text. A `ClientId` (the raw text as the identity, the host and origin, `hasQuery`, `hasExplicitPort`) or a refusal.                    |
+| `parseClientId(raw)`       | The rules of section 3 on the raw text. A `ClientId` (the raw text as the identity, the hostname and origin, `hasQuery`, `hasExplicitPort`) or a refusal.                |
 | `fetchDocument(id, fetch)` | One GET (an Effect). A `Document` (the JSON object and `freshUntil`), a `Transient` failure (no answer, time-out, 429, 5xx, with `retryAfter`), or a `Terminal` failure. |
 | `checkDocument(id, json)`  | The rules of sections 4 to 6. A `Checked` record or a refusal.                                                                                                           |
-| `freshness(headers, now)`  | Until when an answer is fresh (epoch milliseconds), from `Cache-Control` and `Age`.                                                                                      |
-| `refusals`                 | One sentence for each fixed code (`RefusalCode`). No text holds content of the document.                                                                                 |
+| `freshUntil(headers, now)` | Until when an answer is fresh (epoch milliseconds), from `Cache-Control` and `Age`.                                                                                      |
+| `refusalDescriptions`      | One sentence for each fixed code (`RefusalCode`). No text holds content of the document.                                                                                 |
 
 ## Usage
 
@@ -21,13 +21,13 @@ import {
   checkDocument,
   fetchDocument,
   parseClientId,
-  refusals,
+  refusalDescriptions,
 } from "@samebase/identity-broker/cimd";
 
 const resolve = Effect.fn(function* (raw: string) {
   const clientId = parseClientId(raw);
   if (clientId._tag === "Refused") {
-    return { error: "invalid_client", description: refusals[clientId.code] };
+    return { error: "invalid_client", description: refusalDescriptions[clientId.code] };
   }
   // On Workers and Node the platform fetch keeps the request's `redirect: "manual"`. On a platform
   // that follows redirects anyway (Convex), give a function that does not.
@@ -36,11 +36,11 @@ const resolve = Effect.fn(function* (raw: string) {
     return { status: 503, retryAfter: fetched.retryAfter };
   }
   if (fetched._tag === "Terminal") {
-    return { error: "invalid_client", description: refusals[fetched.code] };
+    return { error: "invalid_client", description: refusalDescriptions[fetched.code] };
   }
   const checked = checkDocument(clientId.id, fetched.json);
   if (checked._tag === "Refused") {
-    return { error: "invalid_client", description: refusals[checked.code] };
+    return { error: "invalid_client", description: refusalDescriptions[checked.code] };
   }
   // Policy: take the parts of the record that this server supports.
   return {
@@ -125,16 +125,16 @@ Each MUST, MUST NOT, SHOULD and SHOULD NOT of the draft that applies to an autho
 | 6.1     | A terminal failure from a `client_id` mismatch SHOULD invalidate refresh tokens                                            | Server: the reader gives the code `client_id_mismatch`.                                                                                                                                                                                                                                                               |
 | 6.1     | MUST NOT redirect to the client on a failure; SHOULD inform the user                                                       | Server: its error page.                                                                                                                                                                                                                                                                                               |
 | 6.1     | At the token or PAR endpoint, MUST answer `invalid_client`, or 503 for a transient failure                                 | Server: the endpoints. The reader's result class decides which.                                                                                                                                                                                                                                                       |
-| 6.2     | SHOULD respect HTTP cache headers                                                                                          | Reader: `freshness`, "SHOULD respect cache headers" and "no-store and no-cache give no freshness".                                                                                                                                                                                                                    |
-| 6.2     | SHOULD enforce a maximum cache duration                                                                                    | Reader: `freshness`, 24 hours, "SHOULD enforce a maximum effective cache duration".                                                                                                                                                                                                                                   |
-| 6.2     | SHOULD enforce a minimum cache duration when none is indicated                                                             | Reader: `freshness`, 1 hour, "SHOULD enforce a minimum when none is indicated".                                                                                                                                                                                                                                       |
+| 6.2     | SHOULD respect HTTP cache headers                                                                                          | Reader: `freshUntil`, "SHOULD respect cache headers" and "no-store and no-cache give no freshness".                                                                                                                                                                                                                   |
+| 6.2     | SHOULD enforce a maximum cache duration                                                                                    | Reader: `freshUntil`, 24 hours, "SHOULD enforce a maximum effective cache duration".                                                                                                                                                                                                                                  |
+| 6.2     | SHOULD enforce a minimum cache duration when none is indicated                                                             | Reader: `freshUntil`, 1 hour, "SHOULD enforce a minimum when none is indicated".                                                                                                                                                                                                                                      |
 | 6.2     | MUST NOT cache error responses, or invalid or malformed documents                                                          | Server: its cache. Only a `Document` result has a `freshUntil`; a document that `checkDocument` refuses must not be stored.                                                                                                                                                                                           |
 | 7       | The authorization response MUST include `iss` (RFC 9207)                                                                   | Server.                                                                                                                                                                                                                                                                                                               |
 | 8       | Discovery MUST include `client_id_metadata_document_supported`                                                             | Server.                                                                                                                                                                                                                                                                                                               |
 | 9.1     | Ids that the server generates SHOULD NOT start with `https://`                                                             | Server.                                                                                                                                                                                                                                                                                                               |
 | 9.2     | SHOULD fetch the document when it pre-registers an id                                                                      | Server: it can use these functions for that.                                                                                                                                                                                                                                                                          |
 | 10.1    | SHOULD refuse an id equal to its own issuer or to a party it trusts                                                        | Server: the reader does not know those identifiers.                                                                                                                                                                                                                                                                   |
-| 10.6    | SHOULD fetch the document to show information; SHOULD show the host of the id                                              | Server: its page. `parseClientId` gives `host`.                                                                                                                                                                                                                                                                       |
+| 10.6    | SHOULD fetch the document to show information; SHOULD show the host of the id                                              | Server: its page. `parseClientId` gives `hostname`.                                                                                                                                                                                                                                                                   |
 | 10.7    | MUST NOT fetch a document or a URL of it that resolves to a special-use address                                            | Reader for a literal address or a localhost name, "MUST NOT fetch a special-use address". Server (its platform) for what a DNS name resolves to. The reader fetches no URL of the document.                                                                                                                           |
 | 10.7    | MUST NOT use the loopback exception in production                                                                          | Reader: it has no such exception, "MUST NOT fetch a special-use address".                                                                                                                                                                                                                                             |
 | 10.7    | SHOULD follow the OWASP SSRF recommendations; SHOULD consider network policies                                             | Server: its platform.                                                                                                                                                                                                                                                                                                 |
@@ -142,7 +142,7 @@ Each MUST, MUST NOT, SHOULD and SHOULD NOT of the draft that applies to an autho
 | 10.9    | To show a logo: MUST prefetch it, serve it from a trusted server, and verify it                                            | Not supported: the reader fetches no logo. It reports `logo_uri` as asserted by the client.                                                                                                                                                                                                                           |
 | 10.11   | SHOULD limit the bytes read; 5 KB is recommended                                                                           | Reader: `fetchDocument`, "SHOULD limit the read to 5 KB" (both tests) and "a Content-Length over 5 KB".                                                                                                                                                                                                               |
 | 10.12   | A persisted authorization decision MUST be scoped to the id and the resource                                               | Server.                                                                                                                                                                                                                                                                                                               |
-| 11.1    | SHOULD respect cache headers to fetch less                                                                                 | Reader: `freshness` (as section 6.2).                                                                                                                                                                                                                                                                                 |
+| 11.1    | SHOULD respect cache headers to fetch less                                                                                 | Reader: `freshUntil` (as section 6.2).                                                                                                                                                                                                                                                                                |
 | 11.1    | SHOULD NOT send cookies, user information or unnecessary headers                                                           | Reader: `fetchDocument` builds the request from the id alone, "one GET of the id itself, with only Accept: application/json".                                                                                                                                                                                         |
 | A       | A server that restricts redirect URIs: a CIMD Service is RECOMMENDED                                                       | Not supported: the reader offers no service.                                                                                                                                                                                                                                                                          |
 
@@ -153,9 +153,9 @@ can keep a private key SHOULD use it), and Appendix A (a CIMD Service MUST retur
 
 ## The server's part in this broker
 
-Where `@samebase/identity-broker` does each "Server" row of the table above. "Layer" is
-`Registration.metadataDocuments` (`src/layers/metadata/`); "core" is the sign-in code (`src/core/`,
-`src/rules/`).
+Where `@samebase/identity-broker` does each "Server" row of the table above. "Layer" is the CIMD
+layer, `Registration.clientIdMetadataDocuments` (`src/layers/cimd/`); "core" is the sign-in code
+(`src/core/`, `src/rules/`).
 
 | Section | Requirement                                                   | In this broker                                                                                                                                                                                                                                                                                           |
 | ------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -179,7 +179,7 @@ Where `@samebase/identity-broker` does each "Server" row of the table above. "La
 | 8       | Discovery includes `client_id_metadata_document_supported`    | Core: present when a mounted layer resolves ids.                                                                                                                                                                                                                                                         |
 | 9.1     | Generated ids do not start with `https://`                    | Layers: the GitHub and stack layers make `cl_` ids.                                                                                                                                                                                                                                                      |
 | 9.2     | SHOULD fetch the document when it pre-registers an id         | Not done: the broker pre-registers no `https://` id.                                                                                                                                                                                                                                                     |
-| 10.1    | SHOULD refuse its own issuer or a party it trusts             | Layer: an id on the broker's own origin is refused (`broker_origin`). A list of trusted parties: not done, the broker has none; `hosts` limits the layer to named sites.                                                                                                                                 |
+| 10.1    | SHOULD refuse its own issuer or a party it trusts             | Layer: an id on the broker's own origin is refused (`broker_origin`). A list of trusted parties: not done, the broker has none; `hosts` limits the layer to named hosts.                                                                                                                                 |
 | 10.6    | SHOULD show the host of the id                                | Core: every card of the layer has `confirm: true`, so the default page shows the host of the return address, which the layer requires on the id's origin. A broker's own page function must show it.                                                                                                     |
 | 10.7    | What a DNS name resolves to is never a special-use address    | The host's runtime: Cloudflare Workers and the default Convex runtime refuse private addresses. A `"use node"` Convex action does not, so the broker must not run there.                                                                                                                                 |
 | 10.7    | OWASP SSRF recommendations, network policies                  | The host's runtime, and the layer's fetch budget for the whole broker (default 120 each minute).                                                                                                                                                                                                         |

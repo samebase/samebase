@@ -1,17 +1,17 @@
-// The policy of the metadata layer (design section C.1): one test for each rule, with documents as
+// The policy of the CIMD layer (design section C.1): one test for each rule, with documents as
 // data, and what the layer does with three real documents.
 import { describe, expect, test } from "vite-plus/test";
 import { checkDocument } from "../../cimd/reader.ts";
-import { acceptDocument, readSiteClientId, siteRefusal } from "./policy.ts";
+import { acceptDocument, hostRefusal, readClientId } from "./policy.ts";
 
 const ID = "https://app.example.com/oauth-client.json";
 const BROKER_ORIGIN = "https://auth.example.com";
 
 /** The id, read; a test of a document needs a good one. */
 const idOf = (raw: string) => {
-  const id = readSiteClientId(raw);
+  const id = readClientId(raw);
   if (id._tag !== "ClientId") {
-    throw new Error(`Not a site client id: ${id.code}`);
+    throw new Error(`Not a client id of the layer: ${id.code}`);
   }
   return id;
 };
@@ -26,7 +26,7 @@ const accept = (document: Record<string, unknown>, id = ID) => {
 };
 
 const refusalOf = (raw: string) => {
-  const id = readSiteClientId(raw);
+  const id = readClientId(raw);
   return id._tag === "Refused" ? id.code : undefined;
 };
 
@@ -62,7 +62,7 @@ describe("the client id", () => {
   test("has a host in `hosts` when `hosts` is given: `*.` matches one or more labels", () => {
     const hosts = ["app.example.com", "*.previews.example.com"];
     const refusal = (raw: string, given: ReadonlyArray<string> | undefined) =>
-      siteRefusal(idOf(raw), { hosts: given, brokerOrigin: BROKER_ORIGIN });
+      hostRefusal(idOf(raw), { hosts: given, brokerOrigin: BROKER_ORIGIN });
     expect(refusal(ID, hosts)).toBeUndefined();
     expect(refusal("https://pr-1.previews.example.com/c.json", hosts)).toBeUndefined();
     expect(refusal("https://a.pr-1.previews.example.com/c.json", hosts)).toBeUndefined();
@@ -75,7 +75,7 @@ describe("the client id", () => {
 
   test("is not on the broker's own origin", () => {
     expect(
-      siteRefusal(idOf(`${BROKER_ORIGIN}/client.json`), {
+      hostRefusal(idOf(`${BROKER_ORIGIN}/client.json`), {
         hosts: undefined,
         brokerOrigin: BROKER_ORIGIN,
       }),

@@ -46,22 +46,22 @@ export type Route<R = never> = {
 /**
  * Why a layer's resolver refuses a client at `/authorize`. The broker answers with its own error
  * page and never sends the user to the app: `invalid` (400, naming `invalid_client`), `unavailable`
- * (503, with `Retry-After` in seconds when given) and `limited` (429).
+ * (503, with `Retry-After` in seconds when given) and `rate_limited` (429).
  */
-export type ResolveRefusal =
-  | { readonly refusal: "invalid"; readonly description: string }
-  | { readonly refusal: "unavailable"; readonly retryAfter?: number }
-  | { readonly refusal: "limited" };
+export type ClientRefusal =
+  | { readonly reason: "invalid"; readonly description: string }
+  | { readonly reason: "unavailable"; readonly retryAfter?: number }
+  | { readonly reason: "rate_limited" };
 
 /**
  * A layer's resolver of a client id that is an https address, called at `/authorize` after the
  * checks of the request and before the card is read. It gives undefined when the card of
  * `clientId` is stored and may be read, or a refusal. `clientId` is as the client sent it.
  */
-export type Resolve = (request: {
+export type ClientResolver = (request: {
   readonly clientId: string;
   readonly redirectUri: string;
-}) => Effect.Effect<ResolveRefusal | undefined, RouteError, CoreServices>;
+}) => Effect.Effect<ClientRefusal | undefined, RouteError, CoreServices>;
 
 /** What a registration layer gives the broker, from that layer's module. */
 export type Registration<R = never> = {
@@ -69,7 +69,7 @@ export type Registration<R = never> = {
   /** The gate namespaces that the layer owns, read in each request. Absent: it owns none. */
   readonly liveGates?: Effect.Effect<ReadonlyArray<GateNamespace>>;
   /** The layer's clients whose id is an https address. Absent: the broker has no such client. */
-  readonly resolve?: Resolve;
+  readonly resolveClient?: ClientResolver;
   /** Strangers use the layer, so the broker needs its `service` settings. */
   readonly public?: true;
 };
@@ -148,8 +148,10 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
   const layers: ReadonlyArray<Registration<R>> = Array.isArray(registration)
     ? registration
     : [registration];
-  const resolvers = layers.flatMap((layer) => (layer.resolve === undefined ? [] : [layer.resolve]));
-  const [resolve, ...otherResolvers] = resolvers;
+  const resolvers = layers.flatMap((layer) =>
+    layer.resolveClient === undefined ? [] : [layer.resolveClient],
+  );
+  const [resolveClient, ...otherResolvers] = resolvers;
   if (otherResolvers.length > 0) {
     return yield* new BrokerConfigError({ message: "Only one registration layer may resolve" });
   }
@@ -164,7 +166,7 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
     registration: layerRoutes.some(
       (route) => route.method === "POST" && route.path === "/register" && route.match === "exact",
     ),
-    publicClients: resolve !== undefined,
+    publicClients: resolveClient !== undefined,
     extend: part?.metadata ?? ((document) => document),
   });
   const liveGates = LiveGates.of({
@@ -173,8 +175,8 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
       (each) => each.flat(),
     ),
   });
-  const authorizeCore = (request: Request) => authorize(request, resolve);
-  const tokenCore = (request: Request) => token(request, resolve !== undefined);
+  const authorizeCore = (request: Request) => authorize(request, resolveClient);
+  const tokenCore = (request: Request) => token(request, resolveClient !== undefined);
   /**
    * `/authorize`: a HEAD stores nothing and calls no resolver. A request with `resource` goes to
    * the part, when the broker has one.

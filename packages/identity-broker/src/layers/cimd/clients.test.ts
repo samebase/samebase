@@ -1,11 +1,11 @@
-// The store steps of the metadata layer in a fixed order (design sections C.2 and C.4): each fetch
-// starts with `metadata.begin` and ends with `metadata.put` or `metadata.remove`, and the steps of
+// The store steps of the CIMD layer in a fixed order (design sections C.2 and C.4): each fetch
+// starts with `cimd.begin` and ends with `cimd.put` or `cimd.remove`, and the steps of
 // two fetches interleave as two sign-ins at the same time can make them.
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vite-plus/test";
 import { rowsOf, testHosts, type TestHost } from "../../rules/testing.ts";
 import type { Args } from "../../store/commands.ts";
-import { FETCH_BUDGET, NEW_CARD_BUDGET } from "./clients.ts";
+import { FETCH_BUDGET, NEW_CLIENT_BUDGET } from "./clients.ts";
 
 const hosts = testHosts(() => new DatabaseSync(":memory:"));
 
@@ -17,7 +17,7 @@ const LIMITS = { rate: 120, periodMs: 60_000, capacity: 120 };
 
 /** The fetch that `begin` started, or its refusal. */
 const begin = (t: TestHost, redirectUri = OLD_URI, fetches = LIMITS) =>
-  t.run("metadata.begin", { clientId: ID, redirectUri, connectors: ["g"], fetches });
+  t.run("cimd.begin", { clientId: ID, redirectUri, connectors: ["g"], fetches });
 
 const startedAt = (t: TestHost, redirectUri = OLD_URI) => {
   const begun = begin(t, redirectUri);
@@ -31,15 +31,15 @@ const put = (
   t: TestHost,
   fetchStartedAt: number,
   redirectUris: ReadonlyArray<string>,
-  more: Partial<Args<"metadata.put">> = {},
+  more: Partial<Args<"cimd.put">> = {},
 ) =>
-  t.run("metadata.put", {
+  t.run("cimd.put", {
     clientId: ID,
     fetchStartedAt,
     freshUntil: fetchStartedAt + 3_600_000,
     redirectUris,
     connectors: ["g"],
-    newCards: { rate: 30, periodMs: 3_600_000, capacity: 30 },
+    newClients: { rate: 30, periodMs: 3_600_000, capacity: 30 },
     ...more,
   });
 
@@ -48,7 +48,7 @@ const budget = (t: TestHost, key: string) =>
   rowsOf(t, "signInBudgets", "by_key").find((row) => row.key === key)?.tokens;
 
 describe.each(hosts)("%s", (_name, make) => {
-  test("two first sign-ins of one new client at the same time make one card and spend one new-card token", () => {
+  test("two first sign-ins of one new client at the same time make one card and spend one new-client token", () => {
     const t = make({ now: T });
     const first = startedAt(t);
     const second = startedAt(t);
@@ -60,14 +60,14 @@ describe.each(hosts)("%s", (_name, make) => {
         tokenEndpointAuthMethod: "none",
         secretHash: null,
         redirectUris: [OLD_URI],
-        gates: ["site:app.example.com"],
-        budget: "site:app.example.com",
+        gates: ["cimd:host:app.example.com"],
+        budget: "cimd:host:app.example.com",
         confirm: true,
         removeAt: T + 24 * 3_600_000,
-        metadata: { fetchStartedAt: T, freshUntil: T + 3_600_000 },
+        cimd: { fetchStartedAt: T, freshUntil: T + 3_600_000 },
       },
     ]);
-    expect(budget(t, NEW_CARD_BUDGET)).toBe(29);
+    expect(budget(t, NEW_CLIENT_BUDGET)).toBe(29);
     expect(budget(t, FETCH_BUDGET)).toBe(118);
   });
 
@@ -78,7 +78,7 @@ describe.each(hosts)("%s", (_name, make) => {
     const late = startedAt(t);
     expect(put(t, late, [NEW_URI])).toBe("inserted");
     expect(put(t, old, [OLD_URI])).toBe("older");
-    expect(t.run("metadata.remove", { clientId: ID, fetchStartedAt: old })).toEqual({
+    expect(t.run("cimd.remove", { clientId: ID, fetchStartedAt: old })).toEqual({
       removed: false,
     });
     expect(cards(t)).toMatchObject([{ redirectUris: [NEW_URI] }]);
@@ -96,14 +96,14 @@ describe.each(hosts)("%s", (_name, make) => {
     ]);
   });
 
-  test("a stop of the site during a fetch stores nothing, and the next sign-in stops before a fetch", () => {
+  test("a block of the host during a fetch stores nothing, and the next sign-in stops before a fetch", () => {
     const t = make({ now: T });
     const fetch = startedAt(t);
-    expect(t.run("metadata.stop", { host: "app.example.com" })).toEqual({ changed: true });
+    expect(t.run("cimd.blockHost", { host: "app.example.com" })).toEqual({ changed: true });
     expect(put(t, fetch, [OLD_URI])).toBe("stopped");
     expect(cards(t)).toEqual([]);
     expect(begin(t)).toEqual({ next: "stopped" });
-    expect(t.run("metadata.release", { host: "app.example.com" })).toEqual({ changed: true });
+    expect(t.run("cimd.unblockHost", { host: "app.example.com" })).toEqual({ changed: true });
     expect(begin(t)).toMatchObject({ next: "fetch" });
   });
 
@@ -111,7 +111,7 @@ describe.each(hosts)("%s", (_name, make) => {
     const t = make({ now: T });
     expect(put(t, startedAt(t), [OLD_URI])).toBe("inserted");
     t.setNow(T + 3_600_000);
-    expect(t.run("metadata.remove", { clientId: ID, fetchStartedAt: startedAt(t) })).toEqual({
+    expect(t.run("cimd.remove", { clientId: ID, fetchStartedAt: startedAt(t) })).toEqual({
       removed: true,
     });
     expect(cards(t)).toEqual([]);
@@ -119,7 +119,7 @@ describe.each(hosts)("%s", (_name, make) => {
     expect(put(t, startedAt(t), [OLD_URI])).toBe("inserted");
     expect(cards(t)).toMatchObject([{ createdAt: T + 3_600_001 }]);
     // An hour refilled the budget, and the card made again spent one token of it.
-    expect(budget(t, NEW_CARD_BUDGET)).toBe(29);
+    expect(budget(t, NEW_CLIENT_BUDGET)).toBe(29);
   });
 
   test("the budgets: a refused fetch or card stores nothing", () => {
@@ -127,14 +127,14 @@ describe.each(hosts)("%s", (_name, make) => {
     const two = { rate: 2, periodMs: 60_000, capacity: 2 };
     expect(begin(t, OLD_URI, two)).toMatchObject({ next: "fetch" });
     expect(begin(t, OLD_URI, two)).toMatchObject({ next: "fetch" });
-    expect(begin(t, OLD_URI, two)).toEqual({ next: "limited" });
+    expect(begin(t, OLD_URI, two)).toEqual({ next: "rate_limited" });
     expect(budget(t, FETCH_BUDGET)).toBe(0);
 
     const one = { rate: 1, periodMs: 3_600_000, capacity: 1 };
-    expect(put(t, T, [OLD_URI], { newCards: one })).toBe("inserted");
+    expect(put(t, T, [OLD_URI], { newClients: one })).toBe("inserted");
     expect(
-      put(t, T, [OLD_URI], { clientId: "https://other.example.com/c.json", newCards: one }),
-    ).toBe("limited");
+      put(t, T, [OLD_URI], { clientId: "https://other.example.com/c.json", newClients: one }),
+    ).toBe("rate_limited");
     expect(cards(t).map((card) => card.clientId)).toEqual([ID]);
   });
 });

@@ -506,10 +506,10 @@ export async function createBroker(
   /**
    * One public card of `clientId`, an https address, with `redirectUri`, as a resolving layer
    * writes it: no secret, every configured connector, the page shown, and the host's gate and
-   * budget `site:<host>`.
+   * budget `cimd:host:<host>`.
    */
   async function registerPublicClient(args: { clientId: string; redirectUri: string }) {
-    const site = `site:${new URL(args.clientId).hostname}`;
+    const hostKey = `cimd:host:${new URL(args.clientId).hostname}`;
     await memory.seed((tx) =>
       Effect.asVoid(
         tx.insert("clients", {
@@ -519,10 +519,10 @@ export async function createBroker(
           redirectUris: [args.redirectUri],
           connectors: core.broker.connectors.map((connector) => connector.name).sort(),
           connections: [],
-          gates: [site],
+          gates: [hostKey],
           confirm: true,
-          budget: site,
-          ref: `site:${args.clientId}`,
+          budget: hostKey,
+          ref: `cimd:${args.clientId}`,
           createdAt: clock.now(),
         }),
       ),

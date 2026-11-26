@@ -1,7 +1,7 @@
 // The moderation API (./api.ts) as a part of the GitHub layer: `githubActions(allowList, {
 // moderation: moderation({ key }) })` mounts its routes under `/moderation/`. A broker without it has none.
-// Each request is one command of the layer (src/layers/github/moderation.ts), or of the metadata
-// layer for the stop of a site (src/layers/metadata/clients.ts); a command that
+// Each request is one command of the layer (src/layers/github/moderation.ts), or of the CIMD
+// layer for the block of a host (src/layers/cimd/clients.ts); a command that
 // fails is a defect here, which the mount hands back to the router as `CommandFailed`.
 import { Config, Effect, Layer, Option, Redacted } from "effect";
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
@@ -11,7 +11,7 @@ import type { Route } from "../core/router.ts";
 import { BrokerConfig } from "../core/services.ts";
 import { sha256HexEffect } from "../core/subject.ts";
 import { command, GithubSettings } from "../layers/github/settings.ts";
-import { command as metadataCommand } from "../layers/metadata/commands.ts";
+import { command as cimdCommand } from "../layers/cimd/commands.ts";
 import {
   InvalidRequest,
   InvalidToken,
@@ -90,11 +90,11 @@ const handlers = HttpApiBuilder.group(ModerationApi, "moderation", (endpoints) =
     .handle("deleteClient", ({ params, query }) =>
       Effect.orDie(command("github.deleteClient", { clientId: params.clientId, ...query })),
     )
-    .handle("changeSiteStop", ({ payload }) =>
+    .handle("changeHostBlock", ({ payload }) =>
       Effect.orDie(
-        payload.action === "stop"
-          ? metadataCommand("metadata.stop", { host: payload.host })
-          : metadataCommand("metadata.release", { host: payload.host }),
+        payload.action === "block"
+          ? cimdCommand("cimd.blockHost", { host: payload.host })
+          : cimdCommand("cimd.unblockHost", { host: payload.host }),
       ),
     ),
 );

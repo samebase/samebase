@@ -117,25 +117,25 @@ export const commandFunctions = (component: ComponentApi | typeof api): CommandF
     kind: "mutation",
     reference: component.stack.remove,
   },
-  "metadata.begin": {
+  "cimd.begin": {
     kind: "mutation",
-    reference: component.metadata.begin,
+    reference: component.cimd.begin,
   },
-  "metadata.put": {
+  "cimd.put": {
     kind: "mutation",
-    reference: component.metadata.put,
+    reference: component.cimd.put,
   },
-  "metadata.remove": {
+  "cimd.remove": {
     kind: "mutation",
-    reference: component.metadata.remove,
+    reference: component.cimd.remove,
   },
-  "metadata.stop": {
+  "cimd.blockHost": {
     kind: "mutation",
-    reference: component.metadata.stop,
+    reference: component.cimd.blockHost,
   },
-  "metadata.release": {
+  "cimd.unblockHost": {
     kind: "mutation",
-    reference: component.metadata.release,
+    reference: component.cimd.unblockHost,
   },
   "connections.create": {
     kind: "mutation",

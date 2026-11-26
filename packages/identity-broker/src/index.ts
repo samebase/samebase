@@ -7,12 +7,12 @@
 export {
   brokerLogger,
   makeHandle,
+  type ClientRefusal,
+  type ClientResolver,
   type CoreServices,
   type PrivateRegistration,
   type PublicRegistration,
   type Registration,
-  type Resolve,
-  type ResolveRefusal,
 } from "./core/router.ts";
 export { cleanupBatch } from "./core/cleanup.ts";
 export { CommandFailed } from "./core/command.ts";

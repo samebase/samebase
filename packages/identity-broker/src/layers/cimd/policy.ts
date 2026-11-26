@@ -1,4 +1,4 @@
-// The broker's policy for a client by a metadata document ("hosted sign-in on the site's own
+// The broker's policy for a client by a metadata document ("hosted sign-in on the app's own
 // origin"), on what the reader of src/cimd/ gives: which client ids it accepts, and which part of a
 // checked document it takes. Each refusal has a fixed code.
 import { parseClientId, type CheckedDocument, type ClientId } from "../../cimd/reader.ts";
@@ -12,7 +12,7 @@ export const policyRefusals = {
   client_id_not_dns_name: "The host of the client ID is not a DNS name.",
   host_not_allowed: "This broker does not accept clients of this host.",
   broker_origin: "The client ID is on the broker's own origin.",
-  stopped: "The broker's operator stopped sign-in for this site.",
+  host_blocked: "The broker's operator blocked sign-in for this host.",
   no_none_method: "The document does not offer the authentication method none.",
   no_code_grant: "The document's grant_types do not include authorization_code.",
   no_code_response: "The document's response_types do not include code.",
@@ -33,9 +33,9 @@ const refuse = <const Code extends string>(code: Code) => ({ _tag: "Refused", co
 /**
  * The client id when the reader takes it and this policy's rules of an id do: at most 255
  * characters, no query, no port, and a host that is a DNS name. The rules of `hosts` and of the
- * broker's origin need the layer's settings and are `allowedSite`'s.
+ * broker's origin need the layer's settings and are `hostRefusal`'s.
  */
-export function readSiteClientId(raw: string) {
+export function readClientId(raw: string) {
   if (raw.length > MAX_CLIENT_ID_LENGTH) {
     return refuse("client_id_too_long");
   }
@@ -49,7 +49,7 @@ export function readSiteClientId(raw: string) {
   if (id.hasExplicitPort) {
     return refuse("client_id_port");
   }
-  if (!isDnsName(id.host)) {
+  if (!isDnsName(id.hostname)) {
     return refuse("client_id_not_dns_name");
   }
   return id;
@@ -64,12 +64,12 @@ export const hostMatches = (patterns: ReadonlyArray<string>, host: string) =>
     pattern.startsWith("*.") ? host.endsWith(pattern.slice(1)) : host === pattern,
   );
 
-/** Undefined when the site of `id` may use the layer, else the code that refuses it. */
-export const siteRefusal = (
+/** Undefined when the host of `id` may use the layer, else the code that refuses it. */
+export const hostRefusal = (
   id: ClientId,
   settings: { readonly hosts: ReadonlyArray<string> | undefined; readonly brokerOrigin: string },
 ) =>
-  settings.hosts !== undefined && !hostMatches(settings.hosts, id.host)
+  settings.hosts !== undefined && !hostMatches(settings.hosts, id.hostname)
     ? ("host_not_allowed" as const)
     : id.origin === settings.brokerOrigin
       ? ("broker_origin" as const)

@@ -38,17 +38,17 @@ decides who may have a client:
   production clients; the clients of other keys get a removal date. A key's `integrations` names the
   integrations that its clients may use
   ([Connectors and integrations](#connectors-and-integrations)).
-- `Registration.metadataDocuments(options)`: a client with no registration, whose id is the address
-  of its metadata file ([The metadata layer](#the-metadata-layer)). It mounts no route, so it goes
-  beside either layer above:
-  `registration: [Registration.githubActions(...), Registration.metadataDocuments()]`.
+- `Registration.clientIdMetadataDocuments(options)`: a client with no registration, whose id is the
+  address of its Client ID Metadata Document (CIMD) ([The CIMD layer](#the-cimd-layer)). It mounts
+  no route, so it goes beside either layer above:
+  `registration: [Registration.githubActions(...), Registration.clientIdMetadataDocuments()]`.
 
 All are exports of `@samebase/identity-broker/registration`
 (`import * as Registration from "@samebase/identity-broker/registration"`).
 
-## Sign in with no registration
+## Sign in with a Client ID Metadata Document
 
-For an app on a broker that mounts the metadata layer. The app serves one JSON file on its own site,
+For an app on a broker that mounts the CIMD layer. The app serves one JSON file on its own site,
 such as `https://app.example.com/oauth-client.json`:
 
 ```json
@@ -74,30 +74,30 @@ return addresses, such as a loopback address, and keeps at most 8. The user sees
 with the app's host before the provider. A file that answers 404 or is refused ends the app's
 sign-ins at the next read.
 
-## The metadata layer
+## The CIMD layer
 
 For a broker's owner. The layer reads each client's file at `/authorize` through the broker's
 `Fetch`, and keeps a card while the file is fresh. A sign-in whose return address is not on the
-fresh card reads the file again, so a site that adds an address does not wait, and each such request
+fresh card reads the file again, so an app that adds an address does not wait, and each such request
 takes one read of the broker's budget. A card that nobody signs in with goes 24 hours after its last
 good read; after a sign-in it stays 14 days, as other temporary clients.
 
 ```ts
-Registration.metadataDocuments(); // any site: the broker needs `service`
-Registration.metadataDocuments({ hosts: ["app.example.com", "*.previews.example.com"] });
+Registration.clientIdMetadataDocuments(); // any host: the broker needs `service`
+Registration.clientIdMetadataDocuments({ hosts: ["app.example.com", "*.previews.example.com"] });
 ```
 
-| Option             | Default                    | What it does                                                 |
-| ------------------ | -------------------------- | ------------------------------------------------------------ |
-| `hosts`            | any host                   | The sites that may sign in. `*.` matches one or more labels. |
-| `connectors`       | every configured connector | The connectors of the layer's clients.                       |
-| `fetchesPerMinute` | 120                        | Reads of files for the whole broker. More get 429.           |
-| `newCardsPerHour`  | 30                         | New clients for the whole broker. More get 429.              |
+| Option              | Default                    | What it does                                                 |
+| ------------------- | -------------------------- | ------------------------------------------------------------ |
+| `hosts`             | any host                   | The hosts that may sign in. `*.` matches one or more labels. |
+| `connectors`        | every configured connector | The connectors of the layer's clients.                       |
+| `fetchesPerMinute`  | 120                        | Reads of files for the whole broker. More get 429.           |
+| `newClientsPerHour` | 30                         | New clients for the whole broker. More get 429.              |
 
-Each site (host) also has the sign-in budget of every client, 120 each minute, shared by every file
-of the host. To stop a site at once, `POST /moderation/site-stops` with
-`{ "action": "stop", "host": "app.example.com" }` (`"release"` undoes it), on the moderation API
-that `Registration.githubActions` mounts ([Moderation](#moderation)). The stop refuses each next
+Each host also has the sign-in budget of every client, 120 each minute, shared by every file of the
+host. To block a host at once, `POST /moderation/host-blocks` with
+`{ "action": "block", "host": "app.example.com" }` (`"unblock"` undoes it), on the moderation API
+that `Registration.githubActions` mounts ([Moderation](#moderation)). The block refuses each next
 step of its sign-ins; an access token that is already issued lives its 5 minutes.
 
 On Convex the broker must run in an HTTP action (as `convexBroker` mounts it), never in a
@@ -107,11 +107,11 @@ Workers refuse one too. A broker with its own page function must show the host i
 Known limits of this version:
 
 - No limit for each caller: the broker has no trusted caller address. One caller can spend the two
-  broker-wide budgets, and a new site then gets 429 until they refill; sites with a fresh card are
+  broker-wide budgets, and a new host then gets 429 until they refill; hosts with a fresh card are
   not affected. Put a rate limit for each address at the edge in front of a public broker.
 - Two publishers on one host look the same on the page. On a host where people publish by path, use
   `hosts`.
-- A site that removes its file and puts it back with the same return address can finish a sign-in
+- An app that removes its file and puts it back with the same return address can finish a sign-in
   that started before the removal (a sign-in lives 10 minutes).
 - No loopback return address, no return address on another origin, no client with a key. Such a file
   is accepted only for its https addresses on its own origin, and its keys are never read.
@@ -540,7 +540,7 @@ bound.
 | `GET`, `POST /moderation/connector-grants` | The connector grants; grant or revoke one                            |
 | `GET /moderation/clients`                  | The newest clients, or with `?owner=` those of one GitHub owner      |
 | `DELETE /moderation/clients/<client id>`   | Deletes one client                                                   |
-| `POST /moderation/site-stops`              | Stops or releases every client of one site of the metadata layer     |
+| `POST /moderation/host-blocks`             | Blocks or unblocks every client of one host of the CIMD layer        |
 
 A change applies at once: a block refuses the next step of each sign-in, and a grant or an exemption
 rewrites the clients it covers.

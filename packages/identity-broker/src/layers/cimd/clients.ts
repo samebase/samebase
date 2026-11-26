@@ -1,13 +1,14 @@
-// The cards that the metadata layer writes, each in the command that writes it: the step before a
-// fetch of a document, the card from a document, its removal, and the stop of a site. The id is
-// the one fact a card is computed from: its host gives the card's gate and budget, `site:<host>`.
+// The cards that the CIMD layer writes, each in the command that writes it: the step before a
+// fetch of a document, the card from a document, its removal, and the block of a host. The id is
+// the one fact a card is computed from: its host gives the card's gate and budget,
+// `cimd:host:<host>`.
 import { Effect, Schema } from "effect";
 import { spendBudget } from "../../rules/authRequests.ts";
 import type { Step } from "../../rules/commands.ts";
 import { UrlClientId } from "../../rules/tables.ts";
 import { first, unique } from "../../store/Tx.ts";
-import { readSiteClientId } from "./policy.ts";
-import { MetadataTx } from "./tables.ts";
+import { readClientId } from "./policy.ts";
+import { CimdTx } from "./tables.ts";
 
 const Str = Schema.String;
 const Strs = Schema.Array(Str);
@@ -16,11 +17,11 @@ const Strs = Schema.Array(Str);
 export const UNUSED_MS = 24 * 60 * 60 * 1000;
 
 /** The broker-wide budgets of the layer: rows of `signInBudgets` under these keys. */
-export const FETCH_BUDGET = "metadata:fetches";
-export const NEW_CARD_BUDGET = "metadata:new-cards";
+export const FETCH_BUDGET = "cimd:fetches";
+export const NEW_CLIENT_BUDGET = "cimd:new-clients";
 
 /** The gate and the sign-in budget of every card of `host`, and the key of its stop. */
-export const siteKey = (host: string) => `site:${host}`;
+export const hostKey = (host: string) => `cimd:host:${host}`;
 
 const Limits = Schema.Struct({
   rate: Schema.Finite,
@@ -36,7 +37,7 @@ export const BeginArgs = Schema.Struct({
   fetches: Limits,
 });
 export const BeginResult = Schema.Union([
-  Schema.Struct({ next: Schema.Literals(["stopped", "fresh", "limited"]) }),
+  Schema.Struct({ next: Schema.Literals(["stopped", "fresh", "rate_limited"]) }),
   Schema.Struct({ next: Schema.Literal("fetch"), fetchStartedAt: Schema.Finite }),
 ]);
 
@@ -46,38 +47,44 @@ export const PutArgs = Schema.Struct({
   freshUntil: Schema.Finite,
   redirectUris: Strs,
   connectors: Strs,
-  newCards: Limits,
+  newClients: Limits,
 });
-export const PutResult = Schema.Literals(["inserted", "replaced", "older", "stopped", "limited"]);
+export const PutResult = Schema.Literals([
+  "inserted",
+  "replaced",
+  "older",
+  "stopped",
+  "rate_limited",
+]);
 
 export const RemoveArgs = Schema.Struct({ clientId: UrlClientId, fetchStartedAt: Schema.Finite });
 export const RemoveResult = Schema.Struct({ removed: Schema.Boolean });
 
-export const SiteArgs = Schema.Struct({ host: Str });
-export const SiteResult = Schema.Struct({ changed: Schema.Boolean });
+export const HostArgs = Schema.Struct({ host: Str });
+export const HostResult = Schema.Struct({ changed: Schema.Boolean });
 
 /** The host of an id that the policy takes. Any other id is a defect of the caller. */
 const hostOf = (clientId: string) => {
-  const id = readSiteClientId(clientId);
+  const id = readClientId(clientId);
   return id._tag === "ClientId"
-    ? Effect.succeed(id.host)
-    : Effect.die(new Error(`Not a client id of the metadata layer: ${id.code}`));
+    ? Effect.succeed(id.hostname)
+    : Effect.die(new Error(`Not a client id of the CIMD layer: ${id.code}`));
 };
 
 const isStopped = Effect.fnUntraced(function* (host: string) {
-  return (yield* first(yield* MetadataTx, "stops", "by_key", [siteKey(host)])) !== undefined;
+  return (yield* first(yield* CimdTx, "stops", "by_key", [hostKey(host)])) !== undefined;
 });
 
 /** The card of `clientId`, which is a public card when there is one. */
 const cardOf = Effect.fnUntraced(function* (clientId: string) {
-  const row = yield* unique(yield* MetadataTx, "clients", "by_client_id", [clientId]);
+  const row = yield* unique(yield* CimdTx, "clients", "by_client_id", [clientId]);
   if (row === undefined) {
     return undefined;
   }
   const { id, doc } = row;
   return doc.tokenEndpointAuthMethod === "none"
     ? // A card that no fetch of the layer wrote is older than any fetch, and never fresh.
-      { id, doc, fetched: doc.metadata ?? { fetchStartedAt: 0, freshUntil: 0 } }
+      { id, doc, fetched: doc.cimd ?? { fetchStartedAt: 0, freshUntil: 0 } }
     : yield* Effect.die(new Error("A secret card has an https client id"));
 });
 
@@ -85,7 +92,7 @@ const sameSet = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
   a.length === b.length && a.every((name) => b.includes(name));
 
 /**
- * The step before a fetch: a stopped site stops here; a card that is fresh, that holds the
+ * The step before a fetch: a blocked host stops here; a card that is fresh, that holds the
  * request's return address and the layer's connectors of now is used as it is; else the fetch
  * takes a token of the broker-wide fetch budget, and its start is the step clock.
  */
@@ -104,28 +111,28 @@ export const begin = Effect.fnUntraced(function* (args: typeof BeginArgs.Type, s
     return { next: "fresh" as const };
   }
   if (!(yield* spendBudget(FETCH_BUDGET, step.now, args.fetches))) {
-    return { next: "limited" as const };
+    return { next: "rate_limited" as const };
   }
   return { next: "fetch" as const, fetchStartedAt: step.now };
 });
 
 /**
  * The card from a document that the layer accepted. With no card of the id, a token of the
- * new-card budget makes one. A card is replaced only by a fetch that started after the fetch that
- * it holds: an older, slower fetch changes nothing. The stop and the id are checked again here,
- * so no other path writes a public card of a stopped site or of another kind of id.
+ * new-client budget makes one. A card is replaced only by a fetch that started after the fetch that
+ * it holds: an older, slower fetch changes nothing. The block and the id are checked again here,
+ * so no other path writes a public card of a blocked host or of another kind of id.
  */
 export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step: Step) {
-  const tx = yield* MetadataTx;
+  const tx = yield* CimdTx;
   const host = yield* hostOf(args.clientId);
   if (yield* isStopped(host)) {
     return "stopped" as const;
   }
-  const metadata = { fetchStartedAt: args.fetchStartedAt, freshUntil: args.freshUntil };
+  const cimd = { fetchStartedAt: args.fetchStartedAt, freshUntil: args.freshUntil };
   const card = yield* cardOf(args.clientId);
   if (card === undefined) {
-    if (!(yield* spendBudget(NEW_CARD_BUDGET, step.now, args.newCards))) {
-      return "limited" as const;
+    if (!(yield* spendBudget(NEW_CLIENT_BUDGET, step.now, args.newClients))) {
+      return "rate_limited" as const;
     }
     yield* tx.insert("clients", {
       tokenEndpointAuthMethod: "none",
@@ -134,13 +141,13 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
       redirectUris: args.redirectUris,
       connectors: args.connectors,
       connections: [],
-      gates: [siteKey(host)],
+      gates: [hostKey(host)],
       confirm: true,
-      budget: siteKey(host),
-      ref: `site:${args.clientId}`,
+      budget: hostKey(host),
+      ref: `cimd:${args.clientId}`,
       removeAt: step.now + UNUSED_MS,
       createdAt: step.now,
-      metadata,
+      cimd,
     });
     return "inserted" as const;
   }
@@ -153,7 +160,7 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
     connectors: args.connectors,
     // The lease of a sign-in (`used` of src/rules/clients.ts) can be the later one.
     removeAt: Math.max(card.doc.removeAt ?? 0, step.now + UNUSED_MS),
-    metadata,
+    cimd,
   });
   return "replaced" as const;
 });
@@ -164,24 +171,24 @@ export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type)
   if (card === undefined || card.fetched.fetchStartedAt >= args.fetchStartedAt) {
     return { removed: false };
   }
-  yield* (yield* MetadataTx).delete("clients", card.id);
+  yield* (yield* CimdTx).delete("clients", card.id);
   return { removed: true };
 });
 
-/** Stops every card of `host` at once (its gate), and every new one (`begin` and `put`). */
-export const stop = Effect.fnUntraced(function* (args: typeof SiteArgs.Type, step: Step) {
-  const tx = yield* MetadataTx;
-  if ((yield* first(tx, "stops", "by_key", [siteKey(args.host)])) !== undefined) {
+/** Blocks every card of `host` at once (its gate), and every new one (`begin` and `put`). */
+export const blockHost = Effect.fnUntraced(function* (args: typeof HostArgs.Type, step: Step) {
+  const tx = yield* CimdTx;
+  if ((yield* first(tx, "stops", "by_key", [hostKey(args.host)])) !== undefined) {
     return { changed: false };
   }
-  yield* tx.insert("stops", { key: siteKey(args.host), at: step.now });
+  yield* tx.insert("stops", { key: hostKey(args.host), at: step.now });
   return { changed: true };
 });
 
-/** Releases the stop of `host`. */
-export const release = Effect.fnUntraced(function* (args: typeof SiteArgs.Type) {
-  const tx = yield* MetadataTx;
-  const row = yield* first(tx, "stops", "by_key", [siteKey(args.host)]);
+/** Removes the block of `host`. */
+export const unblockHost = Effect.fnUntraced(function* (args: typeof HostArgs.Type) {
+  const tx = yield* CimdTx;
+  const row = yield* first(tx, "stops", "by_key", [hostKey(args.host)]);
   if (row === undefined) {
     return { changed: false };
   }

@@ -4,8 +4,8 @@
 // read this declaration; the core's rules read only their own part through their `Tx`.
 import { Schema } from "effect";
 import { connectionTables } from "../integrations/tables.ts";
+import * as cimd from "../layers/cimd/tables.ts";
 import * as github from "../layers/github/tables.ts";
-import * as metadata from "../layers/metadata/tables.ts";
 import * as stack from "../layers/stack/tables.ts";
 import { cardIndexes, coreTables, publicCardFields, secretCardFields } from "../rules/tables.ts";
 import type { DocOf, IndexOf } from "./Tx.ts";
@@ -21,9 +21,9 @@ export const tables = {
         ...secretCardFields,
         ...github.cardFields,
         ...stack.cardFields,
-        metadata: never,
+        cimd: never,
       }),
-      Schema.Struct({ ...publicCardFields, ...metadata.cardFields, github: never, stack: never }),
+      Schema.Struct({ ...publicCardFields, ...cimd.cardFields, github: never, stack: never }),
     ]),
     indexes: { ...cardIndexes, ...github.cardIndexes },
   },

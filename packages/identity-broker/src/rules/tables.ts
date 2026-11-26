@@ -155,7 +155,7 @@ export const coreTables = {
   },
   /**
    * The token bucket of one key: a card's `budget`, or a layer's own key such as
-   * `metadata:fetches`. `tokens` as of `at` (milliseconds).
+   * `cimd:fetches`. `tokens` as of `at` (milliseconds).
    */
   signInBudgets: {
     schema: Schema.Struct({ key: Str, tokens: Num, at: Num }),

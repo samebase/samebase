@@ -9,11 +9,11 @@
  */
 
 import type * as authRequests from "../authRequests.js";
+import type * as cimd from "../cimd.js";
 import type * as clients from "../clients.js";
 import type * as connections from "../connections.js";
 import type * as github from "../github.js";
 import type * as lifecycle from "../lifecycle.js";
-import type * as metadata from "../metadata.js";
 import type * as signIns from "../signIns.js";
 import type * as stack from "../stack.js";
 
@@ -26,11 +26,11 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   authRequests: typeof authRequests;
+  cimd: typeof cimd;
   clients: typeof clients;
   connections: typeof connections;
   github: typeof github;
   lifecycle: typeof lifecycle;
-  metadata: typeof metadata;
   signIns: typeof signIns;
   stack: typeof stack;
 }> = anyApi as any;

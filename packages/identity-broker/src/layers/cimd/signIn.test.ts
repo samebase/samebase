@@ -1,4 +1,4 @@
-// The metadata layer in a broker: openid-client as an independent public client whose client id is
+// The CIMD layer in a broker: openid-client as an independent public client whose client id is
 // the address of its document, through the whole sign-in, with the layer alone, beside the
 // integrations part, and beside the GitHub layer; and a stored card that gives no new sign-in once
 // the broker no longer accepts its host.
@@ -17,7 +17,7 @@ import {
 import { PROVIDERS } from "../../integrations/testing.ts";
 import { integrationsPart } from "../../integrations/routes.ts";
 import { githubActions } from "../github/routes.ts";
-import { metadataDocuments } from "./registration.ts";
+import { clientIdMetadataDocuments } from "./registration.ts";
 
 const CLIENT_ID = "https://app.example.com/oauth-client.json";
 const REDIRECT_URI = "https://app.example.com/auth/callback";
@@ -63,9 +63,12 @@ const Jwks = Schema.Struct({
 });
 
 describe.each([
-  ["the layer alone", () => brokerWith([metadataDocuments()])],
-  ["the integrations part", () => brokerWith([metadataDocuments()], integrationsPart(PROVIDERS))],
-  ["the GitHub layer", () => brokerWith([githubActions([]), metadataDocuments()])],
+  ["the layer alone", () => brokerWith([clientIdMetadataDocuments()])],
+  [
+    "the integrations part",
+    () => brokerWith([clientIdMetadataDocuments()], integrationsPart(PROVIDERS)),
+  ],
+  ["the GitHub layer", () => brokerWith([githubActions([]), clientIdMetadataDocuments()])],
 ])("with %s", (_name, make) => {
   test("openid-client signs in as a public client whose client id is the address of its file", async () => {
     const h = await make();
@@ -136,13 +139,13 @@ describe.each([
 describe("a stored card of the layer", () => {
   /** A fresh card of the app, written by the layer's own step. */
   const storeCard = (h: Broker) =>
-    h.memory.run("metadata.put", {
+    h.memory.run("cimd.put", {
       clientId: CLIENT_ID,
       fetchStartedAt: h.clock.now(),
       freshUntil: h.clock.now() + 3_600_000,
       redirectUris: [REDIRECT_URI],
       connectors: ["fake"],
-      newCards: { rate: 30, periodMs: 3_600_000, capacity: 30 },
+      newClients: { rate: 30, periodMs: 3_600_000, capacity: 30 },
     });
   const authorize = (h: Broker) =>
     h.fetchBroker(
@@ -157,7 +160,7 @@ describe("a stored card of the layer", () => {
     );
 
   test("gives a sign-in with no fetch while the broker accepts its host", async () => {
-    const h = await brokerWith([metadataDocuments({ hosts: ["app.example.com"] })]);
+    const h = await brokerWith([clientIdMetadataDocuments({ hosts: ["app.example.com"] })]);
     expect(storeCard(h)).toBe("inserted");
     expect((await authorize(h)).status).toBe(200);
     expect(h.fetch.requests).toEqual([]);
@@ -171,7 +174,7 @@ describe("a stored card of the layer", () => {
   });
 
   test("gives no new sign-in once its host is removed from `hosts`", async () => {
-    const h = await brokerWith([metadataDocuments({ hosts: ["other.example.com"] })]);
+    const h = await brokerWith([clientIdMetadataDocuments({ hosts: ["other.example.com"] })]);
     expect(storeCard(h)).toBe("inserted");
     const page = await authorize(h);
     expect([page.status, await page.text()]).toEqual([

@@ -28,8 +28,8 @@ import {
   txnCookie,
   type StubFetch,
 } from "../../src/core/testing/harness.ts";
+import { clientIdMetadataDocuments } from "../../src/layers/cimd/registration.ts";
 import { githubActions } from "../../src/layers/github/routes.ts";
-import { metadataDocuments } from "../../src/layers/metadata/registration.ts";
 import { ModerationApi, ModerationKey } from "../../src/moderation/api.ts";
 import {
   connectionCleanup,
@@ -256,7 +256,7 @@ const memoryBroker = async (): Promise<TestBroker> => {
   const h = await createBroker({
     fetch: upstream,
     config: { issuer: siteUrl, connectors: [idp.connector] },
-    registration: [githubActions(ALLOW_LIST), metadataDocuments()],
+    registration: [githubActions(ALLOW_LIST), clientIdMetadataDocuments()],
   });
   h.clock.set(Date.now());
   return {

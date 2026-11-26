@@ -1,7 +1,7 @@
 // Clients with no secret, whose id is the https address of their metadata document: the card
 // union, the two kinds of client authentication at `/token`, the call to a layer's resolver at
 // `/authorize`, and a broker with more than one layer. The resolver here is a test layer that writes
-// the public card through the harness; the real layer is src/layers/metadata/.
+// the public card through the harness; the real layer is src/layers/cimd/.
 import { Effect, Schema } from "effect";
 import { describe, expect, test } from "vite-plus/test";
 import {
@@ -13,7 +13,7 @@ import {
 } from "../integrations/testing.ts";
 import { decodeCommand, type Args } from "../store/commands.ts";
 import { tables } from "../store/tables.ts";
-import type { Registration, ResolveRefusal, Route } from "./router.ts";
+import type { ClientRefusal, Registration, Route } from "./router.ts";
 import {
   createBroker,
   fakeUpstream,
@@ -37,12 +37,12 @@ const errorOf = async (response: Response) =>
 const testLayer = () => {
   const state: {
     calls: Array<{ readonly clientId: string; readonly redirectUri: string }>;
-    refusal: ResolveRefusal | undefined;
+    refusal: ClientRefusal | undefined;
     broker: Broker | undefined;
   } = { calls: [], refusal: undefined, broker: undefined };
   const layer: Registration = {
     routes: [],
-    resolve: (request) =>
+    resolveClient: (request) =>
       Effect.gen(function* () {
         state.calls.push(request);
         if (state.refusal !== undefined) {
@@ -245,7 +245,7 @@ describe("/authorize and the resolver", () => {
 
   test("the resolver gets the client id as sent; a cl_ id never reaches it", async () => {
     const h = await publicBroker();
-    h.resolver.refusal = { refusal: "invalid", description: "The document was refused." };
+    h.resolver.refusal = { reason: "invalid", description: "The document was refused." };
     const { challenge } = await pkce();
     const padded = ` ${CLIENT_ID}`;
     await h.fetchBroker(authorizeUrl(h, padded, challenge));
@@ -256,26 +256,26 @@ describe("/authorize and the resolver", () => {
 
   test.each([
     {
-      refusal: { refusal: "invalid", description: "No usable redirect URI." },
+      refusal: { reason: "invalid", description: "No usable redirect URI." },
       status: 400,
       retryAfter: null,
       text: "invalid_client: No usable redirect URI.",
     },
     {
-      refusal: { refusal: "unavailable", retryAfter: 30 },
+      refusal: { reason: "unavailable", retryAfter: 30 },
       status: 503,
       retryAfter: "30",
       text: "Try again soon.",
     },
-    { refusal: { refusal: "unavailable" }, status: 503, retryAfter: null, text: "Try again soon." },
-    { refusal: { refusal: "limited" }, status: 429, retryAfter: null, text: "Try again soon." },
+    { refusal: { reason: "unavailable" }, status: 503, retryAfter: null, text: "Try again soon." },
+    { refusal: { reason: "rate_limited" }, status: 429, retryAfter: null, text: "Try again soon." },
   ] satisfies ReadonlyArray<{
-    refusal: ResolveRefusal;
+    refusal: ClientRefusal;
     status: number;
     retryAfter: string | null;
     text: string;
   }>)(
-    "a refusal $refusal.refusal is the broker's own page $status, with no redirect and nothing stored",
+    "a refusal $refusal.reason is the broker's own page $status, with no redirect and nothing stored",
     async ({ refusal, status, retryAfter, text }) => {
       const h = await publicBroker();
       h.resolver.refusal = refusal;
@@ -466,8 +466,8 @@ describe("a layer of secret clients cannot write a public card", () => {
       connections: [],
       gates: [],
       confirm: true,
-      budget: "site:app.test",
-      ref: `site:${CLIENT_ID}`,
+      budget: "cimd:host:app.test",
+      ref: `cimd:${CLIENT_ID}`,
       createdAt: 0,
     };
     expect(() => encode(card)).not.toThrow();

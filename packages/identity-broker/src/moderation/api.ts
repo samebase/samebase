@@ -163,11 +163,11 @@ export const ConnectorGrantChange = Schema.Struct({
 });
 
 /**
- * Stops or releases sign-in for every client of one site of the metadata layer: the clients whose
- * id is an address on `host`, a DNS name in lower case. A stop refuses their sign-ins at once.
+ * Blocks or unblocks sign-in for every client of one host of the CIMD layer: the clients whose
+ * id is an address on `host`, a DNS name in lower case. A block refuses their sign-ins at once.
  */
-export const SiteStopChange = Schema.Struct({
-  action: Schema.Literals(["stop", "release"]),
+export const HostBlockChange = Schema.Struct({
+  action: BlockAction,
   host: Schema.String.check(Schema.isPattern(/^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/)),
 });
 
@@ -278,8 +278,8 @@ export class Moderation extends HttpApiGroup.make("moderation")
       query: { owner: Schema.optionalKey(GithubId) },
       success: Changed,
     }).annotate(HttpApi.QueryParseOptions, strictQuery),
-    HttpApiEndpoint.post("changeSiteStop", "/site-stops", {
-      payload: SiteStopChange,
+    HttpApiEndpoint.post("changeHostBlock", "/host-blocks", {
+      payload: HostBlockChange,
       success: Changed,
     }),
   )

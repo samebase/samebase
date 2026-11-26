@@ -50,7 +50,7 @@ import {
 } from "./services.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "./subject.ts";
 import type { Return } from "../rules/schemas.ts";
-import type { Resolve, ResolveRefusal } from "./router.ts";
+import type { ClientRefusal, ClientResolver } from "./router.ts";
 
 /** A request lives this long from /authorize to the code redirect. */
 const AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
@@ -321,8 +321,8 @@ const continueHref = (broker: BrokerConfigShape, requestId: string, connector: C
   `${broker.prefix}/continue?request=${encodeURIComponent(requestId)}&connector=${encodeURIComponent(connector.name)}`;
 
 /** The broker's own page for a resolver's refusal: the user is never sent to the app. */
-const resolveRefusalPage = (refusal: ResolveRefusal) => {
-  switch (refusal.refusal) {
+const clientRefusalPage = (refusal: ClientRefusal) => {
+  switch (refusal.reason) {
     case "invalid":
       return errorPage("Invalid client", `invalid_client: ${refusal.description}`, 400);
     case "unavailable": {
@@ -336,7 +336,7 @@ const resolveRefusalPage = (refusal: ResolveRefusal) => {
       }
       return page;
     }
-    case "limited":
+    case "rate_limited":
       return errorPage("Too many sign-ins", "Too many new sign-ins. Try again soon.", 429);
     default:
       return refusal satisfies never;
@@ -345,12 +345,12 @@ const resolveRefusalPage = (refusal: ResolveRefusal) => {
 
 /**
  * `/authorize`. Every check of the request itself comes first, so a bad request costs no read.
- * Then a client id that is an https address goes to `resolve`, the one resolver of the mounted
- * layers; with none, such a client is unknown, even when its card is stored.
+ * Then a client id that is an https address goes to `resolveClient`, the one resolver of the
+ * mounted layers; with none, such a client is unknown, even when its card is stored.
  */
 export const authorize = Effect.fn("authorize")(function* (
   request: Request,
-  resolve: Resolve | undefined,
+  resolveClient: ClientResolver | undefined,
 ) {
   const broker = yield* BrokerConfig;
   const cookies = txnCookies(broker);
@@ -379,12 +379,12 @@ export const authorize = Effect.fn("authorize")(function* (
   // The request keeps the one the client named: the code exchange must name the same one.
   const redirectUri = target.value.redirectUri;
   if (isUrlClientId(target.value.clientId)) {
-    if (resolve === undefined) {
+    if (resolveClient === undefined) {
       return unknownClientPage();
     }
-    const refusal = yield* resolve({ clientId: target.value.clientId, redirectUri });
+    const refusal = yield* resolveClient({ clientId: target.value.clientId, redirectUri });
     if (refusal !== undefined) {
-      return resolveRefusalPage(refusal);
+      return clientRefusalPage(refusal);
     }
   }
   // A snapshot of the card, to answer a bad request before anything is stored. `create` reads the

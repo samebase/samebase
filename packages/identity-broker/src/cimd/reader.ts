@@ -4,7 +4,7 @@
 import { Clock, Duration, Effect, Option, Result, Schema, SchemaIssue } from "effect";
 
 /** One sentence for each reason why the reader does not give a client ID, a document or a record. */
-export const refusals = {
+export const refusalDescriptions = {
   client_id_not_uri: "The client ID is not an absolute URI of RFC 3986.",
   client_id_not_https: "The client ID does not use the https scheme.",
   client_id_no_host: "The client ID has no host.",
@@ -20,24 +20,26 @@ export const refusals = {
   timeout: "The document could not be fetched in 5 seconds.",
   unavailable_status: "The host answered 429 or 5xx: the document may be there later.",
   redirect: "The host answered with a redirect, which is never followed.",
-  error_status: "The host answered with a status that is not 200.",
+  unexpected_status: "The host answered with a status that is not 200.",
   too_large: "The document is larger than 5 KB.",
   not_json: "The document is not UTF-8 JSON.",
   not_object: "The document is not a JSON object.",
   invalid_member: "A member of the document does not have the type of its definition.",
   client_id_mismatch: "The client_id of the document is not the client ID that was fetched.",
-  client_secret: "The document has a client_secret or a client_secret_expires_at member.",
+  client_secret_not_allowed:
+    "The document has a client_secret or a client_secret_expires_at member.",
   shared_secret_method: "The document declares an authentication method that uses a shared secret.",
   auth_methods_empty: "The document's token_endpoint_auth_methods_supported is an empty list.",
   auth_method_not_in_list:
     "The document's token_endpoint_auth_method is not in its token_endpoint_auth_methods_supported.",
   jwks_and_jwks_uri: "The document has both jwks and jwks_uri.",
   private_key_material: "The document's jwks holds private or symmetric key material.",
-  software_statement: "The document has a software_statement, which this reader does not validate.",
+  software_statement_not_supported:
+    "The document has a software_statement, which this reader does not validate.",
   invalid_redirect_uri: "A redirect URI is not an absolute URI, or it has a fragment.",
 } as const;
 
-export type RefusalCode = keyof typeof refusals;
+export type RefusalCode = keyof typeof refusalDescriptions;
 
 /** What `fetch` of the platform does with one request. The broker gives its `Fetch` service's. */
 export type FetchFunction = (request: Request) => Promise<Response>;
@@ -59,7 +61,7 @@ const DOT_SEGMENT = /^(?:\.|%2e){1,2}$/i;
 /**
  * The client ID of draft section 3, read on the raw text before a URL parser can change it. `id` is
  * the raw text and the client's identity: ids compare by string equality, with no normalization.
- * `host` (lower case) and `origin` are for a server's policy. A query and a port are permitted by
+ * `hostname` (lower case) and `origin` are for a server's policy. A query and a port are permitted by
  * the draft and reported, so a policy can refuse them.
  */
 // oxlint-disable-next-line complexity -- one branch per rule of draft section 3, in its order.
@@ -109,7 +111,7 @@ export function parseClientId(raw: string) {
   return {
     _tag: "ClientId",
     id: raw,
-    host: url.hostname,
+    hostname: url.hostname,
     origin: url.origin,
     hasQuery: query !== undefined,
     hasExplicitPort: port !== undefined,
@@ -124,7 +126,7 @@ export type ClientId = Extract<ReturnType<typeof parseClientId>, { _tag: "Client
  * directive gives 1 hour. A `max-age` that is not a number gives `now`, as RFC 9111 section 4.2.1
  * permits for a value that cannot be read. `Expires` is not read (draft section 6.2).
  */
-export function freshness(headers: Headers, now: number) {
+export function freshUntil(headers: Headers, now: number) {
   const directives = (headers.get("cache-control") ?? "")
     .split(",")
     .map((directive) => directive.trim().toLowerCase())
@@ -275,7 +277,7 @@ export const fetchDocument = Effect.fnUntraced(function* (
   clientId: ClientId,
   fetch: FetchFunction,
 ) {
-  if (isSpecialUseHost(clientId.host)) {
+  if (isSpecialUseHost(clientId.hostname)) {
     return { _tag: "Terminal", code: "special_use_address", status: undefined } as const;
   }
 
@@ -314,7 +316,7 @@ export const fetchDocument = Effect.fnUntraced(function* (
   if (status !== 200) {
     return {
       _tag: "Terminal",
-      code: status >= 300 && status < 400 ? "redirect" : "error_status",
+      code: status >= 300 && status < 400 ? "redirect" : "unexpected_status",
       status,
     } as const;
   }
@@ -337,7 +339,7 @@ export const fetchDocument = Effect.fnUntraced(function* (
   return {
     _tag: "Document",
     json: json.value,
-    freshUntil: freshness(response.headers, now),
+    freshUntil: freshUntil(response.headers, now),
   } as const;
 });
 
@@ -432,10 +434,10 @@ export function checkDocument(id: string, json: unknown) {
     return refuse("client_id_mismatch");
   }
   if (document.client_secret !== undefined || document.client_secret_expires_at !== undefined) {
-    return refuse("client_secret");
+    return refuse("client_secret_not_allowed");
   }
   if (document.software_statement !== undefined) {
-    return refuse("software_statement");
+    return refuse("software_statement_not_supported");
   }
 
   const plural = document.token_endpoint_auth_methods_supported;

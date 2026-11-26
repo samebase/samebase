@@ -8,7 +8,7 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   checkDocument,
   fetchDocument,
-  freshness,
+  freshUntil,
   MAX_DOCUMENT_BYTES,
   parseClientId,
   type ClientId,
@@ -49,11 +49,11 @@ const jsonResponse = (body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status: 200, headers });
 
 describe("parseClientId: draft section 3", () => {
-  test("a valid id gives the raw text as the identity, with its host and origin", () => {
+  test("a valid id gives the raw text as the identity, with its hostname and origin", () => {
     expect(parseClientId(ID)).toEqual({
       _tag: "ClientId",
       id: ID,
-      host: "app.example.com",
+      hostname: "app.example.com",
       origin: "https://app.example.com",
       hasQuery: false,
       hasExplicitPort: false,
@@ -87,7 +87,7 @@ describe("parseClientId: draft section 3", () => {
     expect(parseClientId("HTTPS://Example.COM/client")).toMatchObject({
       _tag: "ClientId",
       id: "HTTPS://Example.COM/client",
-      host: "example.com",
+      hostname: "example.com",
     });
   });
 
@@ -212,7 +212,7 @@ describe("fetchDocument: draft sections 6, 6.1, 10.7, 10.11 and 11.1", () => {
     "MUST treat every status other than 200 as an error: %i is terminal",
     async (status) => {
       const result = await fetchWith(() => new Response(null, { status }));
-      expect(result).toEqual({ _tag: "Terminal", code: "error_status", status });
+      expect(result).toEqual({ _tag: "Terminal", code: "unexpected_status", status });
     },
   );
 
@@ -380,8 +380,8 @@ describe("fetchDocument: draft sections 6, 6.1, 10.7, 10.11 and 11.1", () => {
   );
 });
 
-describe("freshness: draft section 6.2", () => {
-  const fresh = (headers: Record<string, string>) => freshness(new Headers(headers), T);
+describe("freshUntil: draft section 6.2", () => {
+  const fresh = (headers: Record<string, string>) => freshUntil(new Headers(headers), T);
 
   test("SHOULD respect cache headers: max-age is used as given, less the Age of the answer", () => {
     expect(fresh({ "Cache-Control": "public, max-age=600" })).toBe(T + 600_000);
@@ -416,7 +416,7 @@ describe("freshness: draft section 6.2", () => {
   });
 });
 
-/** The document of design section 2: a public client of one site. */
+/** The document of design section 2: a public client of one host. */
 const document = {
   client_id: ID,
   client_name: "My app",
@@ -481,7 +481,7 @@ describe("checkDocument: draft sections 4 to 6", () => {
     ["client_secret_expires_at", 0],
   ])("section 4.1: %s MUST NOT be used (value %j)", (member, value) => {
     expect(checkDocument(ID, { ...document, [member]: value })).toMatchObject({
-      code: "client_secret",
+      code: "client_secret_not_allowed",
     });
   });
 
@@ -538,7 +538,7 @@ describe("checkDocument: draft sections 4 to 6", () => {
 
   test("section 4.3: a software_statement is refused, since the reader does not validate one", () => {
     expect(checkDocument(ID, { ...document, software_statement: "eyJ..." })).toMatchObject({
-      code: "software_statement",
+      code: "software_statement_not_supported",
     });
   });
 
