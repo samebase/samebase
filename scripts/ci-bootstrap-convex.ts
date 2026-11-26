@@ -4,6 +4,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { BROKER_DISABLED } from "@samebase/identity-broker/client";
 import { generateConvexAuthKeys, generateCredentialKeys } from "./lib/convexAuthKeys.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
@@ -81,8 +82,8 @@ async function main(): Promise<void> {
       // CI has no identity hub. convex/convex.config.ts requires these variables, and convex/auth.ts
       // needs a loopback or https issuer to load, so they hold values that name the absence.
       ["IDENTITY_HUB_ISSUER", "http://127.0.0.1:1"],
-      ["IDENTITY_HUB_CLIENT_ID", "no-hub"],
-      ["IDENTITY_HUB_CLIENT_SECRET", "no-hub"],
+      ["IDENTITY_HUB_CLIENT_ID", BROKER_DISABLED],
+      ["IDENTITY_HUB_CLIENT_SECRET", BROKER_DISABLED],
       ["CONVEX_AGENT_MODE", "anonymous"],
       ["GITHUB_APP_CLIENT_ID", "ci-placeholder"],
       ["GITHUB_APP_CLIENT_SECRET", "ci-placeholder"],

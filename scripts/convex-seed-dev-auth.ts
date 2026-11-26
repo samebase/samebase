@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { BROKER_DISABLED } from "@samebase/identity-broker/client";
 import { generateConvexAuthKeys, generateCredentialKeys } from "./lib/convexAuthKeys.ts";
 import { readEnvFile } from "./lib/envFile.ts";
 import { resolveRepoRoot } from "./lib/scriptRuntime.ts";
@@ -143,8 +144,8 @@ try {
   // HUB_ names.
   for (const [name, value] of [
     ["IDENTITY_HUB_ISSUER", "http://127.0.0.1:1"],
-    ["IDENTITY_HUB_CLIENT_ID", "no-hub"],
-    ["IDENTITY_HUB_CLIENT_SECRET", "no-hub"],
+    ["IDENTITY_HUB_CLIENT_ID", BROKER_DISABLED],
+    ["IDENTITY_HUB_CLIENT_SECRET", BROKER_DISABLED],
   ] as const) {
     if (readLocalConvexEnv(name) === null) setLocalConvexEnv(name, value);
   }

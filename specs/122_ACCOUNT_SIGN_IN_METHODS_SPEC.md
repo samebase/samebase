@@ -53,8 +53,9 @@ The OAuth flows return to the app on the same origin: the hub sends the browser 
 `<site>/auth/hub/callback` on the Convex deployment's site, then a redirect to a path on `SITE_URL`
 or on the deployment's own `CONVEX_SITE_URL`. The Convex Auth client in the browser finishes the
 sign-in from the `convexAuthCode` or `convexAuthError` search value, which the root route keeps for
-it. A deployment without a hub (a linked worktree or CI, the `local_worktree` profile) holds no-hub
-values for the three `HUB_` variables, and its sign-in page offers only the password form.
+it. A deployment without a hub (a linked worktree or CI, the `local_worktree` profile) holds off
+values in the three `HUB_` variables (client id and secret `broker-disabled`), and its sign-in page
+offers only the password form.
 
 OAuth sign-in resolves the account with these rules, in order:
 

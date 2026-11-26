@@ -58,8 +58,9 @@ app.use(auth, {
 // a sign-in back to <site>/auth/hub/callback, next to the other sign-in routes under /auth, and a
 // connection back to <site>/oauth/hub/callback (convex/http.ts). Convex refuses to bind the
 // component's required variables to optional ones, so every deployment holds the three
-// IDENTITY_HUB_ variables; a linked worktree and CI hold no-hub values. The variable names, the
-// callback paths and the `authHub` mount stay: deployments and broker registrations hold them.
+// IDENTITY_HUB_ variables; a linked worktree and CI hold off values, with client id and secret
+// `broker-disabled`. The variable names, the callback paths and the `authHub` mount stay:
+// deployments and broker registrations hold them.
 app.use(oauth, {
   name: "authHub",
   httpPrefix: "/auth/hub",

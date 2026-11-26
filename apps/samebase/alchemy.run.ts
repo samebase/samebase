@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as GitHub from "@alchemy.run/github";
 import * as Convex from "@samebase/alchemy-convex";
-import * as IdentityHub from "@samebase/alchemy-convex/identity-hub";
+import * as IdentityBroker from "@samebase/identity-broker/alchemy";
 import * as Alchemy from "alchemy";
 import { adopt } from "alchemy/AdoptPolicy";
 import * as Output from "alchemy/Output";
@@ -60,7 +60,12 @@ export default Alchemy.Stack(
   "samebase/samebase/apps/samebase",
   {
     // The GitHub provider has no resource here: it forgets the PreviewComment rows of older previews.
-    providers: Layer.mergeAll(Cloudflare.providers(), GitHub.providers(), Convex.providers()),
+    providers: Layer.mergeAll(
+      Cloudflare.providers(),
+      GitHub.providers(),
+      Convex.providers(),
+      IdentityBroker.providers(),
+    ),
     state: Convex.withRunRecord(Convex.state()),
   },
   Effect.gen(function* () {
@@ -73,14 +78,14 @@ export default Alchemy.Stack(
       // asks the broker with the development key from the state of `prod`. The broker removes it 14 days
       // after its last run. "Site" only writes the three variables.
       const local = Convex.LocalDeployment.of();
-      const broker = IdentityHub.Client.variables(
-        yield* IdentityHub.Client("HubClient", {
+      const broker = IdentityBroker.Client.variables(
+        yield* IdentityBroker.Client("HubClient", {
           app: APP,
-          hub: BROKER,
+          broker: BROKER,
           connectors: CONNECTORS,
           redirectUris: callbacks(local.siteUrl),
           deploymentType: "development",
-          key: yield* IdentityHub.registrationKey(DEVELOPMENT_KEY, { stage: "prod" }),
+          key: yield* IdentityBroker.registrationKey(DEVELOPMENT_KEY, { stage: "prod" }),
           softwareVersion: commit,
           required: true,
         }),
@@ -119,14 +124,14 @@ export default Alchemy.Stack(
         env: { SAMEBASE_COMMIT: commit },
         source: { path: "./convex", command: ["node", "./scripts/deploy-preview.ts"] },
       }).pipe(adopt(true), Alchemy.RemovalPolicy.destroy());
-      const broker = IdentityHub.Client.variables(
-        yield* IdentityHub.Client("HubClient", {
+      const broker = IdentityBroker.Client.variables(
+        yield* IdentityBroker.Client("HubClient", {
           app: APP,
-          hub: BROKER,
+          broker: BROKER,
           connectors: CONNECTORS,
           redirectUris: Output.map(preview.siteUrl, callbacks),
           deploymentType: "preview",
-          key: yield* IdentityHub.registrationKey(PREVIEW_KEY, { stage: "prod" }),
+          key: yield* IdentityBroker.registrationKey(PREVIEW_KEY, { stage: "prod" }),
           softwareVersion: commit,
         }),
       );
@@ -156,11 +161,11 @@ export default Alchemy.Stack(
     // The production client, on the callbacks of samebase.com. It registers
     // before "Site" pushes, and "Site" keeps every variable it owned before. The production key
     // makes it permanent.
-    const productionKey = yield* IdentityHub.registrationKey(PRODUCTION_KEY, { stage: "prod" });
-    const broker = IdentityHub.Client.variables(
-      yield* IdentityHub.Client("Hub2Client", {
+    const productionKey = yield* IdentityBroker.registrationKey(PRODUCTION_KEY, { stage: "prod" });
+    const broker = IdentityBroker.Client.variables(
+      yield* IdentityBroker.Client("Hub2Client", {
         app: APP,
-        hub: BROKER,
+        broker: BROKER,
         connectors: CONNECTORS,
         redirectUris: callbacks(PRODUCTION_SITE_URL),
         deploymentType: "production",
@@ -229,10 +234,10 @@ export default Alchemy.Stack(
     const brokerWorker = yield* Broker;
     yield* brokerWorker.bind("RegistrationKeys", {
       env: {
-        SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(PREVIEW_KEY, {
+        SAMEBASE_HUB_PREVIEW_KEY: yield* IdentityBroker.registrationKey(PREVIEW_KEY, {
           stage: "prod",
         }),
-        SAMEBASE_HUB_DEVELOPMENT_KEY: yield* IdentityHub.registrationKey(DEVELOPMENT_KEY, {
+        SAMEBASE_HUB_DEVELOPMENT_KEY: yield* IdentityBroker.registrationKey(DEVELOPMENT_KEY, {
           stage: "prod",
         }),
         SAMEBASE_HUB_PRODUCTION_KEY: productionKey,
