@@ -8,7 +8,7 @@ import { describe, expect, it } from "vite-plus/test";
 import * as Connectors from "../../core/connectors/index.ts";
 import { identityBroker } from "../../core/identityBroker.ts";
 import { createBroker, TEST_SERVICE, txnCookie } from "../../core/testing/harness.ts";
-import { github } from "./routes.ts";
+import { githubActions } from "./routes.ts";
 import {
   createGithubBroker,
   ISSUER,
@@ -135,12 +135,12 @@ describe("discovery", () => {
       clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
       clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
     });
-    // @ts-expect-error A broker on the `github` layer needs `service`.
-    identityBroker({ issuer: ISSUER, connectors: [google], registration: github([]) });
+    // @ts-expect-error A broker on `githubActions` needs `service`.
+    identityBroker({ issuer: ISSUER, connectors: [google], registration: githubActions([]) });
     identityBroker({
       issuer: ISSUER,
       connectors: [google],
-      registration: github([]),
+      registration: githubActions([]),
       service: TEST_SERVICE,
     });
   });

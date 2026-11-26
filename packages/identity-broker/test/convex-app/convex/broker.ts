@@ -5,7 +5,8 @@
 // `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
 import { Config, Effect, Layer, Redacted } from "effect";
 import { convexBroker } from "../../../src/hosts/convex/broker.ts";
-import { github, BrokerConfig, brokerRuntime, Keys, SignInPage } from "../../../src/index.ts";
+import { BrokerConfig, brokerRuntime, Keys, SignInPage } from "../../../src/index.ts";
+import { githubActions } from "../../../src/layers/github/routes.ts";
 import { moderation } from "../../../src/moderation/server.ts";
 import { components } from "./_generated/api.js";
 import { FAKE_IDP_ISSUER, FAKE_IDP_PORT } from "./fakeIdp.ts";
@@ -65,7 +66,7 @@ export const broker = convexBroker(
   components.identityBroker,
   brokerRuntime(
     settings,
-    github([{ repositoryId: "1", ownerId: "65" }], {
+    githubActions([{ repositoryId: "1", ownerId: "65" }], {
       moderation: moderation({ key: Config.Redacted("MODERATION_KEY") }),
     }),
   ),

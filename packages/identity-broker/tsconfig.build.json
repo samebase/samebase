@@ -13,8 +13,11 @@
     "src/index.ts",
     "src/hosts/convex/broker.ts",
     "src/hosts/cloudflare/broker.ts",
+    "src/alchemy/index.ts",
+    "src/client/index.ts",
     "src/core/connectors/index.ts",
     "src/connections/index.ts",
+    "src/layers/index.ts",
     "src/moderation/server.ts",
     "src/moderation/api.ts",
     "src/core/testing/harness.ts"

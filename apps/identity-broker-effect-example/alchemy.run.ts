@@ -28,7 +28,7 @@
 // EXAMPLE_HUB_GOOGLE_CLIENT_ID, EXAMPLE_HUB_GOOGLE_CLIENT_SECRET and IDENTITY_BROKER_KEYS.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Convex from "@samebase/alchemy-convex";
-import * as IdentityBroker from "@samebase/alchemy-convex/identity-broker";
+import * as IdentityBroker from "@samebase/identity-broker/alchemy";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -39,8 +39,11 @@ import Site from "./src/worker.ts";
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-broker-effect-example",
   {
-    // Convex.providers() holds IdentityBroker.Client's provider; both collections hold Random's.
-    providers: Layer.mergeAll(Cloudflare.providers(), Convex.providers()),
+    providers: Layer.mergeAll(
+      Cloudflare.providers(),
+      Convex.providers(),
+      IdentityBroker.providers(),
+    ),
     state: Convex.withRunRecord(Convex.state()),
   },
   Effect.gen(function* () {

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.47.0
+
+- Breaking: `IdentityBroker.Client` moved to `@samebase/identity-broker/alchemy` (0.43.0). The
+  subpath `./identity-broker` is gone, and `Convex.providers()` no longer holds the client's
+  provider or Alchemy's `Random` provider, which only the client used.
+- To upgrade, import `@samebase/identity-broker/alchemy` in place of
+  `@samebase/alchemy-convex/identity-broker`, and add `IdentityBroker.providers()` to the stack's
+  providers: `Layer.mergeAll(Convex.providers(), IdentityBroker.providers())`. Saved rows stay
+  valid, so the next deploy updates each client in place and registers no new one.
+- `IdentityBroker.DISABLED` is now `BROKER_DISABLED` of `@samebase/identity-broker/client`, an entry
+  that imports nothing of Alchemy, so a Convex function can take it.
+
 ## 0.46.0
 
 - Breaking: "hub" becomes "broker", the one name of the identity broker. The old names are gone:

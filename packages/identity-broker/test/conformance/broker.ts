@@ -15,7 +15,7 @@ import { Config, Effect, Layer, Redacted } from "effect";
 import { brokerRuntime } from "../../src/core/identityBroker.ts";
 import { BrokerConfig, Keys, SignInPage } from "../../src/core/services.ts";
 import { DurableObjectStore } from "../../src/hosts/cloudflare/broker.ts";
-import { github } from "../../src/layers/github/routes.ts";
+import { githubActions } from "../../src/layers/github/routes.ts";
 import {
   FAKE_CONNECTOR_CLIENT_ID,
   FAKE_ISSUER,
@@ -74,5 +74,5 @@ export default class ConformanceBroker extends Cloudflare.Worker<ConformanceBrok
   },
   // The suite registers no client at `POST /register`: the fixture (admin.ts) writes each card
   // with its own allow-list.
-  brokerRuntime(settings, github([])).pipe(Effect.provide(DurableObjectStore)),
+  brokerRuntime(settings, githubActions([])).pipe(Effect.provide(DurableObjectStore)),
 ) {}

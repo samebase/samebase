@@ -1,5 +1,5 @@
-// The moderation API (./api.ts) as a part of the GitHub layer: `github(allowList, { moderation:
-// moderation({ key }) })` mounts its routes under `/moderation/`. A broker without it has none.
+// The moderation API (./api.ts) as a part of the GitHub layer: `githubActions(allowList, {
+// moderation: moderation({ key }) })` mounts its routes under `/moderation/`. A broker without it has none.
 // Each request is one command of the layer (src/layers/github/moderation.ts); a command that
 // fails is a defect here, which the mount hands back to the router as `CommandFailed`.
 import { Config, Effect, Layer, Option, Redacted } from "effect";

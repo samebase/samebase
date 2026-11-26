@@ -6,7 +6,7 @@ import { HttpApiClient, HttpApiMiddleware } from "effect/http-api";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { createBroker, pkce } from "../core/testing/harness.ts";
 import { repositoryStop } from "../layers/github/clients.ts";
-import { github } from "../layers/github/routes.ts";
+import { githubActions } from "../layers/github/routes.ts";
 import {
   createClient,
   createGithubBroker,
@@ -356,7 +356,7 @@ describe("a change reaches the cards in its own step", () => {
 
 test("a paused broker refuses every sign-in step of the layer's clients", async () => {
   const pausedBroker = (paused: boolean) =>
-    createBroker({ registration: github([], { paused: Config.succeed(paused) }) });
+    createBroker({ registration: githubActions([], { paused: Config.succeed(paused) }) });
   const signIn = async (h: Awaited<ReturnType<typeof pausedBroker>>) => {
     const { clientId } = await h.registerClient({
       appName: "app",

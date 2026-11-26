@@ -49,7 +49,3 @@ export {
   type TxShape,
 } from "./store/Tx.ts";
 export { ensureLayout, sqlTx, type Exec, type SqlValue } from "./store/sql.ts";
-
-// The registration layers. The connections part is in `./connections`.
-export { github } from "./layers/github/routes.ts";
-export { stack, type StackKey, type StackSettings } from "./layers/stack/routes.ts";

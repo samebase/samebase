@@ -4,7 +4,7 @@ import {
   ModerationKey,
   OwnerChanged,
   UnknownConnector,
-} from "@samebase/identity-broker/moderation/api";
+} from "@samebase/identity-broker/moderation-api";
 import { validate } from "convex-helpers/validators";
 import { v, type Infer } from "convex/values";
 import { Effect } from "effect";
@@ -25,7 +25,7 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const vBlockKind = union(literal("repository"), literal("owner"));
 const vBlockAction = union(literal("block"), literal("unblock"));
 
-// The broker's answers as `ModerationApi` of @samebase/identity-broker/moderation/api declares them.
+// The broker's answers as `ModerationApi` of @samebase/identity-broker/moderation-api declares them.
 // The typed client decodes them; each action's return type checks them against these validators.
 
 const vCount = object({ count: number(), atLeast: boolean() });

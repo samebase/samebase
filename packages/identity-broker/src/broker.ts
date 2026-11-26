@@ -4,7 +4,8 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
 import * as Connectors from "./core/connectors/index.ts";
 import { DurableObjectStore, brokerWorkerProps } from "./hosts/cloudflare/broker.ts";
-import { github, identityBroker } from "./index.ts";
+import { identityBroker } from "./index.ts";
+import { githubActions } from "./layers/github/routes.ts";
 
 export default class Broker extends Cloudflare.Worker<Broker>()(
   // The Alchemy logical id that the stage's saved state holds.
@@ -23,7 +24,7 @@ export default class Broker extends Cloudflare.Worker<Broker>()(
       }),
     ],
     // samebase/samebase and the samebase organization.
-    registration: github([{ repositoryId: "1021726325", ownerId: "285392744" }]),
+    registration: githubActions([{ repositoryId: "1021726325", ownerId: "285392744" }]),
     service: {
       name: "Samebase identity broker (Effect test)",
       terms: "https://samebase.com/terms",

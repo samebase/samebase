@@ -11,7 +11,7 @@ import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { TestClock } from "effect/testing";
 import { createBroker, fakeOidcUpstream, stubFetch } from "@samebase/identity-broker/testing";
-import { stack } from "@samebase/identity-broker";
+import * as Registration from "@samebase/identity-broker/registration";
 import { app } from "./app.ts";
 import { HubClient } from "./hub-client.ts";
 import { Session } from "./session.ts";
@@ -33,11 +33,9 @@ async function createTestHub() {
       issuer: HUB,
       connectors: [{ ...google.connector, name: "google", provider: "google", label: "Google" }],
     },
-    registration: stack({
-      keys: {
-        production: { key: Config.succeed(Redacted.make(PRODUCTION_KEY)), permanent: true },
-        preview: { key: Config.succeed(Redacted.make(PREVIEW_KEY)) },
-      },
+    registration: Registration.keys({
+      production: { key: Config.succeed(Redacted.make(PRODUCTION_KEY)), permanent: true },
+      preview: { key: Config.succeed(Redacted.make(PREVIEW_KEY)) },
     }),
   });
   // The app checks the ID token's times against the real clock.

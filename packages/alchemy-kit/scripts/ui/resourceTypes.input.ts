@@ -12,8 +12,9 @@ export type InputEntry = readonly [
 ];
 
 /**
- * Entries that PR #1441 does not have: the resource types of @samebase/alchemy-convex, and Alchemy
- * types that came after it. scripts/ui/resourceTypes.haiku.input.ts has more.
+ * Entries that PR #1441 does not have: the resource types of @samebase/alchemy-convex and
+ * @samebase/identity-broker/alchemy, and Alchemy types that came after it.
+ * scripts/ui/resourceTypes.haiku.input.ts has more.
  */
 // prettier-ignore
 export const resourceTypeEntries: Record<string, InputEntry> = {

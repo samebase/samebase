@@ -24,7 +24,14 @@ const { values } = parseArgs({ options: { alchemy: { type: "string" } } });
 const version = values.alchemy ?? packageJson.devDependencies.alchemy;
 
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
-const ownPaths = globSync("packages/{alchemy-convex,alchemy-kit}/src/**/*.ts", { cwd: repoRoot });
+const ownPaths = globSync(
+  [
+    "packages/{alchemy-convex,alchemy-kit}/src/**/*.ts",
+    "packages/identity-broker/src/alchemy/**/*.ts",
+  ],
+  // The resource's tests declare a sample host resource.
+  { cwd: repoRoot, exclude: ["**/*.test.ts"] },
+);
 const own = declaredResourceTypes(
   new SourceFiles(
     new Map(

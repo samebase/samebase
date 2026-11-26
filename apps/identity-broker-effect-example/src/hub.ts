@@ -8,9 +8,10 @@
 // (`IDENTITY_BROKER_KEYS`) are the deploying shell's variables of those names, bound to the Worker.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
-import { identityBroker, stack } from "@samebase/identity-broker";
+import { identityBroker } from "@samebase/identity-broker";
 import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connectors from "@samebase/identity-broker/connectors";
+import * as Registration from "@samebase/identity-broker/registration";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
@@ -25,11 +26,9 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
         clientSecret: Config.Redacted("EXAMPLE_HUB_GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: stack({
-      keys: {
-        production: { key: Config.Redacted("EXAMPLE_HUB_PRODUCTION_KEY"), permanent: true },
-        preview: { key: Config.Redacted("EXAMPLE_HUB_PREVIEW_KEY") },
-      },
+    registration: Registration.keys({
+      production: { key: Config.Redacted("EXAMPLE_HUB_PRODUCTION_KEY"), permanent: true },
+      preview: { key: Config.Redacted("EXAMPLE_HUB_PREVIEW_KEY") },
     }),
   }).pipe(Effect.provide(DurableObjectStore)),
 ) {}

@@ -25,17 +25,19 @@ and answers, and the errors of RFC 6750.
 
 A broker mounts one registration layer, which decides who may register a client:
 
-- `github(allowList, options)`: a GitHub Actions workflow registers with its OIDC token. The
-  allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric ids: an entry
-  without `repositoryId` covers every repository of that owner. A repository it covers gets every
-  connector of the broker; another one gets only what a connector grant gives it
+- `Registration.githubActions(allowList, options)`: a GitHub Actions workflow registers with its
+  OIDC token. The allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric
+  ids: an entry without `repositoryId` covers every repository of that owner. A repository it covers
+  gets every connector of the broker; another one gets only what a connector grant gives it
   ([Moderation](#moderation)). `options.paused`, a `Config<boolean>` read in each request, refuses
   every registration and every sign-in step while it is `true`.
-- `stack({ keys })`: a client registers with one of the broker's keys, as the client resource of
-  [`@samebase/alchemy-convex`](https://www.npmjs.com/package/@samebase/alchemy-convex) does. A key
-  with `permanent: true` may make production clients; the clients of other keys get a removal date.
+- `Registration.keys(keys)`: a client registers with one of the broker's keys, as
+  `IdentityBroker.Client` with `key` does ([An app that uses a broker](#an-app-that-uses-a-broker)).
+  `keys` maps each key's name to a `Registration.Key`. A key with `permanent: true` may make
+  production clients; the clients of other keys get a removal date.
 
-Both are exports of `@samebase/identity-broker`.
+Both are exports of `@samebase/identity-broker/registration`
+(`import * as Registration from "@samebase/identity-broker/registration"`).
 
 ## On Convex
 
@@ -56,9 +58,10 @@ export default app;
 ```ts
 // convex/broker.ts
 import { Config } from "effect";
-import { github, identityBroker } from "@samebase/identity-broker";
+import { identityBroker } from "@samebase/identity-broker";
 import * as Connectors from "@samebase/identity-broker/connectors";
 import { convexBroker } from "@samebase/identity-broker/convex";
+import * as Registration from "@samebase/identity-broker/registration";
 import { components } from "./_generated/api";
 
 export const broker = convexBroker(
@@ -72,7 +75,7 @@ export const broker = convexBroker(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: github([{ repositoryId: "123456789", ownerId: "987654321" }]),
+    registration: Registration.githubActions([{ repositoryId: "123456789", ownerId: "987654321" }]),
     service: {
       name: "Example",
       terms: "https://example.com/terms",
@@ -119,9 +122,10 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 // src/broker.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
-import { identityBroker, stack } from "@samebase/identity-broker";
+import { identityBroker } from "@samebase/identity-broker";
 import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connectors from "@samebase/identity-broker/connectors";
+import * as Registration from "@samebase/identity-broker/registration";
 
 export default class Broker extends Cloudflare.Worker<Broker>()(
   "Broker",
@@ -141,11 +145,9 @@ export default class Broker extends Cloudflare.Worker<Broker>()(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       }),
     ],
-    registration: stack({
-      keys: {
-        preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") },
-        production: { key: Config.Redacted("BROKER_PRODUCTION_KEY"), permanent: true },
-      },
+    registration: Registration.keys({
+      preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") },
+      production: { key: Config.Redacted("BROKER_PRODUCTION_KEY"), permanent: true },
     }),
   }).pipe(Effect.provide(DurableObjectStore)),
 ) {}
@@ -163,7 +165,7 @@ export default Alchemy.Stack(
   { providers: Cloudflare.providers() },
   Effect.gen(function* () {
     const broker = yield* Broker;
-    // The broker reads `stack`'s keys in each request, so the stack binds them.
+    // The broker reads the keys of `Registration.keys` in each request, so the stack binds them.
     yield* broker.bind("RegistrationKeys", {
       env: {
         BROKER_PREVIEW_KEY: yield* Config.Redacted("BROKER_PREVIEW_KEY"),
@@ -181,6 +183,187 @@ name starts with empty storage.
 
 A secret can also be another Effect, such as a Secrets Store secret through
 `Cloudflare.SecretsStore.ReadSecret`. The broker then builds at its first request.
+
+## An app that uses a broker
+
+An app's Alchemy stack gets its client of a broker from `@samebase/identity-broker/alchemy`. Merge
+`IdentityBroker.providers()` with the providers of the hosts that the stack uses:
+
+```ts
+// alchemy.run.ts
+import * as Cloudflare from "@alchemy.run/cloudflare";
+import * as IdentityBroker from "@samebase/identity-broker/alchemy";
+import * as Alchemy from "alchemy";
+import { Effect, Layer } from "effect";
+
+export default Alchemy.Stack(
+  "example-app",
+  { providers: Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers()) },
+  Effect.gen(function* () {
+    const client = yield* IdentityBroker.Client("BrokerClient", {
+      broker: { issuer: "https://auth.example.com" },
+      redirectUris: ["https://app.example.com/auth/broker/callback"],
+      deploymentType: "production",
+      connectors: ["google"],
+    });
+    // Give these to the app's deployment as IDENTITY_BROKER_ISSUER, _CLIENT_ID and _CLIENT_SECRET.
+    const variables = IdentityBroker.Client.variables(client);
+    return { clientId: variables.clientId };
+  }),
+);
+```
+
+`IdentityBroker.providers()` holds the client's provider and Alchemy's `Random` provider, for
+`IdentityBroker.registrationKey`. A host's collection can hold `Random` too, such as
+`Cloudflare.providers()`; Alchemy takes the first one that holds it, and both are the same.
+
+- `IdentityBroker.Client`:
+  `{ broker, redirectUris, deploymentType, connectors, app?, initialAccessToken?, key?, softwareVersion? }`
+  gets a client of an identity broker, for an app that deploys in its own GitHub Actions run, on any
+  host, and for development as a stage of the same stack. `deploymentType` is `production`,
+  `preview`, or `development`. A production or preview client needs `permissions: id-token: write`
+  in the workflow, and no key and no Samebase account. `redirectUris` lists every return address of
+  the deployment, one to eight, one per handler that receives the broker's answers. The origin of
+  each https address must serve `/samebase-verification.json` with the numeric GitHub id of the
+  repository, `{ "repository": "123" }`, which `gh api repos/<owner>/<name> --jq .id` prints. The
+  broker reads it before it registers the client, so the site must be live first. Outputs `status`,
+  `issuer`, `clientId`, `clientSecret`, `registrationAccessToken`, `registrationClientUri`,
+  `deploymentType`, `app`, `redirectUris`, `connectors`, `initialAccessToken`, and `repository`.
+  - `app` is the app's name on the broker, at most 64 characters. Its default is the stack's path in
+    the repository, `apps/web` for the stack `owner/repo/apps/web`, and `app` for a stack named
+    `owner/repo`. A stack with another name, or a path over 64 characters, sets `app`. The name
+    groups the clients of one deployable thing, their budgets, and the initial access token; it
+    plays no part in user ids.
+  - `connectors` names the broker's connectors the client signs in through, such as
+    `["google", "github"]`: at least one name of `[a-z0-9-]{1,64}`. The broker's discovery document
+    lists what it offers in `connectors_supported`, and its policy decides what a repository may
+    enroll in; a name outside that is refused, and the log names the allowed ones. The set is
+    recorded on the client for good, sorted, each once. The app sends `connector=<name>` to
+    `/authorize` to skip the broker's page, or nothing to let the user choose among the set.
+  - A production registration also gets the app's initial access token (RFC 7591) and the numeric
+    repository id, which the state keeps. A renewal keeps both. They are empty for a preview, for a
+    development client, and for the off values.
+  - A development client needs `initialAccessToken`, and only a development client takes it. The
+    client asks the broker with this token in place of the GitHub OIDC token, so it works in
+    development. With an empty token, the client gets the off values, and the log says "deploy to
+    main once for broker sign-in in development". See
+    [The development stage](#the-development-stage).
+  - A client of any `deploymentType` with `key` asks a broker on the stack layer with that key, from
+    any run, with no GitHub token and no verification file. It waits up to about three minutes for
+    the broker to answer discovery, so the run that deploys the broker registers its own client. The
+    broker decides whether the key may register a production client. An undefined key gives the off
+    values, or fails a `required` client.
+  - `IdentityBroker.registrationKey(id, { stage })` gives the key `id` as a redacted Output: in the
+    stage that deploys the broker it is an `Alchemy.Random`, kept in state; in any other stage it is
+    read from that stage's row, and it is `undefined` before that stage ran. Bind it to the broker
+    as a secret, and give it to `key`.
+  - Each deploy reads the saved client on the broker with its own token. A client that is gone gets
+    a new one, and a client with other `redirectUris`, another `app`, another `deploymentType`, or
+    other `connectors` too. A replaced production client stays valid on the broker until its
+    administrator deletes it, and a new production client replaces the app's initial access token,
+    so a development stage reads the latest state of `prod` before its next registration. A saved
+    row whose attributes this version cannot read stops the run with a fixed message, which holds no
+    value of the row.
+  - A new client logs the broker's issuer. A refusal logs its reason, such as a host that does not
+    serve the file, a block, a token of another app, a connector the broker does not offer or allow,
+    or the hourly limit it reached.
+  - No failure of the broker stops a deploy or a destroy. A failed renewal keeps the saved values.
+    Without saved values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the
+    off values of a checkout without a broker: `http://127.0.0.1:1`, and `BROKER_DISABLED`
+    (`broker-disabled`) for the client ID and the secret. A production or preview run without a
+    GitHub OIDC token, such as on a development machine, does the same, and logs no warning. Import
+    `BROKER_DISABLED` from `@samebase/identity-broker/client`: it loads nothing else, so a Convex
+    function, a Worker, or a browser bundle can compare a client ID with it.
+  - `required: true` makes the run fail unless the broker confirms the client in this run: a
+    refusal, a broker that does not answer a registration or a renewal, or a suspended client fails
+    it. Set it where sign-in is the product, so a deploy never ships guest sign-in, or a client that
+    the broker stopped, with a green run. A failed run saves nothing, and the next run asks the
+    broker again.
+  - `status` is `suspended` when the broker suspended the client. The state keeps the client and its
+    values, so the client works again when the broker lifts the suspension.
+  - `IdentityBroker.Client.variables(client)` gives `issuer`, `clientId`, and `clientSecret` for the
+    app's deployment: the client's values when `status` is `on`, and the off values when it is `off`
+    or `suspended`. Give these to the deployment, not the outputs of the client.
+  - `IdentityBroker.Client.read(id, { stage })` gives the attributes of the client `id` in another
+    stage of the same stack, from the state store of the stack. When that stage has no row, it gives
+    the off attributes and does not fail. `IdentityBroker.Client.ref` fails when the row is missing,
+    and a development stage before the first deploy to main has no `prod` row.
+  - The resource type is `IdentityBroker.Client`. A row that an earlier version saved as
+    `IdentityHub.Client` or `IdentityHub.SharedClient` is the same client: the next deploy updates
+    it in place and saves it with the new type, and `read` reads it.
+  - A destroy deletes a preview or development client. It does nothing to a production client,
+    because the production deployment can stay.
+  - `broker` is the identity broker to register at, required: `{ issuer }`, such as
+    `{ issuer: "https://auth.example.com" }`. The run registers at `<issuer>/register`, the client
+    registration endpoint of RFC 7591, with a GitHub token whose audience is the issuer, and the
+    answer must name that issuer. The request sends `redirect_uris`, `software_id` (the app name),
+    `software_version`, `token_endpoint_auth_method` (`client_secret_post`), and the broker's own
+    `connectors`. The broker must run `@samebase/identity-broker` 0.33.0 or later. An earlier broker
+    answers 404, and the client gets the off values. A client is renewed only at the broker that
+    issued it: a changed broker registers a new client there, and the old one stays at the old
+    broker.
+
+### The development stage
+
+A development checkout gets its client from a stage `dev-<name>` of the app's stack, run on purpose,
+not at each dev start. On Convex, `npx convex dev` has made and selected the dev deployment and
+pushed the code, and then `alchemy deploy --stage dev-<name>` gives that deployment its variables.
+The stage creates nothing and pushes nothing. It has three rows on the deployment that `.env.local`
+selects, taken over by its Convex name, with `Convex.Deployment` of
+[`@samebase/alchemy-convex`](https://www.npmjs.com/package/@samebase/alchemy-convex):
+
+```ts
+// `selected` is the name in CONVEX_DEPLOYMENT of .env.local, such as happy-animal-123, and
+// `project` is the project of stage `prod`.
+const prod = IdentityBroker.Client.read("BrokerClient", { stage: "prod" });
+const site =
+  yield *
+  Convex.Deployment("Verification", {
+    project,
+    type: "dev",
+    name: selected,
+    env: { SAMEBASE_REPOSITORY_ID: prod.repository },
+  }).pipe(adopt(true));
+const client =
+  yield *
+  IdentityBroker.Client("BrokerClient", {
+    broker: { issuer: "https://auth.example.com" },
+    redirectUris: [Output.interpolate`${site.siteUrl}/auth/broker/callback`],
+    deploymentType: "development",
+    connectors: ["google", "github"],
+    initialAccessToken: prod.initialAccessToken,
+  });
+const variables = IdentityBroker.Client.variables(client);
+yield *
+  Convex.Deployment("Site", {
+    project,
+    type: "dev",
+    name: selected,
+    env: {
+      IDENTITY_BROKER_ISSUER: variables.issuer,
+      IDENTITY_BROKER_CLIENT_ID: variables.clientId,
+      IDENTITY_BROKER_CLIENT_SECRET: variables.clientSecret,
+    },
+  }).pipe(adopt(true));
+```
+
+The imports are `alchemy/AdoptPolicy` for `adopt`, `alchemy/Output` for `Output`,
+`@samebase/alchemy-convex` for `Convex`, and `@samebase/identity-broker/alchemy` for
+`IdentityBroker`.
+
+1. `read` gives the initial access token and the repository id from the `BrokerClient` row of stage
+   `prod`.
+2. "Verification" sets `SAMEBASE_REPOSITORY_ID`, which the site serves as
+   `/samebase-verification.json`. `adopt` takes over the deployment and the variables that the dev
+   start set before.
+3. "BrokerClient" asks the broker for a development client on the deployment's site URL with the
+   token. A later run renews it. A sign-in renews it too, so a development server in use never needs
+   the stage again; a development client expires 14 days after its last run or sign-in.
+4. "Site" writes the three variables. It removes only a name that leaves its own `env`, so
+   `SAMEBASE_REPOSITORY_ID` stays.
+
+Both deployment rows keep the default removal policy `retain`. `alchemy destroy --stage dev-<name>`
+deletes the development client and keeps the deployment.
 
 ## Connectors and connections
 
@@ -245,22 +428,23 @@ issuers and resources of both lists at its start.
 
 ## Moderation
 
-The GitHub layer can mount the moderation API, for the broker's administrator page. Every request
-needs the moderation key as a Bearer token.
+`Registration.githubActions` can mount the moderation API, for the broker's administrator page.
+Every request needs the moderation key as a Bearer token.
 
 ```ts
 import { Config } from "effect";
-import { github } from "@samebase/identity-broker";
 import { moderation } from "@samebase/identity-broker/moderation";
+import * as Registration from "@samebase/identity-broker/registration";
 
-const registration = github("any", {
+const registration = Registration.githubActions("any", {
   moderation: moderation({ key: Config.Redacted("IDENTITY_BROKER_MODERATION_KEY") }),
 });
 ```
 
 Give `registration` to `identityBroker(options)`. A broker without `moderation` has no `/moderation`
 route. The broker reads the key in each request, and refuses every request while it is unset or
-empty. On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound.
+empty. On Cloudflare, bind it to the Worker in your stack, as the keys of `Registration.keys` are
+bound.
 
 | Request                                    | Answer                                                               |
 | ------------------------------------------ | -------------------------------------------------------------------- |
@@ -274,7 +458,7 @@ empty. On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are
 A change applies at once: a block refuses the next step of each sign-in, and a grant or an exemption
 rewrites the clients it covers.
 
-`@samebase/identity-broker/moderation/api` declares the API with `HttpApi` of `effect/http-api` and
+`@samebase/identity-broker/moderation-api` declares the API with `HttpApi` of `effect/http-api` and
 imports no server code, so a browser or a Convex action can import it alone. The same declaration
 gives a typed client and the OpenAPI document:
 
@@ -282,7 +466,7 @@ gives a typed client and the OpenAPI document:
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClientRequest } from "effect/http";
 import { HttpApiClient, HttpApiMiddleware, OpenApi } from "effect/http-api";
-import { ModerationApi, ModerationKey } from "@samebase/identity-broker/moderation/api";
+import { ModerationApi, ModerationKey } from "@samebase/identity-broker/moderation-api";
 
 const blockRepository = (key: string, repositoryId: string) =>
   Effect.gen(function* () {
@@ -371,13 +555,13 @@ import {
   makeHandle,
   Random,
   sqlTx,
-  stack,
   Store,
   type Exec,
   type Tables,
   type TxShape,
 } from "@samebase/identity-broker";
 import * as Connectors from "@samebase/identity-broker/connectors";
+import * as Registration from "@samebase/identity-broker/registration";
 
 export const makeStore = (database: DatabaseSync) => {
   const exec: Exec = (sql, params) => database.prepare(sql).all(...params);
@@ -410,7 +594,7 @@ export const makeStore = (database: DatabaseSync) => {
 export const makeBroker = (database: DatabaseSync) => {
   const { store } = makeStore(database);
   const handle = makeHandle(
-    stack({ keys: { preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } } }),
+    Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } }),
   );
   const services = Layer.mergeAll(
     brokerSettings({
@@ -476,15 +660,15 @@ test("the broker's storage passes the host test kit", async () => {
   ```
 
 - Each name of a `Config` in your settings, such as `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
-  the keys of `stack`.
+  the keys of `Registration.keys`.
 
 On Convex, set them on the deployment, for example
 `npx convex env set IDENTITY_BROKER_KEYS < keys.json`. On Cloudflare, `alchemy deploy` binds each
 `Config` secret that the broker reads at its start to the Worker as a secret, with the value of the
 deploying shell's variable of that name. These are the secrets of `connectors`, `connections` and
 `keys` that are a bare `Config`, not one inside another Effect. The broker reads the other `Config`
-values in each request: the keys of `stack`, the moderation `key` and `paused` of `github`. The
-stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
+values in each request: the keys of `Registration.keys`, the moderation `key` and `paused` of
+`Registration.githubActions`. The stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
 ([On Cloudflare](#on-cloudflare)).
 
 At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/<name>/callback`
