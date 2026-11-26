@@ -5,6 +5,7 @@
 // The errors keep no text of the hub or the library, only a fixed reason, so no page and no log
 // line can hold a token, a code, or a secret.
 import * as IdentityBroker from "@samebase/identity-broker/client";
+import { DISABLED } from "@samebase/identity-broker/client-runtime";
 import * as Alchemy from "alchemy";
 import * as Output from "alchemy/Output";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
@@ -167,10 +168,7 @@ export class HubClient extends Context.Service<
         });
 
         return HubClient.of({
-          configured: Effect.map(
-            values.clientId,
-            (clientId) => clientId !== IdentityBroker.DISABLED,
-          ),
+          configured: Effect.map(values.clientId, (clientId) => clientId !== DISABLED),
           start,
           finish,
         });

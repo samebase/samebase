@@ -22,6 +22,7 @@
     "./convex": "./src/hosts/convex/broker.ts",
     "./cloudflare": "./src/hosts/cloudflare/broker.ts",
     "./client": "./src/client/index.ts",
+    "./client-runtime": "./src/client/runtime.ts",
     "./connectors": "./src/core/connectors/index.ts",
     "./connections": "./src/connections/index.ts",
     "./moderation": "./src/moderation/server.ts",
@@ -52,6 +53,10 @@
       "./client": {
         "types": "./dist/client/index.d.ts",
         "default": "./dist/client/index.js"
+      },
+      "./client-runtime": {
+        "types": "./dist/client/runtime.d.ts",
+        "default": "./dist/client/runtime.js"
       },
       "./connectors": {
         "types": "./dist/core/connectors/index.d.ts",

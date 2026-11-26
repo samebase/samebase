@@ -2,17 +2,22 @@
 
 ## 0.43.0
 
-- New entry `@samebase/identity-broker/client`: `IdentityBroker.Client`, `registrationKey`,
-  `DISABLED`, and `providers()`, the client side of the broker's registration for an app's Alchemy
-  stack. It moved from `@samebase/alchemy-convex/identity-broker` (0.46.0) with no change in
-  behaviour. It needs `alchemy` and `effect`, and nothing of Cloudflare or Convex. The other entries
-  still load without `alchemy`.
+- New entry `@samebase/identity-broker/client`: `IdentityBroker.Client`, `registrationKey`, and
+  `providers()`, the client side of the broker's registration for an app's Alchemy stack. It moved
+  from `@samebase/alchemy-convex/identity-broker` (0.46.0) with no change in behaviour. It needs
+  `alchemy` and `effect`, and nothing of Cloudflare or Convex. The other entries still load without
+  `alchemy`.
 - To upgrade an app, import `@samebase/identity-broker/client` in place of
   `@samebase/alchemy-convex/identity-broker`, and add `IdentityBroker.providers()` to the stack's
   providers, such as `Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers())`. Saved
   rows stay valid: the resource type `IdentityBroker.Client`, its old types `IdentityHub.Client` and
   `IdentityHub.SharedClient`, and its attributes are the same, so the next deploy updates each
   client in place and registers no new one.
+- New entry `@samebase/identity-broker/client-runtime`: `DISABLED`, the client ID and the secret of
+  a deployment without a broker client. It imports nothing, so a Convex function or a browser bundle
+  can take it. Replace `IdentityBroker.DISABLED` of `@samebase/alchemy-convex/identity-broker` with
+  `import { DISABLED } from "@samebase/identity-broker/client-runtime"`; `./client` does not export
+  it.
 
 ## 0.42.0
 

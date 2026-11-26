@@ -267,9 +267,11 @@ export default Alchemy.Stack(
     or the hourly limit it reached.
   - No failure of the broker stops a deploy or a destroy. A failed renewal keeps the saved values.
     Without saved values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the
-    off values of a checkout without a broker: `http://127.0.0.1:1`, and `IdentityBroker.DISABLED`
+    off values of a checkout without a broker: `http://127.0.0.1:1`, and `DISABLED`
     (`broker-disabled`) for the client ID and the secret. A production or preview run without a
-    GitHub OIDC token, such as on a development machine, does the same, and logs no warning.
+    GitHub OIDC token, such as on a development machine, does the same, and logs no warning. Import
+    `DISABLED` from `@samebase/identity-broker/client-runtime`: it loads nothing else, so a Convex
+    function or a browser bundle can compare a client ID with it.
   - `required: true` makes the run fail unless the broker confirms the client in this run: a
     refusal, a broker that does not answer a registration or a renewal, or a suspended client fails
     it. Set it where sign-in is the product, so a deploy never ships guest sign-in, or a client that

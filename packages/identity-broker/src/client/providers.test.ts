@@ -7,6 +7,7 @@ import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import { afterEach, expect, vi } from "vite-plus/test";
 import * as IdentityBroker from "./index.ts";
+import { DISABLED } from "./runtime.ts";
 
 const { test } = Test.make({
   providers: Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers()),
@@ -37,7 +38,7 @@ test.provider("a stack with Cloudflare's providers makes the key and the client"
     });
 
     const { key, clientId } = yield* stack.deploy(app);
-    expect(clientId).toBe(IdentityBroker.DISABLED);
+    expect(clientId).toBe(DISABLED);
     const text = Redacted.isRedacted(key) ? Redacted.value(key) : "";
     expect(text).toMatch(/^[0-9a-f]{64}$/);
     const types = yield* Effect.gen(function* () {

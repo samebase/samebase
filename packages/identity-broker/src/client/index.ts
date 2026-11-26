@@ -57,9 +57,7 @@ import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
-import { DISABLED } from "./disabled.ts";
-
-export { DISABLED };
+import { DISABLED } from "./runtime.ts";
 
 /** A hung service must not hold a deploy: the time limit of one request. */
 const REQUEST_TIMEOUT_MS = 30_000;
