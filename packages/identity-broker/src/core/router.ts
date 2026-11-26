@@ -56,7 +56,7 @@ export type PublicRegistration<R = never> = Registration<R> & { readonly public:
 type PartEffect<A> = Effect.Effect<A, RouteError, CoreServices | LiveGates>;
 
 /**
- * An optional part of the broker beside sign-in, such as connections (src/connections/). The router
+ * An optional part of the broker beside sign-in, such as integrations (src/integrations/). The router
  * sends a request to it with one check at the top of `/authorize` and `/token`; the core's
  * sign-in code knows nothing of it.
  */
@@ -107,7 +107,7 @@ export const serverError = (annotations: {
 /**
  * The broker's request handler. `registration` is the layer that the broker mounts: its routes, such
  * as the client registration endpoint, beside the core's sign-in routes, and its live gates.
- * `part` is an optional part of the broker, such as connections; without it the broker has none of its
+ * `part` is an optional part of the broker, such as integrations; without it the broker has none of its
  * routes.
  */
 export function makeHandle<R = never>(registration: Registration<R>, part?: Part) {

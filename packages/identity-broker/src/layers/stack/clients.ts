@@ -24,7 +24,7 @@ export const CreateArgs = Schema.Struct({
   client: StackClient,
   /** The broker's configured connector names. */
   configured: Strs,
-  /** The connection providers of the client's key, as the broker's settings name them. */
+  /** The integrations of the client's key, as the broker's settings name them. */
   connections: Strs,
 });
 export const CreateResult = Schema.Struct({ createdAt: Schema.Finite });
@@ -32,7 +32,7 @@ export const CreateResult = Schema.Struct({ createdAt: Schema.Finite });
 const ManageArgs = { clientId: Str, registrationTokenHash: Str };
 export const RenewArgs = Schema.Struct({
   ...ManageArgs,
-  /** The keys that the broker has now, by name, each with its connection providers. */
+  /** The keys that the broker has now, by name, each with its integrations. */
   keys: Schema.Array(Schema.Struct({ name: Str, connections: Strs })),
   configured: Strs,
 });

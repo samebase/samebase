@@ -1,4 +1,4 @@
-// Test support of the connections part: fake providers at the real token endpoints of Convex,
+// Test support of the integrations part: fake providers at the real token endpoints of Convex,
 // Cloudflare and GitHub, and at Cloudflare's revocation endpoint, on the harness's `Fetch`; a broker
 // with the part; and the client's side of each step. A fake provider spends each refresh token
 // once, like the rotation of GitHub and Cloudflare. No test framework import.
@@ -12,9 +12,9 @@ import {
 } from "../core/testing/harness.ts";
 import type { Connector } from "../core/connectors/types.ts";
 import type { Registration } from "../core/router.ts";
-import * as Connections from "./index.ts";
-import { readProvider, type ConnectionProvider } from "./providers.ts";
-import { connectionsPart } from "./routes.ts";
+import * as Integrations from "./index.ts";
+import { readProvider, type Integration } from "./providers.ts";
+import { integrationsPart } from "./routes.ts";
 
 const credentials = {
   clientId: Effect.succeed(Redacted.make("provider-client")),
@@ -22,12 +22,12 @@ const credentials = {
 };
 export const [convex, cloudflare, github] = Effect.runSync(
   Effect.all([
-    readProvider(Connections.convex(credentials)),
-    readProvider(Connections.cloudflare({ ...credentials, scopes: ["workers-scripts.read"] })),
-    readProvider(Connections.github(credentials)),
+    readProvider(Integrations.convex(credentials)),
+    readProvider(Integrations.cloudflare({ ...credentials, scopes: ["workers-scripts.read"] })),
+    readProvider(Integrations.github(credentials)),
   ]),
 );
-export const PROVIDERS: ReadonlyArray<ConnectionProvider> = [convex, cloudflare, github];
+export const PROVIDERS: ReadonlyArray<Integration> = [convex, cloudflare, github];
 
 // Convex's documented response:
 // https://docs.convex.dev/platform-apis/oauth-applications#step-3-exchange-the-authorization-code-for-a-project-token
@@ -90,13 +90,13 @@ export function fakeProviders(fetch: StubFetch) {
     live.add(token);
     return token;
   };
-  const success = (provider: ConnectionProvider, refreshToken: string) =>
+  const success = (provider: Integration, refreshToken: string) =>
     Response.json(
       provider.name === "github"
         ? { ...githubToken, refresh_token: refreshToken }
         : { ...oauthToken, refresh_token: refreshToken },
     );
-  const invalidGrant = (provider: ConnectionProvider) =>
+  const invalidGrant = (provider: Integration) =>
     provider.name === "github"
       ? Response.json(githubBadRefreshToken)
       : Response.json({ error: "invalid_grant" }, { status: 400 });
@@ -140,10 +140,10 @@ export function fakeProviders(fetch: StubFetch) {
 export const REDIRECT = "https://preview.example.com/oauth/broker/callback";
 
 /**
- * A broker with the connections part over the three providers and their fakes, and one card that
+ * A broker with the integrations part over the three providers and their fakes, and one card that
  * may use `connections` (by default all three).
  */
-export async function connectionsBroker(
+export async function integrationsBroker(
   options: {
     readonly registration?: Registration;
     readonly connections?: string[];
@@ -155,7 +155,7 @@ export async function connectionsBroker(
   const providers = fakeProviders(fetch);
   const h = await createBroker({
     fetch,
-    part: connectionsPart(PROVIDERS),
+    part: integrationsPart(PROVIDERS),
     ...(options.registration === undefined ? {} : { registration: options.registration }),
     ...(options.connectors === undefined
       ? {}
@@ -168,7 +168,7 @@ export async function connectionsBroker(
   });
   return { ...h, providers, client };
 }
-export type ConnectionsBroker = Awaited<ReturnType<typeof connectionsBroker>>;
+export type IntegrationsBroker = Awaited<ReturnType<typeof integrationsBroker>>;
 
 /** A client of the broker: its id, its secret and its return address. */
 export type TestClient = {
@@ -179,7 +179,7 @@ export type TestClient = {
 
 /** `/authorize` with `resource`, and the PKCE verifier of the request. */
 export async function authorize(
-  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
+  h: Pick<IntegrationsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   resource: string,
   extra: Record<string, string> = {},
@@ -201,7 +201,7 @@ export async function authorize(
 
 /** The provider's redirect back to the broker for `start`, from the browser that started it. */
 export async function callback(
-  h: Pick<ConnectionsBroker, "fetchBroker">,
+  h: Pick<IntegrationsBroker, "fetchBroker">,
   start: Response,
   extra: Record<string, string> = {},
 ) {
@@ -218,7 +218,7 @@ export async function callback(
 
 /** A `/token` request of `client` with `params`, its secret in the body. */
 export const tokenRequest = (
-  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
+  h: Pick<IntegrationsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   params: Record<string, string>,
 ) =>
@@ -234,7 +234,7 @@ export const tokenRequest = (
 
 /** The code exchange of `code` with `verifier`. */
 export const redeem = (
-  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
+  h: Pick<IntegrationsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   code: string,
   verifier: string,
@@ -250,7 +250,7 @@ export const redeem = (
 
 /** A refresh of the provider's refresh token at the provider of `resource`. */
 export const refresh = (
-  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
+  h: Pick<IntegrationsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   refreshToken: string,
   resource: string,
@@ -265,7 +265,7 @@ export const refresh = (
 
 /** RFC 7009 revocation of `token` by `client` at the provider of `resource`. */
 export const revoke = (
-  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
+  h: Pick<IntegrationsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   token: string,
   resource: string,
@@ -287,7 +287,7 @@ export const revoke = (
  * step that answers no redirect onward ends it with that answer.
  */
 export async function connect(
-  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
+  h: Pick<IntegrationsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   resource: string,
 ) {

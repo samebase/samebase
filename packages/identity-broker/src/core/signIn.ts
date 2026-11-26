@@ -331,7 +331,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
     return invalidRedirectPage();
   }
   if (params.has("resource")) {
-    // A broker without the connections part serves no API resource; with it, the router sends a
+    // A broker without the integrations part serves no API resource; with it, the router sends a
     // request with `resource` to the part.
     return errorPage("API authorization refused", "Request one configured API resource.", 400);
   }

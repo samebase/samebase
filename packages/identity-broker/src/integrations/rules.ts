@@ -1,4 +1,4 @@
-// The rules of the connections part, each one all-or-nothing step: the request machine (create
+// The rules of the integrations part, each one all-or-nothing step: the request machine (create
 // `upstream`, claim, complete with the provider's tokens, abandon), the code exchange, the
 // admission of a refresh, the client authentication of a revocation, and cleanup. Every step reads
 // the client's card in its own transaction, with the same two forms of stop as sign-in: a row of
@@ -12,7 +12,7 @@ import { backField, GateNamespace, Return } from "../rules/schemas.ts";
 import { TokenEndpointAuthMethod, type Tx } from "../rules/tables.ts";
 import type { Doc } from "../store/tables.ts";
 import { unique } from "../store/Tx.ts";
-import { ConnectionsTx, ProviderTokens } from "./tables.ts";
+import { IntegrationsTx, ProviderTokens } from "./tables.ts";
 
 const Str = Schema.String;
 const Num = Schema.Finite;
@@ -20,7 +20,7 @@ const Strs = Schema.Array(Str);
 const opt = Schema.optionalKey;
 
 /** The views of a step that the part's rules read: cards through the core's, its own tables. */
-type Views = Tx | ConnectionsTx;
+type Views = Tx | IntegrationsTx;
 
 /** How many rows one cleanup batch deletes per category. */
 export const BATCH = 200;
@@ -102,7 +102,7 @@ const returnTo = Effect.fnUntraced(function* (request: ConnectionRequest) {
 });
 
 const requestOf = Effect.fnUntraced(function* (requestId: string) {
-  return yield* unique(yield* ConnectionsTx, "connectionRequests", "by_request_id", [requestId]);
+  return yield* unique(yield* IntegrationsTx, "connectionRequests", "by_request_id", [requestId]);
 });
 
 /** The fields shared by every status. `replace` writes the whole document. */
@@ -202,7 +202,7 @@ export const create = Effect.fnUntraced(function* (
       refused: refused("rate_limited", card.doc, args.resource),
     };
   }
-  yield* (yield* ConnectionsTx).insert("connectionRequests", {
+  yield* (yield* IntegrationsTx).insert("connectionRequests", {
     status: "upstream",
     requestId: args.requestId,
     clientId: args.clientId,
@@ -246,7 +246,7 @@ export const ClaimResult = Schema.Union([
 export const claim = Effect.fnUntraced(function* (
   args: typeof ClaimArgs.Type,
 ): Effect.fn.Return<typeof ClaimResult.Type, never, Views> {
-  const tx = yield* ConnectionsTx;
+  const tx = yield* IntegrationsTx;
   const row = yield* unique(tx, "connectionRequests", "by_upstream_state_hash", [
     args.upstreamStateHash,
   ]);
@@ -308,7 +308,7 @@ export const CompleteResult = Schema.Union([
 export const complete = Effect.fnUntraced(function* (
   args: typeof CompleteArgs.Type,
 ): Effect.fn.Return<typeof CompleteResult.Type, never, Views> {
-  const tx = yield* ConnectionsTx;
+  const tx = yield* IntegrationsTx;
   const row = yield* requestOf(args.requestId);
   if (row === undefined) {
     return { ok: false, error: "gone" };
@@ -354,7 +354,7 @@ export const abandon = Effect.fnUntraced(function* (args: typeof RequestIdArgs.T
   if (row === undefined) {
     return null;
   }
-  yield* (yield* ConnectionsTx).delete("connectionRequests", row.id);
+  yield* (yield* IntegrationsTx).delete("connectionRequests", row.id);
   return (yield* returnTo(row.doc)) ?? null;
 });
 
@@ -403,7 +403,7 @@ const refuse = (
 export const exchangeCode = Effect.fnUntraced(function* (
   args: typeof ExchangeArgs.Type,
 ): Effect.fn.Return<ExchangeResult, never, Views> {
-  const tx = yield* ConnectionsTx;
+  const tx = yield* IntegrationsTx;
   const code = yield* unique(tx, "connectionCodes", "by_code_hash", [args.codeHash]);
   if (code === undefined) {
     return { ok: false, error: "not_found" };
@@ -510,7 +510,7 @@ export const admitRefresh = Effect.fnUntraced(function* (
       refused: refused("connections", card.doc, args.resource),
     };
   }
-  yield* (yield* ConnectionsTx).replace("clients", card.id, used(card.doc, args.now));
+  yield* (yield* IntegrationsTx).replace("clients", card.id, used(card.doc, args.now));
   return { ok: true, ref: card.doc.ref };
 });
 
@@ -543,7 +543,7 @@ export const CleanupResult = Schema.Struct({
  * cleanup until it reports no `more`. The cutoff never moves, so the calls end.
  */
 export const cleanup = Effect.fnUntraced(function* (args: typeof CleanupArgs.Type) {
-  const tx = yield* ConnectionsTx;
+  const tx = yield* IntegrationsTx;
   const expired = {
     eq: [],
     range: [{ op: "lt" as const, value: args.now }],

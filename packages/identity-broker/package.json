@@ -24,7 +24,7 @@
     "./alchemy": "./src/alchemy/index.ts",
     "./client": "./src/client/index.ts",
     "./connectors": "./src/core/connectors/index.ts",
-    "./connections": "./src/connections/index.ts",
+    "./integrations": "./src/integrations/index.ts",
     "./registration": "./src/layers/index.ts",
     "./moderation": "./src/moderation/server.ts",
     "./moderation-api": "./src/moderation/api.ts",
@@ -63,9 +63,9 @@
         "types": "./dist/core/connectors/index.d.ts",
         "default": "./dist/core/connectors/index.js"
       },
-      "./connections": {
-        "types": "./dist/connections/index.d.ts",
-        "default": "./dist/connections/index.js"
+      "./integrations": {
+        "types": "./dist/integrations/index.d.ts",
+        "default": "./dist/integrations/index.js"
       },
       "./registration": {
         "types": "./dist/layers/index.d.ts",

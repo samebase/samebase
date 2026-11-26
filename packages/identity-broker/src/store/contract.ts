@@ -551,7 +551,7 @@ export const signInCleanup = {
   more: false,
 };
 
-/** The one connection provider of `connectionCommands`, and the broker's state of the moment. */
+/** The one integration of `connectionCommands`, and the broker's state of the moment. */
 const provider = { name: "cloudflare", resource: "https://api.cloudflare.com/client/v4/" };
 const brokerNow = { providers: [provider], liveGates: [] };
 const clientAuth = {

@@ -40,8 +40,8 @@ export const cardFields = {
   /** The connectors this client may use now, as its layer last computed them. */
   connectors: Schema.Array(Str),
   /**
-   * The connection providers this client may use now, as its layer last computed them. Sign-in
-   * never reads it; the connections part (src/connections/) does.
+   * The integrations this client may use now, as its layer last computed them. Sign-in never
+   * reads it; the integrations part (src/integrations/) does.
    */
   connections: Schema.Array(Str),
   /** Opaque keys: a row of `stops` with one of them refuses the client. */

@@ -1,4 +1,4 @@
-// The tables of the connections part and its view of a step. A connection request lives from
+// The tables of the integrations part and its view of a step. A connection request lives from
 // `/authorize` to the code exchange (10 min at most), and its code 60 s. The broker keeps no other
 // provider token: the client holds the provider's tokens. A broker that does not mount the part
 // keeps these tables empty.
@@ -68,6 +68,6 @@ export const connectionTables = {
 } as const;
 
 /** The part's view of a step: every table of the broker. Its rules read cards through the core's `Tx`. */
-export class ConnectionsTx extends Context.Service<ConnectionsTx, TxShape<Tables>>()(
-  "identity-broker/connections/ConnectionsTx",
+export class IntegrationsTx extends Context.Service<IntegrationsTx, TxShape<Tables>>()(
+  "identity-broker/integrations/IntegrationsTx",
 ) {}

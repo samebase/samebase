@@ -1,16 +1,16 @@
-// The connection providers that a broker takes in its `connections`, and the connections part of a
-// host that builds its own runtime.
+// The API providers that a broker takes in its `integrations`, and the integrations part of a host
+// that builds its own runtime.
 import { Schema } from "effect";
 import type { ClientSecrets } from "../core/connectors/types.ts";
-import type { ConnectionProvider, ConnectionSpec } from "./providers.ts";
+import type { Integration, IntegrationSpec } from "./providers.ts";
 
-export { makeConnections } from "./routes.ts";
-export type { ConnectionProvider, ConnectionSpec } from "./providers.ts";
+export { makeIntegrations } from "./routes.ts";
+export type { Integration, IntegrationSpec } from "./providers.ts";
 
 /** An OAuth 2.0 server that grants access to the API at `resource`. */
 export const oauth = <R1 = never, R2 = never>(
   options: ClientSecrets<R1, R2> & {
-    /** What a card's `connections` names, and the `<name>` of its callback. */
+    /** What a registration key's `integrations` names, and the `<name>` of its callback. */
     readonly name: string;
     /** The exact `resource` of RFC 8707 that a client names for this provider. */
     readonly resource: string;
@@ -26,14 +26,14 @@ export const oauth = <R1 = never, R2 = never>(
     /** The scopes the broker asks for, whatever the client requests. Default: none. */
     readonly scopes?: ReadonlyArray<string>;
     /** Default: `client_secret_basic` (RFC 6749 section 2.3.1). */
-    readonly tokenEndpointAuthMethod?: ConnectionProvider["tokenEndpointAuthMethod"];
+    readonly tokenEndpointAuthMethod?: Integration["tokenEndpointAuthMethod"];
     /** Sends `prompt=select_account`. Default: off. */
     readonly selectAccount?: boolean;
     /** The provider sends `iss` on its callback (RFC 9207), which the broker then requires. */
     readonly authorizationResponseIssParameterSupported?: boolean;
-    readonly mapTokenError?: ConnectionProvider["mapTokenError"];
+    readonly mapTokenError?: Integration["mapTokenError"];
   },
-): ConnectionSpec<R1 | R2> => ({
+): IntegrationSpec<R1 | R2> => ({
   name: options.name,
   resource: options.resource,
   server: {
