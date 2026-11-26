@@ -164,7 +164,7 @@ import Broker from "./src/broker.ts";
 
 export default Alchemy.Stack(
   "example-identity-broker",
-  { providers: Cloudflare.providers() },
+  { providers: Cloudflare.providers(), state: Cloudflare.state() },
   Effect.gen(function* () {
     const broker = yield* Broker;
     // The broker reads the keys of `Registration.keys` in each request, so the stack binds them.
@@ -200,7 +200,10 @@ import { Effect, Layer } from "effect";
 
 export default Alchemy.Stack(
   "example-app",
-  { providers: Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers()) },
+  {
+    providers: Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers()),
+    state: Cloudflare.state(),
+  },
   Effect.gen(function* () {
     const client = yield* IdentityBroker.Client("BrokerClient", {
       broker: { issuer: "https://auth.example.com" },
@@ -220,7 +223,7 @@ export default Alchemy.Stack(
 `Cloudflare.providers()`; Alchemy takes the first one that holds it, and both are the same.
 
 - `IdentityBroker.Client`:
-  `{ broker, redirectUris, deploymentType, connectors, app?, initialAccessToken?, key?, softwareVersion? }`
+  `{ broker, redirectUris, deploymentType, connectors, app?, initialAccessToken?, key?, required?, softwareVersion? }`
   gets a client of an identity broker, for an app that deploys in its own GitHub Actions run, on any
   host, and for development as a stage of the same stack. `deploymentType` is `production`,
   `preview`, or `development`. A production or preview client needs `permissions: id-token: write`
@@ -250,11 +253,11 @@ export default Alchemy.Stack(
     development. With an empty token, the client gets the off values, and the log says "deploy to
     main once for broker sign-in in development". See
     [The development stage](#the-development-stage).
-  - A client of any `deploymentType` with `key` asks a broker on the stack layer with that key, from
-    any run, with no GitHub token and no verification file. It waits up to about three minutes for
-    the broker to answer discovery, so the run that deploys the broker registers its own client. The
-    broker decides whether the key may register a production client. An undefined key gives the off
-    values, or fails a `required` client.
+  - A client of any `deploymentType` with `key` asks a broker that has `Registration.keys` with that
+    key, from any run, with no GitHub token and no verification file. It waits up to about three
+    minutes for the broker to answer discovery, so the run that deploys the broker registers its own
+    client. The broker decides whether the key may register a production client. An undefined key
+    gives the off values, or fails a `required` client.
   - `IdentityBroker.registrationKey(id, { stage })` gives the key `id` as a redacted Output: in the
     stage that deploys the broker it is an `Alchemy.Random`, kept in state; in any other stage it is
     read from that stage's row, and it is `undefined` before that stage ran. Bind it to the broker
@@ -380,6 +383,7 @@ your own `identity` function. Each connector's callback is `<issuer>/connectors/
 
 ```ts
 import * as Connectors from "@samebase/identity-broker/connectors";
+import { Config } from "effect";
 
 Connectors.oidc({
   name: "okta",
@@ -405,6 +409,7 @@ the `resource` of RFC 8707. `@samebase/identity-broker/integrations` has `convex
 
 ```ts
 import * as Integrations from "@samebase/identity-broker/integrations";
+import { Config } from "effect";
 
 const integrations = [
   Integrations.cloudflare({
