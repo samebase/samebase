@@ -34,7 +34,9 @@ A broker mounts one registration layer, which decides who may register a client:
 - `Registration.keys(keys)`: a client registers with one of the broker's keys, as
   `IdentityBroker.Client` with `key` does ([An app that uses a broker](#an-app-that-uses-a-broker)).
   `keys` maps each key's name to a `Registration.Key`. A key with `permanent: true` may make
-  production clients; the clients of other keys get a removal date.
+  production clients; the clients of other keys get a removal date. A key's `integrations` names the
+  integrations that its clients may use
+  ([Connectors and integrations](#connectors-and-integrations)).
 
 Both are exports of `@samebase/identity-broker/registration`
 (`import * as Registration from "@samebase/identity-broker/registration"`).
@@ -365,7 +367,11 @@ The imports are `alchemy/AdoptPolicy` for `adopt`, `alchemy/Output` for `Output`
 Both deployment rows keep the default removal policy `retain`. `alchemy destroy --stage dev-<name>`
 deletes the development client and keeps the deployment.
 
-## Connectors and connections
+## Connectors and integrations
+
+A **connector** is a provider that users sign in with. An **integration** is an API provider for
+which the broker gets tokens. A **connection** is one person's authorization of one integration, and
+the flow that makes it.
 
 `connectors` are the providers that users sign in with, in the order that the sign-in page and
 discovery name them. `@samebase/identity-broker/connectors` has `google` and `github`, `oidc` for
@@ -392,21 +398,21 @@ accepts the provider's login when its `auth_time` is within that age. With only 
 positive `max_age` is a forced login. A connector with neither answers such a request with
 `login_required`. Both are off by default, and `google` and `github` have neither.
 
-`connections` are optional. Each one lets a client get the provider's own tokens for an API, with
-the `resource` of RFC 8707. `@samebase/identity-broker/connections` has `convex`, `cloudflare` and
-`github`, and `oauth` for another OAuth 2.0 server. Each connection's callback is
-`<issuer>/connections/<name>/callback`.
+`integrations` are optional. Each one lets a client get the provider's own tokens for an API, with
+the `resource` of RFC 8707. `@samebase/identity-broker/integrations` has `convex`, `cloudflare` and
+`github`, and `oauth` for another OAuth 2.0 server. Each integration's callback is
+`<issuer>/integrations/<name>/callback`.
 
 ```ts
-import * as Connections from "@samebase/identity-broker/connections";
+import * as Integrations from "@samebase/identity-broker/integrations";
 
-const connections = [
-  Connections.cloudflare({
+const integrations = [
+  Integrations.cloudflare({
     clientId: Config.Redacted("CLOUDFLARE_CLIENT_ID"),
     clientSecret: Config.Redacted("CLOUDFLARE_CLIENT_SECRET"),
     scopes: ["workers-scripts.read"],
   }),
-  Connections.oauth({
+  Integrations.oauth({
     name: "example",
     resource: "https://api.example.com",
     // The provider's `iss` (RFC 9207), or else the origin of its token endpoint.
@@ -423,7 +429,7 @@ const connections = [
 `oauth` sends the client secret with HTTP Basic authentication unless `tokenEndpointAuthMethod` is
 `client_secret_post`.
 
-Give them to `identityBroker(options)` as `connections`. The broker checks the names, providers,
+Give them to `identityBroker(options)` as `integrations`. The broker checks the names, providers,
 issuers and resources of both lists at its start.
 
 ## Moderation
@@ -518,8 +524,8 @@ services:
 - `Random.layer`, `Fetch.layer` and `brokerLogger`: `crypto.getRandomValues`, `fetch` with no
   redirects, and one JSON log line per entry. Time is Effect's `Clock`.
 
-For connections, give `makeHandle` the part that `makeConnections(connections)` of
-`@samebase/identity-broker/connections` makes.
+For integrations, give `makeHandle` the part that `makeIntegrations(integrations)` of
+`@samebase/identity-broker/integrations` makes.
 
 The `Store` has one method, `run(name, args)`: one command of a closed list, with its arguments and
 its result as JSON values. The host decodes it with `decodeCommand(name, args)` and runs it as one
@@ -665,7 +671,7 @@ test("the broker's storage passes the host test kit", async () => {
 On Convex, set them on the deployment, for example
 `npx convex env set IDENTITY_BROKER_KEYS < keys.json`. On Cloudflare, `alchemy deploy` binds each
 `Config` secret that the broker reads at its start to the Worker as a secret, with the value of the
-deploying shell's variable of that name. These are the secrets of `connectors`, `connections` and
+deploying shell's variable of that name. These are the secrets of `connectors`, `integrations` and
 `keys` that are a bare `Config`, not one inside another Effect. The broker reads the other `Config`
 values in each request: the keys of `Registration.keys`, the moderation `key` and `paused` of
 `Registration.githubActions`. The stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
@@ -673,4 +679,4 @@ values in each request: the keys of `Registration.keys`, the moderation `key` an
 
 At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/<name>/callback`
 for a connector, such as `<issuer>/connectors/google/callback`, and
-`<issuer>/connections/<name>/callback` for a connection.
+`<issuer>/integrations/<name>/callback` for an integration.
