@@ -19,10 +19,10 @@ export const stateFixture = (file: string) =>
   );
 
 const Fields = Schema.Record(Schema.String, Schema.Unknown);
-/** A recorded answer of the identity hub from fixtures/hub, so a scenario can derive a changed copy. */
-export const hubFixture = (file: string) =>
+/** A recorded answer of the identity broker from fixtures/broker, so a scenario can derive a changed copy. */
+export const brokerFixture = (file: string) =>
   Schema.decodeUnknownSync(Fields)(
-    JSON.parse(readFileSync(new URL(`./fixtures/hub/${file}`, import.meta.url), "utf8")),
+    JSON.parse(readFileSync(new URL(`./fixtures/broker/${file}`, import.meta.url), "utf8")),
   );
 /** A recorded object payload as a plain record, so a scenario can derive a changed copy. */
 export const recorded = (file: string) => Schema.decodeUnknownSync(Fields)(fixture(file));

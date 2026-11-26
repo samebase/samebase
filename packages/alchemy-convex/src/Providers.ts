@@ -5,7 +5,7 @@ import { Random, RandomProvider } from "alchemy/Random";
 import * as Layer from "effect/Layer";
 import { type Credentials, fromConfig } from "./Credentials.ts";
 import { DeploymentProvider, DeploymentResource } from "./Deployment.ts";
-import * as IdentityHub from "./IdentityHub.ts";
+import * as IdentityBroker from "./IdentityBroker.ts";
 import { LocalDeployment, LocalDeploymentProvider } from "./LocalDeployment.ts";
 import { ManagementApiLive } from "./ManagementApi.ts";
 import { Project, ProjectProvider } from "./Project.ts";
@@ -20,16 +20,22 @@ export class Providers extends Provider.ProviderCollection<Providers>()("Convex"
 export const providers = (credentials: Layer.Layer<Credentials> = fromConfig()) =>
   Layer.effect(
     Providers,
-    // Random's provider serves `IdentityHub.registrationKey` in a stack with no other collection
+    // Random's provider serves `IdentityBroker.registrationKey` in a stack with no other collection
     // that holds one; with Cloudflare's too, the first found serves it, and both are the same.
-    Provider.collection([Project, DeploymentResource, LocalDeployment, IdentityHub.Client, Random]),
+    Provider.collection([
+      Project,
+      DeploymentResource,
+      LocalDeployment,
+      IdentityBroker.Client,
+      Random,
+    ]),
   ).pipe(
     Layer.provide(
       Layer.mergeAll(
         ProjectProvider(),
         DeploymentProvider(),
         LocalDeploymentProvider(),
-        IdentityHub.ClientProvider(),
+        IdentityBroker.ClientProvider(),
         RandomProvider(),
       ),
     ),

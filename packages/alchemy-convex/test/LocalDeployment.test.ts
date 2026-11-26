@@ -57,7 +57,10 @@ describe("Convex.LocalDeployment", () => {
         const fake = new FakeConvex().install();
         fake.localPorts.set(3214, NAME);
         fake.deploymentKeys.set(NAME, ADMIN_KEY);
-        fake.variables.set(NAME, { IDENTITY_HUB_CLIENT_ID: "no-hub", SET_BY_HAND: "kept" });
+        fake.variables.set(NAME, {
+          IDENTITY_BROKER_CLIENT_ID: "broker-disabled",
+          SET_BY_HAND: "kept",
+        });
 
         expect(Convex.LocalDeployment.of(dir)).toEqual({
           name: NAME,
@@ -65,22 +68,22 @@ describe("Convex.LocalDeployment", () => {
           siteUrl: "http://127.0.0.1:3215",
         });
         const first = yield* stack.deploy(
-          site({ IDENTITY_HUB_CLIENT_ID: "cl_1", IDENTITY_HUB_ISSUER: "https://hub" }),
+          site({ IDENTITY_BROKER_CLIENT_ID: "cl_1", IDENTITY_BROKER_ISSUER: "https://broker" }),
         );
         expect(first).toEqual({
           name: NAME,
           siteUrl: "http://127.0.0.1:3215",
-          envNames: ["IDENTITY_HUB_CLIENT_ID", "IDENTITY_HUB_ISSUER"],
+          envNames: ["IDENTITY_BROKER_CLIENT_ID", "IDENTITY_BROKER_ISSUER"],
         });
         expect(fake.variables.get(NAME)).toEqual({
-          IDENTITY_HUB_CLIENT_ID: "cl_1",
-          IDENTITY_HUB_ISSUER: "https://hub",
+          IDENTITY_BROKER_CLIENT_ID: "cl_1",
+          IDENTITY_BROKER_ISSUER: "https://broker",
           SET_BY_HAND: "kept",
         });
 
-        yield* stack.deploy(site({ IDENTITY_HUB_CLIENT_ID: "cl_2" }));
+        yield* stack.deploy(site({ IDENTITY_BROKER_CLIENT_ID: "cl_2" }));
         expect(fake.variables.get(NAME)).toEqual({
-          IDENTITY_HUB_CLIENT_ID: "cl_2",
+          IDENTITY_BROKER_CLIENT_ID: "cl_2",
           SET_BY_HAND: "kept",
         });
         // Only the deployment API of the local backend, with its admin key.
@@ -93,7 +96,7 @@ describe("Convex.LocalDeployment", () => {
 
         yield* stack.destroy();
         expect(fake.variables.get(NAME)).toEqual({
-          IDENTITY_HUB_CLIENT_ID: "cl_2",
+          IDENTITY_BROKER_CLIENT_ID: "cl_2",
           SET_BY_HAND: "kept",
         });
       }),

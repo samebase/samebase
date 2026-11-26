@@ -1,4 +1,4 @@
-// IdentityHub.Client against a fake GitHub and identity hub behind a stubbed fetch. The hub
+// IdentityBroker.Client against a fake GitHub and identity broker behind a stubbed fetch. The hub
 // answers `POST /register` (RFC 7591) and a client's own record (RFC 7592) as the registration
 // wire format of @samebase/identity-broker 0.33.0 says.
 import { adopt } from "alchemy/AdoptPolicy";
@@ -13,33 +13,33 @@ import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as IdentityHub from "../src/IdentityHub.ts";
+import * as IdentityBroker from "../src/IdentityBroker.ts";
 import * as Convex from "../src/index.ts";
-import { FakeConvex, hubFixture } from "./fakeConvex.ts";
+import { FakeConvex, brokerFixture } from "./fakeConvex.ts";
 
 const TEAM = 38516;
-/** The issuer of the hub that recorded the answers in `test/fixtures/hub/`. */
+/** The issuer of the broker that recorded the answers in `test/fixtures/broker/`. */
 const ISSUER = "https://auth.test";
 const DEPLOYMENT = "happy-otter-123";
-const REDIRECT_URI = `https://${DEPLOYMENT}.convex.site/auth/hub/callback`;
+const REDIRECT_URI = `https://${DEPLOYMENT}.convex.site/auth/broker/callback`;
 /** Another host and another path, as a Worker on Convex Auth 0 has. */
-const OTHER_REDIRECT_URI = "https://scout.example.workers.dev/api/auth/callback/hub";
+const OTHER_REDIRECT_URI = "https://scout.example.workers.dev/api/auth/callback/broker";
 const OIDC_REQUEST_URL = "https://oidc.test/token?api-version=2.0";
 const OIDC_REQUEST_TOKEN = "oidc-request-token";
 const OIDC_TOKEN = "oidc-token";
 /** Where a run asks for a new client. */
 const REGISTER = `${ISSUER}/register`;
-/** The clients' own records at the hub, which a renewal and a delete read. */
+/** The clients' own records at the broker, which a renewal and a delete read. */
 const RECORDS = `${ISSUER}/register/`;
-/** The 201 answers of `POST /register`, recorded from the hub of RFC 133. */
-const PRODUCTION_ANSWER = hubFixture("register-production.json");
-const PREVIEW_ANSWER = hubFixture("register-preview.json");
-const DEVELOPMENT_ANSWER = hubFixture("register-development.json");
-/** The hub of every test, unless a test names another. */
-const HUB: IdentityHub.Hub = { issuer: ISSUER };
-/** A second hub, for the tests that change the hub. */
-const OTHER_HUB: IdentityHub.Hub = { issuer: "https://auth.other.test" };
-/** The numeric GitHub id of the repository, which the hub gives with the token. */
+/** The 201 answers of `POST /register`, recorded from the broker of RFC 133. */
+const PRODUCTION_ANSWER = brokerFixture("register-production.json");
+const PREVIEW_ANSWER = brokerFixture("register-preview.json");
+const DEVELOPMENT_ANSWER = brokerFixture("register-development.json");
+/** The broker of every test, unless a test names another. */
+const BROKER: IdentityBroker.BrokerEndpoint = { issuer: ISSUER };
+/** A second broker, for the tests that change the broker. */
+const OTHER_BROKER: IdentityBroker.BrokerEndpoint = { issuer: "https://auth.other.test" };
+/** The numeric GitHub id of the repository, which the broker gives with the token. */
 const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
 const { test } = Test.make({
@@ -48,17 +48,17 @@ const { test } = Test.make({
 
 /** The props of a client that asks with the GitHub OIDC token. */
 type GitHubProps = Extract<
-  IdentityHub.ClientProps,
+  IdentityBroker.ClientProps,
   { readonly deploymentType: "production" | "preview" }
 >;
 type DevelopmentProps = Extract<
-  IdentityHub.ClientProps,
+  IdentityBroker.ClientProps,
   { readonly deploymentType: "development" }
 >;
 
 const props = (overrides: Partial<GitHubProps> = {}): GitHubProps => ({
   app: "scout",
-  hub: HUB,
+  broker: BROKER,
   redirectUris: [REDIRECT_URI],
   deploymentType: "preview",
   connectors: ["google"],
@@ -66,12 +66,12 @@ const props = (overrides: Partial<GitHubProps> = {}): GitHubProps => ({
   ...overrides,
 });
 
-/** The app's initial access token that the fake hub knows. */
+/** The app's initial access token that the fake broker knows. */
 const INITIAL_ACCESS_TOKEN = "iat-of-scout";
 
 const development = (overrides: Partial<DevelopmentProps> = {}): DevelopmentProps => ({
   app: "scout",
-  hub: HUB,
+  broker: BROKER,
   redirectUris: [REDIRECT_URI],
   deploymentType: "development",
   connectors: ["google"],
@@ -95,9 +95,9 @@ const requestBody = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const client = (input: PropsInput<IdentityHub.ClientProps>) =>
+const client = (input: PropsInput<IdentityBroker.ClientProps>) =>
   Effect.gen(function* () {
-    const resource = yield* IdentityHub.Client("Client", input);
+    const resource = yield* IdentityBroker.Client("Client", input);
     return {
       status: resource.status,
       issuer: resource.issuer,
@@ -133,8 +133,8 @@ const issued = (clientId = "cl_1", redirectUri = REDIRECT_URI, deploymentType = 
 const OFF = {
   status: "off",
   issuer: "http://127.0.0.1:1",
-  clientId: "no-hub",
-  clientSecret: "no-hub",
+  clientId: "broker-disabled",
+  clientSecret: "broker-disabled",
   registrationAccessToken: "",
   registrationClientUri: "",
   deploymentType: "preview",
@@ -145,7 +145,7 @@ const OFF = {
   repository: "",
 };
 
-/** The body of POST /register: the client metadata of RFC 7591 section 2 that the hub reads. */
+/** The body of POST /register: the client metadata of RFC 7591 section 2 that the broker reads. */
 const ClientRequest = Schema.Struct({
   redirect_uris: Schema.Array(Schema.String),
   software_id: Schema.String,
@@ -170,7 +170,7 @@ const networkDown: Answer = ({ authorization }) => {
   throw new TypeError(`fetch failed: ${authorization}`);
 };
 
-/** The refusal of a token, as the hub answers it (RFC 6750 section 3). */
+/** The refusal of a token, as the broker answers it (RFC 6750 section 3). */
 const invalidToken = () =>
   Response.json(
     { error: "invalid_token", error_description: "The token is invalid." },
@@ -255,9 +255,9 @@ const REFUSALS: readonly (readonly [string, Answer])[] = [
 ];
 
 class FakeServices {
-  /** Every request to GitHub or the hub, in order. */
+  /** Every request to GitHub or the broker, in order. */
   readonly sent: Sent[] = [];
-  /** The clients on the hub, with the token of each. */
+  /** The clients on the broker, with the token of each. */
   readonly clients = new Map<string, string>();
   /** The client information of each client, which a read of its own record answers (RFC 7592). */
   private readonly records = new Map<string, Record<string, unknown>>();
@@ -265,17 +265,17 @@ class FakeServices {
   github: Answer | undefined;
   /** `POST /register`. */
   registrar: Answer | undefined;
-  /** A client's own record at the hub. */
-  hub: Answer | undefined;
-  /** The hub's discovery document. */
+  /** A client's own record at the broker. */
+  broker: Answer | undefined;
+  /** The broker'sdiscovery document. */
   discovery: Answer | undefined;
-  /** The keys of a hub on the stack layer that `POST /register` takes. */
+  /** The keys of a broker on the stack layer that `POST /register` takes. */
   readonly keys = new Set<string>();
-  /** Set: the hub answers as to a run of main, with the app's initial access token. */
+  /** Set: the broker answers as to a run of main, with the app's initial access token. */
   production = false;
-  /** The initial access tokens that the hub takes for a development client. */
+  /** The initial access tokens that the broker takes for a development client. */
   readonly initialAccessTokens = new Set([INITIAL_ACCESS_TOKEN]);
-  /** The connectors the hub's policy allows this app. */
+  /** The connectors the broker's policy allows this app. */
   allowedConnectors = ["github", "google"];
   /** Every request in order, also those to Convex, as "METHOD URL". */
   readonly timeline: string[] = [];
@@ -301,7 +301,7 @@ class FakeServices {
       .map(({ method, url }) => `${method} ${url}`);
   }
 
-  /** The requests for a new client to any hub, as "METHOD URL". */
+  /** The requests for a new client to any broker, as "METHOD URL". */
   registrations() {
     return this.sent
       .filter(({ url }) => new URL(url).pathname === "/register")
@@ -315,7 +315,7 @@ class FakeServices {
       return this.discovery ?? (() => Response.json({ issuer: new URL(url).origin }));
     }
     return new URL(url).pathname.startsWith("/register/")
-      ? (this.hub ?? this.answerHub)
+      ? (this.broker ?? this.answerBroker)
       : undefined;
   }
 
@@ -341,7 +341,7 @@ class FakeServices {
   private readonly answerGitHub: Answer = () => Response.json({ count: 1, value: OIDC_TOKEN });
 
   /** A GitHub token gives a production or preview client, an initial access token a development one. */
-  /** Any hub: the answer names the issuer that the request went to. */
+  /** Any broker: the answer names the issuer that the request went to. */
   private readonly answerRegistrar: Answer = ({ authorization, body, url }) => {
     const issuer = new URL(url).origin;
     if (!authorization.startsWith("Bearer ")) {
@@ -354,7 +354,7 @@ class FakeServices {
     }
     const request = Schema.decodeUnknownSync(ClientRequest)(body);
     const { connectors } = request;
-    // The hub's policy allows these; another name is refused with the allowed ones, as the hub does.
+    // The broker'spolicy allows these; another name is refused with the allowed ones, as the broker does.
     if (!connectors.every((name) => this.allowedConnectors.includes(name))) {
       return Response.json(
         {
@@ -378,7 +378,7 @@ class FakeServices {
       repository: _repository,
       ...recorded
     } = withGitHub ? (production ? PRODUCTION_ANSWER : PREVIEW_ANSWER) : DEVELOPMENT_ANSWER;
-    // The hub answers `software_id` in the full form, `<tenant id>/<app name>`.
+    // The brokeranswers `software_id` in the full form, `<tenant id>/<app name>`.
     const record = {
       ...recorded,
       client_id: clientId,
@@ -405,7 +405,7 @@ class FakeServices {
     );
   };
 
-  private readonly answerHub: Answer = ({ authorization, method, url }) => {
+  private readonly answerBroker: Answer = ({ authorization, method, url }) => {
     const clientId = url.split("/").at(-1) ?? "";
     if (authorization !== `Bearer ${this.clients.get(clientId)}`) {
       return invalidToken();
@@ -430,8 +430,8 @@ const capturedLogs = () => {
 
 const warningsIn = (lines: readonly string[]) => lines.filter((line) => line.startsWith("Warn:"));
 
-/** The type of this resource before 0.37.0, which saved rows can still have. */
-const OLD_TYPE = "IdentityHub.SharedClient";
+/** The types of this resource before 0.46.0 (and before 0.37.0), which saved rows can still have. */
+const OLD_TYPES = ["IdentityHub.Client", "IdentityHub.SharedClient"];
 
 /** The saved row `fqn` of `stage`. */
 const savedRow = (stack: ScratchStack, stage: string, fqn: string) =>
@@ -458,7 +458,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("IdentityHub.Client", () => {
+describe("IdentityBroker.Client", () => {
   test.provider("the first deploy gets a client with the OIDC token of the run", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
@@ -544,14 +544,14 @@ describe("IdentityHub.Client", () => {
       }),
   );
 
-  test.provider("an app name over the hub's 64 characters fails before any request", (stack) =>
+  test.provider("an app name over the broker's 64 characters fails before any request", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       const exit = yield* Effect.exit(stack.deploy(client(props({ app: "a".repeat(65) }))));
       expect(Exit.isFailure(exit)).toBe(true);
       expect(String(exit)).toContain("set a shorter app");
       expect(fake.sent).toEqual([]);
-      // 64 is the limit itself, and the hub takes it.
+      // 64 is the limit itself, and the broker takes it.
       expect(yield* stack.deploy(client(props({ app: "a".repeat(64) })))).toEqual({
         ...issued(),
         app: "a".repeat(64),
@@ -653,37 +653,37 @@ describe("IdentityHub.Client", () => {
   test.provider("another hub gets the request, with a GitHub token for its own issuer", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
-      expect(yield* stack.deploy(client(props({ hub: OTHER_HUB })))).toMatchObject({
+      expect(yield* stack.deploy(client(props({ broker: OTHER_BROKER })))).toMatchObject({
         status: "on",
-        issuer: OTHER_HUB.issuer,
+        issuer: OTHER_BROKER.issuer,
       });
       expect(fake.calls(OIDC_REQUEST_URL)).toEqual([
-        `GET ${OIDC_REQUEST_URL}&audience=${encodeURIComponent(OTHER_HUB.issuer)}`,
+        `GET ${OIDC_REQUEST_URL}&audience=${encodeURIComponent(OTHER_BROKER.issuer)}`,
       ]);
-      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/register`]);
+      expect(fake.calls(OTHER_BROKER.issuer)).toEqual([`POST ${OTHER_BROKER.issuer}/register`]);
       expect(fake.calls(ISSUER)).toEqual([]);
     }),
   );
 
-  test.provider("a changed hub asks the new hub for a client, without a renewal", (stack) =>
+  test.provider("a changed broker asks the new broker for a client, without a renewal", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
       fake.sent.length = 0;
-      yield* stack.deploy(client(props({ hub: OTHER_HUB })));
-      expect(fake.calls(OTHER_HUB.issuer)).toEqual([`POST ${OTHER_HUB.issuer}/register`]);
+      yield* stack.deploy(client(props({ broker: OTHER_BROKER })));
+      expect(fake.calls(OTHER_BROKER.issuer)).toEqual([`POST ${OTHER_BROKER.issuer}/register`]);
       expect(fake.calls(ISSUER)).toEqual([]);
     }),
   );
 
-  test.provider("a new client logs its hub once, and a renewal does not", (stack) =>
+  test.provider("a new client logs its broker once, and a renewal does not", (stack) =>
     Effect.gen(function* () {
       new FakeServices().install();
       const { layer, lines } = capturedLogs();
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
       yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
       expect(lines.filter((line) => line.includes("has a new client"))).toEqual([
-        `Info: IdentityHub.Client: scout on ${REDIRECT_URI} has a new client of the identity hub ${ISSUER}.`,
+        `Info: IdentityBroker.Client: scout on ${REDIRECT_URI} has a new client of the identity broker ${ISSUER}.`,
       ]);
     }),
   );
@@ -748,7 +748,7 @@ describe("IdentityHub.Client", () => {
       const exit = yield* Effect.exit(stack.deploy(client(production)));
       expect(Exit.isFailure(exit)).toBe(true);
       expect(String(exit)).toContain(
-        `IdentityHub.Client: the saved attributes of scout on ${REDIRECT_URI} cannot be read by this version.`,
+        `IdentityBroker.Client: the saved attributes of scout on ${REDIRECT_URI} cannot be read by this version.`,
       );
       expect(String(exit)).not.toContain("secret-of");
       expect(String(exit)).not.toContain("iat-of");
@@ -757,18 +757,22 @@ describe("IdentityHub.Client", () => {
     }),
   );
 
-  test.provider("a saved row of the type before 0.37.0 is updated in place", (stack) =>
+  test.provider("a saved row of an old type is updated in place", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
-      yield* relabel(stack, stack.stage, "Client", OLD_TYPE);
-      expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe(OLD_TYPE);
+      for (const [index, oldType] of OLD_TYPES.entries()) {
+        yield* relabel(stack, stack.stage, "Client", oldType);
+        expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe(oldType);
 
-      // The same client: no new registration and no delete, only the renewal of cl_1.
-      expect(yield* stack.deploy(client(props()))).toEqual(issued());
-      expect(fake.registrations()).toHaveLength(1);
-      expect(fake.calls(RECORDS)).toEqual([`GET ${ISSUER}/register/cl_1`]);
-      expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe("IdentityHub.Client");
+        // The same client: no new registration and no delete, only the renewal of cl_1.
+        expect(yield* stack.deploy(client(props()))).toEqual(issued());
+        expect(fake.registrations()).toHaveLength(1);
+        expect(fake.calls(RECORDS)).toEqual(
+          Array.from({ length: index + 1 }, () => `GET ${ISSUER}/register/cl_1`),
+        );
+        expect(yield* typeOfRow(stack, stack.stage, "Client")).toBe("IdentityBroker.Client");
+      }
     }),
   );
 
@@ -841,7 +845,7 @@ describe("IdentityHub.Client", () => {
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
-        fake.hub = () => Response.json({ error: "insufficient_scope" }, { status: 403 });
+        fake.broker = () => Response.json({ error: "insufficient_scope" }, { status: 403 });
         fake.sent.length = 0;
         const { layer, lines } = capturedLogs();
         const suspended = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
@@ -849,8 +853,8 @@ describe("IdentityHub.Client", () => {
         expect(fake.registrations()).toEqual([]);
         expect(warningsIn(lines)).toHaveLength(1);
 
-        // The hub lifts the suspension, and the same client serves again.
-        fake.hub = undefined;
+        // The brokerlifts the suspension, and the same client serves again.
+        fake.broker = undefined;
         expect(yield* stack.deploy(client(props()))).toEqual(issued());
         expect(fake.registrations()).toEqual([]);
       }),
@@ -866,7 +870,7 @@ describe("IdentityHub.Client", () => {
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         const first = yield* stack.deploy(client(props()));
-        fake.hub = answer;
+        fake.broker = answer;
         fake.sent.length = 0;
         const { layer, lines } = capturedLogs();
         const again = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
@@ -893,20 +897,20 @@ describe("IdentityHub.Client", () => {
   );
 
   test.provider(
-    "a required client fails the run when suspended, and when the hub then does not answer",
+    "a required client fails the run when suspended, and when the broker then does not answer",
     (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
-        fake.hub = () => new Response(null, { status: 403 });
+        fake.broker = () => new Response(null, { status: 403 });
         const suspended = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
         expect(String(suspended)).toContain("is required and has no working client (suspended)");
-        // The failed run saved nothing, so the state still says `on`: a run that the hub does not
+        // The failed run saved nothing, so the state still says `on`: a run that the broker does not
         // answer must not pass with it.
-        fake.hub = () => new Response(null, { status: 500 });
+        fake.broker = () => new Response(null, { status: 500 });
         const outage = yield* Effect.exit(stack.deploy(client(props({ required: true }))));
-        expect(String(outage)).toContain("is required, and the hub did not confirm its client");
-        fake.hub = undefined;
+        expect(String(outage)).toContain("is required, and the broker did not confirm its client");
+        fake.broker = undefined;
         expect(yield* stack.deploy(client(props({ required: true })))).toEqual(issued());
       }),
   );
@@ -915,9 +919,9 @@ describe("IdentityHub.Client", () => {
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
-      fake.hub = () => new Response(null, { status: 403 });
+      fake.broker = () => new Response(null, { status: 403 });
       yield* stack.deploy(client(props()));
-      fake.hub = () => new Response(null, { status: 500 });
+      fake.broker = () => new Response(null, { status: 500 });
       const again = yield* stack.deploy(client(props()));
       expect(again).toEqual({ ...issued(), status: "suspended" });
     }),
@@ -950,7 +954,7 @@ describe("IdentityHub.Client", () => {
     [400, "invalid_redirect_uri", "verification_file_invalid", "holds no repository id"],
     [400, "invalid_redirect_uri", "repository_mismatch", "names another repository"],
     [403, "insufficient_scope", "blocked", "Samebase blocked this repository or its owner"],
-    [403, "insufficient_scope", "paused", "this app is paused on the identity hub"],
+    [403, "insufficient_scope", "paused", "this app is paused on the identity broker"],
     [403, "insufficient_scope", "stale_proof", "took a newer GitHub OIDC token of this repository"],
   ] as const) {
     test.provider(`a ${status} for ${reason} says why in the log`, (stack) =>
@@ -987,7 +991,7 @@ describe("IdentityHub.Client", () => {
       "invalid_client_metadata",
       "refused the client metadata, such as the app name (HTTP 400)",
     ],
-    [403, "insufficient_scope", "the identity hub does not allow this repository (HTTP 403)"],
+    [403, "insufficient_scope", "the identity broker does not allow this repository (HTTP 403)"],
   ] as const) {
     test.provider(
       `a ${status} ${error} with an unknown reason logs no text of the answer`,
@@ -1025,7 +1029,7 @@ describe("IdentityHub.Client", () => {
         const { layer, lines } = capturedLogs();
         const again = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(again).toEqual(OFF);
-        expect(warningsIn(lines)).toEqual([expect.stringContaining("deploys without the hub")]);
+        expect(warningsIn(lines)).toEqual([expect.stringContaining("deploys without the broker")]);
 
         // The next deploy asks again.
         fake.registrar = undefined;
@@ -1040,7 +1044,7 @@ describe("IdentityHub.Client", () => {
         const { layer, lines } = capturedLogs();
         const off = yield* stack.deploy(client(props())).pipe(Effect.provide(layer));
         expect(off).toEqual(OFF);
-        expect(warningsIn(lines)).toEqual([expect.stringContaining("deploys without the hub")]);
+        expect(warningsIn(lines)).toEqual([expect.stringContaining("deploys without the broker")]);
       }),
     );
   }
@@ -1065,7 +1069,7 @@ describe("IdentityHub.Client", () => {
     ["an answer without a token", () => Response.json({ count: 0 })],
     ["a network error", networkDown],
   ] satisfies readonly (readonly [string, Answer])[]) {
-    test.provider(`${name} from GitHub gives the off values and asks the hub nothing`, (stack) =>
+    test.provider(`${name} from GitHub gives the off values and asks the broker nothing`, (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         fake.github = answer;
@@ -1122,7 +1126,7 @@ describe("IdentityHub.Client", () => {
     "the push reads the values that the run ended with, and only when they change",
     (stack) =>
       Effect.gen(function* () {
-        // The order of the template: the site is live before the hub reads its file, so the
+        // The order of the template: the site is live before the broker reads its file, so the
         // client takes the URL of the row that pushes, which is unresolved in the plan of the first
         // deploy, and a second row with no source writes the variables. Each later plan has an
         // update that reads the new client.
@@ -1137,10 +1141,10 @@ describe("IdentityHub.Client", () => {
             name: "pr-1",
             env: { SAMEBASE_REPOSITORY_ID: REPOSITORY_ID },
           });
-          const hub = yield* IdentityHub.Client("Client", {
+          const client = yield* IdentityBroker.Client("Client", {
             app: "scout",
-            hub: HUB,
-            redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/hub/callback`],
+            broker: BROKER,
+            redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/broker/callback`],
             deploymentType: "preview",
             connectors: ["google"],
           });
@@ -1149,21 +1153,21 @@ describe("IdentityHub.Client", () => {
             type: "preview",
             name: "pr-1",
             env: {
-              IDENTITY_HUB_ISSUER: hub.issuer,
-              IDENTITY_HUB_CLIENT_ID: hub.clientId,
-              IDENTITY_HUB_CLIENT_SECRET: hub.clientSecret,
+              IDENTITY_BROKER_ISSUER: client.issuer,
+              IDENTITY_BROKER_CLIENT_ID: client.clientId,
+              IDENTITY_BROKER_CLIENT_SECRET: client.clientSecret,
             },
           }).pipe(adopt(true));
-          return { name: site.name, status: hub.status };
+          return { name: site.name, status: client.status };
         });
 
         const { name } = yield* stack.deploy(app);
         // "Site" leaves the variable of "Deployment": it removes only a name that leaves its own env.
         expect(convex.variables.get(name)).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
-          IDENTITY_HUB_ISSUER: ISSUER,
-          IDENTITY_HUB_CLIENT_ID: "cl_1",
-          IDENTITY_HUB_CLIENT_SECRET: "secret-of-cl_1",
+          IDENTITY_BROKER_ISSUER: ISSUER,
+          IDENTITY_BROKER_CLIENT_ID: "cl_1",
+          IDENTITY_BROKER_CLIENT_SECRET: "secret-of-cl_1",
         });
         const writes = () =>
           convex.sent.filter(({ path }) => path.endsWith("/update_environment_variables"));
@@ -1176,8 +1180,8 @@ describe("IdentityHub.Client", () => {
         fake.clients.delete("cl_1");
         yield* stack.deploy(app);
         expect(convex.variables.get(name)).toMatchObject({
-          IDENTITY_HUB_CLIENT_ID: "cl_2",
-          IDENTITY_HUB_CLIENT_SECRET: "secret-of-cl_2",
+          IDENTITY_BROKER_CLIENT_ID: "cl_2",
+          IDENTITY_BROKER_CLIENT_SECRET: "secret-of-cl_2",
         });
       }),
   );
@@ -1197,6 +1201,23 @@ describe("IdentityHub.Client", () => {
         },
       ]);
       expect(fake.clients.size).toBe(0);
+    }),
+  );
+
+  // A destroy finds the provider by the row's type, so this needs the old types as aliases.
+  test.provider("a destroy deletes the preview client of a row of an old type", (stack) =>
+    Effect.gen(function* () {
+      const fake = new FakeServices().install();
+      for (const oldType of OLD_TYPES) {
+        yield* stack.deploy(client(props()));
+        yield* relabel(stack, stack.stage, "Client", oldType);
+        yield* stack.destroy();
+        expect(fake.clients.size).toBe(0);
+      }
+      expect(fake.calls(RECORDS)).toEqual([
+        `DELETE ${ISSUER}/register/cl_1`,
+        `DELETE ${ISSUER}/register/cl_2`,
+      ]);
     }),
   );
 
@@ -1224,7 +1245,7 @@ describe("IdentityHub.Client", () => {
     }),
   );
 
-  test.provider("a destroy after 401 from the hub has no warning", (stack) =>
+  test.provider("a destroy after 401 from the broker has no warning", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(props()));
@@ -1243,11 +1264,11 @@ describe("IdentityHub.Client", () => {
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         yield* stack.deploy(client(props()));
-        fake.hub = answer;
+        fake.broker = answer;
         const { layer, lines } = capturedLogs();
         yield* stack.destroy().pipe(Effect.provide(layer));
         expect(warningsIn(lines)).toEqual([
-          expect.stringContaining("stays on the hub until its removal date"),
+          expect.stringContaining("stays on the broker until its removal date"),
         ]);
         // The destroy removed the row, so another destroy has nothing to do.
         fake.sent.length = 0;
@@ -1275,13 +1296,13 @@ describe("IdentityHub.Client", () => {
         );
 
       yield* deploy();
-      fake.hub = networkDown;
+      fake.broker = networkDown;
       yield* deploy();
-      fake.hub = echo;
+      fake.broker = echo;
       yield* deploy();
-      fake.hub = () => new Response(null, { status: 403 });
+      fake.broker = () => new Response(null, { status: 403 });
       yield* deploy();
-      fake.hub = undefined;
+      fake.broker = undefined;
       fake.clients.delete("cl_1");
       fake.registrar = networkDown;
       yield* deploy();
@@ -1294,7 +1315,7 @@ describe("IdentityHub.Client", () => {
       yield* deploy({ ...props(), redirectUris: [OTHER_REDIRECT_URI] });
       fake.github = networkDown;
       yield* deploy({ ...props(), redirectUris: [OTHER_REDIRECT_URI] });
-      fake.hub = echo;
+      fake.broker = echo;
       yield* stack.destroy().pipe(Effect.provide(layer));
 
       expect(warningsIn(lines).length).toBeGreaterThanOrEqual(7);
@@ -1312,12 +1333,12 @@ describe("IdentityHub.Client", () => {
   );
 });
 
-describe("IdentityHub.Client for a development client", () => {
+describe("IdentityBroker.Client for a development client", () => {
   const DEVELOPED = issued("cl_1", REDIRECT_URI, "development");
 
   it("takes the initial access token only for a development client", () => {
     // @ts-expect-error A preview client asks with the GitHub OIDC token.
-    const preview: IdentityHub.ClientProps = {
+    const preview: IdentityBroker.ClientProps = {
       app: "scout",
       redirectUris: [REDIRECT_URI],
       deploymentType: "preview",
@@ -1325,14 +1346,14 @@ describe("IdentityHub.Client for a development client", () => {
       initialAccessToken: Redacted.make(INITIAL_ACCESS_TOKEN),
     };
     // @ts-expect-error A development client needs the token.
-    const withoutToken: IdentityHub.ClientProps = {
+    const withoutToken: IdentityBroker.ClientProps = {
       app: "scout",
       redirectUris: [REDIRECT_URI],
       deploymentType: "development",
       connectors: ["google"],
     };
     // @ts-expect-error Every client names its connectors.
-    const withoutConnectors: IdentityHub.ClientProps = {
+    const withoutConnectors: IdentityBroker.ClientProps = {
       app: "scout",
       redirectUris: [REDIRECT_URI],
       deploymentType: "preview",
@@ -1400,7 +1421,7 @@ describe("IdentityHub.Client for a development client", () => {
     }),
   );
 
-  test.provider("registers anew when the hub no longer has the client", (stack) =>
+  test.provider("registers anew when the broker no longer has the client", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(development()));
@@ -1415,7 +1436,7 @@ describe("IdentityHub.Client for a development client", () => {
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(client(development()));
-      fake.hub = () => Response.json({ error: "insufficient_scope" }, { status: 403 });
+      fake.broker = () => Response.json({ error: "insufficient_scope" }, { status: 403 });
       fake.sent.length = 0;
       expect(yield* stack.deploy(client(development()))).toEqual({
         ...DEVELOPED,
@@ -1423,8 +1444,8 @@ describe("IdentityHub.Client for a development client", () => {
       });
       expect(fake.registrations()).toEqual([]);
 
-      // The hub lifts the suspension, and the same client serves again.
-      fake.hub = undefined;
+      // The brokerlifts the suspension, and the same client serves again.
+      fake.broker = undefined;
       expect(yield* stack.deploy(client(development()))).toEqual(DEVELOPED);
       expect(fake.registrations()).toEqual([]);
     }),
@@ -1439,18 +1460,22 @@ describe("IdentityHub.Client for a development client", () => {
         .pipe(Effect.provide(layer));
       expect(off).toEqual({ ...OFF, deploymentType: "development" });
       expect(fake.sent).toEqual([]);
-      expect(lines.filter((line) => line.includes("IdentityHub.Client"))).toEqual([
-        "Info: IdentityHub.Client: deploy to main once for hub sign-in in development.",
+      expect(lines.filter((line) => line.includes("IdentityBroker.Client"))).toEqual([
+        "Info: IdentityBroker.Client: deploy to main once for broker sign-in in development.",
       ]);
     }),
   );
 
   for (const [name, answer, text] of [
-    ["a refused token", undefined, "the identity hub refused the initial access token (HTTP 401)"],
+    [
+      "a refused token",
+      undefined,
+      "the identity broker refused the initial access token (HTTP 401)",
+    ],
     [
       "app_mismatch",
       () => Response.json({ error: "insufficient_scope", reason: "app_mismatch" }, { status: 403 }),
-      "the initial access token belongs to another app on the identity hub (HTTP 403)",
+      "the initial access token belongs to another app on the identity broker (HTTP 403)",
     ],
   ] satisfies readonly (readonly [string, Answer | undefined, string])[]) {
     test.provider(`${name} gives the off values and says why`, (stack) =>
@@ -1487,9 +1512,9 @@ describe("IdentityHub.Client for a development client", () => {
         Response.json({ error: authorization }, { status: 500 });
 
       yield* deploy();
-      fake.hub = echo;
+      fake.broker = echo;
       yield* deploy();
-      fake.hub = () => new Response(null, { status: 403 });
+      fake.broker = () => new Response(null, { status: 403 });
       yield* deploy();
       fake.registrar = echo;
       yield* deploy(development({ redirectUris: [OTHER_REDIRECT_URI] }));
@@ -1498,7 +1523,7 @@ describe("IdentityHub.Client for a development client", () => {
       fake.registrar = undefined;
       fake.initialAccessTokens.clear();
       yield* deploy(development({ redirectUris: [OTHER_REDIRECT_URI] }));
-      fake.hub = echo;
+      fake.broker = echo;
       yield* stack.destroy().pipe(Effect.provide(layer));
 
       expect(warningsIn(lines).length).toBeGreaterThanOrEqual(4);
@@ -1511,24 +1536,24 @@ describe("IdentityHub.Client for a development client", () => {
 
 describe("the app's default name", () => {
   it("is the stack's path in the repository, or `app` for a stack named after it", () => {
-    expect(IdentityHub.defaultApp("samebase/samebase/apps/samebase")).toBe("apps/samebase");
-    expect(IdentityHub.defaultApp("octo-org/scout")).toBe("app");
-    expect(IdentityHub.defaultApp("octo-org/base/apps/web/admin")).toBe("apps/web/admin");
+    expect(IdentityBroker.defaultApp("samebase/samebase/apps/samebase")).toBe("apps/samebase");
+    expect(IdentityBroker.defaultApp("octo-org/scout")).toBe("app");
+    expect(IdentityBroker.defaultApp("octo-org/base/apps/web/admin")).toBe("apps/web/admin");
   });
 
   it("does not exist for a stack whose name is not owner/repo", () => {
-    expect(IdentityHub.defaultApp("scout")).toBeUndefined();
-    expect(IdentityHub.defaultApp("octo-org//scout")).toBeUndefined();
-    expect(IdentityHub.defaultApp("/scout")).toBeUndefined();
-    expect(IdentityHub.defaultApp("")).toBeUndefined();
+    expect(IdentityBroker.defaultApp("scout")).toBeUndefined();
+    expect(IdentityBroker.defaultApp("octo-org//scout")).toBeUndefined();
+    expect(IdentityBroker.defaultApp("/scout")).toBeUndefined();
+    expect(IdentityBroker.defaultApp("")).toBeUndefined();
   });
 });
 
-describe("IdentityHub.Client.variables", () => {
-  const variables = (input: IdentityHub.ClientProps) =>
+describe("IdentityBroker.Client.variables", () => {
+  const variables = (input: IdentityBroker.ClientProps) =>
     Effect.gen(function* () {
-      const resource = yield* IdentityHub.Client("Client", input);
-      const values = IdentityHub.Client.variables(resource);
+      const resource = yield* IdentityBroker.Client("Client", input);
+      const values = IdentityBroker.Client.variables(resource);
       return {
         issuer: values.issuer,
         clientId: values.clientId,
@@ -1536,7 +1561,11 @@ describe("IdentityHub.Client.variables", () => {
       };
     });
   const REAL = { issuer: ISSUER, clientId: "cl_1", clientSecret: "secret-of-cl_1" };
-  const OFF_VARIABLES = { issuer: OFF.issuer, clientId: OFF.clientId, clientSecret: "no-hub" };
+  const OFF_VARIABLES = {
+    issuer: OFF.issuer,
+    clientId: OFF.clientId,
+    clientSecret: "broker-disabled",
+  };
 
   test.provider("gives the client's values when it is on", (stack) =>
     Effect.gen(function* () {
@@ -1549,9 +1578,9 @@ describe("IdentityHub.Client.variables", () => {
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       yield* stack.deploy(variables(development()));
-      fake.hub = () => new Response(null, { status: 403 });
+      fake.broker = () => new Response(null, { status: 403 });
       expect(yield* stack.deploy(variables(development()))).toEqual(OFF_VARIABLES);
-      fake.hub = undefined;
+      fake.broker = undefined;
       expect(yield* stack.deploy(variables(development()))).toEqual(REAL);
     }),
   );
@@ -1572,24 +1601,26 @@ describe("IdentityHub.Client.variables", () => {
 const deployProduction = (stack: ScratchStack, fake: FakeServices) =>
   Effect.gen(function* () {
     fake.production = true;
-    yield* stack.deploy(IdentityHub.Client("HubClient", props({ deploymentType: "production" })));
+    yield* stack.deploy(
+      IdentityBroker.Client("BrokerClient", props({ deploymentType: "production" })),
+    );
     yield* Effect.gen(function* () {
       const state = yield* yield* State;
-      const row = yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "HubClient" });
+      const row = yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "BrokerClient" });
       if (row === undefined) throw new Error("the deploy saved no client");
       const stored: PersistedState = JSON.parse(JSON.stringify(encodeState(row)), reviveState);
-      yield* state.set({ stack: stack.name, stage: "prod", fqn: "HubClient", value: stored });
+      yield* state.set({ stack: stack.name, stage: "prod", fqn: "BrokerClient", value: stored });
     }).pipe(Effect.provide(stack.state));
-    // A production client stays on the hub, and the row of this stage goes.
+    // A production client stays on the broker, and the row of this stage goes.
     yield* stack.destroy();
     fake.production = false;
     fake.sent.length = 0;
     fake.timeline.length = 0;
   });
 
-describe("IdentityHub.Client.read", () => {
+describe("IdentityBroker.Client.read", () => {
   const readProd = Effect.sync(() => {
-    const prod = IdentityHub.Client.read("HubClient", { stage: "prod" });
+    const prod = IdentityBroker.Client.read("BrokerClient", { stage: "prod" });
     return {
       status: prod.status,
       clientId: prod.clientId,
@@ -1620,16 +1651,18 @@ describe("IdentityHub.Client.read", () => {
     }),
   );
 
-  test.provider("reads a row of the type before 0.37.0 as well", (stack) =>
+  test.provider("reads a row of an old type as well", (stack) =>
     Effect.gen(function* () {
       yield* deployProduction(stack, new FakeServices().install());
-      expect(yield* typeOfRow(stack, "prod", "HubClient")).toBe("IdentityHub.Client");
-      yield* relabel(stack, "prod", "HubClient", OLD_TYPE);
-      expect(yield* stack.deploy(readProd)).toMatchObject({
-        status: "on",
-        clientId: "cl_1",
-        initialAccessToken: "iat-of-cl_1",
-      });
+      expect(yield* typeOfRow(stack, "prod", "BrokerClient")).toBe("IdentityBroker.Client");
+      for (const oldType of OLD_TYPES) {
+        yield* relabel(stack, "prod", "BrokerClient", oldType);
+        expect(yield* stack.deploy(readProd)).toMatchObject({
+          status: "on",
+          clientId: "cl_1",
+          initialAccessToken: "iat-of-cl_1",
+        });
+      }
     }),
   );
 
@@ -1637,12 +1670,12 @@ describe("IdentityHub.Client.read", () => {
     Effect.gen(function* () {
       expect(yield* stack.deploy(readProd)).toEqual({
         status: "off",
-        clientId: "no-hub",
+        clientId: "broker-disabled",
         deploymentType: "production",
         connectors: [],
         repository: "",
         initialAccessToken: "",
-        clientSecret: "no-hub",
+        clientSecret: "broker-disabled",
       });
     }),
   );
@@ -1653,7 +1686,7 @@ describe("IdentityHub.Client.read", () => {
       // The row of prod without one field of this version's shape.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
-        const request = { stack: stack.name, stage: "prod", fqn: "HubClient" };
+        const request = { stack: stack.name, stage: "prod", fqn: "BrokerClient" };
         const row = yield* state.get(request);
         if (row === undefined || !("attr" in row) || row.attr === undefined) {
           throw new Error("no row of prod");
@@ -1678,14 +1711,14 @@ describe("IdentityHub.Client.read", () => {
         );
       // The message names the reason, so a terminal shows more than a stack trace.
       expect(defect).toContain(
-        "IdentityHub.Client: the row HubClient of stage prod holds attributes that this version cannot read.",
+        "IdentityBroker.Client: the row BrokerClient of stage prod holds attributes that this version cannot read.",
       );
       expect(defect).not.toContain("secret-of");
     }),
   );
 });
 
-type KeyProps = Extract<IdentityHub.ClientProps, { readonly key: unknown }>;
+type KeyProps = Extract<IdentityBroker.ClientProps, { readonly key: unknown }>;
 
 /** A preview client that asks with `key`. */
 const withKey = (
@@ -1694,7 +1727,7 @@ const withKey = (
 ) =>
   client({
     app: "scout",
-    hub: HUB,
+    broker: BROKER,
     redirectUris: [REDIRECT_URI],
     deploymentType: "preview",
     connectors: ["google"],
@@ -1703,20 +1736,20 @@ const withKey = (
     ...overrides,
   });
 
-describe("IdentityHub.Client with a key", () => {
-  const KEY = "preview-key-of-the-hub";
+describe("IdentityBroker.Client with a key", () => {
+  const KEY = "preview-key-of-the-broker";
 
   it("takes a key for any deployment type, and never with an initial access token", () => {
-    const development: IdentityHub.ClientProps = {
-      hub: HUB,
+    const development: IdentityBroker.ClientProps = {
+      broker: BROKER,
       redirectUris: [REDIRECT_URI],
       deploymentType: "development",
       connectors: ["google"],
       key: Redacted.make(KEY),
     };
     // @ts-expect-error A client proves itself one way.
-    const both: IdentityHub.ClientProps = {
-      hub: HUB,
+    const both: IdentityBroker.ClientProps = {
+      broker: BROKER,
       redirectUris: [REDIRECT_URI],
       deploymentType: "development",
       connectors: ["google"],
@@ -1727,13 +1760,13 @@ describe("IdentityHub.Client with a key", () => {
   });
 
   test.provider(
-    "registers with the key once the hub answers discovery, and no OIDC token",
+    "registers with the key once the broker answers discovery, and no OIDC token",
     (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         fake.keys.add(KEY);
         let discoveries = 0;
-        // The first read of discovery finds no hub yet, as a new workers.dev route does.
+        // The first read of discovery finds no broker yet, as a new workers.dev route does.
         fake.discovery = ({ url }) =>
           ++discoveries === 1
             ? new Response("error code: 1042", { status: 404 })
@@ -1758,7 +1791,7 @@ describe("IdentityHub.Client with a key", () => {
       }),
   );
 
-  test.provider("a key that the hub refuses gives the off values", (stack) =>
+  test.provider("a key that the broker refuses gives the off values", (stack) =>
     Effect.gen(function* () {
       new FakeServices().install();
       const { layer, lines } = capturedLogs();
@@ -1766,29 +1799,29 @@ describe("IdentityHub.Client with a key", () => {
         OFF,
       );
       expect(warningsIn(lines)).toEqual([
-        expect.stringContaining("the identity hub refused the registration key (HTTP 401)"),
+        expect.stringContaining("the identity broker refused the registration key (HTTP 401)"),
       ]);
       expect(lines.filter((line) => line.includes(KEY))).toEqual([]);
     }),
   );
 
-  test.provider("a key goes to no http hub: the registration request is not made", (stack) =>
+  test.provider("a key goes to no http broker: the registration request is not made", (stack) =>
     Effect.gen(function* () {
       const fake = new FakeServices().install();
       fake.keys.add(KEY);
-      const hub = { issuer: "http://hub.example.com" };
+      const broker = { issuer: "http://broker.example.com" };
       const { layer, lines } = capturedLogs();
       expect(
-        yield* stack.deploy(withKey(Redacted.make(KEY), { hub })).pipe(Effect.provide(layer)),
+        yield* stack.deploy(withKey(Redacted.make(KEY), { broker })).pipe(Effect.provide(layer)),
       ).toEqual(OFF);
       expect(warningsIn(lines)).toEqual([
         expect.stringContaining(
-          "The identity hub is not at an https URL, so no credential was sent to it",
+          "The identity broker is not at an https URL, so no credential was sent to it",
         ),
       ]);
-      // Only discovery, which carries no credential, reaches the hub.
-      expect(fake.calls(hub.issuer)).toEqual([
-        `GET ${hub.issuer}/.well-known/openid-configuration`,
+      // Only discovery, which carries no credential, reaches the broker.
+      expect(fake.calls(broker.issuer)).toEqual([
+        `GET ${broker.issuer}/.well-known/openid-configuration`,
       ]);
       expect(fake.sent.filter(({ authorization }) => authorization !== "")).toEqual([]);
     }),
@@ -1808,16 +1841,16 @@ describe("IdentityHub.Client with a key", () => {
   );
 });
 
-describe("IdentityHub.registrationKey", () => {
+describe("IdentityBroker.registrationKey", () => {
   /** The key `id` as the deploy resolves it: its text, or `none`. */
   const keyOf = (id: string, stage: string) =>
-    Effect.map(IdentityHub.registrationKey(id, { stage }), (key) =>
+    Effect.map(IdentityBroker.registrationKey(id, { stage }), (key) =>
       Output.map(key, (value) =>
         value === undefined ? "none" : Redacted.isRedacted(value) ? Redacted.value(value) : "plain",
       ),
     );
 
-  test.provider("is a random key in the hub's stage, the same on each deploy", (stack) =>
+  test.provider("is a random key in the broker's stage, the same on each deploy", (stack) =>
     Effect.gen(function* () {
       const first = yield* stack.deploy(keyOf("PreviewKey", stack.stage));
       expect(first).toMatch(/^[0-9a-f]{64}$/);
@@ -1839,7 +1872,7 @@ describe("IdentityHub.registrationKey", () => {
   test.provider("another stage reads the key's row, redacted, and makes no key", (stack) =>
     Effect.gen(function* () {
       const made = yield* stack.deploy(keyOf("PreviewKey", stack.stage));
-      // The row of the hub's stage `prod`, as that stage's run saved it.
+      // The row of the broker's stage `prod`, as that stage's run saved it.
       yield* Effect.gen(function* () {
         const state = yield* yield* State;
         const row = yield* state.get({ stack: stack.name, stage: stack.stage, fqn: "PreviewKey" });
@@ -1860,13 +1893,13 @@ describe("IdentityHub.registrationKey", () => {
   );
 
   test.provider(
-    "gives no key before the hub's stage ran, and the client gets the off values",
+    "gives no key before the broker's stage ran, and the client gets the off values",
     (stack) =>
       Effect.gen(function* () {
         const fake = new FakeServices().install();
         expect(yield* stack.deploy(keyOf("PreviewKey", "prod"))).toBe("none");
         const app = Effect.gen(function* () {
-          const key = yield* IdentityHub.registrationKey("PreviewKey", { stage: "prod" });
+          const key = yield* IdentityBroker.registrationKey("PreviewKey", { stage: "prod" });
           return yield* withKey(key);
         });
         expect(yield* stack.deploy(app)).toEqual(OFF);
@@ -1889,30 +1922,30 @@ describe("the development stage of the starter", () => {
         const selected = convex.addDeployment({ projectId, type: "dev", name: "nicu" });
         const app = Effect.gen(function* () {
           const project = { projectId };
-          const prod = IdentityHub.Client.read("HubClient", { stage: "prod" });
+          const prod = IdentityBroker.Client.read("BrokerClient", { stage: "prod" });
           const deployment = yield* Convex.Deployment("Verification", {
             project,
             type: "dev",
             name: selected,
             env: { SAMEBASE_REPOSITORY_ID: prod.repository },
           }).pipe(adopt(true));
-          const hub = yield* IdentityHub.Client("HubClient", {
+          const client = yield* IdentityBroker.Client("BrokerClient", {
             app: "scout",
-            hub: HUB,
-            redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/hub/callback`],
+            broker: BROKER,
+            redirectUris: [Output.interpolate`${deployment.siteUrl}/auth/broker/callback`],
             deploymentType: "development",
             connectors: ["google"],
             initialAccessToken: prod.initialAccessToken,
           });
-          const variables = IdentityHub.Client.variables(hub);
+          const variables = IdentityBroker.Client.variables(client);
           const site = yield* Convex.Deployment("Site", {
             project,
             type: "dev",
             name: selected,
             env: {
-              IDENTITY_HUB_ISSUER: variables.issuer,
-              IDENTITY_HUB_CLIENT_ID: variables.clientId,
-              IDENTITY_HUB_CLIENT_SECRET: variables.clientSecret,
+              IDENTITY_BROKER_ISSUER: variables.issuer,
+              IDENTITY_BROKER_CLIENT_ID: variables.clientId,
+              IDENTITY_BROKER_CLIENT_SECRET: variables.clientSecret,
             },
           }).pipe(adopt(true));
           return { name: site.name, siteUrl: site.siteUrl };
@@ -1921,7 +1954,7 @@ describe("the development stage of the starter", () => {
         const { layer, lines } = capturedLogs();
         const { name, siteUrl } = yield* stack.deploy(app).pipe(Effect.provide(layer));
         expect(name).toBe(selected);
-        const callback = `${siteUrl}/auth/hub/callback`;
+        const callback = `${siteUrl}/auth/broker/callback`;
         expect(services.sent.filter(({ url }) => url === REGISTER)).toEqual([
           {
             method: "POST",
@@ -1936,7 +1969,7 @@ describe("the development stage of the starter", () => {
         ]);
         const at = (pattern: RegExp) =>
           services.timeline.flatMap((line, index) => (pattern.test(line) ? [index] : []));
-        // The repository id is written before the request for the client, which the hub needs to
+        // The repository id is written before the request for the client, which the broker needs to
         // read the file, and the three variables after it.
         const [register] = at(/\/register$/);
         const writes = at(/\/update_environment_variables$/);
@@ -1948,9 +1981,9 @@ describe("the development stage of the starter", () => {
         // "Site" leaves the variable of "Verification": it removes only a name that leaves its own env.
         expect(convex.variables.get(name)).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
-          IDENTITY_HUB_ISSUER: ISSUER,
-          IDENTITY_HUB_CLIENT_ID: "cl_2",
-          IDENTITY_HUB_CLIENT_SECRET: "secret-of-cl_2",
+          IDENTITY_BROKER_ISSUER: ISSUER,
+          IDENTITY_BROKER_CLIENT_ID: "cl_2",
+          IDENTITY_BROKER_CLIENT_SECRET: "secret-of-cl_2",
         });
 
         // Both rows keep the default removal policy retain: a destroy deletes the client only.

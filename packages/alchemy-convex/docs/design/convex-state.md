@@ -197,17 +197,17 @@ server must not treat its deployment credential as a browser credential.
 
 The project is named `alchemy-state-store`, the exact name of the Cloudflare state store of Alchemy
 (`DEFAULT_STATE_STORE_NAME`). From 0.14.0 to 0.15.0 the store shared a deployment with the identity
-hub, so that a team would have one project. That was reversed for three reasons, all seen in use.
+broker, so that a team would have one project. That was reversed for three reasons, all seen in use.
 
 - The two have opposite owners. The package pushes the store, and nobody edits it. A team forks and
-  edits the hub. Sharing needed a rule for which app serves the store, and an order for every
+  edits the broker. Sharing needed a rule for which app serves the store, and an order for every
   change.
-- They fail together. A push replaces every function of a deployment, so a broken hub deploy would
-  stop the state reads of every stack of the team.
+- They fail together. A push replaces every function of a deployment, so a broken broker deploy
+  would stop the state reads of every stack of the team.
 - The one-credential benefit does not need one project: the team token reaches every project of the
-  team. Until 0.31.0, `Convex.HubClient` found the hub by the name of its project.
+  team. Until 0.31.0, `Convex.HubClient` found the broker by the name of its project.
 
-Since 0.17.0 the hub is the project `identity-hub`, found by name.
+Since 0.17.0 the broker is the project `identity-hub`, found by name.
 
 From 0.13.0 to 0.15.0 the store project was named `samebase` (before, `alchemy-state`), as the
 team's base for the state component and the identity broker. 0.16.0 gave the store its own project,
@@ -260,8 +260,8 @@ hand, with a Convex export and import; the package does not export the component
 ## Sealed secrets (store version 5)
 
 `encodeState` writes `{ "__redacted__": <value> }`, and a row must keep the value: the next run can
-get a hub client secret or a Cloudflare token only from the state. So every reader had to remove the
-values, and a reader that forgot showed them. The store now seals them, so that a row is safe to
+get a broker client secret or a Cloudflare token only from the state. So every reader had to remove
+the values, and a reader that forgot showed them. The store now seals them, so that a row is safe to
 show.
 
 - A row holds `{ "__redacted__": { "__sealed__": { keyId, iv, ciphertext } } }`. `__redacted__`

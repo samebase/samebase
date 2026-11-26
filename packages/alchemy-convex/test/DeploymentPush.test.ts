@@ -298,7 +298,7 @@ describe("Convex.Deployment push with the access token", () => {
       Effect.gen(function* () {
         const fake = new FakeConvex().install();
         vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_MODE", "fail");
-        vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_PRINT", "hub-client-secret not-secret no-hub");
+        vi.stubEnv("ALCHEMY_CONVEX_FAKE_CLI_PRINT", "broker-client-secret not-secret off-id");
         const projectId = fake.addProject({ name: NAME, teamId: TEAM });
         const error = yield* Effect.flip(
           stack.deploy(
@@ -307,9 +307,9 @@ describe("Convex.Deployment push with the access token", () => {
                 project: { projectId },
                 type: "prod",
                 env: {
-                  IDENTITY_HUB_CLIENT_ID: "not-secret",
-                  IDENTITY_HUB_CLIENT_SECRET: Redacted.make("hub-client-secret"),
-                  SHORT_SECRET: Redacted.make("no-hub"),
+                  IDENTITY_BROKER_CLIENT_ID: "not-secret",
+                  IDENTITY_BROKER_CLIENT_SECRET: Redacted.make("broker-client-secret"),
+                  SHORT_SECRET: Redacted.make("off-id"),
                 },
               },
               "./convex",
@@ -317,9 +317,9 @@ describe("Convex.Deployment push with the access token", () => {
           ),
         );
         expect(error).toBeInstanceOf(Convex.CodePushFailed);
-        expect(String(error.message)).not.toContain("hub-client-secret");
+        expect(String(error.message)).not.toContain("broker-client-secret");
         // A plain value stays, and a value below 8 characters is too short to look for.
-        expect(String(error.message)).toContain("[REDACTED] not-secret no-hub");
+        expect(String(error.message)).toContain("[REDACTED] not-secret off-id");
       }),
   );
 
