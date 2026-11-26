@@ -19,6 +19,8 @@ type Credentials = {
   /** Redacted, so a log line or an error that holds the connector does not print them. */
   clientId: Redacted.Redacted<string>;
   clientSecret: Redacted.Redacted<string>;
+  /** How the hub authenticates at the provider's token endpoint. Default: `client_secret_post`. */
+  tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
 };
 
 /**

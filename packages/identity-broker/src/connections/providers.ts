@@ -4,7 +4,7 @@
 import { Effect, type Redacted } from "effect";
 import type * as oauth from "oauth4webapi";
 import type { ClientSecrets } from "../core/connectors/types.ts";
-import { HubConfigError } from "../core/services.ts";
+import { HubConfigError, parseIssuer, parseSecureEndpoint } from "../core/services.ts";
 
 /** One configured provider. `name` is what a card's `connections` names. */
 export type ConnectionProvider = {
@@ -30,9 +30,11 @@ export type ConnectionProvider = {
 export type ConnectionSpec<R = never> = Omit<ConnectionProvider, "clientId" | "clientSecret"> &
   ClientSecrets<R>;
 
+const SAFE_NAME = /^[a-z0-9-]+$/;
+
 /** The checks of the connections setting that need no secret. */
 export const checkProviders = Effect.fnUntraced(function* (
-  providers: ReadonlyArray<Pick<ConnectionProvider, "name" | "resource">>,
+  providers: ReadonlyArray<Pick<ConnectionProvider, "name" | "resource" | "server" | "scopes">>,
 ) {
   if (providers.length === 0) {
     return yield* new HubConfigError({ message: "The connections setting names no provider" });
@@ -42,12 +44,37 @@ export const checkProviders = Effect.fnUntraced(function* (
   }
   // RFC 8707 section 2: a resource is an absolute URI with no fragment.
   for (const provider of providers) {
+    if (!SAFE_NAME.test(provider.name)) {
+      return yield* new HubConfigError({
+        message: `Connection "${provider.name}" has a name that is not [a-z0-9-]+`,
+      });
+    }
     const invalid = new HubConfigError({
       message: `Connection "${provider.name}" has a resource that is not an absolute URI with no fragment`,
     });
     yield* Effect.try({ try: () => new URL(provider.resource), catch: () => invalid });
     if (provider.resource.includes("#")) {
       return yield* invalid;
+    }
+    yield* parseIssuer(provider.server.issuer);
+    yield* parseSecureEndpoint(
+      provider.server.authorization_endpoint,
+      `Connection "${provider.name}" authorizationEndpoint`,
+    );
+    yield* parseSecureEndpoint(
+      provider.server.token_endpoint,
+      `Connection "${provider.name}" tokenEndpoint`,
+    );
+    if (provider.server.revocation_endpoint !== undefined) {
+      yield* parseSecureEndpoint(
+        provider.server.revocation_endpoint,
+        `Connection "${provider.name}" revocationEndpoint`,
+      );
+    }
+    if (provider.scopes.some((scope) => scope.length === 0 || /\s/.test(scope))) {
+      return yield* new HubConfigError({
+        message: `Connection "${provider.name}" has an invalid scope`,
+      });
     }
   }
   if (new Set(providers.map((provider) => provider.resource)).size !== providers.length) {

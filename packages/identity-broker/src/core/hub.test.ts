@@ -340,7 +340,69 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
           }),
         ],
       },
-      expected: 'Connector "Okta" has a provider that is not [a-z0-9-]+',
+      expected: 'Connector "Okta" has a name that is not [a-z0-9-]+',
+    },
+    {
+      config: {
+        ...options,
+        connectors: [
+          Connectors.oidc({
+            name: "okta",
+            provider: "Okta",
+            label: "Okta",
+            issuer: "https://okta.example.com",
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected: 'Connector "okta" has a provider that is not [a-z0-9-]+',
+    },
+    {
+      config: {
+        ...options,
+        connectors: [
+          Connectors.oidc({
+            name: "okta",
+            label: "   ",
+            issuer: "https://okta.example.com",
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected: 'Connector "okta" must have a non-empty label',
+    },
+    {
+      config: {
+        ...options,
+        connectors: [
+          Connectors.oidc({
+            name: "okta",
+            label: "Okta",
+            issuer: "http://okta.example.com",
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected: "The issuer must be https, or http on a loopback host for local development",
+    },
+    {
+      config: {
+        ...options,
+        connectors: [
+          Connectors.oidc({
+            name: "okta",
+            label: "Okta",
+            issuer: "https://okta.example.com",
+            scopes: ["email"],
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected: 'OIDC connector "okta" must include the "openid" scope',
     },
     {
       config: {
@@ -362,6 +424,10 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
     {
       config: { ...options, connections: [] },
       expected: "The connections setting names no provider",
+    },
+    {
+      config: { ...options, connections: [connection("MyAPI", "https://api.example.com")] },
+      expected: 'Connection "MyAPI" has a name that is not [a-z0-9-]+',
     },
     {
       config: {
@@ -386,6 +452,24 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
     {
       config: { ...options, connections: [connection("api", "https://api.example.com/#v1")] },
       expected: 'Connection "api" has a resource that is not an absolute URI with no fragment',
+    },
+    {
+      config: {
+        ...options,
+        connections: [
+          Connections.oauth({
+            name: "api",
+            resource: "https://api.example.com",
+            issuer: "https://api.example.com",
+            authorizationEndpoint: "http://api.example.com/authorize",
+            tokenEndpoint: "https://api.example.com/token",
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected:
+        'Connection "api" authorizationEndpoint must be https, or http on a loopback host for local development',
     },
   ];
   for (const { config, expected } of cases) {

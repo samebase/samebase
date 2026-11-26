@@ -58,6 +58,7 @@ export const oidc = <R1 = never, R2 = never>(
     readonly scopes?: ReadonlyArray<string>;
     readonly promptLogin?: boolean;
     readonly selectAccount?: boolean;
+    readonly tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
   },
 ): ConnectorSpec<R1 | R2> => ({
   kind: "oidc",
@@ -68,6 +69,9 @@ export const oidc = <R1 = never, R2 = never>(
   scopes: [...(options.scopes ?? ["openid", "email", "profile"])],
   promptLogin: options.promptLogin ?? false,
   selectAccount: options.selectAccount ?? true,
+  ...(options.tokenEndpointAuthMethod === undefined
+    ? {}
+    : { tokenEndpointAuthMethod: options.tokenEndpointAuthMethod }),
   clientId: options.clientId,
   clientSecret: options.clientSecret,
 });
@@ -85,6 +89,7 @@ export const oauth = <R1 = never, R2 = never>(
     readonly identity: OauthConnector["identity"];
     readonly provider?: string;
     readonly selectAccount?: boolean;
+    readonly tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
   },
 ): ConnectorSpec<R1 | R2> => ({
   kind: "oauth",
@@ -95,6 +100,9 @@ export const oauth = <R1 = never, R2 = never>(
   scopes: [...options.scopes],
   identity: options.identity,
   selectAccount: options.selectAccount ?? false,
+  ...(options.tokenEndpointAuthMethod === undefined
+    ? {}
+    : { tokenEndpointAuthMethod: options.tokenEndpointAuthMethod }),
   clientId: options.clientId,
   clientSecret: options.clientSecret,
 });

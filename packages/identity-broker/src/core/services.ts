@@ -76,9 +76,33 @@ export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
   return issuerUrl;
 });
 
+const SAFE_NAME = /^[a-z0-9-]+$/;
+
+/** A secure endpoint URL: https or loopback http, with no credentials or fragment. */
+export const parseSecureEndpoint = Effect.fnUntraced(function* (value: string, label: string) {
+  const url = yield* Effect.try({
+    try: () => new URL(value),
+    catch: () => new HubConfigError({ message: `${label} must be a URL` }),
+  });
+  if (!isSecureUrl(url)) {
+    return yield* new HubConfigError({
+      message: `${label} must be https, or http on a loopback host for local development`,
+    });
+  }
+  if (url.username !== "" || url.password !== "") {
+    return yield* new HubConfigError({ message: `${label} must not have credentials` });
+  }
+  if (url.hash !== "" || value.includes("#")) {
+    return yield* new HubConfigError({ message: `${label} must not have a fragment` });
+  }
+  return url;
+});
+
 /** The checks of `HubConfig.make` that need no secret, so a hub runs them before it reads one. */
 export const checkConnectors = Effect.fnUntraced(function* (
-  connectors: ReadonlyArray<Pick<Connector, "name" | "provider" | "issuer">>,
+  connectors: ReadonlyArray<
+    Pick<Connector, "kind" | "name" | "provider" | "label" | "issuer" | "scopes">
+  >,
 ) {
   if (new Set(connectors.map((connector) => connector.name)).size !== connectors.length) {
     return yield* new HubConfigError({ message: "Connector names must be unique" });
@@ -90,9 +114,30 @@ export const checkConnectors = Effect.fnUntraced(function* (
   // its connectors sign in the accounts of one issuer: another issuer could reuse an upstream id.
   const providerIssuers = new Map<string, string>();
   for (const connector of connectors) {
-    if (!/^[a-z0-9-]+$/.test(connector.provider)) {
+    if (!SAFE_NAME.test(connector.name)) {
+      return yield* new HubConfigError({
+        message: `Connector "${connector.name}" has a name that is not [a-z0-9-]+`,
+      });
+    }
+    if (!SAFE_NAME.test(connector.provider)) {
       return yield* new HubConfigError({
         message: `Connector "${connector.name}" has a provider that is not [a-z0-9-]+`,
+      });
+    }
+    if (connector.label.trim().length === 0) {
+      return yield* new HubConfigError({
+        message: `Connector "${connector.name}" must have a non-empty label`,
+      });
+    }
+    yield* parseIssuer(connector.issuer);
+    if (connector.scopes.some((scope) => scope.length === 0 || /\s/.test(scope))) {
+      return yield* new HubConfigError({
+        message: `Connector "${connector.name}" has an invalid scope`,
+      });
+    }
+    if (connector.kind === "oidc" && !connector.scopes.includes("openid")) {
+      return yield* new HubConfigError({
+        message: `OIDC connector "${connector.name}" must include the "openid" scope`,
       });
     }
     const issuerOfProvider = providerIssuers.get(connector.provider) ?? connector.issuer;
