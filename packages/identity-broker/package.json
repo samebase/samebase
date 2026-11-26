@@ -1,6 +1,6 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "description": "An OpenID Provider that holds a team's upstream sign-in connections once and keeps no user accounts. It runs on any platform with your own storage, with ready hosts for Convex and Cloudflare.",
   "license": "Apache-2.0",
   "repository": {
@@ -21,6 +21,7 @@
     "./_generated/component.js": "./src/hosts/convex/component/_generated/component.ts",
     "./convex": "./src/hosts/convex/broker.ts",
     "./cloudflare": "./src/hosts/cloudflare/broker.ts",
+    "./client": "./src/client/index.ts",
     "./connectors": "./src/core/connectors/index.ts",
     "./connections": "./src/connections/index.ts",
     "./moderation": "./src/moderation/server.ts",
@@ -47,6 +48,10 @@
       "./cloudflare": {
         "types": "./dist/hosts/cloudflare/broker.d.ts",
         "default": "./dist/hosts/cloudflare/broker.js"
+      },
+      "./client": {
+        "types": "./dist/client/index.d.ts",
+        "default": "./dist/client/index.js"
       },
       "./connectors": {
         "types": "./dist/core/connectors/index.d.ts",
@@ -77,8 +82,8 @@
     "typecheck": "tsc --noEmit --project tsconfig.worker.json && tsc --noEmit --project tsconfig.node.json",
     "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/identity-broker/tsconfig.node.json --report-unused-disable-directives packages/identity-broker/src packages/identity-broker/alchemy.run.ts packages/identity-broker/scripts packages/identity-broker/test",
     "conformance": "node test/conformance/run.ts",
-    "test": "pnpm --dir ../.. exec vp test run --project identity-broker --project identity-broker-machine",
-    "test:quick": "pnpm --dir ../.. exec vp test run --project identity-broker",
+    "test": "pnpm --dir ../.. exec vp test run --project identity-broker --project identity-broker-client --project identity-broker-machine",
+    "test:quick": "pnpm --dir ../.. exec vp test run --project identity-broker --project identity-broker-client",
     "test:convex": "vp test run test/convex-app",
     "generate:convex": "node scripts/generate-convex-functions.ts",
     "check": "node scripts/generate-convex-functions.ts --check && pnpm run typecheck && pnpm run lint && pnpm run test:quick && pnpm run build",
@@ -91,7 +96,9 @@
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@alchemy.run/test": "2.0.0-beta.87",
     "@cloudflare/workers-types": "5.20261028.1",
+    "@effect/vitest": "4.1.4",
     "@types/node": "24.19.2",
     "alchemy": "2.0.0-beta.87",
     "convex": "1.48.0",

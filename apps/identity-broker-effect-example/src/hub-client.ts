@@ -4,7 +4,7 @@
 //
 // The errors keep no text of the hub or the library, only a fixed reason, so no page and no log
 // line can hold a token, a code, or a secret.
-import * as IdentityBroker from "@samebase/alchemy-convex/identity-broker";
+import * as IdentityBroker from "@samebase/identity-broker/client";
 import * as Alchemy from "alchemy";
 import * as Output from "alchemy/Output";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";

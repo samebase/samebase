@@ -1,24 +1,30 @@
 // IdentityBroker.Client against a fake GitHub and identity broker behind a stubbed fetch. The hub
 // answers `POST /register` (RFC 7591) and a client's own record (RFC 7592) as the registration
 // wire format of @samebase/identity-broker 0.33.0 says.
-import { adopt } from "alchemy/AdoptPolicy";
+import { readFileSync } from "node:fs";
+import { Resource } from "alchemy";
 import type { PropsInput } from "alchemy/Input";
 import * as Output from "alchemy/Output";
+import * as Provider from "alchemy/Provider";
 import { encodeState, type PersistedState, reviveState, State } from "alchemy/State";
 import type { ScratchStack } from "@alchemy.run/test/Core";
 import * as Test from "@alchemy.run/test/Vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import * as IdentityBroker from "../src/IdentityBroker.ts";
-import * as Convex from "../src/index.ts";
-import { FakeConvex, brokerFixture } from "./fakeConvex.ts";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import * as IdentityBroker from "./index.ts";
 
-const TEAM = 38516;
-/** The issuer of the broker that recorded the answers in `test/fixtures/broker/`. */
+/** A recorded answer of the identity broker from fixtures/, so a scenario can derive a changed copy. */
+const brokerFixture = (file: string) =>
+  Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
+    JSON.parse(readFileSync(new URL(`./fixtures/${file}`, import.meta.url), "utf8")),
+  );
+
+/** The issuer of the broker that recorded the answers in `fixtures/`. */
 const ISSUER = "https://auth.test";
 const DEPLOYMENT = "happy-otter-123";
 const REDIRECT_URI = `https://${DEPLOYMENT}.convex.site/auth/broker/callback`;
@@ -42,8 +48,60 @@ const OTHER_BROKER: IdentityBroker.BrokerEndpoint = { issuer: "https://auth.othe
 /** The numeric GitHub id of the repository, which the broker gives with the token. */
 const REPOSITORY_ID = String(PRODUCTION_ANSWER["repository"]);
 
+/** Where a `Sample.Site` writes its variables. */
+const SITES = "https://sites.test";
+
+/**
+ * A host's deployment, for the tests that pass the client's values on: `name` is the deployment,
+ * and it writes only the variables of `env` that changed, as a host's API does.
+ */
+type Site = Resource<
+  "Sample.Site",
+  { readonly name: string; readonly env: Record<string, string | Redacted.Redacted<string>> },
+  { readonly siteUrl: string; readonly env: Record<string, string> }
+>;
+const Site = Resource<Site>("Sample.Site");
+
+const SiteProvider = () =>
+  Provider.succeed(Site, {
+    reconcile: ({ news, output }) =>
+      Effect.promise(async () => {
+        const env = Object.fromEntries(
+          Object.entries(news.env).map(([name, value]) => [
+            name,
+            Redacted.isRedacted(value) ? Redacted.value(value) : value,
+          ]),
+        );
+        if (JSON.stringify(env) !== JSON.stringify(output?.env)) {
+          await fetch(`${SITES}/${news.name}`, { method: "PATCH", body: JSON.stringify(env) });
+        }
+        return { siteUrl: `https://${news.name}.sites.test`, env };
+      }),
+    delete: () => Effect.void,
+    read: ({ output }) => Effect.succeed(output),
+    list: () => Effect.succeed([]),
+  });
+
+/** The variables of each deployment that `Sample.Site` wrote. */
+class FakeSites {
+  readonly variables = new Map<string, Record<string, string>>();
+  /** The paths of the writes, in order. */
+  readonly writes: string[] = [];
+
+  readonly fetch = async (input: string | URL | Request, init?: RequestInit) => {
+    const request = new Request(input, init);
+    const name = new URL(request.url).pathname.slice(1);
+    const env = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.String))(
+      await request.json(),
+    );
+    this.variables.set(name, { ...this.variables.get(name), ...env });
+    this.writes.push(name);
+    return new Response(null, { status: 204 });
+  };
+}
+
 const { test } = Test.make({
-  providers: Convex.providers(Convex.fromValues({ accessToken: Redacted.make("test-token") })),
+  providers: Layer.mergeAll(IdentityBroker.providers(), SiteProvider()),
 });
 
 /** The props of a client that asks with the GitHub OIDC token. */
@@ -277,7 +335,7 @@ class FakeServices {
   readonly initialAccessTokens = new Set([INITIAL_ACCESS_TOKEN]);
   /** The connectors the broker's policy allows this app. */
   allowedConnectors = ["github", "google"];
-  /** Every request in order, also those to Convex, as "METHOD URL". */
+  /** Every request in order, also those to the host, as "METHOD URL". */
   readonly timeline: string[] = [];
   private nextClient = 1;
 
@@ -1127,17 +1185,13 @@ describe("IdentityBroker.Client", () => {
     (stack) =>
       Effect.gen(function* () {
         // The order of the template: the site is live before the broker reads its file, so the
-        // client takes the URL of the row that pushes, which is unresolved in the plan of the first
-        // deploy, and a second row with no source writes the variables. Each later plan has an
-        // update that reads the new client.
-        const convex = new FakeConvex();
-        const fake = new FakeServices(convex.fetch).install();
-        const projectId = convex.addProject({ name: "scout", teamId: TEAM });
+        // client takes the URL of the first deployment row, which is unresolved in the plan of the
+        // first deploy, and a second row writes the variables. Each later plan has an update that
+        // reads the new client.
+        const sites = new FakeSites();
+        const fake = new FakeServices(sites.fetch).install();
         const app = Effect.gen(function* () {
-          const project = { projectId };
-          const deployment = yield* Convex.Deployment("Deployment", {
-            project,
-            type: "preview",
+          const deployment = yield* Site("Deployment", {
             name: "pr-1",
             env: { SAMEBASE_REPOSITORY_ID: REPOSITORY_ID },
           });
@@ -1148,38 +1202,33 @@ describe("IdentityBroker.Client", () => {
             deploymentType: "preview",
             connectors: ["google"],
           });
-          const site = yield* Convex.Deployment("Site", {
-            project,
-            type: "preview",
+          yield* Site("Site", {
             name: "pr-1",
             env: {
               IDENTITY_BROKER_ISSUER: client.issuer,
               IDENTITY_BROKER_CLIENT_ID: client.clientId,
               IDENTITY_BROKER_CLIENT_SECRET: client.clientSecret,
             },
-          }).pipe(adopt(true));
-          return { name: site.name, status: client.status };
+          });
+          return { status: client.status };
         });
 
-        const { name } = yield* stack.deploy(app);
-        // "Site" leaves the variable of "Deployment": it removes only a name that leaves its own env.
-        expect(convex.variables.get(name)).toEqual({
+        yield* stack.deploy(app);
+        expect(sites.variables.get("pr-1")).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
           IDENTITY_BROKER_ISSUER: ISSUER,
           IDENTITY_BROKER_CLIENT_ID: "cl_1",
           IDENTITY_BROKER_CLIENT_SECRET: "secret-of-cl_1",
         });
-        const writes = () =>
-          convex.sent.filter(({ path }) => path.endsWith("/update_environment_variables"));
-        expect(writes()).toHaveLength(2);
+        expect(sites.writes).toHaveLength(2);
 
         yield* stack.deploy(app);
         expect(fake.calls(`${ISSUER}/register/cl_1`)).toHaveLength(1);
-        expect(writes()).toHaveLength(2);
+        expect(sites.writes).toHaveLength(2);
 
         fake.clients.delete("cl_1");
         yield* stack.deploy(app);
-        expect(convex.variables.get(name)).toMatchObject({
+        expect(sites.variables.get("pr-1")).toMatchObject({
           IDENTITY_BROKER_CLIENT_ID: "cl_2",
           IDENTITY_BROKER_CLIENT_SECRET: "secret-of-cl_2",
         });
@@ -1910,25 +1959,18 @@ describe("IdentityBroker.registrationKey", () => {
 
 describe("the development stage of the starter", () => {
   test.provider(
-    "writes the repository id, registers with prod's token, writes the variables, and a destroy keeps the deployment",
+    "writes the repository id, registers with prod's token, writes the variables, and a destroy deletes the client",
     (stack) =>
       Effect.gen(function* () {
-        const convex = new FakeConvex();
-        const services = new FakeServices(convex.fetch).install();
+        const sites = new FakeSites();
+        const services = new FakeServices(sites.fetch).install();
         yield* deployProduction(stack, services);
-        const projectId = convex.addProject({ name: "scout", teamId: TEAM });
-        // The dev deployment that `npx convex dev` made and `.env.local` selects, with the code
-        // already pushed. The stage takes it by its Convex name and pushes nothing.
-        const selected = convex.addDeployment({ projectId, type: "dev", name: "nicu" });
         const app = Effect.gen(function* () {
-          const project = { projectId };
           const prod = IdentityBroker.Client.read("BrokerClient", { stage: "prod" });
-          const deployment = yield* Convex.Deployment("Verification", {
-            project,
-            type: "dev",
-            name: selected,
+          const deployment = yield* Site("Verification", {
+            name: "dev-scout",
             env: { SAMEBASE_REPOSITORY_ID: prod.repository },
-          }).pipe(adopt(true));
+          });
           const client = yield* IdentityBroker.Client("BrokerClient", {
             app: "scout",
             broker: BROKER,
@@ -1938,22 +1980,19 @@ describe("the development stage of the starter", () => {
             initialAccessToken: prod.initialAccessToken,
           });
           const variables = IdentityBroker.Client.variables(client);
-          const site = yield* Convex.Deployment("Site", {
-            project,
-            type: "dev",
-            name: selected,
+          const site = yield* Site("Site", {
+            name: "dev-scout",
             env: {
               IDENTITY_BROKER_ISSUER: variables.issuer,
               IDENTITY_BROKER_CLIENT_ID: variables.clientId,
               IDENTITY_BROKER_CLIENT_SECRET: variables.clientSecret,
             },
-          }).pipe(adopt(true));
-          return { name: site.name, siteUrl: site.siteUrl };
+          });
+          return { siteUrl: site.siteUrl };
         });
 
         const { layer, lines } = capturedLogs();
-        const { name, siteUrl } = yield* stack.deploy(app).pipe(Effect.provide(layer));
-        expect(name).toBe(selected);
+        const { siteUrl } = yield* stack.deploy(app).pipe(Effect.provide(layer));
         const callback = `${siteUrl}/auth/broker/callback`;
         expect(services.sent.filter(({ url }) => url === REGISTER)).toEqual([
           {
@@ -1972,24 +2011,18 @@ describe("the development stage of the starter", () => {
         // The repository id is written before the request for the client, which the broker needs to
         // read the file, and the three variables after it.
         const [register] = at(/\/register$/);
-        const writes = at(/\/update_environment_variables$/);
+        const writes = at(new RegExp(`^PATCH ${SITES}/`));
         expect(writes[0]).toBeLessThan(register ?? -1);
         expect(writes.at(-1)).toBeGreaterThan(register ?? Infinity);
-        // No new deployment and no push: `convex dev` owns the code, so no deploy key is minted
-        // for a push, only for the variable writes.
-        expect(services.timeline.filter((line) => line.endsWith("/create_deployment"))).toEqual([]);
-        // "Site" leaves the variable of "Verification": it removes only a name that leaves its own env.
-        expect(convex.variables.get(name)).toEqual({
+        expect(sites.variables.get("dev-scout")).toEqual({
           SAMEBASE_REPOSITORY_ID: REPOSITORY_ID,
           IDENTITY_BROKER_ISSUER: ISSUER,
           IDENTITY_BROKER_CLIENT_ID: "cl_2",
           IDENTITY_BROKER_CLIENT_SECRET: "secret-of-cl_2",
         });
 
-        // Both rows keep the default removal policy retain: a destroy deletes the client only.
         yield* stack.destroy().pipe(Effect.provide(layer));
         expect(services.calls(RECORDS)).toContain(`DELETE ${ISSUER}/register/cl_2`);
-        expect(convex.deployment(name)).toMatchObject({ deploymentType: "dev", reference: "nicu" });
 
         expect(lines).toContainEqual(expect.stringContaining("has a new client"));
         for (const secret of ["iat-of-cl_1", "secret-of-cl_2", "token-of-cl_2", "Bearer"]) {

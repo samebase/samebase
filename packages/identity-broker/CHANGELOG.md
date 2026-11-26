@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.43.0
+
+- New entry `@samebase/identity-broker/client`: `IdentityBroker.Client`, `registrationKey`,
+  `DISABLED`, and `providers()`, the client side of the broker's registration for an app's Alchemy
+  stack. It moved from `@samebase/alchemy-convex/identity-broker` (0.46.0) with no change in
+  behaviour. It needs `alchemy` and `effect`, and nothing of Cloudflare or Convex. The other entries
+  still load without `alchemy`.
+- To upgrade an app, import `@samebase/identity-broker/client` in place of
+  `@samebase/alchemy-convex/identity-broker`, and add `IdentityBroker.providers()` to the stack's
+  providers, such as `Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers())`. Saved
+  rows stay valid: the resource type `IdentityBroker.Client`, its old types `IdentityHub.Client` and
+  `IdentityHub.SharedClient`, and its attributes are the same, so the next deploy updates each
+  client in place and registers no new one.
+
 ## 0.42.0
 
 - Breaking: one name for the package's software, "identity broker". Each export with "hub" in its

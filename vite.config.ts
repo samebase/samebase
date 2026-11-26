@@ -86,6 +86,7 @@ export default defineConfig({
       "packages/identity-broker/src/hosts/convex/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
+      "packages/identity-broker/src/client/fixtures/**",
       "packages/alchemy-kit/test/run-record/fixtures/**",
       // One resource type or icon per line, written by scripts/ui/generate.ts.
       "packages/alchemy-kit/src/ui/*.generated.ts",
@@ -115,6 +116,7 @@ export default defineConfig({
       "packages/identity-broker/src/hosts/convex/component/_generated/**",
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
+      "packages/identity-broker/src/client/fixtures/**",
       // Hey API owns these SDK and validator files.
       "apps/samebase/convex/cloudflareApi/generated/**",
       "apps/samebase/convex/convexManagementApi/generated/**",
@@ -367,7 +369,20 @@ export default defineConfig({
           name: "identity-broker",
           environment: "node",
           include: ["packages/identity-broker/src/**/*.test.ts"],
-          exclude: ["**/node_modules/**", "**/rules/machine.test.ts"],
+          exclude: ["**/node_modules/**", "**/rules/machine.test.ts", "**/src/client/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "identity-broker-client",
+          environment: "node",
+          include: ["packages/identity-broker/src/client/**/*.test.ts"],
+          exclude: ["**/node_modules/**"],
+          // @alchemy.run/test and @effect/vitest resolve a vitest of their own peers, so the tests
+          // run through Vite here, with every import of vitest on the runner.
+          alias: { vitest: "vite-plus/test" },
+          server: { deps: { inline: true } },
         },
       },
       {

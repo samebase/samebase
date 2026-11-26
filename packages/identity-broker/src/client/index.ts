@@ -1,7 +1,7 @@
 // IdentityBroker.Client: one deployment of an app as a client of the identity broker that the stack
 // names, for an app that deploys in its own GitHub Actions run, on any host, and in development as a
 // stage of the same stack. Import it as
-// `import * as IdentityBroker from "@samebase/alchemy-convex/identity-broker"`; `Convex.providers()`
+// `import * as IdentityBroker from "@samebase/identity-broker/client"`; `IdentityBroker.providers()`
 // registers its provider.
 //
 // A run in GitHub Actions asks the broker for a new client with a GitHub OIDC token, so the stack
@@ -48,21 +48,21 @@ import { Resource } from "alchemy";
 import { isResolved } from "alchemy/Diff";
 import * as Output from "alchemy/Output";
 import * as Provider from "alchemy/Provider";
-import { Random } from "alchemy/Random";
+import { Random, RandomProvider } from "alchemy/Random";
 import { Stack } from "alchemy/Stack";
 import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
-import type { Providers } from "./Providers.ts";
+import { DISABLED } from "./disabled.ts";
+
+export { DISABLED };
 
 /** A hung service must not hold a deploy: the time limit of one request. */
 const REQUEST_TIMEOUT_MS = 30_000;
-
-/** The client ID and the client secret of a deployment without a broker client. */
-export const DISABLED = "broker-disabled";
 
 /** The variables of a deployment without a broker client. */
 const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: DISABLED, clientSecret: DISABLED };
@@ -678,10 +678,10 @@ const SavedKey = Schema.Struct({
  * A key of a broker on the stack layer, as a redacted Output, for the broker's secret binding and
  * for `IdentityBroker.Client`'s `key`. `id` is the key's resource id, the author's name for it, so a
  * stack can make several. In `options.stage`, the stage that deploys the broker, the key is an
- * `Alchemy.Random` at the stack's root, made once and kept in state; the stack's providers need
- * Random's provider (`Convex.providers()` and `Cloudflare.providers()` hold one). Every other stage
- * reads that row from the state store, as `IdentityBroker.Client.read` does, so it never creates the
- * key; before the broker's stage ran, there is no row and no key (`undefined`).
+ * `Alchemy.Random` at the stack's root, made once and kept in state; `providers()` holds Random's
+ * provider. Every other stage reads that row from the state store, as `IdentityBroker.Client.read`
+ * does, so it never creates the key; before the broker's stage ran, there is no row and no key
+ * (`undefined`).
  */
 export const registrationKey = (id: string, options: { readonly stage: string }) =>
   Effect.gen(function* () {
@@ -732,6 +732,8 @@ const variables = (client: Client) =>
           clientSecret: Redacted.make(OFF_VALUES.clientSecret),
         },
   );
+
+export class Providers extends Provider.ProviderCollection<Providers>()("IdentityBroker") {}
 
 export type Client = Resource<
   "IdentityBroker.Client",
@@ -847,3 +849,14 @@ export const ClientProvider = () =>
             ),
           ),
   });
+
+/**
+ * The providers a stack merges beside its host layers, such as
+ * `Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers())`: the client's, and Random's
+ * for `registrationKey`. Cloudflare's collection holds Random's too; Alchemy takes the first
+ * collection that holds a type, and both are Alchemy's same `RandomProvider`.
+ */
+export const providers = () =>
+  Layer.effect(Providers, Provider.collection([Client, Random])).pipe(
+    Layer.provide(Layer.mergeAll(ClientProvider(), RandomProvider())),
+  );
