@@ -811,6 +811,62 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    metadata: {
+      begin: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          args: {
+            clientId: string;
+            connectors: Array<string>;
+            fetches: { capacity: number; periodMs: number; rate: number };
+            redirectUri: string;
+          };
+          now: number;
+        },
+        | { next: "stopped" | "fresh" | "limited" }
+        | { fetchStartedAt: number; next: "fetch" },
+        Name
+      >;
+      put: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          args: {
+            clientId: string;
+            connectors: Array<string>;
+            fetchStartedAt: number;
+            freshUntil: number;
+            newCards: { capacity: number; periodMs: number; rate: number };
+            redirectUris: Array<string>;
+          };
+          now: number;
+        },
+        "inserted" | "replaced" | "older" | "stopped" | "limited",
+        Name
+      >;
+      release: FunctionReference<
+        "mutation",
+        "internal",
+        { args: { host: string }; now: number },
+        { changed: boolean },
+        Name
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { args: { clientId: string; fetchStartedAt: number }; now: number },
+        { removed: boolean },
+        Name
+      >;
+      stop: FunctionReference<
+        "mutation",
+        "internal",
+        { args: { host: string }; now: number },
+        { changed: boolean },
+        Name
+      >;
+    };
     signIns: {
       record: FunctionReference<
         "mutation",

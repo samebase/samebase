@@ -7,6 +7,8 @@ import { integrationsCommands } from "../integrations/commands.ts";
 import { IntegrationsTx } from "../integrations/tables.ts";
 import { githubCommands } from "../layers/github/commands.ts";
 import { GithubTx } from "../layers/github/tables.ts";
+import { metadataCommands } from "../layers/metadata/commands.ts";
+import { MetadataTx } from "../layers/metadata/tables.ts";
 import { stackCommands } from "../layers/stack/commands.ts";
 import { StackTx } from "../layers/stack/tables.ts";
 import { coreCommands, type Command } from "../rules/commands.ts";
@@ -19,6 +21,7 @@ const definitions = {
   ...coreCommands,
   ...githubCommands,
   ...stackCommands,
+  ...metadataCommands,
   ...integrationsCommands,
 };
 
@@ -32,7 +35,7 @@ export const commands: {
   readonly [N in CommandName]: Command<
     Args<N>,
     Result<N>,
-    Tx | GithubTx | StackTx | IntegrationsTx
+    Tx | GithubTx | StackTx | MetadataTx | IntegrationsTx
   >;
 } = definitions;
 
@@ -65,6 +68,11 @@ export const commandNames = [
   "stack.createClient",
   "stack.renew",
   "stack.remove",
+  "metadata.begin",
+  "metadata.put",
+  "metadata.remove",
+  "metadata.stop",
+  "metadata.release",
   "connections.create",
   "connections.claim",
   "connections.complete",
@@ -114,6 +122,7 @@ const ruleOver = <N extends CommandName>(
     .pipe(
       Effect.provideService(GithubTx, tx),
       Effect.provideService(StackTx, tx),
+      Effect.provideService(MetadataTx, tx),
       Effect.provideService(IntegrationsTx, tx),
       Effect.provideService(Tx, coreView(tx)),
     );

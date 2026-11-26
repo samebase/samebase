@@ -129,8 +129,9 @@ export function testClock(start = 1_700_000_000_000) {
     currentTimeNanos: Effect.sync(() => BigInt(now) * 1_000_000n),
     monotonicTimeNanosUnsafe: () => BigInt(now) * 1_000_000n,
     monotonicTimeNanos: Effect.sync(() => BigInt(now) * 1_000_000n),
-    // The core does not sleep; a sleep that reaches here ends at once.
-    sleep: () => Effect.void,
+    // A sleep never ends, so the time limit of a request (a fetch of a metadata document) never
+    // ends it in a test: the test moves the clock itself.
+    sleep: () => Effect.never,
   };
   return {
     clock,

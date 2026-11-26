@@ -162,6 +162,15 @@ export const ConnectorGrantChange = Schema.Struct({
   reason: Reason,
 });
 
+/**
+ * Stops or releases sign-in for every client of one site of the metadata layer: the clients whose
+ * id is an address on `host`, a DNS name in lower case. A stop refuses their sign-ins at once.
+ */
+export const SiteStopChange = Schema.Struct({
+  action: Schema.Literals(["stop", "release"]),
+  host: Schema.String.check(Schema.isPattern(/^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/)),
+});
+
 const description = { error_description: Schema.String };
 
 /** A request with no Bearer token: a challenge with no error code (RFC 6750 section 3.1). */
@@ -269,6 +278,10 @@ export class Moderation extends HttpApiGroup.make("moderation")
       query: { owner: Schema.optionalKey(GithubId) },
       success: Changed,
     }).annotate(HttpApi.QueryParseOptions, strictQuery),
+    HttpApiEndpoint.post("changeSiteStop", "/site-stops", {
+      payload: SiteStopChange,
+      success: Changed,
+    }),
   )
   // The last middleware runs first: the key is checked before the request is decoded.
   .middleware(RequestCheck)

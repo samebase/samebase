@@ -13,6 +13,7 @@ import type * as clients from "../clients.js";
 import type * as connections from "../connections.js";
 import type * as github from "../github.js";
 import type * as lifecycle from "../lifecycle.js";
+import type * as metadata from "../metadata.js";
 import type * as signIns from "../signIns.js";
 import type * as stack from "../stack.js";
 
@@ -29,6 +30,7 @@ const fullApi: ApiFromModules<{
   connections: typeof connections;
   github: typeof github;
   lifecycle: typeof lifecycle;
+  metadata: typeof metadata;
   signIns: typeof signIns;
   stack: typeof stack;
 }> = anyApi as any;

@@ -117,6 +117,26 @@ export const commandFunctions = (component: ComponentApi | typeof api): CommandF
     kind: "mutation",
     reference: component.stack.remove,
   },
+  "metadata.begin": {
+    kind: "mutation",
+    reference: component.metadata.begin,
+  },
+  "metadata.put": {
+    kind: "mutation",
+    reference: component.metadata.put,
+  },
+  "metadata.remove": {
+    kind: "mutation",
+    reference: component.metadata.remove,
+  },
+  "metadata.stop": {
+    kind: "mutation",
+    reference: component.metadata.stop,
+  },
+  "metadata.release": {
+    kind: "mutation",
+    reference: component.metadata.release,
+  },
   "connections.create": {
     kind: "mutation",
     reference: component.connections.create,

@@ -153,7 +153,10 @@ export const coreTables = {
     schema: Schema.Struct({ clientId: Str, ref: Str, connector: Str, sub: Str, at: Num }),
     indexes: { by_at: [n("at")] },
   },
-  /** The sign-in token bucket of one `budget` key: `tokens` as of `at` (milliseconds). */
+  /**
+   * The token bucket of one key: a card's `budget`, or a layer's own key such as
+   * `metadata:fetches`. `tokens` as of `at` (milliseconds).
+   */
   signInBudgets: {
     schema: Schema.Struct({ key: Str, tokens: Num, at: Num }),
     indexes: { by_key: [s("key")] },

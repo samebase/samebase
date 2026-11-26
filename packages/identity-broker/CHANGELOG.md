@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.45.0
+
+- New: clients with no registration and no secret, whose `client_id` is the https address of their
+  metadata file
+  ([draft-ietf-oauth-client-id-metadata-document-03](https://www.ietf.org/archive/id/draft-ietf-oauth-client-id-metadata-document-03.html)).
+  `Registration.metadataDocuments(options)` mounts it, beside another layer or alone. See
+  [Sign in with no registration](./README.md#sign-in-with-no-registration) and
+  [The metadata layer](./README.md#the-metadata-layer). Without `hosts` the layer accepts any site,
+  so the broker needs its `service` settings.
+- New entry `@samebase/identity-broker/cimd`: the reader of a metadata document (`parseClientId`,
+  `fetchDocument`, `checkDocument`, `freshness`, `refusals`), with no dependency on the broker.
+  [docs/cimd.md](./docs/cimd.md) maps each requirement of the draft to its function and test.
+- New: `identityBroker({ registration })` and `makeHandle` take one layer or a list. The broker
+  refuses to start when two routes have the same method, path and match (so the GitHub and the keys
+  layers cannot go together: both own `POST /register`), when two layers resolve ids, or when a
+  public layer has no `service`.
+- New: `POST /moderation/site-stops` stops or releases every client of one site of the metadata
+  layer. The typed client has `moderation.changeSiteStop`.
+- Breaking for a host of your own: `makeHandle(registration, part)` is now an Effect that needs the
+  broker's settings and gives the handler. Run it once at start (README, "Write your own host").
+- Breaking for a store of your own: the store command `authRequests.exchangeCode` takes
+  `authentication` (`{ method: "none" }`, or `{ method, secretHash }`) in place of
+  `clientSecretHash` and `tokenEndpointAuthMethod`. The new commands `metadata.begin`,
+  `metadata.put`, `metadata.remove`, `metadata.stop` and `metadata.release` join the catalog. A card
+  is a union: the secret card of 0.44.0, or a public card with `tokenEndpointAuthMethod: "none"`,
+  `secretHash: null`, an https `clientId` and the field `metadata`. Stored rows of 0.44.0 stay
+  valid, and no index changes.
+- Changed at `/authorize`: a HEAD answers 405 with `Allow: GET, POST` and stores nothing. Every
+  check of the request (its target, `resource`, PKCE, the scope) runs before the client's card is
+  read, so a bad request to an unknown client now gets the request's error, not "Unknown client". An
+  `https://` client id is not trimmed; without a layer that resolves such ids, it is an unknown
+  client even when its card is stored.
+- Changed at `/token`: a request with `client_assertion` or `client_assertion_type` answers
+  `invalid_client`. A request with a `client_id` and no secret is a public client; a secret client
+  that sends no secret still gets `invalid_client`.
+- Discovery names `none` in `token_endpoint_auth_methods_supported` and has
+  `client_id_metadata_document_supported: true` while a layer resolves ids.
+- On Convex, run the broker in an HTTP action, never in a `"use node"` action: only the default
+  runtime refuses a fetch to a private address.
+
 ## 0.44.0
 
 - 0.43.0 on npm does not have these changes: it still has the entry `./connections`.

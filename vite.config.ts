@@ -271,6 +271,23 @@ export default defineConfig({
         },
       },
       {
+        // The reader of client ID metadata documents stands alone: it imports nothing of the broker.
+        files: ["packages/identity-broker/src/cimd/**/*.ts"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                {
+                  group: ["../**"],
+                  message: "The cimd reader imports nothing of the broker.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
         files: ["apps/samebase/convex/**/*.ts"],
         rules: {
           "@convex-dev/import-wrong-runtime": "off",

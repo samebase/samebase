@@ -5,19 +5,25 @@
 import { Schema } from "effect";
 import { connectionTables } from "../integrations/tables.ts";
 import * as github from "../layers/github/tables.ts";
+import * as metadata from "../layers/metadata/tables.ts";
 import * as stack from "../layers/stack/tables.ts";
 import { cardIndexes, coreTables, publicCardFields, secretCardFields } from "../rules/tables.ts";
 import type { DocOf, IndexOf } from "./Tx.ts";
 
-/** A field that a card of this shape never holds: its layer writes secret cards only. */
+/** A field that a card of this shape never holds: its layer writes cards of the other shape only. */
 const never = Schema.optionalKey(Schema.Never);
 
 export const tables = {
   ...coreTables,
   clients: {
     schema: Schema.Union([
-      Schema.Struct({ ...secretCardFields, ...github.cardFields, ...stack.cardFields }),
-      Schema.Struct({ ...publicCardFields, github: never, stack: never }),
+      Schema.Struct({
+        ...secretCardFields,
+        ...github.cardFields,
+        ...stack.cardFields,
+        metadata: never,
+      }),
+      Schema.Struct({ ...publicCardFields, ...metadata.cardFields, github: never, stack: never }),
     ]),
     indexes: { ...cardIndexes, ...github.cardIndexes },
   },

@@ -98,11 +98,19 @@ export const insufficientScope = (description: string, more: { reason?: string }
   });
 
 /**
+ * A host as the URL parser writes it that is a DNS name: not an IP address and not a localhost
+ * name. The parser lowercases a host and writes an IPv4 address in dotted decimal, so a DNS name
+ * is the one form whose last label starts with a letter.
+ */
+export const isDnsName = (hostname: string) =>
+  /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/.test(hostname) && !hostname.endsWith(".localhost");
+
+/**
  * The return address, if `parseRedirectUri` takes it, with no fragment and no user info, and either
  * https on a DNS name or http on a loopback host. An IP address or `localhost` over https is never
  * one. Any port and any path.
  */
-function readRedirectUri(value: string) {
+export function readRedirectUri(value: string) {
   // An empty fragment parses to an empty hash, which parseRedirectUri allows.
   const url = value.includes("#") ? null : parseRedirectUri(value);
   if (url === null || url.username !== "" || url.password !== "") {
@@ -111,13 +119,7 @@ function readRedirectUri(value: string) {
   if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) {
     return { url, loopback: true };
   }
-  // The URL parser lowercases the host and writes an IPv4 address in dotted decimal, so a DNS name
-  // is the one form whose last label starts with a letter.
-  return url.protocol === "https:" &&
-    /^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/.test(url.hostname) &&
-    !url.hostname.endsWith(".localhost")
-    ? { url, loopback: false }
-    : null;
+  return url.protocol === "https:" && isDnsName(url.hostname) ? { url, loopback: false } : null;
 }
 
 const isRequestBody = Schema.is(RequestBody);
