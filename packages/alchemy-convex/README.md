@@ -327,7 +327,7 @@ resources and output, from the store function `state:readStack({ stack })` in on
   - With a `local:` deployment selected in `.env.local`, the Convex CLI login takes the team of the
     project in `config.json`.
 
-A client of an identity broker, `IdentityBroker.Client`, is in `@samebase/identity-broker/client`:
+A client of an identity broker, `IdentityBroker.Client`, is in `@samebase/identity-broker/alchemy`:
 see
 [An app that uses a broker](https://github.com/samebase/samebase/tree/main/packages/identity-broker#an-app-that-uses-a-broker).
 

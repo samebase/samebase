@@ -186,13 +186,13 @@ A secret can also be another Effect, such as a Secrets Store secret through
 
 ## An app that uses a broker
 
-An app's Alchemy stack gets its client of a broker from `@samebase/identity-broker/client`. Merge
+An app's Alchemy stack gets its client of a broker from `@samebase/identity-broker/alchemy`. Merge
 `IdentityBroker.providers()` with the providers of the hosts that the stack uses:
 
 ```ts
 // alchemy.run.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
-import * as IdentityBroker from "@samebase/identity-broker/client";
+import * as IdentityBroker from "@samebase/identity-broker/alchemy";
 import * as Alchemy from "alchemy";
 import { Effect, Layer } from "effect";
 
@@ -269,11 +269,11 @@ export default Alchemy.Stack(
     or the hourly limit it reached.
   - No failure of the broker stops a deploy or a destroy. A failed renewal keeps the saved values.
     Without saved values, `status` is `off`, and `issuer`, `clientId`, and `clientSecret` are the
-    off values of a checkout without a broker: `http://127.0.0.1:1`, and `DISABLED`
+    off values of a checkout without a broker: `http://127.0.0.1:1`, and `BROKER_DISABLED`
     (`broker-disabled`) for the client ID and the secret. A production or preview run without a
     GitHub OIDC token, such as on a development machine, does the same, and logs no warning. Import
-    `DISABLED` from `@samebase/identity-broker/client-runtime`: it loads nothing else, so a Convex
-    function or a browser bundle can compare a client ID with it.
+    `BROKER_DISABLED` from `@samebase/identity-broker/client`: it loads nothing else, so a Convex
+    function, a Worker, or a browser bundle can compare a client ID with it.
   - `required: true` makes the run fail unless the broker confirms the client in this run: a
     refusal, a broker that does not answer a registration or a renewal, or a suspended client fails
     it. Set it where sign-in is the product, so a deploy never ships guest sign-in, or a client that
@@ -348,7 +348,7 @@ yield *
 ```
 
 The imports are `alchemy/AdoptPolicy` for `adopt`, `alchemy/Output` for `Output`,
-`@samebase/alchemy-convex` for `Convex`, and `@samebase/identity-broker/client` for
+`@samebase/alchemy-convex` for `Convex`, and `@samebase/identity-broker/alchemy` for
 `IdentityBroker`.
 
 1. `read` gives the initial access token and the repository id from the `BrokerClient` row of stage

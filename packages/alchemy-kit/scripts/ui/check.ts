@@ -27,9 +27,9 @@ const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const ownPaths = globSync(
   [
     "packages/{alchemy-convex,alchemy-kit}/src/**/*.ts",
-    "packages/identity-broker/src/client/**/*.ts",
+    "packages/identity-broker/src/alchemy/**/*.ts",
   ],
-  // The client's tests declare a sample host resource.
+  // The resource's tests declare a sample host resource.
   { cwd: repoRoot, exclude: ["**/*.test.ts"] },
 );
 const own = declaredResourceTypes(

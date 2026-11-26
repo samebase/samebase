@@ -2,21 +2,22 @@
 
 ## 0.43.0
 
-- New entry `@samebase/identity-broker/client`: `IdentityBroker.Client`, `registrationKey`, and
+- New entry `@samebase/identity-broker/alchemy`: `IdentityBroker.Client`, `registrationKey`, and
   `providers()`, the client side of the broker's registration for an app's Alchemy stack. It moved
   from `@samebase/alchemy-convex/identity-broker` (0.46.0) with no change in behaviour. It needs
   `alchemy` and `effect`, and nothing of Cloudflare or Convex. The other entries still load without
   `alchemy`.
-- To upgrade an app, import `@samebase/identity-broker/client` in place of
+- To upgrade an app, import `@samebase/identity-broker/alchemy` in place of
   `@samebase/alchemy-convex/identity-broker`, and add `IdentityBroker.providers()` to the stack's
   providers, such as `Layer.mergeAll(Cloudflare.providers(), IdentityBroker.providers())`. Saved
   rows stay valid: the resource type `IdentityBroker.Client`, its old types `IdentityHub.Client` and
   `IdentityHub.SharedClient`, and its attributes are the same, so the next deploy updates each
   client in place and registers no new one.
-- New entry `@samebase/identity-broker/client-runtime`: `DISABLED`, the client ID and the secret of
-  a deployment without a broker client. It imports nothing, so a Convex function or a browser bundle
-  can take it. Replace `IdentityBroker.DISABLED` of `@samebase/alchemy-convex/identity-broker` with
-  `import { DISABLED } from "@samebase/identity-broker/client-runtime"`; `./client` does not export
+- New entry `@samebase/identity-broker/client`: `BROKER_DISABLED` (value `broker-disabled`), the
+  client ID and the secret of a deployment without a broker client. It is for code that an app runs,
+  and it imports nothing, so a Convex function, a Worker, or a browser bundle can take it. Replace
+  `IdentityBroker.DISABLED` of `@samebase/alchemy-convex/identity-broker` with
+  `import { BROKER_DISABLED } from "@samebase/identity-broker/client"`; `./alchemy` does not export
   it.
 - Breaking: the registration layers `github` and `stack`, and the types `StackKey` and
   `StackSettings`, move from the root entry to the new entry
