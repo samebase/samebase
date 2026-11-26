@@ -2,8 +2,13 @@ import { Cause, Config, ConfigProvider, Context, Effect, Exit, Layer, Logger } f
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { makeConnections } from "../connections/routes.ts";
-import type { ConnectionSettings } from "../connections/providers.ts";
-import { defaultKeys, hubSettings, type HubSettings } from "../hosts/settings.ts";
+import { connectionCredentials, type ConnectionSettings } from "../connections/providers.ts";
+import {
+  connectorCredentials,
+  defaultKeys,
+  hubSettings,
+  type HubSettings,
+} from "../hosts/settings.ts";
 import { Store } from "../store/Store.ts";
 import {
   hubLogger,
@@ -54,20 +59,35 @@ const cannotStart = Effect.catchCause((cause: Cause.Cause<unknown>) =>
   ),
 );
 
-/**
- * The hub over its settings, built when this runs. The scope of `settings` closes when the build
- * ends, so `settings` must hold no finalizer that a request needs.
- */
-export const hubRuntime = <E, R, RC = never>(
+const startFailureReason = (
+  cause: Cause.Cause<unknown>,
+): "invalid_config" | "missing_config" | "secret_failed" | "defect" => {
+  const values = cause.reasons.map((reason) =>
+    Cause.isFailReason(reason)
+      ? reason.error
+      : Cause.isDieReason(reason)
+        ? reason.defect
+        : undefined,
+  );
+  if (values.some((value) => value instanceof HubConfigError)) {
+    return "invalid_config";
+  }
+  if (values.some((value) => value instanceof Config.ConfigError)) {
+    return "missing_config";
+  }
+  if (cause.reasons.some(Cause.isFailReason)) {
+    return "secret_failed";
+  }
+  return "defect";
+};
+
+const buildRuntime = <E, R, RC = never>(
   settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
   registration: Registration,
   connections?: ConnectionSettings<RC>,
-): Effect.Effect<Hub, never, Store | R | RC> =>
+): Effect.Effect<Hub, unknown, Store | R | RC> =>
   Effect.gen(function* () {
-    const part =
-      connections === undefined
-        ? undefined
-        : yield* makeConnections(connections).pipe(Effect.orDie);
+    const part = connections === undefined ? undefined : yield* makeConnections(connections);
     const handle = makeHandle(registration, part);
     // Only the hub's own services: a lazy build runs in request 1, whose request and scope must
     // not reach a later request.
@@ -89,17 +109,26 @@ export const hubRuntime = <E, R, RC = never>(
         return HttpServerResponse.raw(yield* handle(web).pipe(Effect.provideContext(services)));
       }),
     };
-  }).pipe(
-    Effect.provide(Layer.mergeAll(settings, Random.layer, Fetch.layer, hubLogger)),
-    cannotStart,
-  );
+  }).pipe(Effect.provide(Layer.mergeAll(settings, Random.layer, Fetch.layer, hubLogger)));
+
+/**
+ * The hub over its settings, built when this runs. The scope of `settings` closes when the build
+ * ends, so `settings` must hold no finalizer that a request needs.
+ */
+export const hubRuntime = <E, R, RC = never>(
+  settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
+  registration: Registration,
+  connections?: ConnectionSettings<RC>,
+): Effect.Effect<Hub, never, Store | R | RC> =>
+  buildRuntime(settings, registration, connections).pipe(cannotStart);
 
 /** Reads each `Config` secret now; with another kind of secret the hub builds at the first request. */
 export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, never, Store> =>
   Effect.gen(function* () {
-    const build = hubRuntime(hubSettings(options), options.registration, options.connections);
-    const connectors = Object.values(options.connectors);
-    const providers = Object.values(options.connections ?? {});
+    const build = buildRuntime(hubSettings(options), options.registration, options.connections);
+    const connectors = connectorCredentials(options.connectors);
+    const providers =
+      options.connections === undefined ? [] : connectionCredentials(options.connections);
     const credentials = [...connectors, ...providers].flatMap((client) => [
       client.clientId,
       client.clientSecret,
@@ -107,7 +136,7 @@ export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, ne
     const secrets = [options.keys ?? defaultKeys, ...credentials];
     if (secrets.every((secret) => Config.isConfig(secret))) {
       // @ts-expect-error Each secret is a `Config` here, and a `Config` needs no service.
-      const now: Effect.Effect<Hub, never, Store> = build;
+      const now: Effect.Effect<Hub, never, Store> = build.pipe(cannotStart);
       return yield* now;
     }
     for (const secret of secrets) {
@@ -132,13 +161,11 @@ export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, ne
       if (built === undefined) {
         const exit = yield* Effect.exit(Effect.provideContext(build, start));
         if (Exit.isFailure(exit)) {
-          const reason = Cause.prettyErrors(exit.cause)
-            .map((error) => error.message)
-            .join("; ");
           return HttpServerResponse.raw(
-            yield* serverError({ category: "start_failed", reason }).pipe(
-              Effect.provide(hubLogger),
-            ),
+            yield* serverError({
+              category: "start_failed",
+              reason: startFailureReason(exit.cause),
+            }).pipe(Effect.provide(hubLogger)),
           );
         }
         built = exit.value;

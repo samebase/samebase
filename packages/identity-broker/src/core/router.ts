@@ -91,14 +91,13 @@ export const hubLogger = Logger.layer([Logger.withLeveledConsole(Logger.formatJs
  * The one log line of a request that failed, then the bare 500: the route template, the command
  * that failed if a command did, and the category, as annotations. Never a URL, a query, a header
  * value, an error's text or a cause: a callback URL carries the provider's code and state, and a
- * command's error can echo its input. `reason` is only for `start_failed`: the start error's
- * message, which comes from the hub's settings and never from a request.
+ * command's error can echo its input. `reason` is a fixed code for `start_failed`, never error text.
  */
 export const serverError = (annotations: {
   readonly route?: string;
   readonly command?: string;
   readonly category: "command_failed" | "provider_unavailable" | "defect" | "start_failed";
-  readonly reason?: string;
+  readonly reason?: "invalid_config" | "missing_config" | "secret_failed" | "defect";
 }) =>
   Effect.logError("hub_error").pipe(
     Effect.annotateLogs(annotations),

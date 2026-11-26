@@ -18,6 +18,12 @@ export const defaultKeys = Config.Redacted("IDENTITY_BROKER_KEYS");
 /** The client of the hub at one provider. */
 type ConnectorCredentials<R> = { readonly clientId: Secret<R>; readonly clientSecret: Secret<R> };
 
+/** The configured connector credentials, using the same keys that `hubSettings` reads. */
+export const connectorCredentials = <R>(
+  connectors: HubSettings<R>["connectors"],
+): ReadonlyArray<ConnectorCredentials<R>> =>
+  [connectors.google, connectors.github].filter((client) => client !== undefined);
+
 /** One hub's settings. */
 export type HubSettings<R = never> = {
   /** The issuer, which each client names. Each connector's callback is under it. */

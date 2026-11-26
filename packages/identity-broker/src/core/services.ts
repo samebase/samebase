@@ -51,7 +51,7 @@ export class HubConfigError extends Schema.TaggedError<HubConfigError>()("HubCon
   message: Schema.String,
 }) {}
 
-/** The issuer as a URL: https, or http on a loopback host, with no query or fragment. */
+/** The issuer as a URL: https, or http on a loopback host, with no credentials, query or fragment. */
 export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
   const issuerUrl = yield* Effect.try({
     try: () => new URL(issuer),
@@ -62,7 +62,15 @@ export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
       message: "The issuer must be https, or http on a loopback host for local development",
     });
   }
-  if (issuerUrl.search !== "" || issuerUrl.hash !== "") {
+  if (issuerUrl.username !== "" || issuerUrl.password !== "") {
+    return yield* new HubConfigError({ message: "The issuer must not have credentials" });
+  }
+  if (
+    issuerUrl.search !== "" ||
+    issuerUrl.hash !== "" ||
+    issuer.includes("?") ||
+    issuer.includes("#")
+  ) {
     return yield* new HubConfigError({ message: "The issuer must not have a query or fragment" });
   }
   return issuerUrl;

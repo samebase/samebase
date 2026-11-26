@@ -128,6 +128,12 @@ export const githubConnection = (credentials: Credentials): ConnectionProvider =
   mapTokenError: githubTokenError,
 });
 
+/** The configured connection credentials, using the same keys that `readProviders` reads. */
+export const connectionCredentials = <R>(
+  settings: ConnectionSettings<R>,
+): ReadonlyArray<ProviderCredentials<R>> =>
+  [settings.convex, settings.cloudflare, settings.github].filter((client) => client !== undefined);
+
 /**
  * The providers of `settings`, with their secrets read. A host reads them where it reads its
  * connectors' secrets, so each is a secret binding of its Worker.
