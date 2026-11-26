@@ -2,24 +2,27 @@
 // authentication, as the Convex broker defined them (src/client/resourceProviders.ts of
 // 0.34.0). These providers grant API access and attest no identity. The calls to a
 // provider are in upstream.ts.
-import { Config, Effect, Redacted, Schema } from "effect";
+import { Effect, Redacted, Schema } from "effect";
 import type * as oauth from "oauth4webapi";
 
-/** A secret of the hub. */
-type Secret = Config.Config<Redacted.Redacted<string>>;
+/** A secret of the hub: a `Config`, or another Effect such as a Secrets Store read. */
+type Secret<R> = Effect.Effect<Redacted.Redacted<string>, unknown, R>;
 
-/** The client of the hub at one provider, as `Config` reads of the host's secrets. */
-export type ProviderCredentials = { readonly clientId: Secret; readonly clientSecret: Secret };
+/** The client of the hub at one provider. */
+export type ProviderCredentials<R = never> = {
+  readonly clientId: Secret<R>;
+  readonly clientSecret: Secret<R>;
+};
 
 /** The connection providers of one hub. A hub with none of them has no connections part. */
-export type ConnectionSettings = {
-  readonly convex?: ProviderCredentials;
+export type ConnectionSettings<R = never> = {
+  readonly convex?: ProviderCredentials<R>;
   /**
    * `scopes` are the Cloudflare API scopes that the hub's clients need, such as
    * `workers-scripts.write`; the hub's Cloudflare OAuth client must list each one.
    */
-  readonly cloudflare?: ProviderCredentials & { readonly scopes: ReadonlyArray<string> };
-  readonly github?: ProviderCredentials;
+  readonly cloudflare?: ProviderCredentials<R> & { readonly scopes: ReadonlyArray<string> };
+  readonly github?: ProviderCredentials<R>;
 };
 
 /** One configured provider. `name` is what a card's `connections` names. */
@@ -125,11 +128,17 @@ export const githubConnection = (credentials: Credentials): ConnectionProvider =
   mapTokenError: githubTokenError,
 });
 
+/** The configured connection credentials, using the same keys that `readProviders` reads. */
+export const connectionCredentials = <R>(
+  settings: ConnectionSettings<R>,
+): ReadonlyArray<ProviderCredentials<R>> =>
+  [settings.convex, settings.cloudflare, settings.github].filter((client) => client !== undefined);
+
 /**
  * The providers of `settings`, with their secrets read. A host reads them where it reads its
  * connectors' secrets, so each is a secret binding of its Worker.
  */
-export const readProviders = Effect.fnUntraced(function* (settings: ConnectionSettings) {
+export const readProviders = Effect.fnUntraced(function* <R>(settings: ConnectionSettings<R>) {
   const providers: ConnectionProvider[] = [];
   if (settings.convex !== undefined) {
     providers.push(

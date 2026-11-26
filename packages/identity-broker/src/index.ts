@@ -2,7 +2,13 @@
 
 // The hub: `makeHandle(registration, part)` gives `(request) => Effect<Response>`, where `part` is
 // what `makeConnections` gives, or absent.
-export { hubLogger, makeHandle, type CoreServices, type Registration } from "./core/router.ts";
+export {
+  hubLogger,
+  makeHandle,
+  type CoreServices,
+  type PublicRegistration,
+  type Registration,
+} from "./core/router.ts";
 export { cleanupBatch } from "./core/cleanup.ts";
 export { CommandFailed } from "./core/command.ts";
 
@@ -19,6 +25,7 @@ export {
 } from "./core/services.ts";
 export type { Connector } from "./core/connectors/types.ts";
 export { hubSettings, type HubSettings } from "./hosts/settings.ts";
+export { hub, hubRuntime } from "./core/hub.ts";
 
 // The Store and its command contract.
 export { Store, StoreUnavailable, type StoreShape } from "./store/Store.ts";

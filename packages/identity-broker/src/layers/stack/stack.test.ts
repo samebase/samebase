@@ -2,6 +2,7 @@
 // that a key writes, and the RFC 7592 read and delete with each client's own token.
 import { Config, Redacted, Schema } from "effect";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
+import type { HubConfigInput } from "../../core/services.ts";
 import { sha256Hex } from "../../core/subject.ts";
 import {
   createBroker,
@@ -44,12 +45,13 @@ async function createStackHub(
     production: keyOf(PRODUCTION_KEY, true),
     preview: keyOf(PREVIEW_KEY),
   },
+  config: Partial<HubConfigInput> = {},
 ) {
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
   const h = await createBroker({
     fetch,
-    config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
+    config: { connectors: [connector, { ...connector, name: "other", label: "Other" }], ...config },
     registration: stack({ keys }),
   });
   h.clock.set(EPOCH);
@@ -397,4 +399,30 @@ test("discovery names the registration endpoint", async () => {
     registration_endpoint: `${h.issuer}/register`,
     op_tos_uri: TEST_SERVICE.terms,
   });
+});
+
+test("a hub without a service names no terms: not in discovery, the answer, or the page", async () => {
+  const h = await createStackHub(undefined, { service: undefined });
+  const metadata = await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`);
+  expect(await metadata.json()).not.toHaveProperty("op_tos_uri");
+  const response = await register(h, PREVIEW_KEY, { connectors: ["fake", "other"] });
+  const answer: unknown = await response.json();
+  expect(answer).not.toHaveProperty("terms");
+  const { challenge } = await pkce();
+  const url = new URL(`${h.issuer}/authorize`);
+  url.search = new URLSearchParams({
+    client_id: Schema.decodeUnknownSync(NewClient)(answer).client_id,
+    redirect_uri: CALLBACK,
+    response_type: "code",
+    scope: "openid",
+    state: "s",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  }).toString();
+  // Two connectors: the page that picks one, with no privacy notice or terms under it.
+  const page = await h.fetchBroker(url);
+  expect(page.status).toBe(200);
+  const html = await page.text();
+  expect(html).toContain("Continue with Other");
+  expect(html).not.toMatch(/Privacy|Terms/);
 });

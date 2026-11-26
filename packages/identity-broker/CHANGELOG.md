@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.39.0
+
+- The hub is one Effect of the main export: `hub(options)`, with the settings, `registration`,
+  `connections` and `keys`. It needs one service, `Store`, and gives `fetch` in the shape of
+  Alchemy's platform classes. `hubRuntime(settings, registration, connections)` is the lower piece,
+  for a hub with its own connectors; its `settings` give `Keys` too.
+- A secret is any `Effect` of a `Redacted<string>`. A `Config` is read when the hub starts, as
+  before. With another Effect, such as a Secrets Store secret through Alchemy's
+  `Cloudflare.SecretsStore.ReadSecret`, the hub builds at its first request; a failed build answers
+  500 and the next request builds again. The hub still checks the issuer, its connectors and its
+  connections at the start, and the log line of a failed build names the reason.
+- On Cloudflare the app writes its own `Cloudflare.Worker` class: it spreads `hubWorkerProps` of
+  `./cloudflare` and provides `DurableObjectStore`. A hub on a domain sets `workersDev: false`.
+  Gone: `hubWorker`, `HubOptions`, the `secretsStore` option, and `hubRuntime` of `./cloudflare`.
+- `convexHub(component, hub)` takes the hub Effect in place of its settings, registration and
+  connections.
+- `service` (the name, terms and privacy notice) is optional. Without it the sign-in page has no
+  links to them, discovery has no `op_tos_uri`, and a registration answer has no `terms`. A hub with
+  the `github` layer still needs it, as a type error.
+
 ## 0.38.0
 
 - On Convex, each command is its own function of the component: a query for a read-only command, a

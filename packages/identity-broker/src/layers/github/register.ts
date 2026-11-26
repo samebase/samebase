@@ -404,7 +404,7 @@ const hubSettings = Effect.gen(function* () {
   const { allowList, paused } = yield* GithubSettings;
   return {
     issuer: config.issuer,
-    terms: config.service.terms,
+    terms: config.service?.terms,
     paused,
     /** Given whole to each command that checks an enrollment or writes a card. */
     settings: { allowList, configured: config.configured },

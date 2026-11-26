@@ -25,8 +25,6 @@ and answers, and the errors of RFC 6750.
 
 A hub mounts one registration layer, which decides who may register a client:
 
-Both are exports of `@samebase/identity-broker`.
-
 - `github(allowList, options)`: a GitHub Actions workflow registers with its OIDC token. The
   allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric ids: an entry
   without `repositoryId` covers every repository of that owner. A repository it covers gets every
@@ -36,6 +34,8 @@ Both are exports of `@samebase/identity-broker`.
 - `stack({ keys })`: a client registers with one of the hub's keys, as `IdentityHub.Client` of
   [`@samebase/alchemy-convex`](https://www.npmjs.com/package/@samebase/alchemy-convex) does. A key
   with `permanent: true` may make production clients; the clients of other keys get a removal date.
+
+Both are exports of `@samebase/identity-broker`.
 
 ## On Convex
 
@@ -56,13 +56,13 @@ export default app;
 ```ts
 // convex/hub.ts
 import { Config } from "effect";
-import { github, hubSettings } from "@samebase/identity-broker";
+import { github, hub as identityHub } from "@samebase/identity-broker";
 import { convexHub } from "@samebase/identity-broker/convex";
 import { components } from "./_generated/api";
 
 export const hub = convexHub(
   components.identityBroker,
-  hubSettings({
+  identityHub({
     // The deployment's site URL, or a custom domain in front of it.
     issuer: "https://happy-animal-123.convex.site",
     connectors: {
@@ -71,13 +71,13 @@ export const hub = convexHub(
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
       },
     },
+    registration: github([{ repositoryId: "123456789", ownerId: "987654321" }]),
     service: {
       name: "Example",
       terms: "https://example.com/terms",
       privacy: "https://example.com/privacy",
     },
   }),
-  github([{ repositoryId: "123456789", ownerId: "987654321" }]),
 );
 
 export const cleanup = hub.cleanup;
@@ -115,40 +115,44 @@ npm install @samebase/identity-broker effect alchemy @alchemy.run/cloudflare
 
 ```ts
 // src/hub.ts
-import { Config } from "effect";
-import { hubWorker } from "@samebase/identity-broker/cloudflare";
-import { stack } from "@samebase/identity-broker";
+import * as Cloudflare from "@alchemy.run/cloudflare";
+import { Config, Effect } from "effect";
+import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
+import { hub, stack } from "@samebase/identity-broker";
 
-export default hubWorker({
-  main: import.meta.url,
-  name: "example-identity-hub",
-  // A domain in a Cloudflare zone of the account. Or `issuer`, for the workers.dev address.
-  domain: "auth.example.com",
-  connectors: {
-    google: {
-      clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
-      clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
-    },
+export default class Hub extends Cloudflare.Worker<Hub>()(
+  "Hub",
+  {
+    ...hubWorkerProps,
+    main: import.meta.url,
+    name: "example-identity-hub",
+    // A domain in a Cloudflare zone of the account. Without it, the workers.dev address.
+    domain: "auth.example.com",
+    workersDev: false,
   },
-  registration: stack({
-    keys: {
-      preview: { key: Config.Redacted("HUB_PREVIEW_KEY") },
-      production: { key: Config.Redacted("HUB_PRODUCTION_KEY"), permanent: true },
+  hub({
+    issuer: "https://auth.example.com",
+    connectors: {
+      google: {
+        clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
+        clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
+      },
     },
-  }),
-  service: {
-    name: "Example",
-    terms: "https://example.com/terms",
-    privacy: "https://example.com/privacy",
-  },
-});
+    registration: stack({
+      keys: {
+        preview: { key: Config.Redacted("HUB_PREVIEW_KEY") },
+        production: { key: Config.Redacted("HUB_PRODUCTION_KEY"), permanent: true },
+      },
+    }),
+  }).pipe(Effect.provide(DurableObjectStore)),
+) {}
 ```
 
 ```ts
 // alchemy.run.ts
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import * as Effect from "effect/Effect";
+import { Config, Effect } from "effect";
 import Hub from "./src/hub.ts";
 
 export default Alchemy.Stack(
@@ -156,6 +160,13 @@ export default Alchemy.Stack(
   { providers: Cloudflare.providers() },
   Effect.gen(function* () {
     const hub = yield* Hub;
+    // The hub reads `stack`'s keys in each request, so the stack binds them.
+    yield* hub.bind("RegistrationKeys", {
+      env: {
+        HUB_PREVIEW_KEY: yield* Config.Redacted("HUB_PREVIEW_KEY"),
+        HUB_PRODUCTION_KEY: yield* Config.Redacted("HUB_PRODUCTION_KEY"),
+      },
+    });
     return { url: hub.url };
   }),
 );
@@ -163,6 +174,9 @@ export default Alchemy.Stack(
 
 `alchemy deploy` deploys the Worker. The Worker's name, the object's class `Hub` and its one
 instance are the address of all the hub's data: a new name starts with empty storage.
+
+A secret can also be another Effect, such as a Secrets Store secret through
+`Cloudflare.SecretsStore.ReadSecret`. The hub then builds at its first request.
 
 ## Moderation
 
@@ -179,10 +193,9 @@ const registration = github("any", {
 });
 ```
 
-Give `registration` to `convexHub` or `hubWorker`. A hub without `moderation` has no `/moderation`
-route. The hub reads the key in each request, and refuses every request while it is unset or empty.
-On Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound, or name it in
-`secretsStore`.
+Give `registration` to `hub(options)`. A hub without `moderation` has no `/moderation` route. The
+hub reads the key in each request, and refuses every request while it is unset or empty. On
+Cloudflare, bind it to the Worker in your stack, as `stack`'s keys are bound.
 
 | Request                                    | Answer                                                               |
 | ------------------------------------------ | -------------------------------------------------------------------- |
@@ -250,8 +263,8 @@ has `Cache-Control: no-store`. The typed client fails with the error's class.
 `Request` to a `Response`. It never fails; an error answers 500. A host provides its services:
 
 - `Store`: your storage (below).
-- `hubSettings(settings)`: the issuer, the connectors and the service names, as on Cloudflare.
-- `Keys.layer`: the signing keys, `IDENTITY_BROKER_KEYS` read with Effect's `Config`.
+- `hubSettings(settings)`: the issuer, the connectors, the service (optional) and the signing keys
+  (`keys`, by default `IDENTITY_BROKER_KEYS` read with Effect's `Config`).
 - `Random.layer`, `Fetch.layer` and `hubLogger`: `crypto.getRandomValues`, `fetch` with no
   redirects, and one JSON log line per entry. Time is Effect's `Clock`.
 
@@ -288,7 +301,6 @@ import {
   Fetch,
   hubLogger,
   hubSettings,
-  Keys,
   makeHandle,
   Random,
   sqlTx,
@@ -341,13 +353,7 @@ export const makeHub = (database: DatabaseSync) => {
           clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
         },
       },
-      service: {
-        name: "Example",
-        terms: "https://example.com/terms",
-        privacy: "https://example.com/privacy",
-      },
     }),
-    Keys.layer,
     Random.layer,
     Fetch.layer,
     Layer.succeed(Store, store),
@@ -406,8 +412,11 @@ test("the hub's storage passes the host test kit", async () => {
 
 On Convex, set them on the deployment, for example
 `npx convex env set IDENTITY_BROKER_KEYS < keys.json`. On Cloudflare, `alchemy deploy` binds each
-one to the Worker as a secret, with the value of the deploying shell's variable of that name, or
-from the account's Secrets Store for a name in `secretsStore`.
+`Config` secret that the hub reads at its start to the Worker as a secret, with the value of the
+deploying shell's variable of that name. These are the secrets of `connectors`, `connections` and
+`keys` that are a bare `Config`, not one inside another Effect. The hub reads the other `Config`
+values in each request: the keys of `stack`, the moderation `key` and `paused` of `github`. The
+stack binds those, as `hub.bind(...)` in `alchemy.run.ts` shows ([On Cloudflare](#on-cloudflare)).
 
 At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/google/callback`
 or `<issuer>/connectors/github/callback`.

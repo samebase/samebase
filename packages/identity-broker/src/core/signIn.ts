@@ -152,7 +152,7 @@ const metadata = (hub: HubConfigShape, registration: boolean) => {
     // The client registration endpoint of RFC 7591, when a layer mounts it.
     ...(registration ? { registration_endpoint: `${issuer}/register` } : {}),
     // The terms of the hub's sign-in service (OpenID Connect Discovery).
-    op_tos_uri: hub.service.terms,
+    ...(hub.service === undefined ? {} : { op_tos_uri: hub.service.terms }),
     scopes_supported: SCOPES,
     // An extension: the configured connectors. What a client may use is on its card.
     connectors_supported: hub.configured,
@@ -412,7 +412,7 @@ export const authorize = Effect.fn("authorize")(function* (request: Request) {
         href: continueHref(hub, requestId, connector),
       })),
       scopes: created.confirm ? scopes : null,
-      hub: { name: hub.service.name, privacy: hub.service.privacy, terms: hub.service.terms },
+      hub: hub.service ?? null,
     }),
     200,
   );

@@ -236,10 +236,10 @@ export const newClientCredentials = Effect.gen(function* () {
 
 /**
  * The body of a 201 answer (RFC 7591 section 3.2.1): the client's registered metadata, its secret,
- * and its RFC 7592 token, which go to nothing else. `issuer` and `terms` are the hub's own members.
+ * and its RFC 7592 token, which go to nothing else. `issuer` and `terms` (when the hub has terms) are the hub's own members.
  */
 export function newClient(
-  hub: { readonly issuer: string; readonly terms: string },
+  hub: { readonly issuer: string; readonly terms: string | undefined },
   credentials: Effect.Success<typeof newClientCredentials>,
   client: Omit<Parameters<typeof clientInformation>[0], "issuer" | "clientId">,
 ) {
@@ -248,7 +248,7 @@ export function newClient(
     client_secret: credentials.clientSecret,
     registration_access_token: credentials.registrationAccessToken,
     issuer: hub.issuer,
-    terms: hub.terms,
+    ...(hub.terms === undefined ? {} : { terms: hub.terms }),
   };
 }
 

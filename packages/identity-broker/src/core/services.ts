@@ -8,7 +8,10 @@ import type { Connector } from "./connectors/types.ts";
 import { signInPage, type SignInPageFunction } from "./html.ts";
 import { isSecureUrl } from "./protocol.ts";
 
-/** The hub's sign-in service as users meet it on the page before the provider and in discovery. */
+/**
+ * The hub's sign-in service as strangers meet it: the page before the provider, discovery and the
+ * registration answer. A hub with a public registration layer needs it.
+ */
 export type ServiceSettings = {
   /** The name of the hub's sign-in service as users know it, such as `Samebase`. */
   readonly name: string;
@@ -28,7 +31,7 @@ export type HubConfigInput = {
   readonly issuer: string;
   /** The configured connectors, in the order discovery names them. */
   readonly connectors: ReadonlyArray<Connector>;
-  readonly service: ServiceSettings;
+  readonly service?: ServiceSettings | undefined;
 };
 
 export type HubConfigShape = {
@@ -40,13 +43,38 @@ export type HubConfigShape = {
   readonly connectorsByName: ReadonlyMap<string, Connector>;
   /** The configured connector names, in order: the set that every sign-in step checks. */
   readonly configured: ReadonlyArray<string>;
-  readonly service: ServiceSettings;
+  readonly service: ServiceSettings | undefined;
 };
 
 /** A host's configuration that the hub cannot run with. The message names the wrong setting. */
 export class HubConfigError extends Schema.TaggedError<HubConfigError>()("HubConfigError", {
   message: Schema.String,
 }) {}
+
+/** The issuer as a URL: https, or http on a loopback host, with no credentials, query or fragment. */
+export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
+  const issuerUrl = yield* Effect.try({
+    try: () => new URL(issuer),
+    catch: () => new HubConfigError({ message: "The issuer must be a URL" }),
+  });
+  if (!isSecureUrl(issuerUrl)) {
+    return yield* new HubConfigError({
+      message: "The issuer must be https, or http on a loopback host for local development",
+    });
+  }
+  if (issuerUrl.username !== "" || issuerUrl.password !== "") {
+    return yield* new HubConfigError({ message: "The issuer must not have credentials" });
+  }
+  if (
+    issuerUrl.search !== "" ||
+    issuerUrl.hash !== "" ||
+    issuer.includes("?") ||
+    issuer.includes("#")
+  ) {
+    return yield* new HubConfigError({ message: "The issuer must not have a query or fragment" });
+  }
+  return issuerUrl;
+});
 
 export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
   "identity-broker/core/HubConfig",
@@ -56,18 +84,7 @@ export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
    * configuration stops the host where it builds its services, not a sign-in half way.
    */
   static readonly make = Effect.fnUntraced(function* (input: HubConfigInput) {
-    const issuerUrl = yield* Effect.try({
-      try: () => new URL(input.issuer),
-      catch: () => new HubConfigError({ message: "The issuer must be a URL" }),
-    });
-    if (!isSecureUrl(issuerUrl)) {
-      return yield* new HubConfigError({
-        message: "The issuer must be https, or http on a loopback host for local development",
-      });
-    }
-    if (issuerUrl.search !== "" || issuerUrl.hash !== "") {
-      return yield* new HubConfigError({ message: "The issuer must not have a query or fragment" });
-    }
+    const issuerUrl = yield* parseIssuer(input.issuer);
     const connectorsByName = new Map(
       input.connectors.map((connector) => [connector.name, connector]),
     );
