@@ -1150,8 +1150,8 @@ function ConnectorsForm({
             : `The broker's policy gives this repository ${target.policyConnectors.join(", ")}. `}
           A grant adds a private connector for every app of this repository: production, previews,
           and development servers. It trusts the owner with GitHub id {target.ownerId}, and stops
-          while the broker records another owner. A client uses a granted connector once it enrolls in
-          it, at its next deploy.
+          while the broker records another owner. A client uses a granted connector once it enrolls
+          in it, at its next deploy.
         </DialogDescription>
       </DialogHeader>
       <form

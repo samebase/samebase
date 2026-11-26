@@ -452,7 +452,9 @@ describe("AdminBrokerClientsPage", () => {
       expect(document.querySelector("[role=dialog]")?.textContent).toContain(
         "Skip the sign-in page for octocat/Hello-World?",
       );
-      await act(async () => type(document.body, "#admin-broker-clients-sign-in-page-reason", "Ours"));
+      await act(async () =>
+        type(document.body, "#admin-broker-clients-sign-in-page-reason", "Ours"),
+      );
       await act(async () => {
         document
           .querySelector<HTMLFormElement>("#admin-broker-clients-sign-in-page-form")
@@ -502,7 +504,9 @@ describe("AdminBrokerClientsPage", () => {
       expect(dialog?.textContent).toContain("trusts the owner with GitHub id 65,");
       expect(dialog?.textContent).toContain("registered by an earlier owner, GitHub id 11");
 
-      await act(async () => type(document.body, "#admin-broker-clients-sign-in-page-reason", "Known"));
+      await act(async () =>
+        type(document.body, "#admin-broker-clients-sign-in-page-reason", "Known"),
+      );
       await act(async () => {
         document
           .querySelector<HTMLFormElement>("#admin-broker-clients-sign-in-page-form")

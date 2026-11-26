@@ -51,7 +51,10 @@ import {
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatRelativeTimeAgo, formatRelativeTimeUntil } from "@/lib/formatRelativeTime";
-import { BROKER_CLIENTS_GROUP_VALUES, type BrokerClientsRouteSearch } from "@/routeSearch/brokerClients";
+import {
+  BROKER_CLIENTS_GROUP_VALUES,
+  type BrokerClientsRouteSearch,
+} from "@/routeSearch/brokerClients";
 import type { SearchPatch } from "@/routing/searchFlags";
 
 /** A client expires this close to its removal time gets the amber badge. */

@@ -702,7 +702,9 @@ describe("an organization's broker clients", () => {
     expect(await ids(member)).toEqual(["cl_preview", "cl_unconnected"]);
     expect(await ids(plainMember)).toEqual(["cl_preview"]);
     expect(
-      await member.action(api.brokerClients.moderation.readClientsOfOrganization, { organizationId }),
+      await member.action(api.brokerClients.moderation.readClientsOfOrganization, {
+        organizationId,
+      }),
     ).toMatchObject({ limitReached: true });
     // A plain member cannot delete a client they do not see.
     expect(

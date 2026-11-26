@@ -93,7 +93,9 @@ const RouteSearchSchema_organizationBrokerClients = defineRouteSearchParams({
 });
 
 /** The search of either page: an organization's page is the admin page's without `owner`. */
-export type BrokerClientsRouteSearch = InferRouteSearch<typeof RouteSearchSchema_adminBrokerClients>;
+export type BrokerClientsRouteSearch = InferRouteSearch<
+  typeof RouteSearchSchema_adminBrokerClients
+>;
 
 export const ADMIN_BROKER_CLIENTS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   readRouteSearchParamMetadata(RouteSearchSchema_adminBrokerClients),

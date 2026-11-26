@@ -27,6 +27,8 @@ describe("organization broker clients route search", () => {
         group: "owner",
       }),
     ).toEqual({ q: "my-app", stage: "preview" });
-    expect(validateOrganizationBrokerClientsRouteSearch({ group: "none" })).toEqual({ group: "none" });
+    expect(validateOrganizationBrokerClientsRouteSearch({ group: "none" })).toEqual({
+      group: "none",
+    });
   });
 });

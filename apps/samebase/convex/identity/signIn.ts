@@ -82,7 +82,10 @@ subject. The connector and the account id in the subject are the provider and th
 the `authAccounts` key.
 */
 const vBrokerSignInProvider = object({
-  name: union(literal(BROKER_GITHUB_ACCOUNT_PROVIDER_ID), literal(BROKER_GOOGLE_ACCOUNT_PROVIDER_ID)),
+  name: union(
+    literal(BROKER_GITHUB_ACCOUNT_PROVIDER_ID),
+    literal(BROKER_GOOGLE_ACCOUNT_PROVIDER_ID),
+  ),
   accountId: string(),
   profile: vBrokerClaims
     .omit("sub", "email_verified", "connector")

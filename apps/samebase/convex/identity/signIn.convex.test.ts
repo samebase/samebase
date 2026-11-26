@@ -6,7 +6,10 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { readGitHubSignInMatch } from "../githubUserAuthorizations";
 import { makeConvexTest, testCredential } from "../test.setup";
-import { BROKER_GITHUB_ACCOUNT_PROVIDER_ID, BROKER_GOOGLE_ACCOUNT_PROVIDER_ID } from "./accountModel";
+import {
+  BROKER_GITHUB_ACCOUNT_PROVIDER_ID,
+  BROKER_GOOGLE_ACCOUNT_PROVIDER_ID,
+} from "./accountModel";
 import { readBrokerProfile } from "./signIn";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -59,7 +62,7 @@ function brokerProvider(connector: "github" | "google", identity: BrokerIdentity
   };
 }
 
-function gitbrokerProvider(identity: BrokerIdentity) {
+function githubProvider(identity: BrokerIdentity) {
   return brokerProvider("github", identity);
 }
 
@@ -156,7 +159,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
 
     const userId = await signIn(
       t,
-      gitbrokerProvider({ id: "github-new", email: " NEW-GITHUB@example.com " }),
+      githubProvider({ id: "github-new", email: " NEW-GITHUB@example.com " }),
     );
 
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
@@ -221,7 +224,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     });
 
     await expect(
-      signIn(t, gitbrokerProvider({ id: "github-known", email: "changed@example.com" })),
+      signIn(t, githubProvider({ id: "github-known", email: "changed@example.com" })),
     ).resolves.toBe(userId);
 
     await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
@@ -273,7 +276,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     const userId = await t.run(async (ctx) => await insertUser(ctx, "raw-id@example.com"));
 
     // The core already knows the broker subject, so only onSignIn runs.
-    await signIn(t, gitbrokerProvider({ id: "12345", email: "raw-id@example.com" }), userId);
+    await signIn(t, githubProvider({ id: "12345", email: "raw-id@example.com" }), userId);
 
     await expect(readAccounts(t, userId)).resolves.toMatchObject([
       { provider: "github", providerAccountId: "12345", emailVerified: "raw-id@example.com" },
@@ -320,7 +323,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     });
 
     await expect(
-      signIn(t, gitbrokerProvider({ id: "github-shared", email: "Shared@Example.com" })),
+      signIn(t, githubProvider({ id: "github-shared", email: "Shared@Example.com" })),
     ).resolves.toBe(userId);
     await expect(readAccounts(t, userId)).resolves.toHaveLength(2);
   });
@@ -332,7 +335,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     });
 
     await expect(
-      signIn(t, gitbrokerProvider({ id: "github-unverified-owner", email: "unverified@example.com" })),
+      signIn(t, githubProvider({ id: "github-unverified-owner", email: "unverified@example.com" })),
     ).rejects.toMatchObject({
       data: "The email on this GitHub account belongs to a Samebase account that cannot use it. Sign in with an existing method.",
     });
@@ -344,7 +347,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     await expect(
       signIn(
         t,
-        gitbrokerProvider({ id: "github-unverified", email: "u@example.com", emailVerified: false }),
+        githubProvider({ id: "github-unverified", email: "u@example.com", emailVerified: false }),
       ),
     ).rejects.toMatchObject({ data: "GitHub did not provide a verified email address." });
     await expect(
@@ -371,7 +374,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     });
 
     await expect(
-      signIn(t, gitbrokerProvider({ id: "github-second", email: "one-github@example.com" })),
+      signIn(t, githubProvider({ id: "github-second", email: "one-github@example.com" })),
     ).rejects.toMatchObject({
       data: "This Samebase account already uses a different GitHub account. Sign in with that account.",
     });
@@ -401,7 +404,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
     await expect(
       signIn(
         t,
-        gitbrokerProvider({ id: "github-access-owner", email: "different-email@example.com" }),
+        githubProvider({ id: "github-access-owner", email: "different-email@example.com" }),
       ),
     ).rejects.toMatchObject({
       data: "This GitHub account already provides access for another Samebase account.",
@@ -452,7 +455,7 @@ describe("Samebase OAuth sign-in callbacks", () => {
 
     const newUserId = await signIn(
       t,
-      gitbrokerProvider({ id: "github-returning", email: "returning@example.com" }),
+      githubProvider({ id: "github-returning", email: "returning@example.com" }),
     );
 
     expect(newUserId).not.toBe(deletedUserId);
