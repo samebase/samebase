@@ -22,6 +22,42 @@ relevant, and preserve unrelated user changes.
 For a review of several apps, compare each repository independently. Do not reuse one app's starter
 build or relevance result for another app.
 
+## v2417: The client resource comes from @samebase/identity-broker
+
+On 2026-11-26 the starter moved to `@samebase/identity-broker` 0.44.0 and `@samebase/alchemy-convex`
+0.47.0. `IdentityHub.Client` is now `IdentityBroker.Client` from
+`@samebase/identity-broker/alchemy`, and 0.47.0 no longer has
+`@samebase/alchemy-convex/identity-hub`. A suspended or missing client now gives the client ID
+`broker-disabled` in place of `no-hub`.
+
+Relevant when `alchemy.run.ts` imports `@samebase/alchemy-convex/identity-hub`. From commit
+[`da8dc26`](https://github.com/samebase/base/commit/da8dc262002587b43791dde1d79ad2a37b41cf38) of
+[samebase/base](https://github.com/samebase/base):
+
+- In `package.json`, set `@samebase/alchemy-convex` to `0.47.0`, add `@samebase/identity-broker`
+  `0.44.0` to `dependencies` (Convex functions import it), and update the lockfile.
+- In `alchemy.run.ts`, import `* as IdentityBroker from "@samebase/identity-broker/alchemy"`, use
+  `IdentityBroker.Client`, rename the prop `hub:` to `broker:`, and set the stack's providers to
+  `Layer.mergeAll(Convex.providers(), IdentityBroker.providers())`.
+- Compare the client ID with `BROKER_DISABLED` from `@samebase/identity-broker/client`, not with
+  `no-hub`, in the sign-in query and in `scripts/ensure-convex-auth.ts`. Otherwise a deployment
+  without a client shows a sign-in button that fails.
+- Rename the variables `IDENTITY_HUB_ISSUER`, `IDENTITY_HUB_CLIENT_ID` and
+  `IDENTITY_HUB_CLIENT_SECRET` to `IDENTITY_BROKER_*` in `alchemy.run.ts`,
+  `convex/convex.config.ts`, `convex/auth.ts` and `scripts/ensure-convex-auth.ts`. One deploy
+  switches them: the push sets the new names to the off values, and "Site" writes the client and
+  removes the old names.
+- Optional: the starter also renamed `convex/identityHub.ts`, its functions, `HubSignIn.tsx` and the
+  script `identity-hub:dev-client` to "broker" names.
+
+Keep the provider id `"hub"`, the callback `/auth/hub/callback`, the component `authHub` and the
+Alchemy id `"IdentityHubClient"`. Account rows, registered clients and the state store hold these
+names. With them, the next deploy updates each client in place and registers no new one.
+
+Verify that Google sign-in works on the pull request preview. After the merge, each development
+deployment shows guest sign-in only until its owner runs the development client command once, such
+as `pnpm run identity-broker:dev-client --stage dev-<name>`.
+
 ## v2336: Hub clients register with RFC 7591, one function call per request, and cached build files
 
 This build has three changes. Apply each one that is relevant.
