@@ -46,7 +46,7 @@ async function createTestHub() {
 }
 type TestHub = Awaited<ReturnType<typeof createTestHub>>;
 
-/** `POST /register` as IdentityHub.Client sends it from the stage `pr-1`, with `key`. */
+/** `POST /register` as IdentityBroker.Client sends it from the stage `pr-1`, with `key`. */
 async function registerPreviewClient(hub: TestHub, key: string) {
   return await hub.fetchBroker(`${HUB}/register`, {
     method: "POST",
@@ -76,9 +76,9 @@ const clientWith = (issuer: string, clientId: string, clientSecret: string) =>
     clientSecret: Effect.succeed(Redacted.make(clientSecret)),
   });
 
-/** The app as a new stage deploys it first: IdentityHub.Client's off values. */
+/** The app as a new stage deploys it first: IdentityBroker.Client's off values. */
 const offApp = Layer.mergeAll(
-  clientWith("http://127.0.0.1:1", "no-hub", "no-hub"),
+  clientWith("http://127.0.0.1:1", "broker-disabled", "broker-disabled"),
   sessionWith(SESSION_SECRET),
 );
 

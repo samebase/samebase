@@ -4,7 +4,7 @@
 //
 // The errors keep no text of the hub or the library, only a fixed reason, so no page and no log
 // line can hold a token, a code, or a secret.
-import * as IdentityHub from "@samebase/alchemy-convex/identity-hub";
+import * as IdentityBroker from "@samebase/alchemy-convex/identity-broker";
 import * as Alchemy from "alchemy";
 import * as Output from "alchemy/Output";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
@@ -18,8 +18,6 @@ const HUB = { issuer: "https://identity-broker-effect-example-hub-prod.pfp.worke
  * other stage reads from the state of `prod`.
  */
 export const HUB_KEYS = { production: "HubProductionKey", preview: "HubPreviewKey" } as const;
-/** IdentityHub.Client gives this client id when the deployment has no client. */
-const OFF_CLIENT_ID = "no-hub";
 /** The hub connector that the sign-in link names. */
 const CONNECTOR = "google";
 
@@ -169,7 +167,10 @@ export class HubClient extends Context.Service<
         });
 
         return HubClient.of({
-          configured: Effect.map(values.clientId, (clientId) => clientId !== OFF_CLIENT_ID),
+          configured: Effect.map(
+            values.clientId,
+            (clientId) => clientId !== IdentityBroker.DISABLED,
+          ),
           start,
           finish,
         });
@@ -190,13 +191,13 @@ export class HubClient extends Context.Service<
       Effect.gen(function* () {
         const { stage } = yield* Alchemy.Stack;
         const production = stage === "prod";
-        const client = IdentityHub.Client.variables(
-          yield* IdentityHub.Client("HubClient", {
-            hub: HUB,
+        const client = IdentityBroker.Client.variables(
+          yield* IdentityBroker.Client("HubClient", {
+            broker: HUB,
             connectors: [CONNECTOR],
             redirectUris: [redirectUri(stage)],
             deploymentType: production ? "production" : "preview",
-            key: yield* IdentityHub.registrationKey(
+            key: yield* IdentityBroker.registrationKey(
               production ? HUB_KEYS.production : HUB_KEYS.preview,
               { stage: "prod" },
             ),

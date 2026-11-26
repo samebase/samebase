@@ -1,45 +1,45 @@
-// IdentityHub.Client: one deployment of an app as a client of the identity hub that the stack
+// IdentityBroker.Client: one deployment of an app as a client of the identity broker that the stack
 // names, for an app that deploys in its own GitHub Actions run, on any host, and in development as a
 // stage of the same stack. Import it as
-// `import * as IdentityHub from "@samebase/alchemy-convex/identity-hub"`; `Convex.providers()`
+// `import * as IdentityBroker from "@samebase/alchemy-convex/identity-broker"`; `Convex.providers()`
 // registers its provider.
 //
-// A run in GitHub Actions asks the hub for a new client with a GitHub OIDC token, so the stack needs
-// no key and no Samebase account. The token names the repository. The hub reads
+// A run in GitHub Actions asks the broker for a new client with a GitHub OIDC token, so the stack
+// needs no key and no Samebase account. The token names the repository. The broker reads
 // `/samebase-verification.json` at the origin of the return address, which must name the same
 // repository, and registers the client on that address. The answer holds the client's own
-// registration access token (RFC 7591), and each later deploy reads the client on the hub with that
-// token (RFC 7592). The hub keeps only hashes, so the state is the only record of the secret and the
-// token.
+// registration access token (RFC 7591), and each later deploy reads the client on the broker with
+// that token (RFC 7592). The broker keeps only hashes, so the state is the only record of the secret
+// and the token.
 //
 // The answer to a production registration also holds the app's initial access token (RFC 7591
 // section 1.2) and the repository id. The state of stage `prod` keeps them. A development checkout
-// runs the stack as a stage `dev-<name>`: it reads them with `IdentityHub.Client.read`, and a client
-// with `deploymentType: "development"` asks the hub with the token in place of the GitHub token
-// (RFC 133).
+// runs the stack as a stage `dev-<name>`: it reads them with `IdentityBroker.Client.read`, and a
+// client with `deploymentType: "development"` asks the broker with the token in place of the GitHub
+// token (RFC 133).
 //
-// A hub on the stack layer, which the app's own stack deploys, takes a key in place of a proof:
-// a client with `key` asks with it, from any run, and the hub reads no verification file.
-// `IdentityHub.registrationKey` makes each key in the stage that deploys the hub and reads it in
-// every other stage. That stage's client waits until the hub answers discovery, so one run deploys
-// the hub and registers its client.
+// A broker on the stack layer, which the app's own stack deploys, takes a key in place of a proof:
+// a client with `key` asks with it, from any run, and the broker reads no verification file.
+// `IdentityBroker.registrationKey` makes each key in the stage that deploys the broker and reads it
+// in every other stage. That stage's client waits until the broker answers discovery, so one run
+// deploys the broker and registers its client.
 //
 // A client is enrolled in the connectors it signs in through, such as `google` and `github`, at
 // registration (RFC 137), and holds the return addresses its requests may name, one per handler of
-// the app, such as the sign-in callback and the connections callback. The hub records both sets on
-// the client and never changes them: a stack with another set registers a new client.
+// the app, such as the sign-in callback and the connections callback. The broker records both sets
+// on the client and never changes them: a stack with another set registers a new client.
 //
-// The app is the stack: its name on the hub defaults to the stack's path in the repository, as the
-// state store groups stacks (`owner/repo/<path>`), and `app` for a stack named after the repository.
-// `app` overrides it. The name groups the clients, their budgets, and the initial access token; it
-// plays no part in user ids, which the hub derives from the provider's own id.
+// The app is the stack: its name on the broker defaults to the stack's path in the repository, as
+// the state store groups stacks (`owner/repo/<path>`), and `app` for a stack named after the
+// repository. `app` overrides it. The name groups the clients, their budgets, and the initial access
+// token; it plays no part in user ids, which the broker derives from the provider's own id.
 //
 // A push removes a variable that a deploy stops passing, so a failure here must not drop working
 // variables or stop the deploy. A renewal that fails keeps the saved values. Only a client that
 // cannot work asks for a new one: it is gone, or it has another app name, return address set, type,
 // or connector set. If that request fails, the run gives the off values, so the app has guest
-// sign-in and not a broken button. The off values are the `no-hub` variables of a checkout without
-// a hub: Convex needs the variables, and the app hides the button for this client ID.
+// sign-in and not a broken button. The off values are the `DISABLED` variables of a checkout
+// without a broker: Convex needs the variables, and the app hides the button for this client ID.
 //
 // No text in this file quotes an answer or a fetch error, so no log line can hold a secret. The one
 // exception is the connector names of an `invalid_connectors` refusal, each checked against the
@@ -61,15 +61,18 @@ import type { Providers } from "./Providers.ts";
 /** A hung service must not hold a deploy: the time limit of one request. */
 const REQUEST_TIMEOUT_MS = 30_000;
 
-/** The variables of a deployment without a hub client, as the starter writes them. */
-const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: "no-hub", clientSecret: "no-hub" };
+/** The client ID and the client secret of a deployment without a broker client. */
+export const DISABLED = "broker-disabled";
 
-/** The name of a connector on the hub. */
+/** The variables of a deployment without a broker client. */
+const OFF_VALUES = { issuer: "http://127.0.0.1:1", clientId: DISABLED, clientSecret: DISABLED };
+
+/** The name of a connector on the broker. */
 const CONNECTOR_NAME = /^[a-z0-9-]{1,64}$/;
 
-/** The return addresses of one client, as the hub caps them. */
+/** The return addresses of one client, as the broker caps them. */
 const MAX_REDIRECT_URIS = 8;
-/** The app's name, as the hub caps it. A deeper stack path needs an explicit `app`. */
+/** The app's name, as the broker caps it. A deeper stack path needs an explicit `app`. */
 const MAX_APP_LENGTH = 64;
 
 /**
@@ -85,13 +88,13 @@ export const defaultApp = (stackName: string): string | undefined => {
 };
 
 /**
- * An identity hub of @samebase/identity-broker, such as Samebase's public hub:
+ * An identity broker of @samebase/identity-broker, such as Samebase's public broker:
  * `{ issuer: "https://id.samebase.com" }`.
  */
-export interface Hub {
+export interface BrokerEndpoint {
   /**
-   * The hub's issuer, such as `https://auth.example.com`. The run asks at `<issuer>/register`, with
-   * a GitHub token whose audience is the issuer, so no other hub can use that token.
+   * The broker's issuer, such as `https://auth.example.com`. The run asks at `<issuer>/register`,
+   * with a GitHub token whose audience is the issuer, so no other broker can use that token.
    */
   readonly issuer: string;
 }
@@ -103,18 +106,18 @@ interface CommonProps {
    * repository. A changed name registers a new client under the new name.
    */
   readonly app?: string;
-  /** The hub to register at. A changed hub registers a new client there; the old one stays. */
-  readonly hub: Hub;
+  /** The broker to register at. A changed broker registers a new client there; the old one stays. */
+  readonly broker: BrokerEndpoint;
   /**
-   * The connectors the client signs in through, by their names on the hub, such as
-   * `["google", "github"]`: at least one, each of `[a-z0-9-]{1,64}`. The hub refuses a name it does
-   * not offer, or does not allow this repository, and the log then names the allowed ones. The set
-   * is recorded on the client for good: a changed set registers a new client.
+   * The connectors the client signs in through, by their names on the broker, such as
+   * `["google", "github"]`: at least one, each of `[a-z0-9-]{1,64}`. The broker refuses a name it
+   * does not offer, or does not allow this repository, and the log then names the allowed ones. The
+   * set is recorded on the client for good: a changed set registers a new client.
    */
   readonly connectors: readonly string[];
   /**
    * The return addresses of this deployment, one to eight, such as
-   * `[`${site.siteUrl}/auth/hub/callback`]`: each an https URL whose origin serves
+   * `[`${site.siteUrl}/auth/broker/callback`]`: each an https URL whose origin serves
    * `/samebase-verification.json` with the numeric GitHub id of this repository,
    * `{ "repository": "123" }`. They can come from a resource that this run creates. A development
    * client can also have http on a loopback host, which needs no file. Every request of the client
@@ -122,22 +125,23 @@ interface CommonProps {
    * client.
    */
   readonly redirectUris: string[];
-  /** Recorded on the hub's client, such as the commit. The hub records "unknown" without it. */
+  /** Recorded on the broker's client, such as the commit. The broker records "unknown" without it. */
   readonly softwareVersion?: string;
   /**
-   * The run fails unless the hub confirms the client in this run: it fails when the hub refuses or
-   * does not answer a registration or a renewal, and when it suspended the client. Without it, such
-   * a run gives the off values or keeps the saved client, so the app deploys anyway. Set it where
-   * sign-in is the product. A failed run saves nothing, so the next run asks the hub again.
+   * The run fails unless the broker confirms the client in this run: it fails when the broker
+   * refuses or does not answer a registration or a renewal, and when it suspended the client.
+   * Without it, such a run gives the off values or keeps the saved client, so the app deploys
+   * anyway. Set it where sign-in is the product. A failed run saves nothing, so the next run asks
+   * the broker again.
    */
   readonly required?: boolean;
 }
 
 /**
  * A production or preview client asks with the GitHub OIDC token of the run. A development client
- * asks with the app's initial access token, which `IdentityHub.Client.read` gives from stage `prod`.
- * A client of any type with `key` asks with that key, a key of a hub on the stack layer, such as
- * `IdentityHub.registrationKey` gives.
+ * asks with the app's initial access token, which `IdentityBroker.Client.read` gives from stage
+ * `prod`. A client of any type with `key` asks with that key, a key of a broker on the stack layer,
+ * such as `IdentityBroker.registrationKey` gives.
  */
 export type ClientProps =
   | (CommonProps & {
@@ -155,7 +159,7 @@ export type ClientProps =
       readonly deploymentType: "production" | "preview" | "development";
       /**
        * The Bearer of `POST /register`. Undefined, as before the stage that makes the key ever
-       * ran: the client gets the off values, or the run fails when `required`. The hub decides
+       * ran: the client gets the off values, or the run fails when `required`. The broker decides
        * whether this key may register a production client.
        */
       readonly key: Redacted.Redacted<string> | undefined;
@@ -167,16 +171,16 @@ const DeploymentType = Schema.Literals(["production", "preview", "development"])
 const Attributes = Schema.Struct({
   /** `off`: no client, and the values below are the off values. */
   status: Schema.Literals(["on", "off", "suspended"]),
-  /** The issuer of the hub, which the deployment names to sign in. */
+  /** The issuer of the broker, which the deployment names to sign in. */
   issuer: Schema.String,
   clientId: Schema.String,
   /** Returned only at registration. */
   clientSecret: Schema.Redacted(Schema.String),
-  /** Returned only at registration. It reads and deletes this client on the hub, and nothing else. */
+  /** Returned only at registration. It reads and deletes this client on the broker, and nothing else. */
   registrationAccessToken: Schema.Redacted(Schema.String),
   registrationClientUri: Schema.String,
   deploymentType: DeploymentType,
-  /** The app's name on the hub, as sent. Empty for the off values. */
+  /** The app's name on the broker, as sent. Empty for the off values. */
   app: Schema.String,
   /** The return addresses the client serves, sorted, each once. Empty for the off values. */
   redirectUris: Schema.Array(Schema.String),
@@ -193,7 +197,7 @@ const Attributes = Schema.Struct({
 
 /**
  * The attributes keep the real values of a suspended client, so that an unblock needs no new client.
- * `IdentityHub.Client.variables` gives the values that the app gets.
+ * `IdentityBroker.Client.variables` gives the values that the app gets.
  */
 export interface ClientAttributes extends Schema.Schema.Type<typeof Attributes> {}
 
@@ -204,7 +208,7 @@ export interface ClientAttributes extends Schema.Schema.Type<typeof Attributes> 
  */
 const savedAttributes = (value: unknown, reason: string) =>
   Schema.decodeUnknownEffect(Attributes)(value).pipe(
-    Effect.catchCause(() => Effect.die(new IdentityHubClientFailed({ reason }))),
+    Effect.catchCause(() => Effect.die(new IdentityBrokerClientFailed({ reason }))),
   );
 
 /** The attributes of no client. */
@@ -245,12 +249,12 @@ interface Enrollment {
 }
 
 /** One request gave no usable answer. The reason holds no secret. */
-class IdentityHubClientFailed extends Schema.TaggedError<IdentityHubClientFailed>()(
-  "IdentityHubClientFailed",
+class IdentityBrokerClientFailed extends Schema.TaggedError<IdentityBrokerClientFailed>()(
+  "IdentityBrokerClientFailed",
   { reason: Schema.String },
 ) {
   override get message() {
-    return `IdentityHub.Client: ${this.reason}.`;
+    return `IdentityBroker.Client: ${this.reason}.`;
   }
 }
 
@@ -258,7 +262,7 @@ const OidcToken = Schema.Struct({ value: Schema.NonEmptyString });
 
 /**
  * The 201 answer of `POST /register` (RFC 7591 section 3.2.1), in the members that this file reads.
- * The decoder ignores the other members, such as `software_id`, whose full form the hub writes.
+ * The decoder ignores the other members, such as `software_id`, whose full form the broker writes.
  */
 const NewClient = Schema.Struct({
   issuer: Schema.NonEmptyString,
@@ -266,7 +270,7 @@ const NewClient = Schema.Struct({
   client_secret: Schema.NonEmptyString,
   registration_access_token: Schema.NonEmptyString,
   registration_client_uri: Schema.NonEmptyString,
-  /** The sets the hub recorded, which must be the sets the request sent. */
+  /** The sets the broker recorded, which must be the sets the request sent. */
   redirect_uris: Schema.Array(Schema.String),
   connectors: Schema.Array(Schema.String),
   /** Only in the answer to a production registration with the GitHub token. */
@@ -276,53 +280,56 @@ const NewClient = Schema.Struct({
 
 /** The other answers of `POST /register`, by status. A 401 can have no body (RFC 6750). */
 const REFUSALS: Readonly<Record<number, string>> = {
-  400: "the identity hub refused the client metadata, such as the app name",
-  401: "the identity hub refused the GitHub OIDC token",
-  403: "the identity hub does not allow this repository",
-  404: "the identity hub has no /register: it runs an identity-broker before 0.33.0",
-  429: "the identity hub limits new clients",
-  502: "GitHub's keys are not available to the identity hub",
-  503: "the identity hub could not apply its policy",
+  400: "the identity broker refused the client metadata, such as the app name",
+  401: "the identity broker refused the GitHub OIDC token",
+  403: "the identity broker does not allow this repository",
+  404: "the identity broker has no /register: it runs an identity-broker before 0.33.0",
+  429: "the identity broker limits new clients",
+  502: "GitHub's keys are not available to the identity broker",
+  503: "the identity broker could not apply its policy",
 };
 
 /** The text of an `invalid_redirect_uri` 400 without a known reason. */
 const BAD_REDIRECT_URIS =
-  "the identity hub refused the return addresses: one to eight, each https on a DNS name, or http on a loopback host for a development client";
+  "the identity broker refused the return addresses: one to eight, each https on a DNS name, or http on a loopback host for a development client";
 
 /**
  * The reasons of a 400 or a 403 that a log line shows. Any other text of the answer is never
  * logged.
  */
 const REASONS = new Map([
-  ["paused", "this app is paused on the identity hub"],
-  ["run_not_allowed", "the identity hub gives clients only to runs of main and of pull requests"],
+  ["paused", "this app is paused on the identity broker"],
+  [
+    "run_not_allowed",
+    "the identity broker gives clients only to runs of main and of pull requests",
+  ],
   ["blocked", "Samebase blocked this repository or its owner"],
-  ["suspended", "the identity hub suspended this repository"],
-  ["too_many_apps", "the repository has as many apps on the identity hub as it may"],
-  ["too_many_clients", "the app has as many clients on the identity hub as it may"],
-  ["app_taken", "the app's name belongs to another app on the identity hub"],
-  ["host_unreachable", "the identity hub could not reach the host of the return address"],
+  ["suspended", "the identity broker suspended this repository"],
+  ["too_many_apps", "the repository has as many apps on the identity broker as it may"],
+  ["too_many_clients", "the app has as many clients on the identity broker as it may"],
+  ["app_taken", "the app's name belongs to another app on the identity broker"],
+  ["host_unreachable", "the identity broker could not reach the host of the return address"],
   [
     "verification_file_missing",
     "the host of the return address does not serve /samebase-verification.json",
   ],
   ["verification_file_invalid", "/samebase-verification.json on the host holds no repository id"],
   ["repository_mismatch", "/samebase-verification.json on the host names another repository"],
-  ["app_mismatch", "the initial access token belongs to another app on the identity hub"],
-  ["stale_proof", "the identity hub took a newer GitHub OIDC token of this repository"],
+  ["app_mismatch", "the initial access token belongs to another app on the identity broker"],
+  ["stale_proof", "the identity broker took a newer GitHub OIDC token of this repository"],
 ]);
 
 /** The windows of a 429, by the name that the answer gives. */
 const RATE_LIMITED = new Map([
-  ["repository", "the identity hub gives one repository at most 30 new clients an hour"],
-  ["owner", "the identity hub gives one owner at most 100 new clients an hour"],
-  ["new_owners", "the identity hub takes at most 50 new owners an hour"],
+  ["repository", "the identity broker gives one repository at most 30 new clients an hour"],
+  ["owner", "the identity broker gives one owner at most 100 new clients an hour"],
+  ["new_owners", "the identity broker takes at most 50 new owners an hour"],
 ]);
 
 const Refusal = Schema.Struct({ reason: Schema.String });
 const InvalidRedirectUri = Schema.Struct({ error: Schema.Literal("invalid_redirect_uri") });
 const RateLimited = Schema.Struct({ window: Schema.String });
-/** A 400 for a connector the hub does not offer or allow, with the names it allows. */
+/** A 400 for a connector the broker does not offer or allow, with the names it allows. */
 const InvalidConnectors = Schema.Struct({
   reason: Schema.Literal("invalid_connectors"),
   allowed: Schema.Array(Schema.String),
@@ -337,7 +344,7 @@ const InvalidConnectors = Schema.Struct({
 const refusalOf = (status: number, body: unknown): string => {
   const decoded = <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
     Option.getOrUndefined(Schema.decodeUnknownOption(schema)(body));
-  const ofStatus = () => REFUSALS[status] ?? "the identity hub refused the request";
+  const ofStatus = () => REFUSALS[status] ?? "the identity broker refused the request";
   switch (status) {
     case 400: {
       const allowed = decoded(InvalidConnectors)?.allowed.filter((name) =>
@@ -346,7 +353,7 @@ const refusalOf = (status: number, body: unknown): string => {
       return allowed === undefined
         ? (REASONS.get(decoded(Refusal)?.reason ?? "") ??
             (decoded(InvalidRedirectUri) === undefined ? ofStatus() : BAD_REDIRECT_URIS))
-        : `the identity hub does not offer or allow one of the connectors; it allows ${allowed.length === 0 ? "none for this app" : allowed.join(", ")}`;
+        : `the identity broker does not offer or allow one of the connectors; it allows ${allowed.length === 0 ? "none for this app" : allowed.join(", ")}`;
     }
     case 403:
       return REASONS.get(decoded(Refusal)?.reason ?? "") ?? ofStatus();
@@ -369,7 +376,7 @@ const send = (
 ) =>
   token !== undefined && !(URL.canParse(url) && new URL(url).protocol === "https:")
     ? Effect.fail(
-        new IdentityHubClientFailed({
+        new IdentityBrokerClientFailed({
           reason: `${who} is not at an https URL, so no credential was sent to it`,
         }),
       )
@@ -386,14 +393,14 @@ const send = (
           const body: unknown = await response.json().catch(() => undefined);
           return { status: response.status, body };
         },
-        catch: () => new IdentityHubClientFailed({ reason: `${who} gave no answer` }),
+        catch: () => new IdentityBrokerClientFailed({ reason: `${who} gave no answer` }),
       });
 
 const decode =
   <S extends Schema.Codec<unknown, unknown>>(schema: S, who: string) =>
   (value: unknown) =>
     Schema.decodeUnknownEffect(schema)(value).pipe(
-      Effect.mapError(() => new IdentityHubClientFailed({ reason: `${who} gave a bad answer` })),
+      Effect.mapError(() => new IdentityBrokerClientFailed({ reason: `${who} gave a bad answer` })),
     );
 
 /**
@@ -409,7 +416,7 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
       { method: "GET" },
     );
     if (status !== 200) {
-      return yield* new IdentityHubClientFailed({
+      return yield* new IdentityBrokerClientFailed({
         reason: `GitHub gave no OIDC token (HTTP ${status})`,
       });
     }
@@ -418,57 +425,64 @@ const readOidcToken = (requestUrl: string, requestToken: string, audience: strin
 
 /**
  * `POST /register`, the client registration request of RFC 7591, with `bearer` as its initial
- * access token: the GitHub OIDC token, the app's own token, or a key of the hub. `software_id` is
- * the app's name, `client_name` the stage, and `connectors` and `deployment_type` are the hub's own
- * metadata fields. Convex Auth posts the client's secret in the body at the token endpoint, so the
- * client registers that method.
+ * access token: the GitHub OIDC token, the app's own token, or a key of the broker. `software_id` is
+ * the app's name, `client_name` the stage, and `connectors` and `deployment_type` are the broker's
+ * own metadata fields. Convex Auth posts the client's secret in the body at the token endpoint, so
+ * the client registers that method.
  */
 const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: string) =>
   Effect.gen(function* () {
-    const { hub } = props;
+    const { broker } = props;
     const { app, connectors, redirectUris } = enrollment;
-    const { body, status } = yield* send("The identity hub", `${hub.issuer}/register`, bearer, {
-      method: "POST",
-      body: JSON.stringify({
-        redirect_uris: redirectUris,
-        software_id: app,
-        software_version: props.softwareVersion ?? "unknown",
-        client_name: enrollment.clientName,
-        deployment_type: props.deploymentType,
-        connectors,
-        token_endpoint_auth_method: "client_secret_post",
-      }),
-    });
+    const { body, status } = yield* send(
+      "The identity broker",
+      `${broker.issuer}/register`,
+      bearer,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          redirect_uris: redirectUris,
+          software_id: app,
+          software_version: props.softwareVersion ?? "unknown",
+          client_name: enrollment.clientName,
+          deployment_type: props.deploymentType,
+          connectors,
+          token_endpoint_auth_method: "client_secret_post",
+        }),
+      },
+    );
     if (status !== 201) {
       const reason =
         status !== 401
           ? refusalOf(status, body)
           : "key" in props
-            ? "the identity hub refused the registration key"
+            ? "the identity broker refused the registration key"
             : props.deploymentType === "development"
-              ? "the identity hub refused the initial access token"
+              ? "the identity broker refused the initial access token"
               : refusalOf(status, body);
-      return yield* new IdentityHubClientFailed({ reason: `${reason} (HTTP ${status})` });
+      return yield* new IdentityBrokerClientFailed({ reason: `${reason} (HTTP ${status})` });
     }
-    const client = yield* decode(NewClient, "The identity hub")(body);
-    // The hub registers the addresses and the connectors that the request sent, under its own
+    const client = yield* decode(NewClient, "The identity broker")(body);
+    // The broker registers the addresses and the connectors that the request sent, under its own
     // issuer. The log and the state hold the stack's values, so no value that the answer chose is
     // printed or kept.
     if (
-      client.issuer !== hub.issuer ||
+      client.issuer !== broker.issuer ||
       !sameSet(sortedSet(client.redirect_uris), redirectUris) ||
       !sameSet(client.connectors, connectors)
     ) {
-      return yield* new IdentityHubClientFailed({ reason: "The identity hub gave a bad answer" });
+      return yield* new IdentityBrokerClientFailed({
+        reason: "The identity broker gave a bad answer",
+      });
     }
     yield* Effect.logInfo(
-      `IdentityHub.Client: ${where(enrollment)} has a new client of the identity hub ${hub.issuer}.`,
+      `IdentityBroker.Client: ${where(enrollment)} has a new client of the identity broker ${broker.issuer}.`,
     );
     // Only a production registration gives the app's token (RFC 7591); any other answer's is dropped.
     const production = props.deploymentType === "production";
     return {
       status: "on" as const,
-      issuer: hub.issuer,
+      issuer: broker.issuer,
       clientId: client.client_id,
       clientSecret: Redacted.make(client.client_secret),
       registrationAccessToken: Redacted.make(client.registration_access_token),
@@ -485,9 +499,9 @@ const requestNewClient = (props: ClientProps, enrollment: Enrollment, bearer: st
 const Discovery = Schema.Struct({ issuer: Schema.String });
 
 /**
- * The time a hub has to answer discovery before a registration with a key: the stage that deploys
- * the hub registers its own client in the same run, and a new workers.dev route answers after
- * about a minute. Delays of 1, 2, 4, 8 and then 15 seconds, about three minutes in all.
+ * The time a broker has to answer discovery before a registration with a key: the stage that
+ * deploys the broker registers its own client in the same run, and a new workers.dev route answers
+ * after about a minute. Delays of 1, 2, 4, 8 and then 15 seconds, about three minutes in all.
  */
 const DISCOVERY_RETRY = {
   times: 15,
@@ -495,19 +509,21 @@ const DISCOVERY_RETRY = {
 };
 
 /**
- * Succeeds when the hub's discovery document names the hub's issuer, after bounded retries; fails
- * when it never does.
+ * Succeeds when the broker's discovery document names the broker's issuer, after bounded retries;
+ * fails when it never does.
  */
-const hubAnswers = (hub: Hub) =>
-  send("The identity hub", `${hub.issuer}/.well-known/openid-configuration`, undefined, {
+const brokerAnswers = (broker: BrokerEndpoint) =>
+  send("The identity broker", `${broker.issuer}/.well-known/openid-configuration`, undefined, {
     method: "GET",
   }).pipe(
     Effect.flatMap(({ body, status }) =>
       status === 200 &&
-      Option.getOrUndefined(Schema.decodeUnknownOption(Discovery)(body))?.issuer === hub.issuer
+      Option.getOrUndefined(Schema.decodeUnknownOption(Discovery)(body))?.issuer === broker.issuer
         ? Effect.void
         : Effect.fail(
-            new IdentityHubClientFailed({ reason: "the identity hub does not answer discovery" }),
+            new IdentityBrokerClientFailed({
+              reason: "the identity broker does not answer discovery",
+            }),
           ),
     ),
     Effect.retry(DISCOVERY_RETRY),
@@ -515,12 +531,12 @@ const hubAnswers = (hub: Hub) =>
 
 /** A new client, or the off values. */
 const newClient = (props: ClientProps, enrollment: Enrollment) => {
-  const label = `IdentityHub.Client: ${where(enrollment)} deploys without the hub`;
+  const label = `IdentityBroker.Client: ${where(enrollment)} deploys without the broker`;
   const off = offAttributes(props.deploymentType);
-  const request = (bearer: Effect.Effect<string, IdentityHubClientFailed>) =>
+  const request = (bearer: Effect.Effect<string, IdentityBrokerClientFailed>) =>
     bearer.pipe(
       Effect.flatMap((token) => requestNewClient(props, enrollment, token)),
-      Effect.catchTag("IdentityHubClientFailed", (error) =>
+      Effect.catchTag("IdentityBrokerClientFailed", (error) =>
         Effect.logWarning(`${label}: ${error.reason}. The next deploy asks again.`).pipe(
           Effect.as(off),
         ),
@@ -532,14 +548,14 @@ const newClient = (props: ClientProps, enrollment: Enrollment) => {
       ? Effect.logInfo(
           `${label}: it has no registration key yet. Deploy the stage that makes the key first.`,
         ).pipe(Effect.as(off))
-      : request(Effect.as(hubAnswers(props.hub), Redacted.value(props.key)));
+      : request(Effect.as(brokerAnswers(props.broker), Redacted.value(props.key)));
   }
 
   if (props.deploymentType === "development") {
     const token = Redacted.value(props.initialAccessToken);
     return token === ""
       ? Effect.logInfo(
-          "IdentityHub.Client: deploy to main once for hub sign-in in development.",
+          "IdentityBroker.Client: deploy to main once for broker sign-in in development.",
         ).pipe(Effect.as(off))
       : request(Effect.succeed(token));
   }
@@ -555,19 +571,19 @@ const newClient = (props: ClientProps, enrollment: Enrollment) => {
         : Effect.logInfo(`${label}: this run has no GitHub OIDC token.`)
     ).pipe(Effect.as(off));
   }
-  return request(readOidcToken(requestUrl, requestToken, props.hub.issuer));
+  return request(readOidcToken(requestUrl, requestToken, props.broker.issuer));
 };
 
 /**
- * The client after a read on the hub, or undefined when the hub says that the client is gone. A
- * read with no usable answer keeps the saved client, except for a required one: a required client
- * passes a run only when the hub confirms it in that run, so a suspension that an earlier run saw,
- * and did not save because that run failed, cannot pass a run that the hub does not answer.
+ * The client after a read on the broker, or undefined when the broker says that the client is gone.
+ * A read with no usable answer keeps the saved client, except for a required one: a required client
+ * passes a run only when the broker confirms it in that run, so a suspension that an earlier run
+ * saw, and did not save because that run failed, cannot pass a run that the broker does not answer.
  */
 const renew = (saved: ClientAttributes, required: boolean) =>
   Effect.gen(function* () {
     const { status } = yield* send(
-      "The identity hub",
+      "The identity broker",
       saved.registrationClientUri,
       Redacted.value(saved.registrationAccessToken),
       { method: "GET" },
@@ -579,52 +595,53 @@ const renew = (saved: ClientAttributes, required: boolean) =>
         return undefined;
       case 403:
         yield* Effect.logWarning(
-          `IdentityHub.Client: the hub suspended the client of ${where(saved)}. It keeps its values, and nobody can sign in with it.`,
+          `IdentityBroker.Client: the broker suspended the client of ${where(saved)}. It keeps its values, and nobody can sign in with it.`,
         );
         return { ...saved, status: "suspended" as const };
       default:
-        return yield* new IdentityHubClientFailed({
-          reason: `The identity hub answered HTTP ${status}`,
+        return yield* new IdentityBrokerClientFailed({
+          reason: `The identity broker answered HTTP ${status}`,
         });
     }
   }).pipe(
-    Effect.catchTag("IdentityHubClientFailed", (error) =>
+    Effect.catchTag("IdentityBrokerClientFailed", (error) =>
       required
         ? Effect.fail(
-            new IdentityHubClientFailed({
-              reason: `${where(saved)} is required, and the hub did not confirm its client: ${error.reason}`,
+            new IdentityBrokerClientFailed({
+              reason: `${where(saved)} is required, and the broker did not confirm its client: ${error.reason}`,
             }),
           )
         : Effect.logWarning(
-            `IdentityHub.Client: ${where(saved)} keeps the saved client: ${error.reason}.`,
+            `IdentityBroker.Client: ${where(saved)} keeps the saved client: ${error.reason}.`,
           ).pipe(Effect.as(saved)),
     ),
   );
 
 /**
- * The type of this resource before 0.37.0. Alchemy finds this provider for a row of that type, and
- * the next write of the row gives it the new type, with the same client. Remove it, here and in
- * `SavedRow`, once no saved row has the old type.
+ * The types of this resource before 0.46.0. A deploy updates a row of such a type in place and
+ * gives it the new type, with the same client; a destroy or an orphan delete finds this provider
+ * for it by these aliases. Remove them, here and in `SavedRow`, once no saved row has an old type.
  */
-const OLD_TYPE = "IdentityHub.SharedClient";
+const OLD_TYPE = "IdentityHub.Client";
+const OLDER_TYPE = "IdentityHub.SharedClient";
 
 /** A saved row of this resource, whose `attr` `savedAttributes` reads. */
 const SavedRow = Schema.Struct({
-  resourceType: Schema.Literals(["IdentityHub.Client", OLD_TYPE]),
+  resourceType: Schema.Literals(["IdentityBroker.Client", OLD_TYPE, OLDER_TYPE]),
   attr: Schema.Unknown,
 });
 
 /**
  * The attributes of the client `id` in another stage of this stack, such as
- * `read("HubClient", { stage: "prod" })` in a development stage, as Outputs: the
+ * `read("BrokerClient", { stage: "prod" })` in a development stage, as Outputs: the
  * `initialAccessToken` and the `repository` of the production client. Without that row, the off
  * attributes, with `deploymentType: "production"`.
  *
- * `IdentityHub.Client.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when the
- * row is missing, and a development stage before the first deploy to main has none. This read runs
- * when the plan resolves it, with the State service of the running stack and its `get`, so it never
- * creates or upgrades a store. The store revives each secret as `Redacted`, as it does for every
- * read.
+ * `IdentityBroker.Client.ref` is not enough: Alchemy fails the plan with `InvalidReferenceError` when
+ * the row is missing, and a development stage before the first deploy to main has none. This read
+ * runs when the plan resolves it, with the State service of the running stack and its `get`, so it
+ * never creates or upgrades a store. The store revives each secret as `Redacted`, as it does for
+ * every read.
  */
 const read = (id: string, options: { readonly stage: string }) =>
   Output.fromEffect(
@@ -638,8 +655,8 @@ const read = (id: string, options: { readonly stage: string }) =>
       const { attr } = yield* Schema.decodeUnknownEffect(SavedRow)(row).pipe(
         Effect.catchCause(() =>
           Effect.die(
-            new IdentityHubClientFailed({
-              reason: `the row ${id} of stage ${options.stage} is not an IdentityHub.Client`,
+            new IdentityBrokerClientFailed({
+              reason: `the row ${id} of stage ${options.stage} is not an IdentityBroker.Client`,
             }),
           ),
         ),
@@ -658,13 +675,13 @@ const SavedKey = Schema.Struct({
 });
 
 /**
- * A key of a hub on the stack layer, as a redacted Output, for the hub's secret binding and for
- * `IdentityHub.Client`'s `key`. `id` is the key's resource id, the author's name for it, so a stack
- * can make several. In `options.stage`, the stage that deploys the hub, the key is an
+ * A key of a broker on the stack layer, as a redacted Output, for the broker's secret binding and
+ * for `IdentityBroker.Client`'s `key`. `id` is the key's resource id, the author's name for it, so a
+ * stack can make several. In `options.stage`, the stage that deploys the broker, the key is an
  * `Alchemy.Random` at the stack's root, made once and kept in state; the stack's providers need
  * Random's provider (`Convex.providers()` and `Cloudflare.providers()` hold one). Every other stage
- * reads that row from the state store, as `IdentityHub.Client.read` does, so it never creates the
- * key; before the hub's stage ran, there is no row and no key (`undefined`).
+ * reads that row from the state store, as `IdentityBroker.Client.read` does, so it never creates the
+ * key; before the broker's stage ran, there is no row and no key (`undefined`).
  */
 export const registrationKey = (id: string, options: { readonly stage: string }) =>
   Effect.gen(function* () {
@@ -684,7 +701,7 @@ export const registrationKey = (id: string, options: { readonly stage: string })
         const saved = yield* Schema.decodeUnknownEffect(SavedKey)(row).pipe(
           Effect.catchCause(() =>
             Effect.die(
-              new IdentityHubClientFailed({
+              new IdentityBrokerClientFailed({
                 reason: `the row ${id} of stage ${options.stage} is not an Alchemy.Random`,
               }),
             ),
@@ -696,10 +713,10 @@ export const registrationKey = (id: string, options: { readonly stage: string })
   });
 
 /**
- * The three values that the app's deployment gets, such as `IDENTITY_HUB_ISSUER`,
- * `IDENTITY_HUB_CLIENT_ID`, and `IDENTITY_HUB_CLIENT_SECRET`, as Outputs: the client's values when
- * `status` is `on`, else the off values, so that a suspended client gives guest sign-in and keeps
- * its values in state.
+ * The three values that the app's deployment gets, such as `IDENTITY_BROKER_ISSUER`,
+ * `IDENTITY_BROKER_CLIENT_ID`, and `IDENTITY_BROKER_CLIENT_SECRET`, as Outputs: the client's values
+ * when `status` is `on`, else the off values, so that a suspended client gives guest sign-in and
+ * keeps its values in state.
  */
 const variables = (client: Client) =>
   Output.map(Output.of(client), (attributes) =>
@@ -717,41 +734,43 @@ const variables = (client: Client) =>
   );
 
 export type Client = Resource<
-  "IdentityHub.Client",
+  "IdentityBroker.Client",
   ClientProps,
   ClientAttributes,
   never,
   Providers
 >;
-export const Client = Resource<Client>("IdentityHub.Client", { aliases: [OLD_TYPE] })({
+export const Client = Resource<Client>("IdentityBroker.Client", {
+  aliases: [OLD_TYPE, OLDER_TYPE],
+})({
   read,
   variables,
 });
 
 export const ClientProvider = () =>
   Provider.succeed(Client, {
-    // Always an update, so that each deploy reaches the hub. No attribute is stable, so a push
+    // Always an update, so that each deploy reaches the broker. No attribute is stable, so a push
     // reads the values that this run ended with. The same values cause no other push.
     diff: ({ news }) =>
       Effect.succeed(isResolved(news) ? ({ action: "update" } as const) : undefined),
 
     read: ({ output }) => Effect.succeed(output),
 
-    // Only a client of the same hub (its issuer), app name, return address set, type, and
+    // Only a client of the same broker (its issuer), app name, return address set, type, and
     // connector set is renewed. A saved row without this version's shape stops the run with a
     // fixed message.
     reconcile: Effect.fn(function* ({ news, output }) {
-      // A bad prop is a mistake of the stack, not of the hub: the run fails, with no request.
+      // A bad prop is a mistake of the stack, not of the broker: the run fails, with no request.
       const stack = yield* Stack;
       const app = news.app ?? defaultApp(stack.name);
       if (app === undefined) {
-        return yield* new IdentityHubClientFailed({
+        return yield* new IdentityBrokerClientFailed({
           reason: `the stack ${stack.name} is not named owner/repo or owner/repo/<path>, so set app`,
         });
       }
       if (app.length > MAX_APP_LENGTH) {
-        return yield* new IdentityHubClientFailed({
-          reason: `the app name ${app} is over ${MAX_APP_LENGTH} characters, the hub's limit, so set a shorter app`,
+        return yield* new IdentityBrokerClientFailed({
+          reason: `the app name ${app} is over ${MAX_APP_LENGTH} characters, the broker's limit, so set a shorter app`,
         });
       }
       const enrollment: Enrollment = {
@@ -764,7 +783,7 @@ export const ClientProvider = () =>
         enrollment.connectors.length === 0 ||
         !enrollment.connectors.every((name) => CONNECTOR_NAME.test(name))
       ) {
-        return yield* new IdentityHubClientFailed({
+        return yield* new IdentityBrokerClientFailed({
           reason: `${where(enrollment)} needs connectors: one or more names of [a-z0-9-]{1,64}`,
         });
       }
@@ -773,7 +792,7 @@ export const ClientProvider = () =>
         enrollment.redirectUris.length > MAX_REDIRECT_URIS ||
         !enrollment.redirectUris.every((uri) => URL.canParse(uri))
       ) {
-        return yield* new IdentityHubClientFailed({
+        return yield* new IdentityBrokerClientFailed({
           reason: `${app} needs redirectUris: one to ${MAX_REDIRECT_URIS} absolute URLs`,
         });
       }
@@ -785,7 +804,7 @@ export const ClientProvider = () =>
               `the saved attributes of ${where(enrollment)} cannot be read by this version`,
             );
       const renewed =
-        saved?.issuer === news.hub.issuer &&
+        saved?.issuer === news.broker.issuer &&
         saved.app === app &&
         sameSet(saved.redirectUris, enrollment.redirectUris) &&
         saved.deploymentType === news.deploymentType &&
@@ -794,7 +813,7 @@ export const ClientProvider = () =>
           : undefined;
       const client = renewed ?? (yield* newClient(news, enrollment));
       if (news.required === true && client.status !== "on") {
-        return yield* new IdentityHubClientFailed({
+        return yield* new IdentityBrokerClientFailed({
           reason: `${where(enrollment)} is required and has no working client (${client.status}). The warning above names the reason`,
         });
       }
@@ -808,22 +827,22 @@ export const ClientProvider = () =>
         ? Effect.void
         : Effect.gen(function* () {
             const { status } = yield* send(
-              "The identity hub",
+              "The identity broker",
               output.registrationClientUri,
               Redacted.value(output.registrationAccessToken),
               { method: "DELETE" },
             );
             // 401: the client is gone already.
             if (status !== 204 && status !== 401) {
-              return yield* new IdentityHubClientFailed({
-                reason: `The identity hub answered HTTP ${status}`,
+              return yield* new IdentityBrokerClientFailed({
+                reason: `The identity broker answered HTTP ${status}`,
               });
             }
           }).pipe(
             // The row can be of an earlier version's shape, so the line names only the client id.
-            Effect.catchTag("IdentityHubClientFailed", (error) =>
+            Effect.catchTag("IdentityBrokerClientFailed", (error) =>
               Effect.logWarning(
-                `IdentityHub.Client: the client ${output.clientId} stays on the hub until its removal date: ${error.reason}.`,
+                `IdentityBroker.Client: the client ${output.clientId} stays on the broker until its removal date: ${error.reason}.`,
               ),
             ),
           ),

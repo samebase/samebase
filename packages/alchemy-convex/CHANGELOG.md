@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.46.0
+
+- Breaking: "hub" becomes "broker", the one name of the identity broker. The old names are gone:
+
+  | Old                                     | New                                           |
+  | --------------------------------------- | --------------------------------------------- |
+  | `@samebase/alchemy-convex/identity-hub` | `@samebase/alchemy-convex/identity-broker`    |
+  | `IdentityHub` (module)                  | `IdentityBroker`                              |
+  | type `Hub`                              | `BrokerEndpoint`                              |
+  | prop `hub` of `Client`                  | `broker`                                      |
+  | error tag `IdentityHubClientFailed`     | `IdentityBrokerClientFailed`                  |
+  | resource type `IdentityHub.Client`      | `IdentityBroker.Client`                       |
+  | log prefix `IdentityHub.Client:`        | `IdentityBroker.Client:`                      |
+  | off client ID and secret `no-hub`       | `broker-disabled` (`IdentityBroker.DISABLED`) |
+
+- To upgrade, change the import path and the prop `hub` to `broker`. A saved row of type
+  `IdentityHub.Client` or `IdentityHub.SharedClient` is the same client: the next deploy updates it
+  in place, with no new registration, and saves it as `IdentityBroker.Client`. `Client.read` reads a
+  row of each type. An app that compares its client ID with `no-hub` compares it with
+  `IdentityBroker.DISABLED` too, because the next deploy writes the new value to a deployment
+  without a client. The store version does not change.
+
 ## 0.45.0
 
 - Takes `@samebase/alchemy-kit` 0.7.0. `alchemy-convex stack-comment` lists, under each Worker, its

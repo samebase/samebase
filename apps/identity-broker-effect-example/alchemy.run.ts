@@ -13,7 +13,7 @@
 //   Worker deploys with the client's values.
 // - Every other stage reads the preview key from the state of `prod` and registers a preview
 //   client, which the hub removes 14 days after its last sign-in or renewal. A stage that runs
-//   before `prod` made the keys has no key: its client gives the off values (`no-hub`), and the
+//   before `prod` made the keys has no key: its client gives the off values (`broker-disabled`), and the
 //   page says that sign-in is not configured until the stage deploys again.
 // - Every later run renews the client on the hub with the client's own token.
 //
@@ -28,7 +28,7 @@
 // EXAMPLE_HUB_GOOGLE_CLIENT_ID, EXAMPLE_HUB_GOOGLE_CLIENT_SECRET and IDENTITY_BROKER_KEYS.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Convex from "@samebase/alchemy-convex";
-import * as IdentityHub from "@samebase/alchemy-convex/identity-hub";
+import * as IdentityBroker from "@samebase/alchemy-convex/identity-broker";
 import * as Alchemy from "alchemy";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -39,7 +39,7 @@ import Site from "./src/worker.ts";
 export default Alchemy.Stack(
   "samebase/samebase/apps/identity-broker-effect-example",
   {
-    // Convex.providers() holds IdentityHub.Client's provider; both collections hold Random's.
+    // Convex.providers() holds IdentityBroker.Client's provider; both collections hold Random's.
     providers: Layer.mergeAll(Cloudflare.providers(), Convex.providers()),
     state: Convex.withRunRecord(Convex.state()),
   },
@@ -57,10 +57,10 @@ export default Alchemy.Stack(
     // credentials can read both: they are not a wall against such a run.
     yield* hub.bind("RegistrationKeys", {
       env: {
-        EXAMPLE_HUB_PRODUCTION_KEY: yield* IdentityHub.registrationKey(HUB_KEYS.production, {
+        EXAMPLE_HUB_PRODUCTION_KEY: yield* IdentityBroker.registrationKey(HUB_KEYS.production, {
           stage: "prod",
         }),
-        EXAMPLE_HUB_PREVIEW_KEY: yield* IdentityHub.registrationKey(HUB_KEYS.preview, {
+        EXAMPLE_HUB_PREVIEW_KEY: yield* IdentityBroker.registrationKey(HUB_KEYS.preview, {
           stage: "prod",
         }),
       },
