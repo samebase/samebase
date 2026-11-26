@@ -57,18 +57,19 @@ export const hubSettings = <
     readonly connectors: ReadonlyArray<Connector>;
     readonly keys?: KeySecret;
   } & Omit<HubSettings<NoInfer<R>>, "connectors" | "keys">,
-) =>
-  Layer.mergeAll(
+) => {
+  // @ts-expect-error `R` holds the services of each connector's secrets, by its default.
+  const connectors: ReadonlyArray<ConnectorSpec<R>> = options.connectors;
+  // @ts-expect-error `R` holds the services of `keys`, by its default.
+  const keys: Secret<R> = options.keys ?? defaultKeys;
+  return Layer.mergeAll(
     Layer.unwrap(
       Effect.gen(function* () {
         yield* parseIssuer(options.issuer).pipe(Effect.orDie);
         yield* checkConnectors(options.connectors).pipe(Effect.orDie);
         return HubConfig.layer({
           issuer: options.issuer,
-          connectors: yield* Effect.forEach(
-            options.connectors as ReadonlyArray<ConnectorSpec<R>>,
-            readConnector,
-          ),
+          connectors: yield* Effect.forEach(connectors, readConnector),
           service: options.service,
         }).pipe(Layer.orDie);
       }),
@@ -76,8 +77,7 @@ export const hubSettings = <
     SignInPage.layer(options.signInPage),
     Layer.effect(
       Keys,
-      Effect.map((options.keys ?? defaultKeys) as Secret<R>, (keys) =>
-        Keys.of({ read: () => keys }),
-      ),
+      Effect.map(keys, (read) => Keys.of({ read: () => read })),
     ),
   );
+};

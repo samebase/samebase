@@ -577,10 +577,7 @@ export const makeConnections = Effect.fnUntraced(function* <
   Connection extends ConnectionSpec<unknown>,
 >(specs: ReadonlyArray<Connection>) {
   yield* checkProviders(specs);
-  return connectionsPart(
-    yield* Effect.forEach(
-      specs as ReadonlyArray<ConnectionSpec<SecretServices<Connection>>>,
-      readProvider,
-    ),
-  );
+  // @ts-expect-error `SecretServices<Connection>` is the services of each spec's secrets.
+  const typed: ReadonlyArray<ConnectionSpec<SecretServices<Connection>>> = specs;
+  return connectionsPart(yield* Effect.forEach(typed, readProvider));
 });
