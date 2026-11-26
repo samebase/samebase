@@ -1,9 +1,9 @@
 // The one table catalog of a broker: the core's tables (src/rules/tables.ts), each layer's, with
-// each layer's fields and indexes added to the card, and the connections part's
-// (src/connections/tables.ts). The adapters, the hosts and the Convex schema
+// each layer's fields and indexes added to the card, and the integrations part's
+// (src/integrations/tables.ts). The adapters, the hosts and the Convex schema
 // read this declaration; the core's rules read only their own part through their `Tx`.
 import { Schema } from "effect";
-import { connectionTables } from "../connections/tables.ts";
+import { connectionTables } from "../integrations/tables.ts";
 import * as github from "../layers/github/tables.ts";
 import * as stack from "../layers/stack/tables.ts";
 import { cardFields, cardIndexes, coreTables } from "../rules/tables.ts";

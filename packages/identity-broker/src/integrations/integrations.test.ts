@@ -1,4 +1,4 @@
-// The connections part over HTTP, ported from the Convex broker's resources.test.ts: a client gets
+// The integrations part over HTTP, ported from the Convex broker's resources.test.ts: a client gets
 // a user's Convex, Cloudflare or GitHub token through the broker, against fake providers at the
 // providers' real endpoints. The broker is pass-through: the client holds the provider's tokens, and
 // the broker keeps none. openid-client stands in for the client where the wire matters.
@@ -12,7 +12,7 @@ import {
   callback,
   cloudflare,
   connect,
-  connectionsBroker,
+  integrationsBroker,
   convex,
   convexToken,
   github,
@@ -21,17 +21,17 @@ import {
   refresh,
   revoke,
   tokenRequest,
-  type ConnectionsBroker,
+  type IntegrationsBroker,
 } from "./testing.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const testClient = (h: ConnectionsBroker) => ({ ...h.client, redirectUri: REDIRECT });
-const requests = (h: ConnectionsBroker) => h.memory.db.contents().connectionRequests;
+const testClient = (h: IntegrationsBroker) => ({ ...h.client, redirectUri: REDIRECT });
+const requests = (h: IntegrationsBroker) => h.memory.db.contents().connectionRequests;
 /** Whether any row of any table of the broker holds `token`. */
-const holds = (h: ConnectionsBroker, token: string) =>
+const holds = (h: IntegrationsBroker, token: string) =>
   JSON.stringify(h.memory.db.contents()).includes(token);
 
 const opt = Schema.optionalKey;
@@ -48,7 +48,7 @@ const tokensOf = async (response: Response) =>
   Schema.decodeUnknownSync(Answer)(await response.json());
 
 /** A Cloudflare connection: the provider's refresh token, which the client now holds. */
-const connectCloudflare = async (h: ConnectionsBroker) => {
+const connectCloudflare = async (h: IntegrationsBroker) => {
   const response = await connect(h, testClient(h), cloudflare.resource);
   expect(response.status).toBe(200);
   return (await tokensOf(response)).refresh_token ?? "";
@@ -56,7 +56,7 @@ const connectCloudflare = async (h: ConnectionsBroker) => {
 
 /** openid-client's fetch, through the broker. */
 const brokerFetch =
-  (h: ConnectionsBroker): client.CustomFetch =>
+  (h: IntegrationsBroker): client.CustomFetch =>
   async (url, options) =>
     h.fetchBroker(url, {
       method: options.method,
@@ -67,7 +67,7 @@ const brokerFetch =
     });
 
 test("openid-client gets a Convex token through discovery, resource and PKCE", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const config = await client.discovery(
     new URL(h.issuer),
     h.client.clientId,
@@ -118,10 +118,12 @@ test("openid-client gets a Convex token through discovery, resource and PKCE", a
 });
 
 test("a GitHub App user token and GitHub's own refresh token go to the client, and the broker keeps neither", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const { start } = await authorize(h, testClient(h), github.resource);
   const upstream = new URL(start.headers.get("location") ?? "");
-  expect(upstream.searchParams.get("redirect_uri")).toBe(`${h.issuer}/connections/github/callback`);
+  expect(upstream.searchParams.get("redirect_uri")).toBe(
+    `${h.issuer}/integrations/github/callback`,
+  );
   expect(upstream.searchParams.has("scope")).toBe(false);
   // The account picker, so a user can connect another account than the browser's.
   expect(upstream.searchParams.get("prompt")).toBe("select_account");
@@ -139,7 +141,7 @@ test("a GitHub App user token and GitHub's own refresh token go to the client, a
 });
 
 test("a GitHub callback without its issuer is refused before the provider is called (RFC 9207)", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   const { start } = await authorize(h, testClient(h), github.resource);
   const { returned } = await callback(h, start);
@@ -150,7 +152,7 @@ test("a GitHub callback without its issuer is refused before the provider is cal
 });
 
 test("openid-client refreshes the provider's rotating token through the broker, and the broker keeps none", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const initial = await connectCloudflare(h);
   const config = new client.Configuration(
     { issuer: h.issuer, token_endpoint: `${h.issuer}/token` },
@@ -182,7 +184,7 @@ test("openid-client refreshes the provider's rotating token through the broker, 
 });
 
 test("GitHub's HTTP 200 refusal answers 400 invalid_grant; a provider failure answers 503", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   const token = (await tokensOf(await connect(h, testClient(h), github.resource))).refresh_token;
   const spent = await refresh(h, testClient(h), "github-refresh-0", github.resource);
@@ -207,7 +209,7 @@ test("GitHub's HTTP 200 refusal answers 400 invalid_grant; a provider failure an
 });
 
 test("a provider that does not answer in 30 s answers 503, never invalid_grant", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   const token = await connectCloudflare(h);
   const timeout = AbortSignal.timeout.bind(AbortSignal);
@@ -235,7 +237,7 @@ test("a provider that does not answer in 30 s answers 503, never invalid_grant",
 });
 
 test("a stopped client, or one whose card does not offer the provider, cannot refresh", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const token = await connectCloudflare(h);
   const calls = h.providers.calls.length;
   await h.editCard(h.client.clientId, (card) => ({ ...card, gates: ["test:gate"] }));
@@ -250,7 +252,7 @@ test("a stopped client, or one whose card does not offer the provider, cannot re
 });
 
 test("a refresh needs one configured resource and no scope, before the provider is called", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const token = await connectCloudflare(h);
   const calls = h.providers.calls.length;
   const answers = [];
@@ -276,7 +278,7 @@ test("a refresh needs one configured resource and no scope, before the provider 
 });
 
 test("RFC 7009: the broker forwards a Cloudflare revocation with its own client authentication", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   const token = await connectCloudflare(h);
   const calls = h.providers.calls.length;
@@ -318,7 +320,7 @@ test("RFC 7009: the broker forwards a Cloudflare revocation with its own client 
 });
 
 test("a revocation at a provider with no revocation endpoint answers 200 and calls nothing", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const token = (await tokensOf(await connect(h, testClient(h), github.resource))).refresh_token;
   const calls = h.providers.calls.length;
   const revoked = await revoke(h, testClient(h), token ?? "", github.resource);
@@ -327,7 +329,7 @@ test("a revocation at a provider with no revocation endpoint answers 200 and cal
 });
 
 test("a connection, a refresh, a refused refresh and a revocation each log one broker_event line", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
   const initial = await connectCloudflare(h);
@@ -363,14 +365,14 @@ describe("/authorize refuses on a page, before any provider call", () => {
     ["a scope for a resource with no scopes", { scope: "read" }, 400],
     ["a response_mode other than query", { response_mode: "form_post" }, 400],
   ])("%s", async (_name, extra, status) => {
-    const h = await connectionsBroker();
+    const h = await integrationsBroker();
     const { start } = await authorize(h, testClient(h), convex.resource, extra);
     expect([start.status, start.headers.get("location")]).toEqual([status, null]);
     expect(requests(h)).toEqual([]);
   });
 
   test("two resources (RFC 8707 section 2: the broker serves one per request)", async () => {
-    const h = await connectionsBroker();
+    const h = await integrationsBroker();
     const params = new URLSearchParams({
       client_id: h.client.clientId,
       redirect_uri: REDIRECT,
@@ -385,7 +387,7 @@ describe("/authorize refuses on a page, before any provider call", () => {
   });
 
   test("a provider that is not on the card, or a stopped card", async () => {
-    const h = await connectionsBroker({ connections: ["convex"] });
+    const h = await integrationsBroker({ connections: ["convex"] });
     expect((await authorize(h, testClient(h), cloudflare.resource)).start.status).toBe(403);
     await h.editCard(h.client.clientId, (card) => ({ ...card, gates: ["test:gate"] }));
     await h.setStop("test:gate", true);
@@ -395,7 +397,7 @@ describe("/authorize refuses on a page, before any provider call", () => {
 });
 
 test("the provider gets the broker's scopes and offline_access, whatever the client asks", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const { start } = await authorize(h, testClient(h), cloudflare.resource, { scope: "openid" });
   const upstream = new URL(start.headers.get("location") ?? "");
   expect(upstream.searchParams.get("scope")).toBe("workers-scripts.read offline_access");
@@ -403,7 +405,7 @@ test("the provider gets the broker's scopes and offline_access, whatever the cli
 });
 
 test("the callback needs the browser that started it, and cannot be replayed", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const { start } = await authorize(h, testClient(h), convex.resource);
   const upstream = new URL(start.headers.get("location") ?? "");
   const url = new URL(upstream.searchParams.get("redirect_uri") ?? "");
@@ -417,7 +419,7 @@ test("the callback needs the browser that started it, and cannot be replayed", a
 });
 
 test("a code exchange checks resource, return address, client and PKCE without spending the code", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const { start, verifier } = await authorize(h, testClient(h), cloudflare.resource);
   const code = (await callback(h, start)).returned.searchParams.get("code") ?? "";
   const answers = [];
@@ -463,7 +465,7 @@ test("a code exchange checks resource, return address, client and PKCE without s
 });
 
 test("a replayed code is refused (RFC 6749 section 4.1.2)", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const { start, verifier } = await authorize(h, testClient(h), cloudflare.resource);
   const code = (await callback(h, start)).returned.searchParams.get("code") ?? "";
   expect((await redeem(h, testClient(h), code, verifier)).status).toBe(200);
@@ -472,7 +474,7 @@ test("a replayed code is refused (RFC 6749 section 4.1.2)", async () => {
 });
 
 test("a code expires after 60 s, and expires_in counts the time spent returning to the app", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   const { start, verifier } = await authorize(h, testClient(h), cloudflare.resource);
   const code = (await callback(h, start)).returned.searchParams.get("code") ?? "";
   h.clock.advance(20_000);
@@ -486,7 +488,7 @@ test("a code expires after 60 s, and expires_in counts the time spent returning 
 });
 
 test("a stop that lands while the provider answers sends the user back with no code", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   await h.editCard(h.client.clientId, (card) => ({ ...card, gates: ["test:gate"] }));
   const { start } = await authorize(h, testClient(h), cloudflare.resource);
   const stopping = h.fetch.plan({
@@ -506,7 +508,7 @@ test("a stop that lands while the provider answers sends the user back with no c
 });
 
 test("connection use renews a temporary card: the code exchange and an admitted refresh", async () => {
-  const h = await connectionsBroker();
+  const h = await integrationsBroker();
   await h.editCard(h.client.clientId, (card) => ({ ...card, removeAt: h.clock.now() + 1_000 }));
   const removeAt = () => h.memory.db.contents().clients.map((card) => card.removeAt);
   const token = await connectCloudflare(h);
@@ -517,7 +519,7 @@ test("connection use renews a temporary card: the code exchange and an admitted 
 });
 
 test("with the part mounted, a sign-in code still redeems at the core", async () => {
-  const h = await connectionsBroker({ connectors: (fetch) => [fakeUpstream(fetch).connector] });
+  const h = await integrationsBroker({ connectors: (fetch) => [fakeUpstream(fetch).connector] });
   const { verifier, challenge } = await pkce();
   const params = new URLSearchParams({
     client_id: h.client.clientId,
@@ -535,7 +537,7 @@ test("with the part mounted, a sign-in code still redeems at the core", async ()
   expect(tokens.id_token).toBeDefined();
 });
 
-test("a broker without the part mounts no connection route and offers no refresh grant", async () => {
+test("a broker without the part mounts no integration route and offers no refresh grant", async () => {
   const h = await createBroker();
   const metadata = Schema.decodeUnknownSync(
     Schema.Struct({
@@ -547,7 +549,7 @@ test("a broker without the part mounts no connection route and offers no refresh
   expect(metadata.revocation_endpoint).toBeUndefined();
   const routes = await Promise.all([
     h.fetchBroker(`${h.issuer}/revoke`, { method: "POST" }),
-    h.fetchBroker(`${h.issuer}/connections/cloudflare/callback?state=s`),
+    h.fetchBroker(`${h.issuer}/integrations/cloudflare/callback?state=s`),
   ]);
   expect(routes.map((response) => response.status)).toEqual([404, 404]);
 });

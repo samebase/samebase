@@ -418,7 +418,7 @@ export async function createBroker(
     config?: Partial<BrokerConfigInput>;
     seed?: number;
     registration?: Registration;
-    /** An optional part of the broker, such as connections. */
+    /** An optional part of the broker, such as integrations. */
     part?: Part;
     fetch?: StubFetch;
     signInPage?: SignInPageFunction;
@@ -462,7 +462,7 @@ export async function createBroker(
     redirectUri: string;
     otherRedirectUris?: string[];
     connectors?: string[];
-    /** The connection providers of the card; none without it. */
+    /** The integrations of the card; none without it. */
     connections?: string[];
     tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
     gates?: string[];

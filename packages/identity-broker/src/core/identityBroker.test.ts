@@ -12,8 +12,8 @@ import {
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { afterEach, expect, expectTypeOf, test, vi } from "vite-plus/test";
-import * as Connections from "../connections/index.ts";
-import type { ConnectionSpec } from "../connections/providers.ts";
+import * as Integrations from "../integrations/index.ts";
+import type { IntegrationSpec } from "../integrations/providers.ts";
 import { makeMemoryStore } from "../hosts/memory.ts";
 import * as Connectors from "./connectors/index.ts";
 import type { ConnectorSpec, Secret } from "./connectors/types.ts";
@@ -40,7 +40,7 @@ const google = {
   clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
 };
 
-type Options = Parameters<typeof identityBroker<ConnectorSpec, ConnectionSpec, Secret>>[0];
+type Options = Parameters<typeof identityBroker<ConnectorSpec, IntegrationSpec, Secret>>[0];
 
 const start = (options: Options, values: Record<string, string>) => {
   const asked: string[] = [];
@@ -292,8 +292,8 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
-  const connection = (name: string, resource: string) =>
-    Connections.oauth({
+  const integration = (name: string, resource: string) =>
+    Integrations.oauth({
       name,
       resource,
       issuer: "https://api.example.com",
@@ -422,46 +422,46 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
       expected: 'The connectors of provider "google" have two issuers',
     },
     {
-      config: { ...options, connections: [] },
-      expected: "The connections setting names no provider",
+      config: { ...options, integrations: [] },
+      expected: "The integrations setting names no provider",
     },
     {
-      config: { ...options, connections: [connection("MyAPI", "https://api.example.com")] },
-      expected: 'Connection "MyAPI" has a name that is not [a-z0-9-]+',
+      config: { ...options, integrations: [integration("MyAPI", "https://api.example.com")] },
+      expected: 'Integration "MyAPI" has a name that is not [a-z0-9-]+',
     },
     {
       config: {
         ...options,
-        connections: [
-          connection("api", "https://api.example.com"),
-          connection("api", "https://api.example.com/v2"),
+        integrations: [
+          integration("api", "https://api.example.com"),
+          integration("api", "https://api.example.com/v2"),
         ],
       },
-      expected: "Connection names must be unique",
+      expected: "Integration names must be unique",
     },
     {
       config: {
         ...options,
-        connections: [
-          connection("api", "https://api.example.com"),
-          connection("api-two", "https://api.example.com"),
+        integrations: [
+          integration("api", "https://api.example.com"),
+          integration("api-two", "https://api.example.com"),
         ],
       },
-      expected: "Connection resources must be unique",
+      expected: "Integration resources must be unique",
     },
     {
-      config: { ...options, connections: [connection("api", "https://api.example.com/#v1")] },
-      expected: 'Connection "api" has a resource that is not an absolute URI with no fragment',
+      config: { ...options, integrations: [integration("api", "https://api.example.com/#v1")] },
+      expected: 'Integration "api" has a resource that is not an absolute URI with no fragment',
     },
     {
-      config: { ...options, connections: [connection("api", "https://api.example.com/v1 test")] },
-      expected: 'Connection "api" has a resource that is not an absolute URI with no fragment',
+      config: { ...options, integrations: [integration("api", "https://api.example.com/v1 test")] },
+      expected: 'Integration "api" has a resource that is not an absolute URI with no fragment',
     },
     {
       config: {
         ...options,
-        connections: [
-          Connections.oauth({
+        integrations: [
+          Integrations.oauth({
             name: "api",
             resource: "https://api.example.com",
             issuer: "https://api.example.com",
@@ -472,7 +472,7 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
           }),
         ],
       },
-      expected: 'Connection "api" authorizationEndpoint must be https',
+      expected: 'Integration "api" authorizationEndpoint must be https',
     },
   ];
   // Empty Config values prove static checks fail before any Config secret is read.
@@ -491,7 +491,7 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
   expect(reads).toBe(0);
 });
 
-test("a lazy broker of any OIDC and OAuth connector and connection names them in order in discovery", async () => {
+test("a lazy broker of any OIDC and OAuth connector and integration names them in order in discovery", async () => {
   const secret = Effect.succeed(Redacted.make("secret"));
   const started = start(
     {
@@ -514,8 +514,8 @@ test("a lazy broker of any OIDC and OAuth connector and connection names them in
           clientSecret: google.clientSecret,
         }),
       ],
-      connections: [
-        Connections.oauth({
+      integrations: [
+        Integrations.oauth({
           name: "api",
           resource: "https://api.example.com",
           issuer: "https://api.example.com",

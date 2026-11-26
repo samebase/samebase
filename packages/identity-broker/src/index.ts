@@ -2,7 +2,7 @@
 // use.
 
 // The broker: `makeHandle(registration, part)` gives `(request) => Effect<Response>`, where `part` is
-// what `makeConnections` of `./connections` gives, or absent.
+// what `makeIntegrations` of `./integrations` gives, or absent.
 export {
   brokerLogger,
   makeHandle,

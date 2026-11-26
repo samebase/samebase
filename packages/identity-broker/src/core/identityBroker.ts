@@ -1,8 +1,8 @@
 import { Cause, Config, ConfigProvider, Context, Effect, Exit, Layer, Logger } from "effect";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { checkProviders, type ConnectionSpec } from "../connections/providers.ts";
-import { makeConnections } from "../connections/routes.ts";
+import { checkProviders, type IntegrationSpec } from "../integrations/providers.ts";
+import { makeIntegrations } from "../integrations/routes.ts";
 import { defaultKeys, brokerSettings, type BrokerSettings } from "../hosts/settings.ts";
 import { Store } from "../store/Store.ts";
 import type { ConnectorSpec, Secret, SecretServices } from "./connectors/types.ts";
@@ -35,8 +35,8 @@ type Broker<R = never> = {
 };
 
 type BrokerOptions<R> = BrokerSettings<R> & {
-  /** Without it the broker mounts no connection route. */
-  readonly connections?: ReadonlyArray<ConnectionSpec<R>>;
+  /** Without it the broker mounts no integration route. */
+  readonly integrations?: ReadonlyArray<IntegrationSpec<R>>;
 } & (
     | { readonly registration: Registration & { readonly public?: never } }
     | {
@@ -78,13 +78,13 @@ const startFailureReason = (
   return "defect";
 };
 
-const buildRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
+const buildRuntime = <E, R, Integration extends IntegrationSpec<unknown> = never>(
   settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
   registration: Registration,
-  connections?: ReadonlyArray<Connection>,
-): Effect.Effect<Broker, unknown, Store | R | SecretServices<Connection>> =>
+  integrations?: ReadonlyArray<Integration>,
+): Effect.Effect<Broker, unknown, Store | R | SecretServices<Integration>> =>
   Effect.gen(function* () {
-    const part = connections === undefined ? undefined : yield* makeConnections(connections);
+    const part = integrations === undefined ? undefined : yield* makeIntegrations(integrations);
     const handle = makeHandle(registration, part);
     // Only the broker's own services: a lazy build runs in request 1, whose request and scope must
     // not reach a later request.
@@ -112,25 +112,25 @@ const buildRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
  * The broker over its settings, built when this runs. The scope of `settings` closes when the build
  * ends, so `settings` must hold no finalizer that a request needs.
  */
-export const brokerRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
+export const brokerRuntime = <E, R, Integration extends IntegrationSpec<unknown> = never>(
   settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
   registration: Registration,
-  connections?: ReadonlyArray<Connection>,
-): Effect.Effect<Broker, never, Store | R | SecretServices<Connection>> =>
-  buildRuntime(settings, registration, connections).pipe(cannotStart);
+  integrations?: ReadonlyArray<Integration>,
+): Effect.Effect<Broker, never, Store | R | SecretServices<Integration>> =>
+  buildRuntime(settings, registration, integrations).pipe(cannotStart);
 
 /** Reads each `Config` secret now; with another kind of secret the broker builds at the first request. */
 export const identityBroker = <
   // Each spec infers its own services: one `R` in `ReadonlyArray<ConnectorSpec<R>>` would make
   // TypeScript pick the services of one spec and refuse the others.
   Connector extends ConnectorSpec<unknown>,
-  Connection extends ConnectionSpec<unknown> = never,
+  Integration extends IntegrationSpec<unknown> = never,
   Keys extends Secret<unknown> = never,
-  R = SecretServices<Connector | Connection> | Effect.Services<Keys>,
+  R = SecretServices<Connector | Integration> | Effect.Services<Keys>,
 >(
   options: {
     readonly connectors: ReadonlyArray<Connector>;
-    readonly connections?: ReadonlyArray<Connection>;
+    readonly integrations?: ReadonlyArray<Integration>;
     readonly keys?: Keys;
   } & BrokerOptions<NoInfer<R>>,
 ): Effect.Effect<Broker<R>, never, Store> =>
@@ -138,8 +138,8 @@ export const identityBroker = <
     yield* Effect.gen(function* () {
       yield* parseIssuer(options.issuer);
       yield* checkConnectors(options.connectors);
-      if (options.connections !== undefined) {
-        yield* checkProviders(options.connections);
+      if (options.integrations !== undefined) {
+        yield* checkProviders(options.integrations);
       }
     }).pipe(cannotStart);
     const build = buildRuntime(
@@ -151,9 +151,9 @@ export const identityBroker = <
         ...(options.signInPage === undefined ? {} : { signInPage: options.signInPage }),
       }),
       options.registration,
-      options.connections,
+      options.integrations,
     );
-    const specs = [...options.connectors, ...(options.connections ?? [])];
+    const specs = [...options.connectors, ...(options.integrations ?? [])];
     const secrets = [
       options.keys ?? defaultKeys,
       ...specs.flatMap((spec) => [spec.clientId, spec.clientSecret]),

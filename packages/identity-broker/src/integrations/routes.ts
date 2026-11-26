@@ -1,5 +1,5 @@
-// The connections part over HTTP: `/authorize` with `resource` (RFC 8707), the provider's callback
-// at `/connections/<name>/callback`, both grants of `/token` for a connection, and `/revoke`
+// The integrations part over HTTP: `/authorize` with `resource` (RFC 8707), the provider's callback
+// at `/integrations/<name>/callback`, both grants of `/token` for a connection, and `/revoke`
 // (RFC 7009). The wire protocol is the Convex broker's (src/client/resources.ts of
 // 0.34.0), except that the broker is pass-through: the client gets and holds the provider's own
 // refresh token, and the broker forwards a refresh or a revocation with its provider client
@@ -31,8 +31,8 @@ import { command } from "./commands.ts";
 import {
   checkProviders,
   readProvider,
-  type ConnectionProvider,
-  type ConnectionSpec,
+  type Integration,
+  type IntegrationSpec,
 } from "./providers.ts";
 import type { Refused } from "./rules.ts";
 import type { ProviderTokens } from "./tables.ts";
@@ -101,8 +101,8 @@ const clientArgs = Effect.fnUntraced(function* (client: {
   };
 });
 
-/** The connections part over `providers`, for the router (src/core/router.ts). */
-export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): Part => {
+/** The integrations part over `providers`, for the router (src/core/router.ts). */
+export const integrationsPart = (providers: ReadonlyArray<Integration>): Part => {
   const byResource = new Map(providers.map((provider) => [provider.resource, provider]));
   /** What every step knows of the broker now: its providers and the live gates of this request. */
   const brokerNow = Effect.gen(function* () {
@@ -114,8 +114,8 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       liveGates: yield* (yield* LiveGates).read,
     };
   });
-  const callbackUrl = (broker: BrokerConfigShape, provider: ConnectionProvider) =>
-    `${broker.issuer}/connections/${provider.name}/callback`;
+  const callbackUrl = (broker: BrokerConfigShape, provider: Integration) =>
+    `${broker.issuer}/integrations/${provider.name}/callback`;
   /** The provider's name in a `broker_event` line. */
   const nameOf = (resource: string) => byResource.get(resource)?.name ?? null;
   /** The `broker_event` line of a refusal that a step's rule returned. */
@@ -217,7 +217,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
   });
 
   /** The provider's redirect back to the broker, for one provider. */
-  const callback = (provider: ConnectionProvider) =>
+  const callback = (provider: Integration) =>
     Effect.fn("connections.callback")(function* (request: Request) {
       const broker = yield* BrokerConfig;
       const { fetch } = yield* Fetch;
@@ -542,9 +542,9 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     { method: "POST", path: "/revoke", match: "exact", template: "/revoke", handler: revoke },
     ...providers.map((provider): Route<LiveGates> => ({
       method: "GET",
-      path: `/connections/${provider.name}/callback`,
+      path: `/integrations/${provider.name}/callback`,
       match: "exact",
-      template: `/connections/${provider.name}/callback`,
+      template: `/integrations/${provider.name}/callback`,
       handler: callback(provider),
     })),
   ];
@@ -570,14 +570,14 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
 };
 
 /**
- * The connections part of a broker over `specs`, checked before any secret is read, then with each
+ * The integrations part of a broker over `specs`, checked before any secret is read, then with each
  * provider's secrets read. A host reads it where it reads its connectors' secrets.
  */
-export const makeConnections = Effect.fnUntraced(function* <
-  Connection extends ConnectionSpec<unknown>,
->(specs: ReadonlyArray<Connection>) {
+export const makeIntegrations = Effect.fnUntraced(function* <Spec extends IntegrationSpec<unknown>>(
+  specs: ReadonlyArray<Spec>,
+) {
   yield* checkProviders(specs);
-  // @ts-expect-error `SecretServices<Connection>` is the services of each spec's secrets.
-  const typed: ReadonlyArray<ConnectionSpec<SecretServices<Connection>>> = specs;
-  return connectionsPart(yield* Effect.forEach(typed, readProvider));
+  // @ts-expect-error `SecretServices<Spec>` is the services of each spec's secrets.
+  const typed: ReadonlyArray<IntegrationSpec<SecretServices<Spec>>> = specs;
+  return integrationsPart(yield* Effect.forEach(typed, readProvider));
 });

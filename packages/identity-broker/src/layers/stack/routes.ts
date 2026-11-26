@@ -32,10 +32,10 @@ export type Key = {
   /** Clients of this key may be permanent: production clients, with no removal date. */
   readonly permanent?: boolean;
   /**
-   * The connection providers that clients of this key may use, such as `["cloudflare"]`: their
-   * cards' `connections`. None without it.
+   * The integrations that clients of this key may use, such as `["cloudflare"]`: their cards'
+   * `connections`. None without it.
    */
-  readonly connections?: ReadonlyArray<string>;
+  readonly integrations?: ReadonlyArray<string>;
 };
 
 /** A client's name: its stage, such as `prod` or `pr-12`. It is part of the card's `ref`. */
@@ -55,7 +55,8 @@ const configuredKeys = (settings: Readonly<Record<string, Key>>) =>
             {
               name,
               permanent: entry.permanent === true,
-              connections: [...new Set(entry.connections ?? [])].sort(),
+              // The key's `integrations` setting is stored as the card field `connections`.
+              connections: [...new Set(entry.integrations ?? [])].sort(),
               digest: yield* sha256HexEffect(Redacted.value(value.value)),
             },
           ];

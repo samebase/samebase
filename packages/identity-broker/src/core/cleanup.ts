@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { command as connectionsCommand } from "../connections/commands.ts";
+import { command as integrationsCommand } from "../integrations/commands.ts";
 import { command } from "./command.ts";
 
 /** How long the cleanup keeps an audit row of an issued id_token. */
@@ -12,7 +12,7 @@ const SIGN_IN_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
  */
 export const cleanupBatch = (cutoff: number) =>
   Effect.gen(function* () {
-    if ((yield* connectionsCommand("connections.cleanup", { now: cutoff })).more) {
+    if ((yield* integrationsCommand("connections.cleanup", { now: cutoff })).more) {
       return true;
     }
     return (yield* command("lifecycle.cleanup", {

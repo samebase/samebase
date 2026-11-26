@@ -1,10 +1,10 @@
-// The connections part's commands and their typed runner. Each reads cards with the core's view
-// `Tx` and the part's tables with `ConnectionsTx`.
+// The integrations part's commands and their typed runner. Each reads cards with the core's view
+// `Tx` and the part's tables with `IntegrationsTx`.
 import { runCommand } from "../core/command.ts";
 import { command as define, type Command } from "../rules/commands.ts";
 import type { Tx } from "../rules/tables.ts";
 import * as rules from "./rules.ts";
-import type { ConnectionsTx } from "./tables.ts";
+import type { IntegrationsTx } from "./tables.ts";
 
 const definitions = {
   "connections.create": define({
@@ -58,14 +58,14 @@ const definitions = {
 };
 
 type Definitions = typeof definitions;
-export type ConnectionsCommandName = keyof Definitions;
-type Args<N extends ConnectionsCommandName> = Definitions[N]["args"]["Type"];
-type Result<N extends ConnectionsCommandName> = Definitions[N]["result"]["Type"];
+export type IntegrationsCommandName = keyof Definitions;
+type Args<N extends IntegrationsCommandName> = Definitions[N]["args"]["Type"];
+type Result<N extends IntegrationsCommandName> = Definitions[N]["result"]["Type"];
 
-export const connectionsCommands: {
-  readonly [N in ConnectionsCommandName]: Command<Args<N>, Result<N>, Tx | ConnectionsTx>;
+export const integrationsCommands: {
+  readonly [N in IntegrationsCommandName]: Command<Args<N>, Result<N>, Tx | IntegrationsTx>;
 } = definitions;
 
-/** Runs one command of the connections part, once. */
-export const command = <N extends ConnectionsCommandName>(name: N, args: Args<N>) =>
-  runCommand(name, connectionsCommands[name], args);
+/** Runs one command of the integrations part, once. */
+export const command = <N extends IntegrationsCommandName>(name: N, args: Args<N>) =>
+  runCommand(name, integrationsCommands[name], args);

@@ -326,13 +326,13 @@ describe("the client's own record (RFC 7592)", () => {
     ]);
   });
 
-  test("a card's connections are its key's, at the registration and at each read", async () => {
+  test("a card's connections are its key's integrations, at the registration and at each read", async () => {
     const h = await createStackBroker({
-      preview: { ...keyOf(PREVIEW_KEY), connections: ["github", "cloudflare", "github"] },
+      preview: { ...keyOf(PREVIEW_KEY), integrations: ["github", "cloudflare", "github"] },
     });
     const client = await registered(h, PREVIEW_KEY);
     expect(h.cards().map((card) => card.connections)).toEqual([["cloudflare", "github"]]);
-    h.keys["preview"] = { ...keyOf(PREVIEW_KEY), connections: ["convex"] };
+    h.keys["preview"] = { ...keyOf(PREVIEW_KEY), integrations: ["convex"] };
     expect(
       (await manage(h, "GET", client.client_id, client.registration_access_token)).status,
     ).toBe(200);

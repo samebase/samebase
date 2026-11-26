@@ -1,11 +1,11 @@
-// The broker's calls to a connection provider: the authorization URL with the broker's own state and
+// The broker's calls to an integration's provider: the authorization URL with the broker's own state and
 // PKCE (RFC 7636), the code exchange (RFC 6749 section 4.1.3), and the refresh (section 6) and
 // revocation (RFC 7009) that the broker forwards with its own client authentication. Every request
 // goes through the core's `Fetch`. Errors propagate; the handler decides what they mean.
 import { Redacted } from "effect";
 import * as oauth from "oauth4webapi";
 import { oauthFetch, type FetchFunction } from "../core/connectors/upstream.ts";
-import type { ConnectionProvider } from "./providers.ts";
+import type { Integration } from "./providers.ts";
 import type { ProviderTokens } from "./tables.ts";
 
 /** A refresh or a revocation that the broker forwards ends after this time. */
@@ -14,7 +14,7 @@ const FORWARD_TIMEOUT_MS = 30 * 1000;
 type Tokens = typeof ProviderTokens.Type;
 
 /** The authorization URL for `provider`, with fresh state and PKCE pair of the broker's own. */
-export async function startConnection(provider: ConnectionProvider, callbackUrl: string) {
+export async function startConnection(provider: Integration, callbackUrl: string) {
   const url = new URL(provider.server.authorization_endpoint);
   const state = oauth.generateRandomState();
   const codeVerifier = oauth.generateRandomCodeVerifier();
@@ -33,7 +33,7 @@ export async function startConnection(provider: ConnectionProvider, callbackUrl:
   return { url: url.toString(), state, codeVerifier };
 }
 
-const clientAuthentication = (provider: ConnectionProvider) =>
+const clientAuthentication = (provider: Integration) =>
   provider.tokenEndpointAuthMethod === "client_secret_basic"
     ? oauth.ClientSecretBasic(Redacted.value(provider.clientSecret))
     : oauth.ClientSecretPost(Redacted.value(provider.clientSecret));
@@ -55,7 +55,7 @@ const tokensOf = (
  * 5.1).
  */
 export async function finishConnection(args: {
-  provider: ConnectionProvider;
+  provider: Integration;
   callbackUrl: string;
   currentUrl: URL;
   state: string;
@@ -92,7 +92,7 @@ export async function finishConnection(args: {
  * the broker does not keep.
  */
 export async function refreshConnection(args: {
-  provider: ConnectionProvider;
+  provider: Integration;
   refreshToken: string;
   fetch: FetchFunction;
   now: number;
@@ -122,7 +122,7 @@ export async function refreshConnection(args: {
 
 /** The provider's revocation of a token of the client (RFC 7009 section 2.1). */
 export async function revokeConnection(args: {
-  provider: ConnectionProvider;
+  provider: Integration;
   token: string;
   tokenTypeHint: string | null;
   fetch: FetchFunction;

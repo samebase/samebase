@@ -16,7 +16,7 @@
     "src/alchemy/index.ts",
     "src/client/index.ts",
     "src/core/connectors/index.ts",
-    "src/connections/index.ts",
+    "src/integrations/index.ts",
     "src/layers/index.ts",
     "src/moderation/server.ts",
     "src/moderation/api.ts",

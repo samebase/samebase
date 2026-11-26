@@ -126,7 +126,7 @@ export const computedFields = Effect.fnUntraced(function* (args: {
   });
   return {
     connectors: args.client.enrollment.filter((name) => allowed.includes(name)),
-    // The public broker offers no connection provider.
+    // The public broker offers no integration.
     connections: [],
     gates: [repositoryStop(repositoryIdOf(args.tenantId)), ownerStop(args.currentOwnerId)],
     confirm: exemption === "shown",
