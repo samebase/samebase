@@ -1,8 +1,8 @@
-// The hub under the OpenID conformance suite: the real Worker runtime and its SQLite Durable Object
-// (src/hosts/cloudflare/hub.ts), in workerd through `alchemy dev`, with local settings. Only the
-// settings differ from the deployed hub: the issuer, the two connectors, and the sign-in service.
+// The broker under the OpenID conformance suite: the real Worker runtime and its SQLite Durable Object
+// (src/hosts/cloudflare/broker.ts), in workerd through `alchemy dev`, with local settings. Only the
+// settings differ from the deployed broker: the issuer, the two connectors, and the sign-in service.
 //
-// - `fake`: the fake OpenID provider of the OP plans (fake-upstream.ts). The OP plans test the hub
+// - `fake`: the fake OpenID provider of the OP plans (fake-upstream.ts). The OP plans test the broker
 //   as a provider, not its upstream.
 // - `suite`: the suite itself as an OpenID provider, for the RP plan, which tests this connector.
 //
@@ -12,14 +12,14 @@
 // fake provider, which are on loopback here.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect, Layer, Redacted } from "effect";
-import { hubRuntime } from "../../src/core/hub.ts";
-import { HubConfig, Keys, SignInPage } from "../../src/core/services.ts";
-import { DurableObjectStore } from "../../src/hosts/cloudflare/hub.ts";
+import { brokerRuntime } from "../../src/core/identityBroker.ts";
+import { BrokerConfig, Keys, SignInPage } from "../../src/core/services.ts";
+import { DurableObjectStore } from "../../src/hosts/cloudflare/broker.ts";
 import { github } from "../../src/layers/github/routes.ts";
 import {
   FAKE_CONNECTOR_CLIENT_ID,
   FAKE_ISSUER,
-  HUB_PORT,
+  BROKER_PORT,
   ISSUER,
   SUITE_CONNECTOR_CLIENT_ID,
   SUITE_RP_ISSUER,
@@ -27,7 +27,7 @@ import {
 
 const settings = Layer.unwrap(
   Effect.gen(function* () {
-    return HubConfig.layer({
+    return BrokerConfig.layer({
       issuer: ISSUER,
       connectors: [
         {
@@ -56,7 +56,7 @@ const settings = Layer.unwrap(
         },
       ],
       service: {
-        name: "Conformance hub",
+        name: "Conformance broker",
         terms: `${ISSUER}/terms`,
         privacy: `${ISSUER}/privacy`,
       },
@@ -64,15 +64,15 @@ const settings = Layer.unwrap(
   }),
 ).pipe(Layer.merge(SignInPage.layer()), Layer.merge(Keys.layer));
 
-export default class ConformanceHub extends Cloudflare.Worker<ConformanceHub>()(
-  "Hub",
+export default class ConformanceBroker extends Cloudflare.Worker<ConformanceBroker>()(
+  "Broker",
   {
-    name: "ibe-conformance-hub",
+    name: "ibe-conformance-broker",
     main: import.meta.url,
     compatibility: { date: "2026-10-26" },
-    dev: { host: "127.0.0.1", port: HUB_PORT, strictPort: true },
+    dev: { host: "127.0.0.1", port: BROKER_PORT, strictPort: true },
   },
   // The suite registers no client at `POST /register`: the fixture (admin.ts) writes each card
   // with its own allow-list.
-  hubRuntime(settings, github([])).pipe(Effect.provide(DurableObjectStore)),
+  brokerRuntime(settings, github([])).pipe(Effect.provide(DurableObjectStore)),
 ) {}

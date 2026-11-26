@@ -1,7 +1,7 @@
 import { Clock, Effect, Option, Schema } from "effect";
 import { base64url, createLocalJWKSet, errors as joseErrors, jwtVerify } from "jose";
 import { invalidToken, json, noToken } from "../../core/responses.ts";
-import { Fetch, HubConfig, Random } from "../../core/services.ts";
+import { Fetch, BrokerConfig, Random } from "../../core/services.ts";
 import { sha256HexEffect } from "../../core/subject.ts";
 import {
   insufficientScope,
@@ -15,7 +15,7 @@ import {
 import { command, GithubSettings } from "./settings.ts";
 
 // `POST /register`, the client registration endpoint of RFC 7591: a new client for one deployment
-// of an app, with no account at the hub. The endpoint is protected (RFC 7591 appendix A.1.2): the
+// of an app, with no account at the broker. The endpoint is protected (RFC 7591 appendix A.1.2): the
 // Bearer is the initial access token, and it is the proof. A GitHub Actions run proves its
 // repository with GitHub's OIDC token; a development server proves the app with the app's own
 // initial access token, which a production run got. The settings' allow-list and the grants decide
@@ -47,7 +47,7 @@ const VerificationFile = Schema.Struct({
 
 /**
  * A JSON refusal: `error`, with a fixed sentence as `error_description` that never quotes the
- * request. `reason`, `allowed`, and `window` are the hub's own members.
+ * request. `reason`, `allowed`, and `window` are the broker's own members.
  */
 function refusal(
   status: number,
@@ -110,13 +110,13 @@ type Facts = {
 };
 
 /**
- * Writes one console line, `hub_event` and a JSON object, for the answer to a registration: the
+ * Writes one console line, `broker_event` and a JSON object, for the answer to a registration: the
  * repository, the app, the deployment type, and the reason of a refusal. A log stream of the
  * host's deployment carries it out. It never names a token or a return address.
  */
 const logRegistration = (facts: Facts, reason: string | null) =>
   console.info(
-    `hub_event ${JSON.stringify({
+    `broker_event ${JSON.stringify({
       event: reason === null ? "registration" : "registration_refused",
       repository: facts.repository,
       app: facts.app,
@@ -126,7 +126,7 @@ const logRegistration = (facts: Facts, reason: string | null) =>
   );
 
 /**
- * The answer to a registration with `facts`, after its `hub_event` line. A refusal's reason is the
+ * The answer to a registration with `facts`, after its `broker_event` line. A refusal's reason is the
  * rule that a 403 names, else its error. The body of a 201 holds the client's secrets, so it is not
  * read.
  */
@@ -162,9 +162,9 @@ const GitHubKeySet = Schema.Struct({
 const isGitHubKeySet = Schema.is(GitHubKeySet);
 
 /**
- * `aud` is one string, the hub's issuer: jose alone also accepts a list that holds the audience,
- * and it has already checked the value. So a token that a deploy made for one hub is no use at
- * another hub, also when that hub's operator replays it.
+ * `aud` is one string, the broker's issuer: jose alone also accepts a list that holds the audience,
+ * and it has already checked the value. So a token that a deploy made for one broker is no use at
+ * another broker, also when that broker's operator replays it.
  */
 const GitHubClaims = Schema.Struct({
   aud: Schema.String,
@@ -263,7 +263,7 @@ const readRun = Effect.fn("readRun")(function* (token: string, audience: string)
       new GitHubUnavailable({ message: error instanceof Error ? error.message : "unknown" }),
   }).pipe(
     Effect.catchTag("GitHubUnavailable", (error) =>
-      Effect.logWarning("hub_clients:github_unavailable", { message: error.message }).pipe(
+      Effect.logWarning("broker_clients:github_unavailable", { message: error.message }).pipe(
         Effect.as(refusal(502, "github_unavailable", "GitHub's signing keys cannot be read.")),
       ),
     ),
@@ -284,7 +284,7 @@ const readRun = Effect.fn("readRun")(function* (token: string, audience: string)
  * The client metadata of the request (`readClientMetadata`), or the answer that refuses it, with
  * the app's name from a `software_id` whose full form must name `repositoryId`, the proof's
  * repository. Each https origin of the return addresses must serve the verification file; a
- * loopback address only the initial access token can prove, as the hub cannot reach a development
+ * loopback address only the initial access token can prove, as the broker cannot reach a development
  * server. The enrollment it names is checked by `github.admit`.
  */
 const readBody = Effect.fnUntraced(function* (request: Request, repositoryId: string) {
@@ -398,9 +398,9 @@ const verifyHosts = Effect.fn("verifyHosts")(function* (
 const appIdOf = (repositoryId: string, app: string) =>
   Effect.map(sha256HexEffect(app), (hash) => `gh-${repositoryId}-${hash.slice(0, 32)}`);
 
-/** What the handlers read of the hub's settings and the layer's. */
-const hubSettings = Effect.gen(function* () {
-  const config = yield* HubConfig;
+/** What the handlers read of the broker's settings and the layer's. */
+const brokerSettings = Effect.gen(function* () {
+  const config = yield* BrokerConfig;
   const { allowList, paused } = yield* GithubSettings;
   return {
     issuer: config.issuer,
@@ -410,27 +410,27 @@ const hubSettings = Effect.gen(function* () {
     settings: { allowList, configured: config.configured },
   };
 });
-type HubSettings = Effect.Success<typeof hubSettings>;
+type BrokerSettings = Effect.Success<typeof brokerSettings>;
 
 /**
- * The enrollment of an admitted request, or the answer that refuses it: a paused hub, a stopped
+ * The enrollment of an admitted request, or the answer that refuses it: a paused broker, a stopped
  * repository or owner, a set that is empty or outside what the allow-list and the repository's
  * grants give (with the names allowed), or a limit. It counts an admitted request in the
  * repository and owner windows; a refused one counts nowhere.
  */
 const admit = Effect.fn("admit")(function* (
-  hub: HubSettings,
+  broker: BrokerSettings,
   facts: Facts,
   connectors: readonly string[] | undefined,
 ) {
-  if (hub.paused) {
+  if (broker.paused) {
     return denied("paused");
   }
   const admission = yield* command("github.admit", {
     githubRepositoryDatabaseId: facts.repositoryId,
     githubOwnerId: facts.ownerId,
     ...(connectors === undefined ? {} : { connectors }),
-    ...hub.settings,
+    ...broker.settings,
   });
   if (admission.ok) {
     return admission.enrollment;
@@ -452,11 +452,11 @@ const admit = Effect.fn("admit")(function* (
  * initial access token, which a development server of the team uses for its development client.
  */
 const registerRun = Effect.fn("registerRun")(function* (
-  hub: HubSettings,
+  broker: BrokerSettings,
   request: Request,
   githubToken: string,
 ) {
-  const run = yield* readRun(githubToken, hub.issuer);
+  const run = yield* readRun(githubToken, broker.issuer);
   if (run instanceof Response) {
     return run;
   }
@@ -479,7 +479,7 @@ const registerRun = Effect.fn("registerRun")(function* (
     app: body.app,
     deploymentType: run.stage === "prod" ? "production" : "preview",
   };
-  const enrollment = yield* admit(hub, facts, body.connectors);
+  const enrollment = yield* admit(broker, facts, body.connectors);
   if (enrollment instanceof Response) {
     return yield* logged(facts, enrollment);
   }
@@ -516,7 +516,7 @@ const registerRun = Effect.fn("registerRun")(function* (
     redirectUris: body.redirectUris,
     softwareVersion: body.softwareVersion,
     tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
-    ...hub.settings,
+    ...broker.settings,
   });
   if (!created.ok) {
     // A grant or the owner's right went away while the handler checked the hosts.
@@ -532,7 +532,7 @@ const registerRun = Effect.fn("registerRun")(function* (
     facts,
     json(
       {
-        ...newClient(hub, credentials, {
+        ...newClient(broker, credentials, {
           createdAt: created.createdAt,
           redirectUris: body.redirectUris,
           clientName: created.clientName,
@@ -556,7 +556,7 @@ const registerRun = Effect.fn("registerRun")(function* (
  * return address needs no verification file; an https one needs it, as for a run.
  */
 const registerDevelopment = Effect.fn("registerDevelopment")(function* (
-  hub: HubSettings,
+  broker: BrokerSettings,
   request: Request,
   initialAccessToken: string,
 ) {
@@ -581,7 +581,7 @@ const registerDevelopment = Effect.fn("registerDevelopment")(function* (
     app: token.app,
     deploymentType: "development",
   };
-  const enrollment = yield* admit(hub, facts, body.connectors);
+  const enrollment = yield* admit(broker, facts, body.connectors);
   if (enrollment instanceof Response) {
     return yield* logged(facts, enrollment);
   }
@@ -609,7 +609,7 @@ const registerDevelopment = Effect.fn("registerDevelopment")(function* (
     redirectUris: body.redirectUris,
     softwareVersion: body.softwareVersion,
     tokenEndpointAuthMethod: body.tokenEndpointAuthMethod,
-    ...hub.settings,
+    ...broker.settings,
   });
   if (!created.ok) {
     if (created.reason === "invalid_connectors") {
@@ -623,7 +623,7 @@ const registerDevelopment = Effect.fn("registerDevelopment")(function* (
   return yield* logged(
     facts,
     json(
-      newClient(hub, credentials, {
+      newClient(broker, credentials, {
         createdAt: created.createdAt,
         redirectUris: body.redirectUris,
         clientName: created.clientName,
@@ -641,12 +641,12 @@ const registerDevelopment = Effect.fn("registerDevelopment")(function* (
  * `POST <prefix>/register`. The Bearer is the proof, told apart by its shape: two dots is a JWT,
  * GitHub's OIDC token of a GitHub Actions run, which is checked as such and refused when any check
  * fails; no dot is the app's initial access token, for a development client. Any other shape is a
- * bad token. The hub builds the whole client, so the body chooses only a name inside the
+ * bad token. The broker builds the whole client, so the body chooses only a name inside the
  * repository's own namespace and a return address. The client's secret and registration access
  * token stay in this program's memory: they go to the caller and to nothing else.
  */
 export const registerClient = Effect.fn("registerClient")(function* (request: Request) {
-  const hub = yield* hubSettings;
+  const broker = yield* brokerSettings;
   const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") ?? "")?.[1];
   if (bearer === undefined) {
     return noToken("register");
@@ -654,10 +654,10 @@ export const registerClient = Effect.fn("registerClient")(function* (request: Re
   // A JWT has three parts; the initial access token is base64url, which has no dot.
   const parts = bearer.split(".").length;
   if (parts === 3) {
-    return yield* registerRun(hub, request, bearer);
+    return yield* registerRun(broker, request, bearer);
   }
   if (parts === 1) {
-    return yield* registerDevelopment(hub, request, bearer);
+    return yield* registerDevelopment(broker, request, bearer);
   }
   return invalidToken();
 });

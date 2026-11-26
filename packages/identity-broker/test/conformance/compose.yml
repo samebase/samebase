@@ -1,8 +1,8 @@
 # The OpenID Foundation conformance suite, local only: its dev profile supplies a test user, so it
 # needs no Google or GitLab login. `localhost.emobix.co.uk` resolves to 127.0.0.1 in public DNS; in
-# the containers it is the Docker host, where the hub's TLS proxy listens (run.ts). run.ts starts
+# the containers it is the Docker host, where the broker's TLS proxy listens (run.ts). run.ts starts
 # and stops it; `IBE_CONFORMANCE_TLS` is the run's work folder, whose certificate nginx serves, so
-# the hub in workerd trusts the suite with the same one certificate. The image's own certificate
+# the broker in workerd trusts the suite with the same one certificate. The image's own certificate
 # names only `localhost`.
 name: ibe-conformance
 services:

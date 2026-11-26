@@ -2,7 +2,7 @@
 // (completed plus an unused code), exchange (request deleted, code marked used), and the replay that
 // removes the used code. Every step reads the client's card in its own transaction and refuses when
 // the card is gone, a stop or a gate that is not live refuses it, the request's return address left
-// it, or the connector is not in the request's stored set, the card's set and the hub's configured
+// it, or the connector is not in the request's stored set, the card's set and the broker's configured
 // set.
 import { Effect } from "effect";
 import { unique, type Row } from "../store/Tx.ts";
@@ -38,7 +38,7 @@ const returnOf = (request: AuthRequest): Return => ({
 
 /**
  * The request's return address when the client's card holds it in this step, else undefined: the
- * hub never sends the user to an address that is not on the card.
+ * broker never sends the user to an address that is not on the card.
  */
 const returnTo = Effect.fnUntraced(function* (request: AuthRequest) {
   const card = yield* cardRow(request.clientId);
@@ -300,7 +300,7 @@ export const complete = Effect.fnUntraced(function* (
 });
 
 /**
- * Deletes a request the user abandoned at the hub, such as a failed provider sign-in. Answers its
+ * Deletes a request the user abandoned at the broker, such as a failed provider sign-in. Answers its
  * return address when the card holds it in this step, else null.
  */
 export const abandon = Effect.fnUntraced(function* (args: typeof RequestIdArgs.Type) {
@@ -386,7 +386,7 @@ export const exchangeCode = Effect.fnUntraced(function* (
     scope: request.scope,
     ...(request.nonce === undefined ? {} : { nonce: request.nonce }),
     identity: request.identity,
-    // The hub keeps no session, so it knows when the user logged in only when it asked the
+    // The broker keeps no session, so it knows when the user logged in only when it asked the
     // provider for that time: a forced login or a `max_age`. Otherwise the token names no time.
     ...(request.freshLogin || request.maxAge !== undefined ? { authTime: request.authTime } : {}),
   };

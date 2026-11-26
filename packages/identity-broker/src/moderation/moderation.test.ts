@@ -1,4 +1,4 @@
-// The moderation API through the typed client that its declaration gives (api.ts), against a hub
+// The moderation API through the typed client that its declaration gives (api.ts), against a broker
 // on the memory host: what a dashboard does with it, and what reaches the cards.
 import { Config, Effect, Redacted } from "effect";
 import { FetchHttpClient, HttpClientRequest } from "effect/http";
@@ -9,12 +9,12 @@ import { repositoryStop } from "../layers/github/clients.ts";
 import { github } from "../layers/github/routes.ts";
 import {
   createClient,
-  createHub,
+  createGithubBroker,
   OWNER_ID,
   PRODUCTION_CALLBACK,
   REPOSITORY_ID,
-  type Hub,
-} from "../layers/github/testing/hub.ts";
+  type GithubBroker,
+} from "../layers/github/testing/broker.ts";
 import {
   InvalidToken,
   ModerationApi,
@@ -30,15 +30,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** A hub whose moderation key is `KEY`, and the GitHub layer's allow-list `allowList`. */
-const moderatedHub = (allowList: Parameters<typeof createHub>[0] = {}) =>
-  createHub({
+/** A broker whose moderation key is `KEY`, and the GitHub layer's allow-list `allowList`. */
+const moderatedBroker = (allowList: Parameters<typeof createGithubBroker>[0] = {}) =>
+  createGithubBroker({
     ...allowList,
     moderation: moderation({ key: Config.succeed(Redacted.make(KEY)) }),
   });
 
-/** The typed client of the declaration, with `key` as its Bearer token, over the hub's fetch. */
-const clientOf = (h: Hub, key = KEY) =>
+/** The typed client of the declaration, with `key` as its Bearer token, over the broker's fetch. */
+const clientOf = (h: GithubBroker, key = KEY) =>
   Effect.runPromise(
     HttpApiClient.make(ModerationApi, { baseUrl: h.issuer }).pipe(
       Effect.provide(
@@ -57,11 +57,11 @@ const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
 const failure = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.flip(effect));
 
 /** The card of `clientId` as the store holds it. */
-const cardOf = (h: Hub, clientId: string) =>
+const cardOf = (h: GithubBroker, clientId: string) =>
   h.rows().clients.find((card) => card.clientId === clientId);
 
 /** `/authorize` with `fake` named: `provider`, `page`, or the status of a refusal. */
-async function authorize(h: Hub, clientId: string) {
+async function authorize(h: GithubBroker, clientId: string) {
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
     client_id: clientId,
@@ -82,7 +82,7 @@ async function authorize(h: Hub, clientId: string) {
 
 test("every endpoint through the typed client", async () => {
   // An owner entry with no repository covers every repository of that owner.
-  const h = await moderatedHub({ allowList: [{ ownerId: OWNER_ID }] });
+  const h = await moderatedBroker({ allowList: [{ ownerId: OWNER_ID }] });
   const registered = await createClient(h);
   const { moderation: api } = await clientOf(h);
 
@@ -195,7 +195,7 @@ describe("the key, as a Bearer token of RFC 6750", () => {
   });
 
   test("a request with no token gets the challenge with no error code", async () => {
-    const h = await moderatedHub();
+    const h = await moderatedBroker();
     const at = `${h.issuer}/moderation/counts`;
     const unauthorized = {
       status: 401,
@@ -217,13 +217,13 @@ describe("the key, as a Bearer token of RFC 6750", () => {
       cache: "no-store",
       body: JSON.stringify({ error: "invalid_token", error_description: "The token is invalid." }),
     };
-    const h = await moderatedHub();
+    const h = await moderatedBroker();
     const wrong = await h.fetchBroker(`${h.issuer}/moderation/counts`, {
       headers: { Authorization: "Bearer wrong" },
     });
     expect(await seen(wrong)).toEqual(invalid);
 
-    const unset = await createHub({
+    const unset = await createGithubBroker({
       moderation: moderation({ key: Config.Redacted("UNSET_MODERATION_KEY") }),
     });
     const keyless = await unset.fetchBroker(`${unset.issuer}/moderation/counts`, {
@@ -233,7 +233,7 @@ describe("the key, as a Bearer token of RFC 6750", () => {
   });
 
   test("with the key, a body or a query that does not decode is invalid_request", async () => {
-    const h = await moderatedHub();
+    const h = await moderatedBroker();
     const headers = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
     const blocks = `${h.issuer}/moderation/blocks`;
     const invalid = (what: string) => ({
@@ -261,8 +261,8 @@ describe("the key, as a Bearer token of RFC 6750", () => {
     expect(anonymous.status).toBe(401);
   });
 
-  test("a hub without the part has no moderation route", async () => {
-    const h = await createHub();
+  test("a broker without the part has no moderation route", async () => {
+    const h = await createGithubBroker();
     const response = await h.fetchBroker(`${h.issuer}/moderation/counts`, {
       headers: { Authorization: `Bearer ${KEY}` },
     });
@@ -272,7 +272,7 @@ describe("the key, as a Bearer token of RFC 6750", () => {
 
 describe("a change reaches the cards in its own step", () => {
   test("a block stops a sign-in at once, and its removal lets it pass", async () => {
-    const h = await moderatedHub();
+    const h = await moderatedBroker();
     const { client_id } = await createClient(h);
     const { moderation: api } = await clientOf(h);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -298,7 +298,7 @@ describe("a change reaches the cards in its own step", () => {
 
   test("a grant and an exemption rewrite the cards they cover", async () => {
     // No allow-list entry: only a grant opens a connector, and it can come before the first client.
-    const h = await moderatedHub({ allowList: [] });
+    const h = await moderatedBroker({ allowList: [] });
     const { moderation: api } = await clientOf(h);
     const grant = (on: boolean) =>
       run(
@@ -354,10 +354,10 @@ describe("a change reaches the cards in its own step", () => {
   });
 });
 
-test("a paused hub refuses every sign-in step of the layer's clients", async () => {
-  const pausedHub = (paused: boolean) =>
+test("a paused broker refuses every sign-in step of the layer's clients", async () => {
+  const pausedBroker = (paused: boolean) =>
     createBroker({ registration: github([], { paused: Config.succeed(paused) }) });
-  const signIn = async (h: Awaited<ReturnType<typeof pausedHub>>) => {
+  const signIn = async (h: Awaited<ReturnType<typeof pausedBroker>>) => {
     const { clientId } = await h.registerClient({
       appName: "app",
       redirectUri: PRODUCTION_CALLBACK,
@@ -375,7 +375,7 @@ test("a paused hub refuses every sign-in step of the layer's clients", async () 
     return (await h.fetchBroker(url)).status;
   };
   vi.spyOn(console, "info").mockImplementation(() => undefined);
-  // The hub's page that offers its connectors.
-  expect(await signIn(await pausedHub(false))).toBe(200);
-  expect(await signIn(await pausedHub(true))).toBe(403);
+  // The broker's page that offers its connectors.
+  expect(await signIn(await pausedBroker(false))).toBe(200);
+  expect(await signIn(await pausedBroker(true))).toBe(403);
 });

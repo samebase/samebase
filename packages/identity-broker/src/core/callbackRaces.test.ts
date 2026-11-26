@@ -15,11 +15,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const REDIRECT_URI = "https://app.test/oauth/hub/callback";
+const REDIRECT_URI = "https://app.test/oauth/broker/callback";
 const AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 
 /**
- * A hub whose provider runs `during` while it holds its token answer: after the claim, before
+ * A broker whose provider runs `during` while it holds its token answer: after the claim, before
  * the completion. The card offers `connector` alone and shows no page.
  */
 async function heldSignIn(args: {
@@ -95,7 +95,8 @@ const redeem = (
 test("a held provider answer while the only connector leaves the card ends in the exact refusal", async () => {
   const { h, back, requestId } = await heldSignIn({
     connector: "other",
-    during: (hub, clientId) => hub.editCard(clientId, (card) => ({ ...card, connectors: [] })),
+    during: (broker, clientId) =>
+      broker.editCard(clientId, (card) => ({ ...card, connectors: [] })),
   });
   expect(back.status).toBe(302);
   const location = new URL(back.headers.get("location") ?? "");
@@ -175,7 +176,7 @@ test("a held provider answer across the request's expiry edge completes: expiry 
 test("a held provider answer that crosses the code's lifetime gives a code that is already expired", async () => {
   const { h, client, verifier, back } = await heldSignIn({
     connector: "fake",
-    during: (hub) => hub.clock.advance(60_000),
+    during: (broker) => broker.clock.advance(60_000),
   });
   const code = new URL(back.headers.get("location") ?? "").searchParams.get("code") ?? "";
   // The code's 60 seconds started at the callback's entry, and the provider used all of them.

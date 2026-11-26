@@ -11,13 +11,13 @@ import type { SignInPageFacts } from "./html.ts";
 import { readConnector } from "../hosts/settings.ts";
 import { google } from "./connectors/index.ts";
 import type { Route } from "./router.ts";
-import { HubConfig, type HubConfigInput } from "./services.ts";
+import { BrokerConfig, type BrokerConfigInput } from "./services.ts";
 import { sha256Hex } from "./subject.ts";
 import {
   createBroker,
   fakeOidcUpstream,
   fakeUpstream,
-  hubLogLine,
+  brokerLogLine,
   pkce,
   stubFetch,
   TEST_SERVICE,
@@ -25,7 +25,7 @@ import {
   type Broker,
 } from "./testing/harness.ts";
 
-const REDIRECT_URI = "https://app.test/oauth/hub/callback";
+const REDIRECT_URI = "https://app.test/oauth/broker/callback";
 
 // The JSON answers, decoded: a body of another shape fails the test.
 const Tokens = Schema.Struct({
@@ -151,26 +151,28 @@ async function signedInClaims(h: Broker, clientId: string, clientSecret: string,
 }
 
 describe("configuration", () => {
-  /** `HubConfig.make` run to its end: a refused configuration throws its `HubConfigError`. */
-  const makeHubConfig = (input: HubConfigInput) => Effect.runSync(HubConfig.make(input));
+  /** `BrokerConfig.make` run to its end: a refused configuration throws its `BrokerConfigError`. */
+  const makeBrokerConfig = (input: BrokerConfigInput) => Effect.runSync(BrokerConfig.make(input));
 
   test("the issuer is https, or http on a loopback host", () => {
     const { connector } = fakeUpstream(stubFetch());
     const config = { connectors: [connector], service: TEST_SERVICE };
-    expect(() => makeHubConfig({ ...config, issuer: "http://auth.test" })).toThrow("must be https");
-    expect(() => makeHubConfig({ ...config, issuer: "http://127.0.0.1:3211" })).not.toThrow();
+    expect(() => makeBrokerConfig({ ...config, issuer: "http://auth.test" })).toThrow(
+      "must be https",
+    );
+    expect(() => makeBrokerConfig({ ...config, issuer: "http://127.0.0.1:3211" })).not.toThrow();
   });
 
   test("a provider is [a-z0-9-]+, and its connectors share one issuer", () => {
     const { connector } = fakeUpstream(stubFetch());
     const config = { issuer: "https://auth.test", service: TEST_SERVICE };
     expect(() =>
-      makeHubConfig({ ...config, connectors: [{ ...connector, provider: "fake:x" }] }),
+      makeBrokerConfig({ ...config, connectors: [{ ...connector, provider: "fake:x" }] }),
     ).toThrow("has a provider that is not [a-z0-9-]+");
     const second = { ...connector, name: "other" };
-    expect(() => makeHubConfig({ ...config, connectors: [connector, second] })).not.toThrow();
+    expect(() => makeBrokerConfig({ ...config, connectors: [connector, second] })).not.toThrow();
     expect(() =>
-      makeHubConfig({
+      makeBrokerConfig({
         ...config,
         connectors: [connector, { ...second, issuer: "https://other.test" }],
       }),
@@ -200,7 +202,7 @@ describe("metadata", () => {
         // No API resources (design section 9 item 1).
         scopes_supported: ["openid", "email", "profile"],
         grant_types_supported: ["authorization_code"],
-        op_tos_uri: "https://hub.example.com/terms",
+        op_tos_uri: "https://broker.example.com/terms",
       });
       expect(metadata).not.toHaveProperty("revocation_endpoint");
       expect(metadata).not.toHaveProperty("registration_endpoint");
@@ -318,7 +320,7 @@ describe("clients", () => {
     await h.setStop("test:owner", true);
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
-    // Nobody has continued from a page: the refusal is a page of the hub, not a redirect.
+    // Nobody has continued from a page: the refusal is a page of the broker, not a redirect.
     const authorized = await h.fetchBroker(authorizeUrl(h, { clientId, challenge }));
     expect(authorized.status).toBe(403);
     expect(authorized.headers.get("location")).toBeNull();
@@ -326,7 +328,7 @@ describe("clients", () => {
     // The log line names the client and the card's reference, never a return address.
     expect(log.mock.calls).toEqual([
       [
-        `hub_event ${JSON.stringify({ event: "sign_in_refused", clientId, ref, connector: null, reason: "stopped" })}`,
+        `broker_event ${JSON.stringify({ event: "sign_in_refused", clientId, ref, connector: null, reason: "stopped" })}`,
       ],
     ]);
 
@@ -349,7 +351,7 @@ describe("clients", () => {
     expect(signedIn.status).toBe(200);
   });
 
-  test("a return address taken off the card while the user is at the provider gets the hub's page, not a redirect", async () => {
+  test("a return address taken off the card while the user is at the provider gets the broker's page, not a redirect", async () => {
     const h = await fakeBroker();
     const { clientId } = await h.registerClient({
       appName: "My app",
@@ -531,7 +533,7 @@ describe("authorization code flow with an OAuth connector", () => {
 
   test("a client with two addresses signs in on either, and a code is bound to the one it named", async () => {
     const h = await fakeBroker();
-    const connections = "https://app.test/auth/hub/callback";
+    const connections = "https://app.test/auth/broker/callback";
     const { clientId, clientSecret } = await h.registerClient({
       appName: "My app",
       redirectUri: REDIRECT_URI,
@@ -593,7 +595,7 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(refused.headers.get("location")).toBeNull();
   });
 
-  test("every refusal before the user continued is a page of the hub, never a redirect", async () => {
+  test("every refusal before the user continued is a page of the broker, never a redirect", async () => {
     const h = await fakeBroker();
     const { clientId } = await h.registerClient({ appName: "My app", redirectUri: REDIRECT_URI });
     const { challenge } = await pkce();
@@ -760,7 +762,7 @@ describe("authorization code flow with an OAuth connector", () => {
   }
 
   test("a fresh login completes only with an upstream auth_time inside the request, give or take 60 seconds", async () => {
-    // Every clock stands still: the provider's tokens, the hub's and the Store's.
+    // Every clock stands still: the provider's tokens, the broker's and the Store's.
     vi.useFakeTimers({ now: 1_800_000_000_500, toFake: ["Date"] });
     const { h, idp } = await oidcBroker();
     h.clock.set(1_800_000_000_500);
@@ -831,7 +833,7 @@ describe("authorization code flow with an OAuth connector", () => {
       const tokens = await exchange(h, { code, clientId, clientSecret, verifier: signIn.verifier });
       expect(tokens.status).toBe(200);
       const idToken = decodeJwt((await tokensOf(tokens)).id_token);
-      // Neither the callback's time nor the upstream's hour-old value: the hub cannot know it.
+      // Neither the callback's time nor the upstream's hour-old value: the broker cannot know it.
       expect(idToken.auth_time).toBeUndefined();
       expect(idToken.sub).toBe("idp:24400320");
     }
@@ -1129,8 +1131,8 @@ describe("authorization code flow with an OAuth connector", () => {
     // The host, the button, the privacy notice, the terms, and the attribution.
     expect(html.match(/<a /g)).toHaveLength(5);
     expect(html.match(/target="_blank"/g)).toHaveLength(4);
-    expect(html).toContain('<a href="https://hub.example.com/privacy"');
-    expect(html).toContain('<a href="https://hub.example.com/terms"');
+    expect(html).toContain('<a href="https://broker.example.com/privacy"');
+    expect(html).toContain('<a href="https://broker.example.com/terms"');
     expect(html).not.toContain("<script");
     expect(html).not.toContain(REDIRECT_URI);
     expect(html).not.toContain("Stranger");
@@ -1146,8 +1148,8 @@ describe("authorization code flow with an OAuth connector", () => {
   test("the page names the host of the validated return address, with its port", async () => {
     const h = await fakeBroker();
     const { challenge } = await pkce();
-    const redirectUri = "https://pr-12.stranger.test/auth/hub/callback";
-    const loopback = "http://localhost:5173/auth/hub/callback";
+    const redirectUri = "https://pr-12.stranger.test/auth/broker/callback";
+    const loopback = "http://localhost:5173/auth/broker/callback";
     const { clientId } = await h.registerClient({
       appName: "Stranger",
       redirectUri,
@@ -1343,7 +1345,7 @@ describe("authorization code flow with an OAuth connector", () => {
     }
   });
 
-  test("a hub's own page gets the facts, and the hub answers it with its own headers", async () => {
+  test("a broker's own page gets the facts, and the broker answers it with its own headers", async () => {
     const fetch = stubFetch();
     const { connector } = fakeUpstream(fetch);
     const facts: SignInPageFacts[] = [];
@@ -1384,10 +1386,14 @@ describe("authorization code flow with an OAuth connector", () => {
           },
         ],
         scopes: ["openid", "email", "profile"],
-        hub: { name: TEST_SERVICE.name, privacy: TEST_SERVICE.privacy, terms: TEST_SERVICE.terms },
+        broker: {
+          name: TEST_SERVICE.name,
+          privacy: TEST_SERVICE.privacy,
+          terms: TEST_SERVICE.terms,
+        },
       },
     ]);
-    // An error page stays the hub's own.
+    // An error page stays the broker's own.
     const unknown = await h.fetchBroker(authorizeUrl(h, { clientId: "cl_unknown", challenge }));
     expect(await unknown.text()).toContain("Unknown client");
   });
@@ -1486,7 +1492,7 @@ describe("handler rules at their edges", () => {
     }
   });
 
-  test("sends no one to the provider when a stop lands while the hub reads its discovery", async () => {
+  test("sends no one to the provider when a stop lands while the broker reads its discovery", async () => {
     const providerIssuer = "https://stop-during-discovery.test";
     const fetch = stubFetch();
     const { connector } = fakeUpstream(fetch);
@@ -1658,9 +1664,9 @@ describe("handler rules at their edges", () => {
     const response = await h.fetchBroker(`${h.issuer}/.well-known/jwks.json`);
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "server_error" });
-    expect(logged.mock.calls.map(([line]) => hubLogLine(line))).toEqual([
+    expect(logged.mock.calls.map(([line]) => brokerLogLine(line))).toEqual([
       {
-        message: "hub_error",
+        message: "broker_error",
         level: "ERROR",
         annotations: { route: "/.well-known/jwks.json", category: "defect" },
         spans: {},

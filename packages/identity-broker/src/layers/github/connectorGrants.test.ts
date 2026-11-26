@@ -1,4 +1,4 @@
-// The connector grants (RFC 137 decision 10) through the GitHub layer's cards: the hub's
+// The connector grants (RFC 137 decision 10) through the GitHub layer's cards: the broker's
 // administrator gives one connector to one repository while one owner owns it. The repository
 // here is not on the allow-list, so every connector it uses is a grant's. A grant reaches a card
 // when the layer writes the card: at its registration, its renewal (the RFC 7592 read), or the
@@ -7,9 +7,9 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { pkce, txnCookie } from "../../core/testing/harness.ts";
 import {
-  createHub as createGithubHub,
+  createGithubBroker,
   OWNER_ID,
-  postHubClient,
+  postBrokerClient,
   PRODUCTION_CALLBACK,
   pullRequestClaims,
   readNewClient,
@@ -17,9 +17,9 @@ import {
   REPOSITORY_ID,
   signToken,
   stubProviders,
-  type Hub,
+  type GithubBroker,
   type NewClient,
-} from "./testing/hub.ts";
+} from "./testing/broker.ts";
 import { setBlock, setExemption, setGrant } from "./testing/seeds.ts";
 
 afterEach(() => {
@@ -27,12 +27,12 @@ afterEach(() => {
 });
 
 /**
- * The hub with `fake` and `other` and an empty allow-list: owner 65 has a grant of `fake`, and
+ * The broker with `fake` and `other` and an empty allow-list: owner 65 has a grant of `fake`, and
  * owner 66 one of `fake` too, so `other` is the private connector that only its own grant opens.
  * The page is skipped for owner 65's cards unless `skipPage` is false.
  */
-async function createHub(options: { skipPage?: boolean } = {}) {
-  const h = await createGithubHub({ allowList: [] });
+async function createBroker(options: { skipPage?: boolean } = {}) {
+  const h = await createGithubBroker({ allowList: [] });
   vi.spyOn(console, "info").mockImplementation(() => undefined);
   for (const ownerId of [OWNER_ID, "66"]) {
     setGrant(h.memory, { repositoryId: REPOSITORY_ID, ownerId, connector: "fake" }, true);
@@ -44,21 +44,25 @@ async function createHub(options: { skipPage?: boolean } = {}) {
   return h;
 }
 
-const grant = (h: Hub, on: boolean, ownerId = OWNER_ID) =>
+const grant = (h: GithubBroker, on: boolean, ownerId = OWNER_ID) =>
   setGrant(h.memory, { repositoryId: REPOSITORY_ID, ownerId, connector: "other" }, on);
 
 /** A client of a run of `owner` (65 by default), proof issued now, enrolled in `connectors`. */
 async function register(
-  h: Hub,
+  h: GithubBroker,
   connectors: string[],
   claims: Record<string, unknown> = {},
 ): Promise<NewClient | Response> {
-  const response = await postHubClient(h, await signToken(h, claims), { connectors });
+  const response = await postBrokerClient(h, await signToken(h, claims), { connectors });
   return response.status === 201 ? await readNewClient(response) : response;
 }
 
 /** `register` that must succeed. */
-async function registered(h: Hub, connectors: string[], claims: Record<string, unknown> = {}) {
+async function registered(
+  h: GithubBroker,
+  connectors: string[],
+  claims: Record<string, unknown> = {},
+) {
   const client = await register(h, connectors, claims);
   if (client instanceof Response) {
     throw new Error(`POST /register answered ${client.status}`);
@@ -67,7 +71,7 @@ async function registered(h: Hub, connectors: string[], claims: Record<string, u
 }
 
 /** A run of `owner` with a proof one second newer than the last: it transfers the repository. */
-async function transfer(h: Hub, owner: string) {
+async function transfer(h: GithubBroker, owner: string) {
   h.clock.advance(1_000);
   return await registered(h, ["fake"], { ...pullRequestClaims, repository_owner_id: owner });
 }
@@ -76,7 +80,7 @@ async function transfer(h: Hub, owner: string) {
  * `/authorize` for the client with `connector` named: `provider` when it goes straight to the
  * provider, else the answer's status.
  */
-async function signIn(h: Hub, client: NewClient, connector: string) {
+async function signIn(h: GithubBroker, client: NewClient, connector: string) {
   const { challenge, verifier } = await pkce();
   const url = new URL(`${h.issuer}/authorize`);
   url.search = new URLSearchParams({
@@ -101,7 +105,7 @@ async function signIn(h: Hub, client: NewClient, connector: string) {
 }
 
 /** The provider's answer to a sign-in that went to it: the broker's redirect to the app. */
-async function finish(h: Hub, response: Response) {
+async function finish(h: GithubBroker, response: Response) {
   const upstream = new URL(response.headers.get("location") ?? "");
   const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
   callback.searchParams.set("code", "upstream-code");
@@ -111,7 +115,7 @@ async function finish(h: Hub, response: Response) {
   return { back, location: new URL(back.headers.get("location") ?? "") };
 }
 
-const redeem = (h: Hub, client: NewClient, code: string, verifier: string) =>
+const redeem = (h: GithubBroker, client: NewClient, code: string, verifier: string) =>
   h.fetchBroker(`${h.issuer}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -127,7 +131,7 @@ const redeem = (h: Hub, client: NewClient, code: string, verifier: string) =>
 
 describe("the connector grants", () => {
   it("add a connector to the repository's clients that enroll in it, its previews included", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     const before = await registered(h, ["fake"]);
     // Without the grant, an enrollment in `other` is refused.
     const refused = await register(h, ["fake", "other"]);
@@ -143,7 +147,7 @@ describe("the connector grants", () => {
   });
 
   it("bind a grant to the owner that registered the client, through transfers both ways", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     grant(h, true);
     const ownersClient = await registered(h, ["fake", "other"]);
     expect((await signIn(h, ownersClient, "other")).went).toBe("provider");
@@ -156,7 +160,7 @@ describe("the connector grants", () => {
   });
 
   it("never let a client of another owner use a grant bound to the current owner", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     h.clock.advance(1_000);
     grant(h, true, "66");
     const sixtySixsClient = await registered(h, ["fake", "other"], {
@@ -172,7 +176,7 @@ describe("the connector grants", () => {
   });
 
   it("reach a card at its renewal when the grant goes; a stop holds at once", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     grant(h, true);
     const client = await registered(h, ["fake", "other"]);
     grant(h, false);
@@ -184,7 +188,7 @@ describe("the connector grants", () => {
   });
 
   it("stop a sign-in at the provider's answer when a renewal drops its connector during it", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     grant(h, true);
     const client = await registered(h, ["fake", "other"]);
     const { response, went } = await signIn(h, client, "other");
@@ -208,7 +212,7 @@ describe("the connector grants", () => {
   });
 
   it("log a sign-in with the client and the card's ref, and the sign-in that a renewal turned off", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     grant(h, true);
     const client = await registered(h, ["other"]);
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -222,7 +226,7 @@ describe("the connector grants", () => {
     expect(await readOwnRecord(h, client)).toBe(200);
     expect((await signIn(h, client, "")).went).toBe("status 403");
     const line = (event: string, connector: string | null, reason: string | null) =>
-      `hub_event ${JSON.stringify({ event, clientId: client.client_id, ref: `github:gh-${REPOSITORY_ID}`, connector, reason })}`;
+      `broker_event ${JSON.stringify({ event, clientId: client.client_id, ref: `github:gh-${REPOSITORY_ID}`, connector, reason })}`;
     expect(info.mock.calls).toEqual([
       [line("sign_in", "other", null)],
       [line("sign_in_refused", null, "off")],
@@ -230,7 +234,7 @@ describe("the connector grants", () => {
   });
 
   it("refuse the code exchange when a renewal drops the connector after the code", async () => {
-    const h = await createHub();
+    const h = await createBroker();
     grant(h, true);
     const client = await registered(h, ["fake", "other"]);
     const { response, verifier } = await signIn(h, client, "other");
@@ -247,7 +251,7 @@ describe("the connector grants", () => {
   });
 
   it("skip no sign-in page: a grant and an exemption are separate", async () => {
-    const h = await createHub({ skipPage: false });
+    const h = await createBroker({ skipPage: false });
     grant(h, true);
     const client = await registered(h, ["other"]);
     expect((await signIn(h, client, "other")).went).toBe("status 200");

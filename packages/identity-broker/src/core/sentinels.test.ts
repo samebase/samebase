@@ -5,7 +5,7 @@ import { afterEach, expect, test, vi } from "vite-plus/test";
 import {
   createBroker,
   fakeUpstream,
-  hubLogLine,
+  brokerLogLine,
   pkce,
   stubFetch,
   txnCookie,
@@ -13,7 +13,7 @@ import {
 } from "./testing/harness.ts";
 
 const MARK = "SENTINEL7f3a";
-const REDIRECT_URI = "https://app.test/oauth/hub/callback";
+const REDIRECT_URI = "https://app.test/oauth/broker/callback";
 /** A value of the PKCE alphabet and length that carries the marker. */
 const VERIFIER = `${MARK}-verifier-${"v".repeat(40)}`;
 
@@ -163,9 +163,9 @@ test("malformed input, provider errors and command failures never echo a credent
     expect(line).not.toContain(MARK);
   }
   // A failed command answers 500 with no detail and logs the allow-listed record alone.
-  const hubErrors = logs.filter((line) => line.includes('"hub_error"')).map(hubLogLine);
-  expect(hubErrors).toContainEqual({
-    message: "hub_error",
+  const brokerErrors = logs.filter((line) => line.includes('"broker_error"')).map(brokerLogLine);
+  expect(brokerErrors).toContainEqual({
+    message: "broker_error",
     level: "ERROR",
     annotations: {
       route: "/connectors/fake/callback",
@@ -174,8 +174,8 @@ test("malformed input, provider errors and command failures never echo a credent
     },
     spans: {},
   });
-  expect(hubErrors).toContainEqual({
-    message: "hub_error",
+  expect(brokerErrors).toContainEqual({
+    message: "broker_error",
     level: "ERROR",
     annotations: {
       route: "/token",

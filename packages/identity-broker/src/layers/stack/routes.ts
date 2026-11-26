@@ -1,14 +1,14 @@
-// The stack layer: a hub that one app's own stack deploys registers any client that presents one
-// of the hub's named keys at `POST /register` (RFC 7591 appendix A.1.2, a protected endpoint). The
+// The stack layer: a broker that one app's own stack deploys registers any client that presents one
+// of the broker's named keys at `POST /register` (RFC 7591 appendix A.1.2, a protected endpoint). The
 // key is the only proof: no repository, no verification file. The name of the key that matched is
-// what the hub trusts; it gives the card its budget, its gate and its reference. A key may make
+// what the broker trusts; it gives the card its budget, its gate and its reference. A key may make
 // permanent clients only when its settings say so. Each client then reads and deletes itself with
 // its own registration access token (RFC 7592), never with a key.
 import { Config, Effect, Option, Redacted } from "effect";
 import { readBearerToken } from "../../core/protocol.ts";
 import { invalidToken, json, noToken } from "../../core/responses.ts";
 import type { Registration } from "../../core/router.ts";
-import { HubConfig } from "../../core/services.ts";
+import { BrokerConfig } from "../../core/services.ts";
 import { sha256HexEffect } from "../../core/subject.ts";
 import {
   insufficientScope,
@@ -25,9 +25,9 @@ import {
 import { keyRef } from "./clients.ts";
 import { command } from "./commands.ts";
 
-/** One key of the hub. */
+/** One key of the broker. */
 export type StackKey = {
-  /** The key: a secret of the hub's host, such as `Config.Redacted("HUB_PREVIEW_KEY")`. */
+  /** The key: a secret of the broker's host, such as `Config.Redacted("BROKER_PREVIEW_KEY")`. */
   readonly key: Config.Config<Redacted.Redacted<string>>;
   /** Clients of this key may be permanent: production clients, with no removal date. */
   readonly permanent?: boolean;
@@ -47,7 +47,7 @@ export type StackSettings = {
 const CLIENT_NAME = /^[A-Za-z0-9._-]{1,64}$/;
 
 /**
- * The keys that the hub has now, each with the SHA-256 hex of its value, read in the request. A key
+ * The keys that the broker has now, each with the SHA-256 hex of its value, read in the request. A key
  * whose `Config` is missing or whose value is empty is not one of them.
  */
 const configuredKeys = (settings: StackSettings) =>
@@ -70,7 +70,7 @@ const configuredKeys = (settings: StackSettings) =>
     Effect.orDie,
   );
 
-/** `POST <prefix>/register` with one of the hub's keys as the Bearer. */
+/** `POST <prefix>/register` with one of the broker's keys as the Bearer. */
 const registerClient = (settings: StackSettings) =>
   Effect.fn("stack.registerClient")(function* (request: Request) {
     const bearer = readBearerToken(request.headers.get("authorization"));
@@ -100,10 +100,10 @@ const registerClient = (settings: StackSettings) =>
     if (permanent && !key.permanent) {
       return invalid("invalid_client_metadata", "This key cannot register a production client.");
     }
-    const hub = yield* HubConfig;
-    const enrollment = [...new Set(metadata.connectors ?? hub.configured)].sort();
-    if (enrollment.length === 0 || !enrollment.every((name) => hub.configured.includes(name))) {
-      return invalidConnectors(hub.configured);
+    const broker = yield* BrokerConfig;
+    const enrollment = [...new Set(metadata.connectors ?? broker.configured)].sort();
+    if (enrollment.length === 0 || !enrollment.every((name) => broker.configured.includes(name))) {
+      return invalidConnectors(broker.configured);
     }
     const credentials = yield* newClientCredentials;
     const client = {
@@ -121,11 +121,11 @@ const registerClient = (settings: StackSettings) =>
       redirectUris: metadata.redirectUris,
       permanent,
       client,
-      configured: hub.configured,
+      configured: broker.configured,
       connections: key.connections,
     });
     return json(
-      newClient({ issuer: hub.issuer, terms: hub.service?.terms }, credentials, {
+      newClient({ issuer: broker.issuer, terms: broker.service?.terms }, credentials, {
         createdAt,
         redirectUris: metadata.redirectUris,
         clientName: name,
@@ -145,7 +145,7 @@ const readClient = (settings: StackSettings) =>
     if (target instanceof Response) {
       return target;
     }
-    const hub = yield* HubConfig;
+    const broker = yield* BrokerConfig;
     const result = yield* command("stack.renew", {
       clientId: target.clientId,
       registrationTokenHash: target.registrationTokenHash,
@@ -153,7 +153,7 @@ const readClient = (settings: StackSettings) =>
         name: key.name,
         connections: key.connections,
       })),
-      configured: hub.configured,
+      configured: broker.configured,
     });
     if (!result.ok) {
       // RFC 7592 section 2.1: a client that is gone answers 401, one that may not read answers 403.
@@ -170,7 +170,7 @@ const readClient = (settings: StackSettings) =>
     }
     return readAnswer(
       {
-        issuer: hub.issuer,
+        issuer: broker.issuer,
         clientId: target.clientId,
         createdAt: result.createdAt,
         redirectUris: result.redirectUris,
@@ -203,8 +203,8 @@ const deleteClient = Effect.fn("stack.deleteClient")(function* (request: Request
 });
 
 /**
- * The stack layer as a hub's one registration layer: its routes with its keys, and its gates. A
- * card's gate `stack:<name>` is live while the hub has the key of that name, so a key removed from
+ * The stack layer as a broker's one registration layer: its routes with its keys, and its gates. A
+ * card's gate `stack:<name>` is live while the broker has the key of that name, so a key removed from
  * the settings refuses every sign-in step of its clients.
  */
 export const stack = (settings: StackSettings): Registration => ({

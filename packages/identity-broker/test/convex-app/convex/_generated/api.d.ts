@@ -8,9 +8,9 @@
  * @module
  */
 
+import type * as broker from "../broker.js";
 import type * as fakeIdp from "../fakeIdp.js";
 import type * as http from "../http.js";
-import type * as hub from "../hub.js";
 import type * as ops from "../ops.js";
 
 import type {
@@ -20,9 +20,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  broker: typeof broker;
   fakeIdp: typeof fakeIdp;
   http: typeof http;
-  hub: typeof hub;
   ops: typeof ops;
 }>;
 

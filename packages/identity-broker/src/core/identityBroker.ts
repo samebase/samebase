@@ -3,11 +3,11 @@ import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { checkProviders, type ConnectionSpec } from "../connections/providers.ts";
 import { makeConnections } from "../connections/routes.ts";
-import { defaultKeys, hubSettings, type HubSettings } from "../hosts/settings.ts";
+import { defaultKeys, brokerSettings, type BrokerSettings } from "../hosts/settings.ts";
 import { Store } from "../store/Store.ts";
 import type { ConnectorSpec, Secret, SecretServices } from "./connectors/types.ts";
 import {
-  hubLogger,
+  brokerLogger,
   makeHandle,
   serverError,
   type CoreServices,
@@ -17,8 +17,8 @@ import {
 import {
   checkConnectors,
   Fetch,
-  HubConfig,
-  HubConfigError,
+  BrokerConfig,
+  BrokerConfigError,
   Keys,
   parseIssuer,
   Random,
@@ -26,7 +26,7 @@ import {
   type ServiceSettings,
 } from "./services.ts";
 
-type Hub<R = never> = {
+type Broker<R = never> = {
   readonly fetch: Effect.Effect<
     HttpServerResponse.HttpServerResponse,
     never,
@@ -34,8 +34,8 @@ type Hub<R = never> = {
   >;
 };
 
-type HubOptions<R> = HubSettings<R> & {
-  /** Without it the hub mounts no connection route. */
+type BrokerOptions<R> = BrokerSettings<R> & {
+  /** Without it the broker mounts no connection route. */
   readonly connections?: ReadonlyArray<ConnectionSpec<R>>;
 } & (
     | { readonly registration: Registration & { readonly public?: never } }
@@ -49,7 +49,7 @@ type HubOptions<R> = HubSettings<R> & {
 const cannotStart = Effect.catchCause((cause: Cause.Cause<unknown>) =>
   Effect.die(
     new Error(
-      `The hub cannot start: ${Cause.prettyErrors(cause)
+      `The broker cannot start: ${Cause.prettyErrors(cause)
         .map((error) => `${error.name}: ${error.message}`)
         .join("; ")}`,
     ),
@@ -66,7 +66,7 @@ const startFailureReason = (
         ? reason.defect
         : undefined,
   );
-  if (values.some((value) => value instanceof HubConfigError)) {
+  if (values.some((value) => value instanceof BrokerConfigError)) {
     return "invalid_config";
   }
   if (values.some((value) => value instanceof Config.ConfigError)) {
@@ -79,18 +79,18 @@ const startFailureReason = (
 };
 
 const buildRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
-  settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
+  settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
   registration: Registration,
   connections?: ReadonlyArray<Connection>,
-): Effect.Effect<Hub, unknown, Store | R | SecretServices<Connection>> =>
+): Effect.Effect<Broker, unknown, Store | R | SecretServices<Connection>> =>
   Effect.gen(function* () {
     const part = connections === undefined ? undefined : yield* makeConnections(connections);
     const handle = makeHandle(registration, part);
-    // Only the hub's own services: a lazy build runs in request 1, whose request and scope must
+    // Only the broker's own services: a lazy build runs in request 1, whose request and scope must
     // not reach a later request.
     const services = Context.pick(
       Store,
-      HubConfig,
+      BrokerConfig,
       SignInPage,
       Keys,
       Random,
@@ -106,21 +106,21 @@ const buildRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
         return HttpServerResponse.raw(yield* handle(web).pipe(Effect.provideContext(services)));
       }),
     };
-  }).pipe(Effect.provide(Layer.mergeAll(settings, Random.layer, Fetch.layer, hubLogger)));
+  }).pipe(Effect.provide(Layer.mergeAll(settings, Random.layer, Fetch.layer, brokerLogger)));
 
 /**
- * The hub over its settings, built when this runs. The scope of `settings` closes when the build
+ * The broker over its settings, built when this runs. The scope of `settings` closes when the build
  * ends, so `settings` must hold no finalizer that a request needs.
  */
-export const hubRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
-  settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
+export const brokerRuntime = <E, R, Connection extends ConnectionSpec<unknown> = never>(
+  settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
   registration: Registration,
   connections?: ReadonlyArray<Connection>,
-): Effect.Effect<Hub, never, Store | R | SecretServices<Connection>> =>
+): Effect.Effect<Broker, never, Store | R | SecretServices<Connection>> =>
   buildRuntime(settings, registration, connections).pipe(cannotStart);
 
-/** Reads each `Config` secret now; with another kind of secret the hub builds at the first request. */
-export const hub = <
+/** Reads each `Config` secret now; with another kind of secret the broker builds at the first request. */
+export const identityBroker = <
   // Each spec infers its own services: one `R` in `ReadonlyArray<ConnectorSpec<R>>` would make
   // TypeScript pick the services of one spec and refuse the others.
   Connector extends ConnectorSpec<unknown>,
@@ -132,8 +132,8 @@ export const hub = <
     readonly connectors: ReadonlyArray<Connector>;
     readonly connections?: ReadonlyArray<Connection>;
     readonly keys?: Keys;
-  } & HubOptions<NoInfer<R>>,
-): Effect.Effect<Hub<R>, never, Store> =>
+  } & BrokerOptions<NoInfer<R>>,
+): Effect.Effect<Broker<R>, never, Store> =>
   Effect.gen(function* () {
     yield* Effect.gen(function* () {
       yield* parseIssuer(options.issuer);
@@ -143,7 +143,7 @@ export const hub = <
       }
     }).pipe(cannotStart);
     const build = buildRuntime(
-      hubSettings({
+      brokerSettings({
         issuer: options.issuer,
         connectors: options.connectors,
         ...(options.keys === undefined ? {} : { keys: options.keys }),
@@ -160,7 +160,7 @@ export const hub = <
     ];
     if (secrets.every((secret) => Config.isConfig(secret))) {
       // @ts-expect-error Each secret is a `Config` here, and a `Config` needs no service.
-      const now: Effect.Effect<Hub, never, Store> = build.pipe(cannotStart);
+      const now: Effect.Effect<Broker, never, Store> = build.pipe(cannotStart);
       return yield* now;
     }
     for (const secret of secrets) {
@@ -171,8 +171,8 @@ export const hub = <
     }
     // Also carries the start's configuration provider, which each build reads.
     const start = yield* Effect.context<Store>();
-    let built: Hub | undefined;
-    const fetch: Hub<R>["fetch"] = Effect.gen(function* () {
+    let built: Broker | undefined;
+    const fetch: Broker<R>["fetch"] = Effect.gen(function* () {
       if (built === undefined) {
         const exit = yield* Effect.exit(Effect.provideContext(build, start));
         if (Exit.isFailure(exit)) {
@@ -180,7 +180,7 @@ export const hub = <
             yield* serverError({
               category: "start_failed",
               reason: startFailureReason(exit.cause),
-            }).pipe(Effect.provide(hubLogger)),
+            }).pipe(Effect.provide(brokerLogger)),
           );
         }
         built = exit.value;

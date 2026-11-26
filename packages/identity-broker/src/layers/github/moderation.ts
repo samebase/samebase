@@ -36,10 +36,10 @@ const BLOCK_EVENT_LIST_LIMIT = 100;
 /** The newest clients that a list answers. */
 const CLIENT_LIST_LIMIT = 500;
 /**
- * The cards that one step reads across the hub: a list of clients, or the rewrite of every card
+ * The cards that one step reads across the broker: a list of clients, or the rewrite of every card
  * when the "every app" exemption changes. A list that reaches it says so; a rewrite fails.
  */
-const MAX_HUB_CARDS = 5_000;
+const MAX_BROKER_CARDS = 5_000;
 /** The exemptions or grants that a list reads; more fail the request. */
 const MAX_LISTED_ROWS = 5_000;
 
@@ -56,7 +56,7 @@ const everyCard = Effect.fnUntraced(function* () {
     eq: [],
     range: [{ op: "gt", value: undefined }],
     order: "asc",
-    limit: MAX_HUB_CARDS,
+    limit: MAX_BROKER_CARDS,
   });
 });
 
@@ -147,7 +147,7 @@ export const changeBlock = Effect.fnUntraced(function* (args: typeof BlockChange
   return { changed: true };
 });
 
-/** Whether a row bound to `ownerId` counts: the hub records no other owner of the repository. */
+/** Whether a row bound to `ownerId` counts: the broker records no other owner of the repository. */
 const activeFor = Effect.fnUntraced(function* (tenantId: string, ownerId: string) {
   const tenant = yield* tenantRow(tenantId);
   return tenant === undefined || tenant.doc.ownerId === ownerId;
@@ -181,7 +181,7 @@ export const signInPage = Effect.fnUntraced(function* () {
   };
 });
 
-/** Rewrites the cards of the repository, when the hub has a tenant for it. */
+/** Rewrites the cards of the repository, when the broker has a tenant for it. */
 const rewriteTenant = Effect.fnUntraced(function* (
   tenantId: string,
   settings: { readonly allowList: AllowList; readonly configured: ReadonlyArray<string> },
@@ -197,15 +197,15 @@ const rewriteTenant = Effect.fnUntraced(function* (
   }
 });
 
-/** Rewrites every card of the layer. A hub with `MAX_HUB_CARDS` cards or more fails the step. */
+/** Rewrites every card of the layer. A broker with `MAX_BROKER_CARDS` cards or more fails the step. */
 const rewriteEveryCard = Effect.fnUntraced(function* (settings: {
   readonly allowList: AllowList;
   readonly configured: ReadonlyArray<string>;
 }) {
   const tx = yield* GithubTx;
   const cards = yield* everyCard();
-  if (cards.length >= MAX_HUB_CARDS) {
-    return yield* Effect.die(new Error(`The hub holds ${MAX_HUB_CARDS} cards or more`));
+  if (cards.length >= MAX_BROKER_CARDS) {
+    return yield* Effect.die(new Error(`The broker holds ${MAX_BROKER_CARDS} cards or more`));
   }
   for (const card of cards) {
     const client = card.doc.github;
@@ -230,7 +230,7 @@ const rewriteEveryCard = Effect.fnUntraced(function* (settings: {
 /**
  * Sets (`skip`) or removes one exemption from the sign-in page, and rewrites the cards it covers.
  * A change already in place changes nothing. A repository's row needs no tenant: it can come before
- * the repository's first registration. Setting one refuses while the hub records another owner;
+ * the repository's first registration. Setting one refuses while the broker records another owner;
  * removing one removes the row of `expectedOwnerId` only.
  */
 export const changeSignInPage = Effect.fnUntraced(function* (
@@ -272,7 +272,7 @@ export const changeSignInPage = Effect.fnUntraced(function* (
   return changed;
 });
 
-/** The hub's connectors, which a grant may name, and every grant. */
+/** The broker's connectors, which a grant may name, and every grant. */
 export const connectorGrants = Effect.fnUntraced(function* (args: typeof ConnectorGrantsArgs.Type) {
   const rows = yield* allBelow(
     yield* GithubTx,
@@ -305,8 +305,8 @@ export const connectorGrants = Effect.fnUntraced(function* (args: typeof Connect
 /**
  * Grants or revokes one connector of one repository for `expectedOwnerId`, and rewrites the
  * repository's cards. A change already in place changes nothing. A grant needs no tenant, and
- * refuses while the hub records another owner; a revoke removes that owner's row only. The handler
- * checks that a granted connector is one of the hub's.
+ * refuses while the broker records another owner; a revoke removes that owner's row only. The handler
+ * checks that a granted connector is one of the broker's.
  */
 export const changeConnectorGrant = Effect.fnUntraced(function* (
   args: typeof ChangeConnectorGrantArgs.Type,
@@ -414,7 +414,7 @@ const clientEntry = Effect.fnUntraced(function* (
 
 /**
  * The newest clients, or with `owner` those of the repositories whose recorded owner it is, such as
- * those of one organization. It reads at most `MAX_HUB_CARDS` cards and says so when it reaches
+ * those of one organization. It reads at most `MAX_BROKER_CARDS` cards and says so when it reaches
  * them, or when more than `CLIENT_LIST_LIMIT` clients match.
  */
 export const clients = Effect.fnUntraced(function* (args: typeof ClientsArgs.Type) {
@@ -446,7 +446,7 @@ export const clients = Effect.fnUntraced(function* (args: typeof ClientsArgs.Typ
   return {
     ...(args.owner === undefined ? {} : { owner: args.owner }),
     clients: entries,
-    limitReached: cards.length === MAX_HUB_CARDS || matching.length > CLIENT_LIST_LIMIT,
+    limitReached: cards.length === MAX_BROKER_CARDS || matching.length > CLIENT_LIST_LIMIT,
   };
 });
 

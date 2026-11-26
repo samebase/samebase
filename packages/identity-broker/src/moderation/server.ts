@@ -1,5 +1,5 @@
 // The moderation API (./api.ts) as a part of the GitHub layer: `github(allowList, { moderation:
-// moderation({ key }) })` mounts its routes under `/moderation/`. A hub without it has none.
+// moderation({ key }) })` mounts its routes under `/moderation/`. A broker without it has none.
 // Each request is one command of the layer (src/layers/github/moderation.ts); a command that
 // fails is a defect here, which the mount hands back to the router as `CommandFailed`.
 import { Config, Effect, Layer, Option, Redacted } from "effect";
@@ -7,7 +7,7 @@ import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from "e
 import { HttpApiBuilder, HttpApiMiddleware } from "effect/http-api";
 import { CommandFailed } from "../core/command.ts";
 import type { Route } from "../core/router.ts";
-import { HubConfig } from "../core/services.ts";
+import { BrokerConfig } from "../core/services.ts";
 import { sha256HexEffect } from "../core/subject.ts";
 import { command, GithubSettings } from "../layers/github/settings.ts";
 import {
@@ -23,25 +23,27 @@ import {
 
 export type ModerationSettings = {
   /**
-   * The moderation key, a secret of the hub's host, such as
-   * `Config.Redacted("IDENTITY_HUB_MODERATION_KEY")`. Read in each request: while it is missing
+   * The moderation key, a secret of the broker's host, such as
+   * `Config.Redacted("IDENTITY_BROKER_MODERATION_KEY")`. Read in each request: while it is missing
    * or empty, every request is refused.
    */
   readonly key: Config.Config<Redacted.Redacted<string>>;
 };
 
-/** What a command that rewrites cards reads of the hub's settings and the layer's. */
+/** What a command that rewrites cards reads of the broker's settings and the layer's. */
 const cardSettings = Effect.gen(function* () {
   const { allowList } = yield* GithubSettings;
-  return { allowList, configured: (yield* HubConfig).configured };
+  return { allowList, configured: (yield* BrokerConfig).configured };
 });
 
-/** A change of a grant or an exemption: `owner_changed` while the hub records another owner. */
+/** A change of a grant or an exemption: `owner_changed` while the broker records another owner. */
 const ownerChecked = (result: { ok: true; changed: boolean } | { ok: false }) =>
   result.ok
     ? Effect.succeed({ changed: result.changed })
     : Effect.fail(
-        new OwnerChanged({ error_description: "The hub records another owner of the repository." }),
+        new OwnerChanged({
+          error_description: "The broker records another owner of the repository.",
+        }),
       );
 
 const handlers = HttpApiBuilder.group(ModerationApi, "moderation", (endpoints) =>
@@ -58,20 +60,20 @@ const handlers = HttpApiBuilder.group(ModerationApi, "moderation", (endpoints) =
     )
     .handle("connectorGrants", () =>
       Effect.gen(function* () {
-        const { configured } = yield* HubConfig;
+        const { configured } = yield* BrokerConfig;
         return yield* Effect.orDie(command("github.connectorGrants", { configured }));
       }),
     )
     .handle("changeConnectorGrant", ({ payload }) =>
       Effect.gen(function* () {
-        const hub = yield* cardSettings;
-        // A revoke can remove a row of a connector that the hub no longer has.
-        if (payload.grant && !hub.configured.includes(payload.connector)) {
+        const broker = yield* cardSettings;
+        // A revoke can remove a row of a connector that the broker no longer has.
+        if (payload.grant && !broker.configured.includes(payload.connector)) {
           return yield* new UnknownConnector({
-            error_description: "The hub has no connector of this name.",
+            error_description: "The broker has no connector of this name.",
           });
         }
-        const args = { ...payload, ...hub };
+        const args = { ...payload, ...broker };
         return yield* ownerChecked(
           yield* Effect.orDie(command("github.changeConnectorGrant", args)),
         );
@@ -131,13 +133,13 @@ export const moderation = (settings: ModerationSettings): ReadonlyArray<Route<Gi
   const handler = (request: Request) =>
     Effect.scoped(
       Effect.gen(function* () {
-        const hub = yield* HubConfig;
+        const broker = yield* BrokerConfig;
         const serve = yield* HttpRouter.toHttpEffect(api);
         const incoming = HttpServerRequest.fromWeb(request);
         const response = yield* serve.pipe(
           Effect.provideService(
             HttpServerRequest.HttpServerRequest,
-            incoming.modify({ url: incoming.url.slice(hub.prefix.length) }),
+            incoming.modify({ url: incoming.url.slice(broker.prefix.length) }),
           ),
           Effect.catchTag("HttpServerError", (error) =>
             error.reason._tag === "RouteNotFound"

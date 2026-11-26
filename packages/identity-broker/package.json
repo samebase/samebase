@@ -1,6 +1,6 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "description": "An OpenID Provider that holds a team's upstream sign-in connections once and keeps no user accounts. It runs on any platform with your own storage, with ready hosts for Convex and Cloudflare.",
   "license": "Apache-2.0",
   "repository": {
@@ -19,8 +19,8 @@
     ".": "./src/index.ts",
     "./convex.config": "./src/hosts/convex/component/convex.config.ts",
     "./_generated/component.js": "./src/hosts/convex/component/_generated/component.ts",
-    "./convex": "./src/hosts/convex/hub.ts",
-    "./cloudflare": "./src/hosts/cloudflare/hub.ts",
+    "./convex": "./src/hosts/convex/broker.ts",
+    "./cloudflare": "./src/hosts/cloudflare/broker.ts",
     "./connectors": "./src/core/connectors/index.ts",
     "./connections": "./src/connections/index.ts",
     "./moderation": "./src/moderation/server.ts",
@@ -41,12 +41,12 @@
         "types": "./dist/hosts/convex/component/_generated/component.d.ts"
       },
       "./convex": {
-        "types": "./dist/hosts/convex/hub.d.ts",
-        "default": "./dist/hosts/convex/hub.js"
+        "types": "./dist/hosts/convex/broker.d.ts",
+        "default": "./dist/hosts/convex/broker.js"
       },
       "./cloudflare": {
-        "types": "./dist/hosts/cloudflare/hub.d.ts",
-        "default": "./dist/hosts/cloudflare/hub.js"
+        "types": "./dist/hosts/cloudflare/broker.d.ts",
+        "default": "./dist/hosts/cloudflare/broker.js"
       },
       "./connectors": {
         "types": "./dist/core/connectors/index.d.ts",

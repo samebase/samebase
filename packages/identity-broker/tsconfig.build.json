@@ -11,8 +11,8 @@
   "include": ["src/hosts/convex/component/**/*.ts"],
   "files": [
     "src/index.ts",
-    "src/hosts/convex/hub.ts",
-    "src/hosts/cloudflare/hub.ts",
+    "src/hosts/convex/broker.ts",
+    "src/hosts/cloudflare/broker.ts",
     "src/core/connectors/index.ts",
     "src/connections/index.ts",
     "src/moderation/server.ts",

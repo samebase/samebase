@@ -1,4 +1,4 @@
-// The adapter steps, a sign-in through the component, and the hub over HTTP, on a real Convex
+// The adapter steps, a sign-in through the component, and the broker over HTTP, on a real Convex
 // backend: the anonymous local deployment that `npx convex dev` runs for this package
 // (convex.json names this app). With it running, `pnpm run test:convex` runs this file. The test
 // empties the app's step tables and the component's tables and sets the deployment's environment
@@ -157,14 +157,14 @@ test("a connection through the component's functions gives the memory host's res
   expect(fromConvex.at(-1)).toEqual(connectionCleanup);
 }, 60_000);
 
-// The hub over HTTP (convex/hub.ts at the site URL), next to the memory host with the same
-// settings. The fake OpenID provider is the core tests' (`fakeOidcUpstream`): for the Convex hub
-// it is served on loopback at `FAKE_IDP_PORT`, where convex/hub.ts sends the hub's requests to it.
+// The broker over HTTP (convex/broker.ts at the site URL), next to the memory host with the same
+// settings. The fake OpenID provider is the core tests' (`fakeOidcUpstream`): for the Convex broker
+// it is served on loopback at `FAKE_IDP_PORT`, where convex/broker.ts sends the broker's requests to it.
 
-/** One hub as a test drives it. */
-type TestHub = {
+/** One broker as a test drives it. */
+type TestBroker = {
   readonly issuer: string;
-  /** A request to the hub, whose redirects are not followed. */
+  /** A request to the broker, whose redirects are not followed. */
   readonly fetch: (input: string, init?: RequestInit) => Promise<Response>;
   /** Runs `github.createClient`, as `POST /register` does after it checked a GitHub proof. */
   readonly seedProduction: (args: Args<"github.createClient">) => Promise<void>;
@@ -211,10 +211,10 @@ const serveUpstream = (fetch: StubFetch) =>
     server.listen(FAKE_IDP_PORT, "127.0.0.1", () => resolve(server));
   });
 
-/** The allow-list of convex/hub.ts: the seeded repository with its owner. */
+/** The allow-list of convex/broker.ts: the seeded repository with its owner. */
 const ALLOW_LIST = [{ repositoryId: "1", ownerId: "65" }];
 
-/** The moderation key of convex/hub.ts, fresh per run. */
+/** The moderation key of convex/broker.ts, fresh per run. */
 const MODERATION_KEY = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
 
 let upstreamServer: Server | undefined;
@@ -234,7 +234,7 @@ afterAll(async () => {
   await new Promise((resolve) => upstreamServer?.close(resolve));
 });
 
-const convexHub = (): TestHub => ({
+const convexBroker = (): TestBroker => ({
   issuer: siteUrl,
   fetch: (input, init) => fetch(input, { ...init, redirect: "manual" }),
   seedProduction: async (args) => {
@@ -248,7 +248,7 @@ const convexHub = (): TestHub => ({
   unexpected: convexUpstream.unexpected,
 });
 
-const memoryHub = async (): Promise<TestHub> => {
+const memoryBroker = async (): Promise<TestBroker> => {
   const upstream = stubFetch();
   const idp = await fakeOidcUpstream(upstream);
   const h = await createBroker({
@@ -296,9 +296,9 @@ const seen = async (response: Response) => {
 /** The app of the seeded production client: its initial access token makes development clients. */
 const APP = "my-app";
 
-const seedApp = async (hub: TestHub) => {
+const seedApp = async (broker: TestBroker) => {
   const initialAccessToken = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
-  await hub.seedProduction({
+  await broker.seedProduction({
     clientId: `cl_seed_${crypto.randomUUID()}`,
     secretHash: "seed",
     registrationTokenHash: "seed",
@@ -345,8 +345,8 @@ const Jwks = Schema.Struct({
 const REDIRECT_URI = "http://127.0.0.1:9562/callback";
 
 /** `POST /register` of a development client with the app's initial access token. */
-const register = async (hub: TestHub, initialAccessToken: string) => {
-  const response = await hub.fetch(`${hub.issuer}/register`, {
+const register = async (broker: TestBroker, initialAccessToken: string) => {
+  const response = await broker.fetch(`${broker.issuer}/register`, {
     method: "POST",
     headers: { Authorization: `Bearer ${initialAccessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -362,15 +362,15 @@ const register = async (hub: TestHub, initialAccessToken: string) => {
 };
 
 /**
- * A sign-in up to the hub's callback: `/authorize`, the sign-in page and its "Continue" link when
- * the hub shows one, and the redirect to the provider, whose next id_token gets the nonce.
+ * A sign-in up to the broker's callback: `/authorize`, the sign-in page and its "Continue" link when
+ * the broker shows one, and the redirect to the provider, whose next id_token gets the nonce.
  * Returns what each response showed, the callback URL and the transaction cookie.
  */
-const startSignIn = async (hub: TestHub, clientId: string) => {
+const startSignIn = async (broker: TestBroker, clientId: string) => {
   const shown = [];
   const { verifier, challenge } = await pkce();
   const nonce = crypto.randomUUID();
-  const authorize = new URL(`${hub.issuer}/authorize`);
+  const authorize = new URL(`${broker.issuer}/authorize`);
   authorize.search = new URLSearchParams({
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
@@ -381,18 +381,18 @@ const startSignIn = async (hub: TestHub, clientId: string) => {
     code_challenge: challenge,
     code_challenge_method: "S256",
   }).toString();
-  let response = await hub.fetch(authorize.href);
+  let response = await broker.fetch(authorize.href);
   const cookie = txnCookie(response);
   shown.push(await seen(response.clone()));
   if (response.status === 200) {
     const href = /href="([^"]*\/continue\?[^"]*)"/.exec(await response.text())?.[1] ?? "";
-    response = await hub.fetch(new URL(href.replaceAll("&amp;", "&"), hub.issuer).href, {
+    response = await broker.fetch(new URL(href.replaceAll("&amp;", "&"), broker.issuer).href, {
       headers: cookie,
     });
     shown.push(await seen(response.clone()));
   }
   const upstream = new URL(response.headers.get("location") ?? "");
-  hub.nextIdToken({
+  broker.nextIdToken({
     nonce: upstream.searchParams.get("nonce") ?? "",
     authTime: Math.floor(Date.now() / 1000),
   });
@@ -403,21 +403,21 @@ const startSignIn = async (hub: TestHub, clientId: string) => {
 };
 
 /** Discovery, JWKS, HEAD, an unknown path, a registration and a whole sign-in, as seen. */
-const signInTranscript = async (hub: TestHub) => {
-  const discovery = await hub.fetch(`${hub.issuer}/.well-known/openid-configuration`);
+const signInTranscript = async (broker: TestBroker) => {
+  const discovery = await broker.fetch(`${broker.issuer}/.well-known/openid-configuration`);
   const discoveryBody: unknown = await discovery.clone().json();
-  const jwksResponse = await hub.fetch(`${hub.issuer}/.well-known/jwks.json`);
+  const jwksResponse = await broker.fetch(`${broker.issuer}/.well-known/jwks.json`);
   const jwks = Schema.decodeUnknownSync(Jwks)(await jwksResponse.clone().json());
-  const head = await hub.fetch(`${hub.issuer}/.well-known/openid-configuration`, {
+  const head = await broker.fetch(`${broker.issuer}/.well-known/openid-configuration`, {
     method: "HEAD",
   });
-  const missing = await hub.fetch(`${hub.issuer}/no-such-path`);
+  const missing = await broker.fetch(`${broker.issuer}/no-such-path`);
 
-  const { shown: registered, client: newClient } = await register(hub, await seedApp(hub));
-  const started = await startSignIn(hub, newClient.client_id);
-  const back = await hub.fetch(started.callback, { headers: started.cookie });
+  const { shown: registered, client: newClient } = await register(broker, await seedApp(broker));
+  const started = await startSignIn(broker, newClient.client_id);
+  const back = await broker.fetch(started.callback, { headers: started.cookie });
   const returned = new URL(back.headers.get("location") ?? "");
-  const tokenResponse = await hub.fetch(`${hub.issuer}/token`, {
+  const tokenResponse = await broker.fetch(`${broker.issuer}/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -430,13 +430,13 @@ const signInTranscript = async (hub: TestHub) => {
     }),
   });
   const tokens = Schema.decodeUnknownSync(TokenResponse)(await tokenResponse.clone().json());
-  // The id_token checks against the key set that the hub serves.
+  // The id_token checks against the key set that the broker serves.
   const { payload, protectedHeader } = await jwtVerify(
     tokens.id_token,
     createLocalJWKSet({ keys: [...jwks.keys] }),
-    { issuer: hub.issuer, audience: newClient.client_id },
+    { issuer: broker.issuer, audience: newClient.client_id },
   );
-  const userinfo = await hub.fetch(`${hub.issuer}/userinfo`, {
+  const userinfo = await broker.fetch(`${broker.issuer}/userinfo`, {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   return {
@@ -467,14 +467,14 @@ const signInTranscript = async (hub: TestHub) => {
       sub: payload.sub,
       nonce: payload.nonce === started.nonce,
     },
-    unexpected: [...hub.unexpected],
+    unexpected: [...broker.unexpected],
   };
 };
 
 test("discovery, JWKS, a registration and a sign-in to a verified id_token give the memory host's results", async () => {
   emptyComponent();
-  const fromConvex = await signInTranscript(convexHub());
-  const fromMemory = await signInTranscript(await memoryHub());
+  const fromConvex = await signInTranscript(convexBroker());
+  const fromMemory = await signInTranscript(await memoryBroker());
   expect(fromConvex).toEqual(fromMemory);
   expect(fromConvex.idToken.sub).toBe("idp:24400320");
   expect(fromConvex.unexpected).toEqual([]);
@@ -482,18 +482,18 @@ test("discovery, JWKS, a registration and a sign-in to a verified id_token give 
 
 test("of two callbacks with one state, the second loses the race as on the memory host", async () => {
   emptyComponent();
-  const race = async (hub: TestHub) => {
-    const { client: newClient } = await register(hub, await seedApp(hub));
-    const started = await startSignIn(hub, newClient.client_id);
+  const race = async (broker: TestBroker) => {
+    const { client: newClient } = await register(broker, await seedApp(broker));
+    const started = await startSignIn(broker, newClient.client_id);
     const answers = await Promise.all(
-      [0, 1].map(() => hub.fetch(started.callback, { headers: started.cookie })),
+      [0, 1].map(() => broker.fetch(started.callback, { headers: started.cookie })),
     );
     const shown = await Promise.all(answers.map(seen));
     return shown.sort((a, b) => a.status - b.status);
   };
-  const fromConvex = await race(convexHub());
-  expect(fromConvex).toEqual(await race(await memoryHub()));
-  // The winner returns to the client with a code; the loser gets the hub's error page.
+  const fromConvex = await race(convexBroker());
+  expect(fromConvex).toEqual(await race(await memoryBroker()));
+  // The winner returns to the client with a code; the loser gets the broker's error page.
   expect(fromConvex.map((answer) => [answer.status, answer.type])).toEqual([
     [302, null],
     [400, "text/html; charset=utf-8"],
@@ -502,7 +502,7 @@ test("of two callbacks with one state, the second loses the race as on the memor
 
 test("the moderation API answers its typed client from an httpAction", async () => {
   emptyComponent();
-  await seedApp(convexHub());
+  await seedApp(convexBroker());
   const { moderation } = await Effect.runPromise(
     HttpApiClient.make(ModerationApi, { baseUrl: siteUrl }).pipe(
       Effect.provide(
@@ -554,7 +554,7 @@ test("the cleanup runs batches until none is left", async () => {
       now: Date.now(),
     });
   }
-  convexCli(["run", "hub:cleanup"]);
+  convexCli(["run", "broker:cleanup"]);
   // A batch at the same retention finds none of them left.
   const after = await client.mutation(api.ops.command, {
     name: "lifecycle.cleanup",

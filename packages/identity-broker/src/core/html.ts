@@ -57,12 +57,12 @@ const STYLE = `
 `;
 
 /**
- * Under the card of every page, on every hub: where the broker comes from. It does not say who runs
- * the hub, which the privacy notice and terms of a hub's sign-in page do.
+ * Under the card of every page, on every broker: where the broker comes from. It does not say who runs
+ * the broker, which the privacy notice and terms of a broker's sign-in page do.
  */
 const ATTRIBUTION = `<a class="attribution" href="https://samebase.com" target="_blank" rel="noopener noreferrer" title="Built with the Samebase identity broker"><svg viewBox="0 0 60 60" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 0h60v60H0z M20 20h20v20H20z" fill="currentColor" fill-rule="evenodd"/></svg>Samebase</a>`;
 
-/** The privacy notice and terms of a hub's sign-in service, linked under its sign-in page. */
+/** The privacy notice and terms of a broker's sign-in service, linked under its sign-in page. */
 type Legal = { readonly privacy: string; readonly terms: string };
 
 function legalLinks(legal: Legal | null) {
@@ -87,8 +87,8 @@ function document(title: string, body: string, legal: Legal | null): string {
 }
 
 /**
- * The hub's answer with an HTML document: the headers are the hub's, whoever wrote the document,
- * so a page that a hub supplies is never cached, never sends a referrer, and is never framed.
+ * The broker's answer with an HTML document: the headers are the broker's, whoever wrote the document,
+ * so a page that a broker supplies is never cached, never sends a referrer, and is never framed.
  */
 export function htmlResponse(html: string, status: number): Response {
   return new Response(html, {
@@ -157,7 +157,7 @@ export type SignInPageFacts = {
    * app; nothing sends the user there by itself.
    */
   readonly origin: string;
-  /** One per offered connector: its label, its provider, and the hub's link that starts it. */
+  /** One per offered connector: its label, its provider, and the broker's link that starts it. */
   readonly connectors: ReadonlyArray<{
     readonly label: string;
     readonly provider: string;
@@ -165,20 +165,24 @@ export type SignInPageFacts = {
   }>;
   /** The scopes that the app gets, when the page asks for consent; null when it does not. */
   readonly scopes: ReadonlyArray<string> | null;
-  /** The hub's sign-in service: its name, and its privacy notice and terms; null without one. */
-  readonly hub: { readonly name: string; readonly privacy: string; readonly terms: string } | null;
+  /** The broker's sign-in service: its name, and its privacy notice and terms; null without one. */
+  readonly broker: {
+    readonly name: string;
+    readonly privacy: string;
+    readonly terms: string;
+  } | null;
 };
 
 /**
- * The page before the provider: a whole HTML document from its facts. A hub can give its own; the
- * hub answers it with its own headers (`htmlResponse`).
+ * The page before the provider: a whole HTML document from its facts. A broker can give its own; the
+ * broker answers it with its own headers (`htmlResponse`).
  */
 export type SignInPageFunction = (facts: SignInPageFacts) => string;
 
 /**
  * The default page: one "Continue with" button per offered connector, under the host of the
  * validated return address, which gets the sign-in. With a consent it also names what the app
- * gets, and that the hub reviewed nothing. It has no Cancel: the browser's Back does that, and it
+ * gets, and that the broker reviewed nothing. It has no Cancel: the browser's Back does that, and it
  * never sends the user to the host, which a stranger's link may have chosen (RFC 9700 section
  * 4.11.2).
  */
@@ -188,12 +192,12 @@ export const signInPage: SignInPageFunction = (facts) => {
   const fine =
     facts.scopes === null
       ? ""
-      : `\n<p class="fine">${escape(released(facts.scopes))}${facts.hub === null ? "" : ` ${escape(facts.hub.name)} has not reviewed this app.`}</p>`;
+      : `\n<p class="fine">${escape(released(facts.scopes))}${facts.broker === null ? "" : ` ${escape(facts.broker.name)} has not reviewed this app.`}</p>`;
   return document(
     `Sign in to ${facts.host}`,
     `${heading}
 <div class="actions">${buttons}</div>${fine}`,
-    facts.hub,
+    facts.broker,
   );
 };
 

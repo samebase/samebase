@@ -1,5 +1,5 @@
 // Test support of the connections part: fake providers at the real token endpoints of Convex,
-// Cloudflare and GitHub, and at Cloudflare's revocation endpoint, on the harness's `Fetch`; a hub
+// Cloudflare and GitHub, and at Cloudflare's revocation endpoint, on the harness's `Fetch`; a broker
 // with the part; and the client's side of each step. A fake provider spends each refresh token
 // once, like the rotation of GitHub and Cloudflare. No test framework import.
 import { Effect, Redacted } from "effect";
@@ -137,17 +137,17 @@ export function fakeProviders(fetch: StubFetch) {
   };
 }
 
-export const REDIRECT = "https://preview.example.com/oauth/hub/callback";
+export const REDIRECT = "https://preview.example.com/oauth/broker/callback";
 
 /**
- * A hub with the connections part over the three providers and their fakes, and one card that
+ * A broker with the connections part over the three providers and their fakes, and one card that
  * may use `connections` (by default all three).
  */
-export async function connectionsHub(
+export async function connectionsBroker(
   options: {
     readonly registration?: Registration;
     readonly connections?: string[];
-    /** The sign-in connectors, made on the hub's `Fetch` (by default the harness's two). */
+    /** The sign-in connectors, made on the broker's `Fetch` (by default the harness's two). */
     readonly connectors?: (fetch: StubFetch) => ReadonlyArray<Connector>;
   } = {},
 ) {
@@ -168,9 +168,9 @@ export async function connectionsHub(
   });
   return { ...h, providers, client };
 }
-export type ConnectionsHub = Awaited<ReturnType<typeof connectionsHub>>;
+export type ConnectionsBroker = Awaited<ReturnType<typeof connectionsBroker>>;
 
-/** A client of the hub: its id, its secret and its return address. */
+/** A client of the broker: its id, its secret and its return address. */
 export type TestClient = {
   readonly clientId: string;
   readonly clientSecret: string;
@@ -179,7 +179,7 @@ export type TestClient = {
 
 /** `/authorize` with `resource`, and the PKCE verifier of the request. */
 export async function authorize(
-  h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
+  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   resource: string,
   extra: Record<string, string> = {},
@@ -199,9 +199,9 @@ export async function authorize(
   return { start, verifier: proof.verifier };
 }
 
-/** The provider's redirect back to the hub for `start`, from the browser that started it. */
+/** The provider's redirect back to the broker for `start`, from the browser that started it. */
 export async function callback(
-  h: Pick<ConnectionsHub, "fetchBroker">,
+  h: Pick<ConnectionsBroker, "fetchBroker">,
   start: Response,
   extra: Record<string, string> = {},
 ) {
@@ -218,7 +218,7 @@ export async function callback(
 
 /** A `/token` request of `client` with `params`, its secret in the body. */
 export const tokenRequest = (
-  h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
+  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   params: Record<string, string>,
 ) =>
@@ -234,7 +234,7 @@ export const tokenRequest = (
 
 /** The code exchange of `code` with `verifier`. */
 export const redeem = (
-  h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
+  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   code: string,
   verifier: string,
@@ -250,7 +250,7 @@ export const redeem = (
 
 /** A refresh of the provider's refresh token at the provider of `resource`. */
 export const refresh = (
-  h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
+  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   refreshToken: string,
   resource: string,
@@ -265,7 +265,7 @@ export const refresh = (
 
 /** RFC 7009 revocation of `token` by `client` at the provider of `resource`. */
 export const revoke = (
-  h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
+  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   token: string,
   resource: string,
@@ -287,7 +287,7 @@ export const revoke = (
  * step that answers no redirect onward ends it with that answer.
  */
 export async function connect(
-  h: Pick<ConnectionsHub, "fetchBroker" | "issuer">,
+  h: Pick<ConnectionsBroker, "fetchBroker" | "issuer">,
   client: TestClient,
   resource: string,
 ) {

@@ -5,7 +5,7 @@
 // (or `pnpm run conformance --work <folder>` in packages/identity-broker), with Docker
 // running. It makes the run's TLS certificate,
 // signing keys and client secrets (mode-600 files in the work folder, never printed), starts the
-// suite (compose.yml), the fake provider and the TLS proxy, starts the hub in workerd with
+// suite (compose.yml), the fake provider and the TLS proxy, starts the broker in workerd with
 // `alchemy dev` (stack.ts), creates the clients, runs the plans, and compares each module with
 // expected.json. It exits 1 when a module differs from its expectation, and 2 when the run broke.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -160,7 +160,7 @@ const NewClient = Schema.fromJsonString(
   Schema.Struct({ client_id: Schema.String, client_secret: Schema.String }),
 );
 
-/** A client of the local hub, made by the fixture Worker (admin.ts). */
+/** A client of the local broker, made by the fixture Worker (admin.ts). */
 async function createClient(args: {
   stage: string;
   redirectUri: string;
@@ -183,11 +183,11 @@ async function createClient(args: {
 }
 
 const servers: Server[] = [];
-let hub: ChildProcess | undefined;
+let broker: ChildProcess | undefined;
 let exitCode = 2;
 let suiteStarted = false;
 try {
-  // One certificate for the hub's issuer, the fake provider and the suite.
+  // One certificate for the broker's issuer, the fake provider and the suite.
   const tls = makeCertificate();
   const https = makeHttps(tls.ca);
   const suite = makeSuite(https, results);
@@ -211,9 +211,9 @@ try {
   );
   servers.push(await startProxy(serverTls, 9445, adapter));
 
-  log("Starting the hub in workerd (alchemy dev)");
+  log("Starting the broker in workerd (alchemy dev)");
   const output = openSync(`${work}/alchemy-dev.log`, "w", 0o600);
-  hub = spawn(
+  broker = spawn(
     process.execPath,
     [
       "node_modules/alchemy/bin/cli.js",
@@ -231,7 +231,7 @@ try {
         IDENTITY_BROKER_KEYS: keys,
         FAKE_UPSTREAM_CLIENT_SECRET: fakeSecret,
         SUITE_CONNECTOR_CLIENT_SECRET: suiteSecret,
-        // workerd trusts these for the hub's own fetches: the fake provider and the suite.
+        // workerd trusts these for the broker's own fetches: the fake provider and the suite.
         NODE_EXTRA_CA_CERTS: `${work}/ca.pem`,
         // Nothing of the run leaves the machine, Alchemy's usage reports included.
         ALCHEMY_TELEMETRY_DISABLED: "1",
@@ -250,18 +250,19 @@ try {
     if (ready && admin) {
       break;
     }
-    if (hub.exitCode !== null || attempt > 120) {
-      throw new Error("The hub did not start; see alchemy-dev.log in the work folder");
+    if (broker.exitCode !== null || attempt > 120) {
+      throw new Error("The broker did not start; see alchemy-dev.log in the work folder");
     }
     await sleep(1000);
   }
-  log("The hub answers discovery");
+  log("The broker answers discovery");
 
   const rows: Row[] = [];
   const report = (run: ModuleRun | RpRun) => {
-    const hubOutcome = "hub" in run ? ` hub=${run.hub.kind} (${run.hub.detail})` : "";
+    const brokerOutcome =
+      "broker" in run ? ` broker=${run.broker.kind} (${run.broker.detail})` : "";
     log(
-      `${run.module}: ${run.status} ${run.result ?? ""}${run.stopped === undefined ? "" : ` stopped: ${run.stopped}`}${hubOutcome}`,
+      `${run.module}: ${run.status} ${run.result ?? ""}${run.stopped === undefined ? "" : ` stopped: ${run.stopped}`}${brokerOutcome}`,
     );
     // The first failure's condition and message: the suite's own text, which names the check and
     // not a token or secret (those are in other members of the log entry).
@@ -277,7 +278,7 @@ try {
       result: run.result,
       stopped: run.stopped,
       issues: run.issues,
-      hub: "hub" in run ? run.hub : undefined,
+      broker: "broker" in run ? run.broker : undefined,
     });
   };
 
@@ -324,7 +325,7 @@ try {
     });
     // The Basic RP plan fixes the response type and mode and the client authentication.
     const variant = { client_registration: "static_client", request_type: "plain_http_request" };
-    // The gate: the Basic RP plan's modules with the hub's client authentication.
+    // The gate: the Basic RP plan's modules with the broker's client authentication.
     if (plans.has("rp")) {
       log(`Plan ${RP_PLAN}, the modules of ${BASIC_RP_PLAN}, client_secret_post`);
       await runRpPlan({
@@ -375,12 +376,12 @@ try {
   for (const server of servers) {
     server.close();
   }
-  if (hub !== undefined && hub.exitCode === null) {
-    const exited = new Promise<boolean>((resolve) => hub?.once("exit", () => resolve(true)));
+  if (broker !== undefined && broker.exitCode === null) {
+    const exited = new Promise<boolean>((resolve) => broker?.once("exit", () => resolve(true)));
     // `alchemy dev` stops its workerd processes on SIGINT.
-    hub.kill("SIGINT");
+    broker.kill("SIGINT");
     if (!(await Promise.race([exited, sleep(15_000, false)]))) {
-      hub.kill("SIGTERM");
+      broker.kill("SIGTERM");
     }
   }
   if (suiteStarted) {

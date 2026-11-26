@@ -11,7 +11,7 @@ import { expect, test } from "vite-plus/test";
 import { checkStore, sqliteTestStore, type HostUnderTest } from "../core/testing/harness.ts";
 import { api } from "../hosts/convex/component/_generated/api.ts";
 import componentSchema from "../hosts/convex/component/schema.ts";
-import { convexStore } from "../hosts/convex/hub.ts";
+import { convexStore } from "../hosts/convex/broker.ts";
 import { commandFunctions } from "../hosts/convex/references.ts";
 import { convexTx } from "../hosts/convex/tx.ts";
 import { sqliteStep } from "../hosts/nodeSqlite.ts";

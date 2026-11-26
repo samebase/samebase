@@ -1,15 +1,16 @@
-// The test hub, deployed at the stage `dev-spike` of alchemy.run.ts, on the GitHub layer. Its issuer
-// is the workers.dev address of its script.
+// The test broker, deployed at the stage `dev-spike` of alchemy.run.ts, on the GitHub layer. Its
+// issuer is the workers.dev address of its script.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
 import * as Connectors from "./core/connectors/index.ts";
-import { DurableObjectStore, hubWorkerProps } from "./hosts/cloudflare/hub.ts";
-import { github, hub } from "./index.ts";
+import { DurableObjectStore, brokerWorkerProps } from "./hosts/cloudflare/broker.ts";
+import { github, identityBroker } from "./index.ts";
 
-export default class Hub extends Cloudflare.Worker<Hub>()(
+export default class Broker extends Cloudflare.Worker<Broker>()(
+  // The Alchemy logical id that the stage's saved state holds.
   "Hub",
-  { ...hubWorkerProps, main: import.meta.url, name: "identity-broker-effect-dev-spike" },
-  hub({
+  { ...brokerWorkerProps, main: import.meta.url, name: "identity-broker-effect-dev-spike" },
+  identityBroker({
     issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev",
     connectors: [
       Connectors.google({
@@ -24,7 +25,7 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
     // samebase/samebase and the samebase organization.
     registration: github([{ repositoryId: "1021726325", ownerId: "285392744" }]),
     service: {
-      name: "Samebase identity hub (Effect test)",
+      name: "Samebase identity broker (Effect test)",
       terms: "https://samebase.com/terms",
       privacy: "https://samebase.com/privacy",
     },

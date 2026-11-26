@@ -72,7 +72,7 @@ export const isStopped = Effect.fnUntraced(function* (
 });
 
 /**
- * The connectors that a client of the repository may use, of the hub's `configured` ones: every
+ * The connectors that a client of the repository may use, of the broker's `configured` ones: every
  * one while the allow-list names the repository with its current owner, and those that a grant
  * row gives while the tenant's current owner is the owner that registered the client.
  */
@@ -126,7 +126,7 @@ export const computedFields = Effect.fnUntraced(function* (args: {
   });
   return {
     connectors: args.client.enrollment.filter((name) => allowed.includes(name)),
-    // The public hub offers no connection provider.
+    // The public broker offers no connection provider.
     connections: [],
     gates: [repositoryStop(repositoryIdOf(args.tenantId)), ownerStop(args.currentOwnerId)],
     confirm: exemption === "shown",

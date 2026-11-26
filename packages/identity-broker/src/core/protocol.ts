@@ -117,7 +117,7 @@ export function validateAuthorizeRest(
   if (responseMode !== null && responseMode !== "query") {
     return invalid(400, "invalid_request", "response_mode must be query.");
   }
-  // OIDC Core section 3.1.2.2: with no sessions the hub cannot check the hint's user, so it refuses.
+  // OIDC Core section 3.1.2.2: with no sessions the broker cannot check the hint's user, so it refuses.
   if (flow === "identity" && params.has("id_token_hint")) {
     return invalid(400, "login_required", "id_token_hint is not supported.");
   }

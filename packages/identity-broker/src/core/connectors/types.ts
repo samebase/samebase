@@ -19,7 +19,7 @@ type Credentials = {
   /** Redacted, so a log line or an error that holds the connector does not print them. */
   clientId: Redacted.Redacted<string>;
   clientSecret: Redacted.Redacted<string>;
-  /** How the hub authenticates at the provider's token endpoint. Default: `client_secret_post`. */
+  /** How the broker authenticates at the provider's token endpoint. Default: `client_secret_post`. */
   tokenEndpointAuthMethod?: "client_secret_post" | "client_secret_basic";
 };
 
@@ -66,17 +66,17 @@ export type OidcConnector<Name extends string = string> = Credentials & {
   maxAge: boolean;
   /**
    * Sends `prompt=select_account`, so the provider shows its account screen on each sign-in and
-   * cannot pass a user through with no click because an earlier app of this hub was approved.
+   * cannot pass a user through with no click because an earlier app of this broker was approved.
    */
   selectAccount?: boolean;
 };
 
 export type Connector<Name extends string = string> = OauthConnector<Name> | OidcConnector<Name>;
 
-/** A secret of the hub: a `Config`, or another Effect such as a Secrets Store read. */
+/** A secret of the broker: a `Config`, or another Effect such as a Secrets Store read. */
 export type Secret<R = never> = Effect.Effect<Redacted.Redacted<string>, unknown, R>;
 
-/** The hub's client at one provider, each secret an Effect that the hub reads when it builds. */
+/** The broker's client at one provider, each secret an Effect that the broker reads when it builds. */
 export type ClientSecrets<R1 = never, R2 = R1> = {
   readonly clientId: Secret<R1>;
   readonly clientSecret: Secret<R2>;
@@ -85,7 +85,7 @@ export type ClientSecrets<R1 = never, R2 = R1> = {
 /** The services that the secrets of `Spec` need. */
 export type SecretServices<Spec> = Spec extends ClientSecrets<infer A, infer B> ? A | B : never;
 
-/** A connector as `hub` takes it: what the hub checks at its start, and its two secrets unread. */
+/** A connector as `identityBroker` takes it: what the broker checks at its start, and its two secrets unread. */
 export type ConnectorSpec<R = never> =
   | (Omit<OauthConnector, "clientId" | "clientSecret"> & ClientSecrets<R>)
   | (Omit<OidcConnector, "clientId" | "clientSecret"> & ClientSecrets<R>);

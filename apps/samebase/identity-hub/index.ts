@@ -8,15 +8,15 @@
 // `/connectors/<name>/callback` and `/connections/<name>/callback`.
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect, Layer } from "effect";
-import { hub, stack } from "@samebase/identity-broker";
-import { DurableObjectStore, hubWorkerProps } from "@samebase/identity-broker/cloudflare";
+import { identityBroker, stack } from "@samebase/identity-broker";
+import { DurableObjectStore, brokerWorkerProps } from "@samebase/identity-broker/cloudflare";
 import * as Connections from "@samebase/identity-broker/connections";
 import * as Connectors from "@samebase/identity-broker/connectors";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
   {
-    ...hubWorkerProps,
+    ...brokerWorkerProps,
     main: import.meta.url,
     name: "samebase-identity-hub",
     // alchemy.run.ts names this issuer too, and does not take it from here.
@@ -29,7 +29,7 @@ export default class Hub extends Cloudflare.Worker<Hub>()(
       Cloudflare.SecretsStore.ReadSecret(
         Cloudflare.SecretsStore.Secret.lookup({ storeId: store.storeId, name }),
       );
-    return yield* hub({
+    return yield* identityBroker({
       issuer: "https://auth.samebase.com",
       keys: yield* secret("SAMEBASE_HUB_IDENTITY_BROKER_KEYS"),
       connectors: [

@@ -38,8 +38,8 @@ export const isStopped = Effect.fnUntraced(function* (
   return false;
 });
 
-/** What every sign-in step knows of the hub: its configured connectors and its live gates. */
-type HubNow = {
+/** What every sign-in step knows of the broker: its configured connectors and its live gates. */
+type BrokerNow = {
   readonly configured: ReadonlyArray<string>;
   readonly liveGates: ReadonlyArray<GateNamespace>;
 };
@@ -47,7 +47,7 @@ type HubNow = {
 /**
  * The card of `request`'s client when the request may go on with `connector` now: the card exists,
  * no gate refuses it (`isStopped`), the request's return address is still on it, and the connector
- * is in the request's stored set, on the card, and among the hub's `configured` connectors.
+ * is in the request's stored set, on the card, and among the broker's `configured` connectors.
  * Undefined otherwise.
  */
 export const usableCard = Effect.fnUntraced(function* (
@@ -57,16 +57,16 @@ export const usableCard = Effect.fnUntraced(function* (
     readonly connectors: ReadonlyArray<string>;
   },
   connector: string,
-  hub: HubNow,
+  broker: BrokerNow,
 ) {
   const row = yield* cardRow(request.clientId);
   if (
     row === undefined ||
-    (yield* isStopped(row.doc, hub.liveGates)) ||
+    (yield* isStopped(row.doc, broker.liveGates)) ||
     !row.doc.redirectUris.includes(request.redirectUri) ||
     !request.connectors.includes(connector) ||
     !row.doc.connectors.includes(connector) ||
-    !hub.configured.includes(connector)
+    !broker.configured.includes(connector)
   ) {
     return undefined;
   }

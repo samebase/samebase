@@ -1,9 +1,9 @@
-// The moderation API of a hub, declared once with Effect's `HttpApi`: the hub serves it
+// The moderation API of a broker, declared once with Effect's `HttpApi`: the broker serves it
 // (./server.ts), and a client derives its typed client and its OpenAPI document from it. This
 // module imports no server code, so a browser or a Convex action can import it alone.
 //
 // The moderation key is a Bearer token of a protected resource (RFC 6750). Every error body is
-// `{ error, error_description }`, as the hub's other endpoints answer (RFC 6749 section 5.2).
+// `{ error, error_description }`, as the broker's other endpoints answer (RFC 6749 section 5.2).
 import { Schema } from "effect";
 import {
   HttpApi,
@@ -17,7 +17,7 @@ import {
 /** A numeric GitHub id of a repository or an account. */
 const GithubId = Schema.String.check(Schema.isPattern(/^[1-9][0-9]*$/));
 const ClientId = Schema.String.check(Schema.isPattern(/^cl_[A-Za-z0-9_-]+$/));
-/** Trimmed by the hub; the typed client sends it trimmed. */
+/** Trimmed by the broker; the typed client sends it trimmed. */
 const Text = (maxLength: number) =>
   Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(maxLength));
 const Reason = Text(1_000);
@@ -68,7 +68,7 @@ export const Client = Schema.Struct({
   /** The registration, or the last read of the client by its deploy. */
   renewedAt: Schema.Number,
   lastSignInAt: Schema.NullOr(Schema.Number),
-  /** When the hub deletes the client. Null: never. */
+  /** When the broker deletes the client. Null: never. */
   removeAt: Schema.NullOr(Schema.Number),
   registeredBy: Schema.Union([
     Schema.Struct({
@@ -90,11 +90,11 @@ export const Client = Schema.Struct({
   ]),
   /** The connectors the client enrolled in. */
   connectors: Connectors,
-  /** The repository's owner that the hub recorded last. */
+  /** The repository's owner that the broker recorded last. */
   ownerId: Schema.NullOr(Schema.String),
   /** Null, as each field below, when the client cannot sign in at all. */
   signInPage: Schema.NullOr(Schema.Literals(["shown", "every_app", "repository"])),
-  /** The hub's connectors that its allow-list gives the repository. */
+  /** The broker's connectors that its allow-list gives the repository. */
   policyConnectors: Schema.NullOr(Connectors),
   /** The enrolled connectors that the client may use now. */
   usableConnectors: Schema.NullOr(Connectors),
@@ -102,14 +102,14 @@ export const Client = Schema.Struct({
   grantedConnectors: Schema.NullOr(Connectors),
 });
 
-/** Newest first. With `?owner=`, the clients of the repositories that the hub records under it. */
+/** Newest first. With `?owner=`, the clients of the repositories that the broker records under it. */
 export const ClientList = Schema.Struct({
   owner: Schema.optionalKey(Schema.String),
   clients: Schema.Array(Client),
   limitReached: Schema.Boolean,
 });
 
-/** The exemptions from the hub's sign-in page. */
+/** The exemptions from the broker's sign-in page. */
 export const SignInPageList = Schema.Struct({
   everyApp: Schema.NullOr(Schema.Struct({ reason: Schema.String })),
   repositories: Schema.Array(
@@ -117,7 +117,7 @@ export const SignInPageList = Schema.Struct({
       repositoryId: Schema.String,
       /** The owner the row is bound to. */
       ownerId: Schema.String,
-      /** False while the hub records another owner: the row then covers no client. */
+      /** False while the broker records another owner: the row then covers no client. */
       active: Schema.Boolean,
       reason: Schema.String,
     }),
@@ -138,7 +138,7 @@ export const SignInPageChange = Schema.Struct({
   reason: Reason,
 });
 
-/** The hub's connectors, which a grant may name, and every grant. */
+/** The broker's connectors, which a grant may name, and every grant. */
 export const ConnectorGrantList = Schema.Struct({
   connectors: Connectors,
   grants: Schema.Array(
@@ -146,7 +146,7 @@ export const ConnectorGrantList = Schema.Struct({
       repositoryId: Schema.String,
       ownerId: Schema.String,
       connector: Schema.String,
-      /** False while the hub records another owner: the row then grants nothing. */
+      /** False while the broker records another owner: the row then grants nothing. */
       active: Schema.Boolean,
       reason: Schema.String,
     }),
@@ -179,13 +179,13 @@ export class InvalidRequest extends Schema.Error<InvalidRequest>("InvalidRequest
   { httpApiStatus: 400 },
 ) {}
 
-/** A grant of a connector that the hub does not have. */
+/** A grant of a connector that the broker does not have. */
 export class UnknownConnector extends Schema.Error<UnknownConnector>("UnknownConnector")(
   { error: Schema.tag("unknown_connector"), ...description },
   { httpApiStatus: 400 },
 ) {}
 
-/** A change that names an owner of a repository while the hub records another one. */
+/** A change that names an owner of a repository while the broker records another one. */
 export class OwnerChanged extends Schema.Error<OwnerChanged>("OwnerChanged")(
   { error: Schema.tag("owner_changed"), ...description },
   { httpApiStatus: 409 },
@@ -275,5 +275,5 @@ export class Moderation extends HttpApiGroup.make("moderation")
   .middleware(ModerationKey)
   .prefix("/moderation") {}
 
-/** The API: paths are relative to the hub's issuer. */
-export class ModerationApi extends HttpApi.make("identity-hub-moderation").add(Moderation) {}
+/** The API: paths are relative to the broker's issuer. */
+export class ModerationApi extends HttpApi.make("identity-broker-moderation").add(Moderation) {}

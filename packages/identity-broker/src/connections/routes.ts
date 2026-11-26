@@ -1,14 +1,14 @@
 // The connections part over HTTP: `/authorize` with `resource` (RFC 8707), the provider's callback
 // at `/connections/<name>/callback`, both grants of `/token` for a connection, and `/revoke`
 // (RFC 7009). The wire protocol is the Convex broker's (src/client/resources.ts of
-// 0.34.0), except that the hub is pass-through: the client gets and holds the provider's own
-// refresh token, and the hub forwards a refresh or a revocation with its provider client
+// 0.34.0), except that the broker is pass-through: the client gets and holds the provider's own
+// refresh token, and the broker forwards a refresh or a revocation with its provider client
 // authentication. Each step that moves a connection on is one command that reads the card in its
 // own transaction (rules.ts); every call to the provider is outside a command.
 import { Cause, Clock, Effect, Exit, Result } from "effect";
 import type { SecretServices } from "../core/connectors/types.ts";
 import { errorPage } from "../core/html.ts";
-import { logHubEvent } from "../core/hubEvents.ts";
+import { logBrokerEvent } from "../core/brokerEvents.ts";
 import {
   readClientAuthentication,
   validateAuthorizeRest,
@@ -23,7 +23,7 @@ import {
   redirect,
 } from "../core/responses.ts";
 import type { Part, Route } from "../core/router.ts";
-import { Fetch, HubConfig, LiveGates, type HubConfigShape } from "../core/services.ts";
+import { Fetch, BrokerConfig, LiveGates, type BrokerConfigShape } from "../core/services.ts";
 import { toApp, txnCookies } from "../core/signIn.ts";
 import { randomToken, s256Challenge, sha256HexEffect } from "../core/subject.ts";
 import type { Return } from "../rules/schemas.ts";
@@ -104,8 +104,8 @@ const clientArgs = Effect.fnUntraced(function* (client: {
 /** The connections part over `providers`, for the router (src/core/router.ts). */
 export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): Part => {
   const byResource = new Map(providers.map((provider) => [provider.resource, provider]));
-  /** What every step knows of the hub now: its providers and the live gates of this request. */
-  const hubNow = Effect.gen(function* () {
+  /** What every step knows of the broker now: its providers and the live gates of this request. */
+  const brokerNow = Effect.gen(function* () {
     return {
       providers: providers.map((provider) => ({
         name: provider.name,
@@ -114,16 +114,16 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       liveGates: yield* (yield* LiveGates).read,
     };
   });
-  const callbackUrl = (hub: HubConfigShape, provider: ConnectionProvider) =>
-    `${hub.issuer}/connections/${provider.name}/callback`;
-  /** The provider's name in a `hub_event` line. */
+  const callbackUrl = (broker: BrokerConfigShape, provider: ConnectionProvider) =>
+    `${broker.issuer}/connections/${provider.name}/callback`;
+  /** The provider's name in a `broker_event` line. */
   const nameOf = (resource: string) => byResource.get(resource)?.name ?? null;
-  /** The `hub_event` line of a refusal that a step's rule returned. */
+  /** The `broker_event` line of a refusal that a step's rule returned. */
   const logRefused = (
     event: "connection_refused" | "refresh_refused",
     refused: typeof Refused.Type,
   ) =>
-    logHubEvent({
+    logBrokerEvent({
       event,
       clientId: refused.clientId,
       ref: refused.ref,
@@ -142,7 +142,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     _request: Request,
     params: URLSearchParams,
   ) {
-    const hub = yield* HubConfig;
+    const broker = yield* BrokerConfig;
     const target = validateAuthorizeTarget(params);
     if (!target.ok) {
       return errorPage("Invalid connection request", target.description, target.status);
@@ -161,7 +161,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       return errorPage("API authorization refused", "This API resource has no scopes.", 400);
     }
     const start = yield* Effect.promise(() =>
-      startConnection(provider, callbackUrl(hub, provider)),
+      startConnection(provider, callbackUrl(broker, provider)),
     );
     const now = yield* Clock.currentTimeMillis;
     const requestId = yield* randomToken(24);
@@ -176,7 +176,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       txnCookieHash: yield* sha256HexEffect(txnCookie),
       upstreamStateHash: yield* sha256HexEffect(start.state),
       upstreamCodeVerifier: start.codeVerifier,
-      ...(yield* hubNow),
+      ...(yield* brokerNow),
       now,
       expiresAt: now + REQUEST_TTL_MS,
     });
@@ -212,16 +212,16 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       }
     }
     const response = redirect(start.url);
-    response.headers.append("Set-Cookie", txnCookies(hub).set(requestId, txnCookie));
+    response.headers.append("Set-Cookie", txnCookies(broker).set(requestId, txnCookie));
     return response;
   });
 
-  /** The provider's redirect back to the hub, for one provider. */
+  /** The provider's redirect back to the broker, for one provider. */
   const callback = (provider: ConnectionProvider) =>
     Effect.fn("connections.callback")(function* (request: Request) {
-      const hub = yield* HubConfig;
+      const broker = yield* BrokerConfig;
       const { fetch } = yield* Fetch;
-      const cookies = txnCookies(hub);
+      const cookies = txnCookies(broker);
       const url = new URL(request.url);
       const state = url.searchParams.get("state");
       if (state === null) {
@@ -235,7 +235,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
         upstreamStateHash: yield* sha256HexEffect(state),
         resource: provider.resource,
         txnCookieHashes,
-        ...(yield* hubNow),
+        ...(yield* brokerNow),
         now: yield* Clock.currentTimeMillis,
       });
       if (claim.status === "missing") {
@@ -252,7 +252,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       // address that its own step read on the card, with `iss` and the app's state (RFC 9207).
       const answer = (back: Return | null | undefined, error: string, description: string) =>
         toApp(back ?? undefined, {
-          issuer: hub.issuer,
+          issuer: broker.issuer,
           clearCookie: cookies.clear(request, claim.requestId),
           error,
           description,
@@ -273,7 +273,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
           try: async () =>
             await finishConnection({
               provider,
-              callbackUrl: callbackUrl(hub, provider),
+              callbackUrl: callbackUrl(broker, provider),
               currentUrl: url,
               state,
               codeVerifier: claim.upstreamCodeVerifier,
@@ -303,7 +303,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
           tokens: finished.success,
           codeHash: yield* sha256HexEffect(code),
           codeExpiresAt: now + CODE_TTL_MS,
-          ...(yield* hubNow),
+          ...(yield* brokerNow),
           now,
         });
         if (!completed.ok) {
@@ -318,7 +318,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
         }
         return authorizationResponse({
           redirectUri: completed.back.redirectUri,
-          issuer: hub.issuer,
+          issuer: broker.issuer,
           state: completed.back.state,
           clearCookie: cookies.clear(request, claim.requestId),
           params: { code },
@@ -343,8 +343,8 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
 
   /**
    * A refresh (RFC 6749 section 6) of the provider's refresh token, which the client holds. One
-   * step admits it from the card; then the hub sends the token to the provider with its own client
-   * authentication and answers what the provider answered. The hub writes no token. The client
+   * step admits it from the card; then the broker sends the token to the provider with its own client
+   * authentication and answers what the provider answered. The broker writes no token. The client
    * runs one refresh of a token at a time: the provider spends a rotated token once.
    */
   const refresh = Effect.fnUntraced(function* (request: Request, params: URLSearchParams) {
@@ -357,11 +357,11 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     if (refreshToken === null) {
       return oauthError(400, "invalid_request", "refresh_token is required.");
     }
-    // RFC 6749 section 3.3: the hub cannot narrow the provider's token and keeps no grant scope.
+    // RFC 6749 section 3.3: the broker cannot narrow the provider's token and keeps no grant scope.
     if (params.has("scope")) {
       return oauthError(400, "invalid_scope", "A refresh cannot change the scope of this grant.");
     }
-    // RFC 8707 section 2.2: the hub keeps no grant, so the resource names the provider.
+    // RFC 8707 section 2.2: the broker keeps no grant, so the resource names the provider.
     const resources = params.getAll("resource");
     if (resources.length !== 1) {
       return oauthError(400, "invalid_target", "Request one API resource.");
@@ -373,7 +373,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     const admitted = yield* command("connections.admitRefresh", {
       ...(yield* clientArgs(clientAuth.value)),
       resource: provider.resource,
-      ...(yield* hubNow),
+      ...(yield* brokerNow),
       now: yield* Clock.currentTimeMillis,
     });
     if (!admitted.ok) {
@@ -399,13 +399,13 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
     if (Result.isFailure(answered)) {
       const error = answered.failure;
       console.error(`Connection "${provider.name}" refresh failed: ${failureName(error)}`);
-      logHubEvent({ event: "refresh_refused", ...line, reason: providerReason(error) });
+      logBrokerEvent({ event: "refresh_refused", ...line, reason: providerReason(error) });
       const refused = refusal(error);
       return refused === undefined
         ? unavailable()
         : oauthError(400, refused, "The provider refused the refresh.");
     }
-    logHubEvent({ event: "refresh", ...line, reason: null });
+    logBrokerEvent({ event: "refresh", ...line, reason: null });
     return tokenResponse(answered.success, yield* Clock.currentTimeMillis);
   });
 
@@ -442,7 +442,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       redirectUri: validation.value.redirectUri,
       codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
       ...(resource === undefined ? {} : { resource }),
-      ...(yield* hubNow),
+      ...(yield* brokerNow),
       now,
     });
     if (!exchange.ok) {
@@ -456,7 +456,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
         ? oauthError(401, exchange.error, exchange.description, challenge)
         : oauthError(400, exchange.error, exchange.description);
     }
-    logHubEvent({
+    logBrokerEvent({
       event: "connection",
       clientId: clientAuth.value.clientId,
       ref: exchange.ref,
@@ -468,8 +468,8 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
 
   /**
    * RFC 7009: the client revokes a provider token that it holds, at the provider that `resource`
-   * names. The hub forwards it with its own client authentication when the provider has a
-   * revocation endpoint, and answers 200 when it has none: the hub keeps nothing to delete.
+   * names. The broker forwards it with its own client authentication when the provider has a
+   * revocation endpoint, and answers 200 when it has none: the broker keeps nothing to delete.
    */
   const revoke = Effect.fn("connections.revoke")(function* (request: Request) {
     const { fetch } = yield* Fetch;
@@ -499,7 +499,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
       return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
     }
     const logRevoke = (reason: string | null) =>
-      logHubEvent({
+      logBrokerEvent({
         event: "revoke",
         clientId: clientAuth.value.clientId,
         ref,
@@ -570,7 +570,7 @@ export const connectionsPart = (providers: ReadonlyArray<ConnectionProvider>): P
 };
 
 /**
- * The connections part of a hub over `specs`, checked before any secret is read, then with each
+ * The connections part of a broker over `specs`, checked before any secret is read, then with each
  * provider's secrets read. A host reads it where it reads its connectors' secrets.
  */
 export const makeConnections = Effect.fnUntraced(function* <

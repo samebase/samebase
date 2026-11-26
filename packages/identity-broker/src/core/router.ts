@@ -8,7 +8,7 @@ import type { ProviderUnavailable } from "./connectors/upstream.ts";
 import { json, readParameters } from "./responses.ts";
 import type { GateNamespace } from "../rules/schemas.ts";
 import {
-  HubConfig,
+  BrokerConfig,
   LiveGates,
   type Fetch,
   type Keys,
@@ -26,7 +26,7 @@ import {
   type Metadata,
 } from "./signIn.ts";
 
-export type CoreServices = Store | HubConfig | SignInPage | Keys | Random | Fetch;
+export type CoreServices = Store | BrokerConfig | SignInPage | Keys | Random | Fetch;
 
 /** The failures a route leaves to the router: each answers 500 and writes one log line. */
 export type RouteError = CommandFailed | ProviderUnavailable;
@@ -42,21 +42,21 @@ export type Route<R = never> = {
   readonly handler: (request: Request) => Effect.Effect<Response, RouteError, CoreServices | R>;
 };
 
-/** What the one registration layer of a hub gives it, from that layer's module. */
+/** What the one registration layer of a broker gives it, from that layer's module. */
 export type Registration<R = never> = {
   readonly routes: ReadonlyArray<Route<R>>;
   /** The gate namespaces that the layer owns, read in each request. Absent: it owns none. */
   readonly liveGates?: Effect.Effect<ReadonlyArray<GateNamespace>>;
 };
 
-/** A registration layer where strangers register, so `hub(options)` needs the hub's `service`. */
+/** A registration layer where strangers register, so `identityBroker(options)` needs the broker's `service`. */
 export type PublicRegistration<R = never> = Registration<R> & { readonly public: true };
 
 /** What a handler of a part needs: the core's services and the live gates of the request. */
 type PartEffect<A> = Effect.Effect<A, RouteError, CoreServices | LiveGates>;
 
 /**
- * An optional part of the hub beside sign-in, such as connections (src/connections/). The router
+ * An optional part of the broker beside sign-in, such as connections (src/connections/). The router
  * sends a request to it with one check at the top of `/authorize` and `/token`; the core's
  * sign-in code knows nothing of it.
  */
@@ -81,11 +81,11 @@ type Mounted<R> = Route<R | LiveGates> & { readonly fullPath: string };
 const peekParameters = (request: Request) => Effect.promise(() => readParameters(request.clone()));
 
 /**
- * The hub's logger: one JSON object per line, on the console method of the entry's level, which is
+ * The broker's logger: one JSON object per line, on the console method of the entry's level, which is
  * what Workers Logs indexes. An entry holds its message, level, time, fiber, log spans and
- * annotations, and its cause only when one is logged; the hub logs no cause.
+ * annotations, and its cause only when one is logged; the broker logs no cause.
  */
-export const hubLogger = Logger.layer([Logger.withLeveledConsole(Logger.formatJson)]);
+export const brokerLogger = Logger.layer([Logger.withLeveledConsole(Logger.formatJson)]);
 
 /**
  * The one log line of a request that failed, then the bare 500: the route template, the command
@@ -99,15 +99,15 @@ export const serverError = (annotations: {
   readonly category: "command_failed" | "provider_unavailable" | "defect" | "start_failed";
   readonly reason?: "invalid_config" | "missing_config" | "secret_failed" | "defect";
 }) =>
-  Effect.logError("hub_error").pipe(
+  Effect.logError("broker_error").pipe(
     Effect.annotateLogs(annotations),
     Effect.map(() => json({ error: "server_error" }, 500)),
   );
 
 /**
- * The broker's request handler. `registration` is the layer that the hub mounts: its routes, such
+ * The broker's request handler. `registration` is the layer that the broker mounts: its routes, such
  * as the client registration endpoint, beside the core's sign-in routes, and its live gates.
- * `part` is an optional part of the hub, such as connections; without it the hub has none of its
+ * `part` is an optional part of the broker, such as connections; without it the broker has none of its
  * routes.
  */
 export function makeHandle<R = never>(registration: Registration<R>, part?: Part) {
@@ -119,7 +119,7 @@ export function makeHandle<R = never>(registration: Registration<R>, part?: Part
     extend: part?.metadata ?? ((document) => document),
   });
   const liveGates = LiveGates.of({ read: registration.liveGates ?? Effect.succeed([]) });
-  /** `/authorize`: a request with `resource` goes to the part, when the hub has one. */
+  /** `/authorize`: a request with `resource` goes to the part, when the broker has one. */
   const authorizeRoute =
     part === undefined
       ? authorize
@@ -130,7 +130,7 @@ export function makeHandle<R = never>(registration: Registration<R>, part?: Part
               ? yield* part.authorize(request, params)
               : yield* authorize(request);
           });
-  /** `/token`: the part answers its own grants first, when the hub has one. */
+  /** `/token`: the part answers its own grants first, when the broker has one. */
   const tokenRoute =
     part === undefined
       ? token
@@ -141,10 +141,10 @@ export function makeHandle<R = never>(registration: Registration<R>, part?: Part
             return answer ?? (yield* token(request));
           });
   return Effect.fn("handle")(function* (request: Request) {
-    const hub = yield* HubConfig;
+    const broker = yield* BrokerConfig;
     const at = (route: Route<R | LiveGates>): Mounted<R> => ({
       ...route,
-      fullPath: `${hub.prefix}${route.path}`,
+      fullPath: `${broker.prefix}${route.path}`,
     });
     const routes: Mounted<R>[] = [
       at({
@@ -157,7 +157,7 @@ export function makeHandle<R = never>(registration: Registration<R>, part?: Part
       {
         method: "GET",
         path: "/.well-known/oauth-authorization-server",
-        fullPath: `/.well-known/oauth-authorization-server${hub.prefix}`,
+        fullPath: `/.well-known/oauth-authorization-server${broker.prefix}`,
         match: "exact",
         template: "/.well-known/oauth-authorization-server",
         handler: metadata,
@@ -211,7 +211,7 @@ export function makeHandle<R = never>(registration: Registration<R>, part?: Part
         template: "/userinfo",
         handler: userinfo,
       }),
-      ...hub.connectors.map((connector) =>
+      ...broker.connectors.map((connector) =>
         at({
           method: "GET",
           path: `/connectors/${connector.name}/callback`,

@@ -1,13 +1,13 @@
-// The Convex host of the hub. The core runs in an `httpAction`, one run per request, and reaches
+// The Convex host of the broker. The core runs in an `httpAction`, one run per request, and reaches
 // the state through the component `identityBroker` (component/), where each command of the closed
-// registry is its own query or mutation, run as one transaction. An app gives
-// `convexHub` its reference to the component and its hub (`hub(options)` of the main export), adds
-// the hub's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
+// registry is its own query or mutation, run as one transaction. An app gives `convexBroker` its
+// reference to the component and its broker (`identityBroker(options)` of the main export), adds
+// the broker's routes to its `httpRouter`, and calls `cleanup` from a daily cron.
 //
 // The secrets are Effect `Config` reads of the deployment's environment variables, which Convex
 // gives as `process.env`. Effect's default configuration provider does not work here: it reads
 // `import.meta.env`, and the Convex runtime throws at any `import.meta` ("import.meta
-// unsupported"). So the hub gives its own provider (`deploymentEnv`).
+// unsupported"). So the broker gives its own provider (`deploymentEnv`).
 import { httpActionGeneric, internalActionGeneric, type HttpRouter } from "convex/server";
 import { v } from "convex/values";
 import { Clock, ConfigProvider, Effect, Schema } from "effect";
@@ -68,14 +68,14 @@ export const convexStore = (ctx: Runner, functions: CommandFunctions) =>
   });
 
 /**
- * One hub on Convex, from `hub(options)` or `hubRuntime` of the main export. It runs in each
- * request, so each request reads the deployment's environment variables of that moment. Each key
- * of the stack layer is the deployment variable that its `Config` names, which the app's stack
- * sets in the `env` of the hub's `Convex.Deployment`.
+ * One broker on Convex, from `identityBroker(options)` or `brokerRuntime` of the main export. It
+ * runs in each request, so each request reads the deployment's environment variables of that
+ * moment. Each key of the stack layer is the deployment variable that its `Config` names, which
+ * the app's stack sets in the `env` of the broker's `Convex.Deployment`.
  */
-export const convexHub = (
+export const convexBroker = (
   component: ComponentApi,
-  hub: Effect.Effect<
+  broker: Effect.Effect<
     {
       readonly fetch: Effect.Effect<
         HttpServerResponse.HttpServerResponse,
@@ -90,13 +90,13 @@ export const convexHub = (
   const functions = commandFunctions(component);
 
   /**
-   * Every request of the hub. The core takes the Web `Request` and gives the Web `Response`, which
-   * the action returns unchanged. A failure to build the hub (a missing or wrong setting) rejects,
+   * Every request of the broker. The core takes the Web `Request` and gives the Web `Response`, which
+   * the action returns unchanged. A failure to build the broker (a missing or wrong setting) rejects,
    * and Convex answers 500.
    */
   const fetch = httpActionGeneric((ctx, request) =>
     Effect.runPromise(
-      Effect.flatMap(hub, (built) => built.fetch).pipe(
+      Effect.flatMap(broker, (built) => built.fetch).pipe(
         Effect.map((response) => HttpServerResponse.toWeb(response)),
         Effect.provideService(
           HttpServerRequest.HttpServerRequest,
@@ -110,7 +110,7 @@ export const convexHub = (
 
   return {
     /**
-     * Routes every path of the site to the hub, for each method that the hub serves: the core's
+     * Routes every path of the site to the broker, for each method that the broker serves: the core's
      * router answers 404 for a path it does not serve. An exact path or a longer prefix of the
      * app's own wins over these, as Convex's router orders them. HEAD runs the GET route.
      */

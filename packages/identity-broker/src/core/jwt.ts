@@ -67,7 +67,7 @@ export async function signAccessToken(args: {
   );
 }
 
-/** The claims an access token of this hub must hold; a token without them is refused. */
+/** The claims an access token of this broker must hold; a token without them is refused. */
 const decodeAccessTokenClaims = Schema.decodeUnknownOption(
   Schema.Struct({ sub: Schema.String, connector: Schema.String, client_id: Schema.String }),
 );

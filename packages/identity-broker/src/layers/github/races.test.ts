@@ -6,22 +6,22 @@ import { txnCookie } from "../../core/testing/harness.ts";
 import { setBlock, setExemption, setGrant } from "./testing/seeds.ts";
 import {
   createClient,
-  createHub,
+  createGithubBroker,
   createInitialAccessToken,
   EPOCH,
   jsonResponse,
   JWKS_URL,
   LOOPBACK_CALLBACK,
   OWNER_ID,
-  postHubClient,
+  postBrokerClient,
   PRODUCTION_CALLBACK,
   pullRequestClaims,
   readNewClient,
   REPOSITORY_ID,
   signToken,
   stubProviders,
-  type Hub,
-} from "./testing/hub.ts";
+  type GithubBroker,
+} from "./testing/broker.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -37,7 +37,7 @@ function deferred() {
 }
 
 /** The rows that a refused registration must leave as they were. */
-const durableRows = (h: Hub) => {
+const durableRows = (h: GithubBroker) => {
   const rows = h.rows();
   return {
     tenants: rows.tenants,
@@ -50,7 +50,7 @@ const durableRows = (h: Hub) => {
 
 describe("a development registration held while the repository moves", () => {
   it("creates no client when a newer proof of another owner registers during its file fetch", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     // The first accepted proof recorded its time on the tenant.
     expect(h.rows().tenants).toEqual([
@@ -69,13 +69,13 @@ describe("a development registration held while the repository moves", () => {
     });
 
     // The development server's request passes the token lookup and `admit`, then waits on its file.
-    const pending = postHubClient(h, token, {
-      redirect_uris: ["https://dev.example.com/auth/hub/callback"],
+    const pending = postBrokerClient(h, token, {
+      redirect_uris: ["https://dev.example.com/auth/broker/callback"],
     });
     await reached.promise;
     // The repository moves to owner 66, whose run registers with a newer proof.
     h.clock.advance(1_000);
-    const transferred = await postHubClient(
+    const transferred = await postBrokerClient(
       h,
       await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
     );
@@ -101,7 +101,7 @@ describe("a development registration held while the repository moves", () => {
   });
 
   it("creates no client when the old owner's token is rotated away by its own production run during the fetch", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const token = await createInitialAccessToken(h);
     const reached = deferred();
     const release = deferred();
@@ -115,11 +115,11 @@ describe("a development registration held while the repository moves", () => {
       return jsonResponse({ repository: REPOSITORY_ID });
     });
 
-    const pending = postHubClient(h, token, {
-      redirect_uris: ["https://dev.example.com/auth/hub/callback"],
+    const pending = postBrokerClient(h, token, {
+      redirect_uris: ["https://dev.example.com/auth/broker/callback"],
     });
     await reached.promise;
-    const rotated = await postHubClient(h, await signToken(h));
+    const rotated = await postBrokerClient(h, await signToken(h));
     expect(rotated.status).toBe(201);
     release.settle();
 
@@ -136,7 +136,7 @@ describe("a proof of another owner that is not newer", () => {
     ["of the same second", 0],
     ["older", -5_000],
   ])("is refused when it is %s, and writes nothing but the request counts", async (_, offset) => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     h.clock.set(EPOCH + 10_000);
     await createClient(h);
     h.clock.set(EPOCH + 10_000 + offset);
@@ -146,7 +146,7 @@ describe("a proof of another owner that is not newer", () => {
     const before = durableRows(h);
     const windows = h.rows().rateLimits;
 
-    const response = await postHubClient(h, stale);
+    const response = await postBrokerClient(h, stale);
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ reason: "stale_proof" });
@@ -160,12 +160,12 @@ describe("a proof of another owner that is not newer", () => {
   });
 
   it("is accepted one second later, and moves the owner and the proof time", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     await createClient(h);
     h.clock.advance(1_000);
     await stubProviders(h);
 
-    const response = await postHubClient(
+    const response = await postBrokerClient(
       h,
       await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
     );
@@ -181,7 +181,7 @@ describe("a proof of another owner that is not newer", () => {
  * A run whose verification file is held until `during` ran: the creating step comes after it.
  * Answers the registration's answer.
  */
-async function heldRun(h: Hub, connectors: string[], during: () => void) {
+async function heldRun(h: GithubBroker, connectors: string[], during: () => void) {
   const reached = deferred();
   const release = deferred();
   let held = false;
@@ -193,7 +193,7 @@ async function heldRun(h: Hub, connectors: string[], during: () => void) {
     }
     return jsonResponse({ repository: REPOSITORY_ID });
   });
-  const pending = postHubClient(h, await signToken(h), { connectors });
+  const pending = postBrokerClient(h, await signToken(h), { connectors });
   await reached.promise;
   during();
   release.settle();
@@ -202,7 +202,7 @@ async function heldRun(h: Hub, connectors: string[], during: () => void) {
 
 describe("admission facts that change while the hosts are verified", () => {
   it("a block of the owner that lands during the fetch refuses the creation and writes nothing", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     const before = durableRows(h);
     const response = await heldRun(h, ["fake"], () =>
@@ -214,7 +214,7 @@ describe("admission facts that change while the hosts are verified", () => {
   });
 
   it("a grant revoked during the fetch refuses the enrollment in its connector and writes nothing", async () => {
-    const h = await createHub({ allowList: [] });
+    const h = await createGithubBroker({ allowList: [] });
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     setGrant(
       h.memory,
@@ -244,7 +244,7 @@ describe("an owner transfer while the provider answers a sign-in", () => {
   async function transferDuringSignIn(
     allowList: ReadonlyArray<{ repositoryId: string; ownerId: string }>,
   ) {
-    const h = await createHub({ allowList });
+    const h = await createGithubBroker({ allowList });
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     setExemption(h.memory, { repositoryId: REPOSITORY_ID, ownerId: OWNER_ID }, true);
     setGrant(h.memory, { repositoryId: REPOSITORY_ID, ownerId: "66", connector: "other" }, true);
@@ -267,7 +267,7 @@ describe("an owner transfer while the provider answers a sign-in", () => {
       match: (request) => request.url === "https://upstream.test/token",
       respond: async () => {
         h.clock.advance(1_000);
-        const response = await postHubClient(
+        const response = await postBrokerClient(
           h,
           await signToken(h, { ...pullRequestClaims, repository_owner_id: "66" }),
           { connectors: ["other"] },
@@ -308,7 +308,7 @@ describe("an owner transfer while the provider answers a sign-in", () => {
 
 describe("credentials in logs and error bodies", () => {
   /**
-   * Runs `scenario` with every console method recorded, and answers what the hub wrote there
+   * Runs `scenario` with every console method recorded, and answers what the broker wrote there
    * with the text of every answer the scenario collected.
    */
   async function observe(scenario: (answers: Response[]) => Promise<void>) {
@@ -324,7 +324,7 @@ describe("credentials in logs and error bodies", () => {
   it("never shows a proof token, an initial access token, a client secret, or a registration token", async () => {
     const SENTINEL = "SENTINEL7c1e";
     const sentinels: string[] = [];
-    const h = await createHub();
+    const h = await createGithubBroker();
     const text = await observe(async (answers) => {
       // A good registration, whose credentials must not show anywhere afterwards.
       const production = await createClient(h);
@@ -338,22 +338,22 @@ describe("credentials in logs and error bodies", () => {
       const goodProof = await signToken(h, { sha: SENTINEL });
       sentinels.push(goodProof);
       answers.push(
-        await postHubClient(h, goodProof, {
+        await postBrokerClient(h, goodProof, {
           software_id: `gh-75/${SENTINEL}`,
           redirect_uris: [`https://${SENTINEL}.example/#${production.client_secret}`],
         }),
       );
       const foreignProof = await signToken(h, { sha: SENTINEL }, { foreign: true });
       sentinels.push(foreignProof);
-      answers.push(await postHubClient(h, foreignProof));
+      answers.push(await postBrokerClient(h, foreignProof));
       const unknownToken = `${SENTINEL}-unknown-initial-access-token`;
       sentinels.push(unknownToken);
-      answers.push(await postHubClient(h, unknownToken, { redirect_uris: [LOOPBACK_CALLBACK] }));
+      answers.push(await postBrokerClient(h, unknownToken, { redirect_uris: [LOOPBACK_CALLBACK] }));
       // A host whose file quotes a credential.
       await stubProviders(h, () =>
         jsonResponse({ repository: "999", note: production.client_secret }),
       );
-      answers.push(await postHubClient(h, goodProof));
+      answers.push(await postBrokerClient(h, goodProof));
       // A management request with a wrong token, and with the right one.
       const wrongToken = `${SENTINEL}-registration-token`;
       sentinels.push(wrongToken);
@@ -367,11 +367,11 @@ describe("credentials in logs and error bodies", () => {
         match: (request) => request.url === JWKS_URL,
         respond: () => new Response(`no keys for ${goodProof}`, { status: 503 }),
       });
-      answers.push(await postHubClient(h, goodProof));
+      answers.push(await postBrokerClient(h, goodProof));
       // Command failures: every command of the store fails.
       h.failCommands(() => true);
       answers.push(
-        await postHubClient(h, production.initial_access_token ?? "", {
+        await postBrokerClient(h, production.initial_access_token ?? "", {
           redirect_uris: [LOOPBACK_CALLBACK],
         }),
       );
@@ -388,7 +388,7 @@ describe("credentials in logs and error bodies", () => {
       );
       h.failCommands(null);
       // The development client: its own answer holds its credentials once, and nothing else does.
-      const development = await postHubClient(h, production.initial_access_token ?? "", {
+      const development = await postBrokerClient(h, production.initial_access_token ?? "", {
         redirect_uris: [LOOPBACK_CALLBACK],
       });
       expect(development.status).toBe(201);
@@ -403,12 +403,12 @@ describe("credentials in logs and error bodies", () => {
   });
 
   it("answers a failed command with a bare 500", async () => {
-    const h = await createHub();
+    const h = await createGithubBroker();
     const production = await createClient(h);
     h.failCommands((name) => name === "github.createDevelopmentClient");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const response = await postHubClient(h, production.initial_access_token ?? "", {
+    const response = await postBrokerClient(h, production.initial_access_token ?? "", {
       redirect_uris: [LOOPBACK_CALLBACK],
     });
 

@@ -15,7 +15,7 @@ import {
   type Broker,
 } from "./testing/harness.ts";
 
-const REDIRECT_URI = "https://app.test/oauth/hub/callback";
+const REDIRECT_URI = "https://app.test/oauth/broker/callback";
 
 /** Every request openid-client makes goes to the broker's handlers. */
 function brokerFetch(h: Broker): client.CustomFetch {
