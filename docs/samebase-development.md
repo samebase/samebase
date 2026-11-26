@@ -148,8 +148,8 @@ its old keys. For rotation, follow the
 - `IDENTITY_HUB_ISSUER`, `IDENTITY_HUB_CLIENT_ID`, and `IDENTITY_HUB_CLIENT_SECRET`: the identity
   hub, `https://auth.samebase.com`, and this deployment's client at it. A deployment gets its client
   by registering its callback URL `<site>/auth/hub/callback` at the hub. CI has no hub: its
-  bootstrap writes `IDENTITY_HUB_ISSUER=http://127.0.0.1:1` and `no-hub` as the client id and
-  secret.
+  bootstrap writes `IDENTITY_HUB_ISSUER=http://127.0.0.1:1` and `broker-disabled` as the client id
+  and secret.
 - `SITE_URL`: the app origin. OAuth sign-ins may return only to `SITE_URL` and to the deployment's
   own `CONVEX_SITE_URL`.
 
