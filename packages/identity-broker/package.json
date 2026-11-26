@@ -23,6 +23,7 @@
     "./cloudflare": "./src/hosts/cloudflare/broker.ts",
     "./alchemy": "./src/alchemy/index.ts",
     "./client": "./src/client/index.ts",
+    "./cimd": "./src/cimd/reader.ts",
     "./connectors": "./src/core/connectors/index.ts",
     "./integrations": "./src/integrations/index.ts",
     "./registration": "./src/layers/index.ts",
@@ -58,6 +59,10 @@
       "./client": {
         "types": "./dist/client/index.d.ts",
         "default": "./dist/client/index.js"
+      },
+      "./cimd": {
+        "types": "./dist/cimd/reader.d.ts",
+        "default": "./dist/cimd/reader.js"
       },
       "./connectors": {
         "types": "./dist/core/connectors/index.d.ts",
