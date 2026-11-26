@@ -1,10 +1,10 @@
-import { Cause, Config, Effect, Exit, Layer } from "effect";
+import { Cause, Config, ConfigProvider, Context, Effect, Exit, Layer, Logger } from "effect";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { makeConnections } from "../connections/routes.ts";
 import type { ConnectionSettings } from "../connections/providers.ts";
 import { defaultKeys, hubSettings, type HubSettings } from "../hosts/settings.ts";
-import type { Store } from "../store/Store.ts";
+import { Store } from "../store/Store.ts";
 import {
   hubLogger,
   makeHandle,
@@ -15,11 +15,13 @@ import {
 } from "./router.ts";
 import {
   Fetch,
+  HubConfig,
+  HubConfigError,
+  Keys,
+  parseIssuer,
   Random,
-  type HubConfig,
-  type Keys,
+  SignInPage,
   type ServiceSettings,
-  type SignInPage,
 } from "./services.ts";
 
 type Hub<R = never> = {
@@ -52,7 +54,10 @@ const cannotStart = Effect.catchCause((cause: Cause.Cause<unknown>) =>
   ),
 );
 
-/** The hub over its settings, built when this runs. */
+/**
+ * The hub over its settings, built when this runs. The scope of `settings` closes when the build
+ * ends, so `settings` must hold no finalizer that a request needs.
+ */
 export const hubRuntime = <E, R, RC = never>(
   settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
   registration: Registration,
@@ -64,7 +69,18 @@ export const hubRuntime = <E, R, RC = never>(
         ? undefined
         : yield* makeConnections(connections).pipe(Effect.orDie);
     const handle = makeHandle(registration, part);
-    const services = yield* Effect.context<CoreServices>();
+    // Only the hub's own services: a lazy build runs in request 1, whose request and scope must
+    // not reach a later request.
+    const services = Context.pick(
+      Store,
+      HubConfig,
+      SignInPage,
+      Keys,
+      Random,
+      Fetch,
+      ConfigProvider.ConfigProvider,
+      Logger.CurrentLoggers,
+    )(yield* Effect.context<CoreServices>());
     return {
       fetch: Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
@@ -82,13 +98,12 @@ export const hubRuntime = <E, R, RC = never>(
 export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, never, Store> =>
   Effect.gen(function* () {
     const build = hubRuntime(hubSettings(options), options.registration, options.connections);
-    const credentials = [
-      options.connectors.google,
-      options.connectors.github,
-      options.connections?.convex,
-      options.connections?.cloudflare,
-      options.connections?.github,
-    ].flatMap((client) => (client === undefined ? [] : [client.clientId, client.clientSecret]));
+    const connectors = Object.values(options.connectors);
+    const providers = Object.values(options.connections ?? {});
+    const credentials = [...connectors, ...providers].flatMap((client) => [
+      client.clientId,
+      client.clientSecret,
+    ]);
     const secrets = [options.keys ?? defaultKeys, ...credentials];
     if (secrets.every((secret) => Config.isConfig(secret))) {
       // @ts-expect-error Each secret is a `Config` here, and a `Config` needs no service.
@@ -101,6 +116,15 @@ export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, ne
         yield* config.pipe(cannotStart);
       }
     }
+    yield* Effect.gen(function* () {
+      yield* parseIssuer(options.issuer);
+      if (connectors.length === 0) {
+        return yield* new HubConfigError({ message: "At least one connector is required" });
+      }
+      if (options.connections !== undefined && providers.length === 0) {
+        return yield* Effect.die(new Error("The connections setting names no provider"));
+      }
+    }).pipe(cannotStart);
     // Also carries the start's configuration provider, which each build reads.
     const start = yield* Effect.context<Store>();
     let built: Hub | undefined;
@@ -108,8 +132,13 @@ export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, ne
       if (built === undefined) {
         const exit = yield* Effect.exit(Effect.provideContext(build, start));
         if (Exit.isFailure(exit)) {
+          const reason = Cause.prettyErrors(exit.cause)
+            .map((error) => error.message)
+            .join("; ");
           return HttpServerResponse.raw(
-            yield* serverError({ category: "start_failed" }).pipe(Effect.provide(hubLogger)),
+            yield* serverError({ category: "start_failed", reason }).pipe(
+              Effect.provide(hubLogger),
+            ),
           );
         }
         built = exit.value;

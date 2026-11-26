@@ -9,7 +9,8 @@
 - A secret is any `Effect` of a `Redacted<string>`. A `Config` is read when the hub starts, as
   before. With another Effect, such as a Secrets Store secret through Alchemy's
   `Cloudflare.SecretsStore.ReadSecret`, the hub builds at its first request; a failed build answers
-  500 and the next request builds again.
+  500 and the next request builds again. The hub still checks the issuer, its connectors and its
+  connections at the start, and the log line of a failed build names the reason.
 - On Cloudflare the app writes its own `Cloudflare.Worker` class: it spreads `hubWorkerProps` of
   `./cloudflare` and provides `DurableObjectStore`. A hub on a domain sets `workersDev: false`.
   Gone: `hubWorker`, `HubOptions`, the `secretsStore` option, and `hubRuntime` of `./cloudflare`.

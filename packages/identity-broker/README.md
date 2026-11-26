@@ -25,8 +25,6 @@ and answers, and the errors of RFC 6750.
 
 A hub mounts one registration layer, which decides who may register a client:
 
-Both are exports of `@samebase/identity-broker`.
-
 - `github(allowList, options)`: a GitHub Actions workflow registers with its OIDC token. The
   allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric ids: an entry
   without `repositoryId` covers every repository of that owner. A repository it covers gets every
@@ -36,6 +34,8 @@ Both are exports of `@samebase/identity-broker`.
 - `stack({ keys })`: a client registers with one of the hub's keys, as `IdentityHub.Client` of
   [`@samebase/alchemy-convex`](https://www.npmjs.com/package/@samebase/alchemy-convex) does. A key
   with `permanent: true` may make production clients; the clients of other keys get a removal date.
+
+Both are exports of `@samebase/identity-broker`.
 
 ## On Convex
 
@@ -412,8 +412,11 @@ test("the hub's storage passes the host test kit", async () => {
 
 On Convex, set them on the deployment, for example
 `npx convex env set IDENTITY_BROKER_KEYS < keys.json`. On Cloudflare, `alchemy deploy` binds each
-`Config` of the hub's options to the Worker as a secret, with the value of the deploying shell's
-variable of that name.
+`Config` secret that the hub reads at its start to the Worker as a secret, with the value of the
+deploying shell's variable of that name. These are the secrets of `connectors`, `connections` and
+`keys` that are a bare `Config`, not one inside another Effect. The hub reads the other `Config`
+values in each request: the keys of `stack`, the moderation `key` and `paused` of `github`. The
+stack binds those, as `hub.bind(...)` in `alchemy.run.ts` shows ([On Cloudflare](#on-cloudflare)).
 
 At each provider, set the redirect URL of the OAuth client to `<issuer>/connectors/google/callback`
 or `<issuer>/connectors/github/callback`.

@@ -51,6 +51,23 @@ export class HubConfigError extends Schema.TaggedError<HubConfigError>()("HubCon
   message: Schema.String,
 }) {}
 
+/** The issuer as a URL: https, or http on a loopback host, with no query or fragment. */
+export const parseIssuer = Effect.fnUntraced(function* (issuer: string) {
+  const issuerUrl = yield* Effect.try({
+    try: () => new URL(issuer),
+    catch: () => new HubConfigError({ message: "The issuer must be a URL" }),
+  });
+  if (!isSecureUrl(issuerUrl)) {
+    return yield* new HubConfigError({
+      message: "The issuer must be https, or http on a loopback host for local development",
+    });
+  }
+  if (issuerUrl.search !== "" || issuerUrl.hash !== "") {
+    return yield* new HubConfigError({ message: "The issuer must not have a query or fragment" });
+  }
+  return issuerUrl;
+});
+
 export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
   "identity-broker/core/HubConfig",
 ) {
@@ -59,18 +76,7 @@ export class HubConfig extends Context.Service<HubConfig, HubConfigShape>()(
    * configuration stops the host where it builds its services, not a sign-in half way.
    */
   static readonly make = Effect.fnUntraced(function* (input: HubConfigInput) {
-    const issuerUrl = yield* Effect.try({
-      try: () => new URL(input.issuer),
-      catch: () => new HubConfigError({ message: "The issuer must be a URL" }),
-    });
-    if (!isSecureUrl(issuerUrl)) {
-      return yield* new HubConfigError({
-        message: "The issuer must be https, or http on a loopback host for local development",
-      });
-    }
-    if (issuerUrl.search !== "" || issuerUrl.hash !== "") {
-      return yield* new HubConfigError({ message: "The issuer must not have a query or fragment" });
-    }
+    const issuerUrl = yield* parseIssuer(input.issuer);
     const connectorsByName = new Map(
       input.connectors.map((connector) => [connector.name, connector]),
     );
