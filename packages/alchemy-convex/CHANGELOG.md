@@ -9,6 +9,8 @@
   `@samebase/alchemy-convex/identity-broker`, and add `IdentityBroker.providers()` to the stack's
   providers: `Layer.mergeAll(Convex.providers(), IdentityBroker.providers())`. Saved rows stay
   valid, so the next deploy updates each client in place and registers no new one.
+- `IdentityBroker.DISABLED` is now `BROKER_DISABLED` of `@samebase/identity-broker/client`, an entry
+  that imports nothing of Alchemy, so a Convex function can take it.
 
 ## 0.46.0
 
