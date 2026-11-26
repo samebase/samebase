@@ -1,4 +1,4 @@
-import type { Redacted } from "effect";
+import type { Effect, Redacted } from "effect";
 
 /** What a connector attested about the user. `upstreamId` is the connector's stable account id. */
 export type UpstreamIdentity = {
@@ -65,3 +65,20 @@ export type OidcConnector<Name extends string = string> = Credentials & {
 };
 
 export type Connector<Name extends string = string> = OauthConnector<Name> | OidcConnector<Name>;
+
+/** A secret of the hub: a `Config`, or another Effect such as a Secrets Store read. */
+export type Secret<R = never> = Effect.Effect<Redacted.Redacted<string>, unknown, R>;
+
+/** The hub's client at one provider, each secret an Effect that the hub reads when it builds. */
+export type ClientSecrets<R1 = never, R2 = R1> = {
+  readonly clientId: Secret<R1>;
+  readonly clientSecret: Secret<R2>;
+};
+
+/** The services that the secrets of `Spec` need. */
+export type SecretServices<Spec> = Spec extends ClientSecrets<infer A, infer B> ? A | B : never;
+
+/** A connector as `hub` takes it: what the hub checks at its start, and its two secrets unread. */
+export type ConnectorSpec<R = never> =
+  | (Omit<OauthConnector, "clientId" | "clientSecret"> & ClientSecrets<R>)
+  | (Omit<OidcConnector, "clientId" | "clientSecret"> & ClientSecrets<R>);

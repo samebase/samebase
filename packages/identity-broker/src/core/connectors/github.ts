@@ -1,6 +1,6 @@
-import { Option, Predicate, type Redacted, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 import * as oauth from "oauth4webapi";
-import type { OauthConnector, UpstreamIdentity } from "./types.ts";
+import type { UpstreamIdentity } from "./types.ts";
 import { oauthFetch, type FetchFunction } from "./upstream.ts";
 
 const USER_URL = "https://api.github.com/user";
@@ -35,7 +35,7 @@ const decodeUserId = Schema.decodeUnknownOption(
  * so the verified primary address from `/user/emails` is used instead; a user with no verified
  * address gets no email claim.
  */
-async function githubIdentity(
+export async function githubIdentity(
   accessToken: string,
   fetch: FetchFunction,
 ): Promise<UpstreamIdentity> {
@@ -66,36 +66,4 @@ async function githubIdentity(
     }
   }
   return identity;
-}
-
-type GitHubCredentials = {
-  clientId: Redacted.Redacted<string>;
-  clientSecret: Redacted.Redacted<string>;
-  selectAccount?: boolean;
-  name?: string;
-};
-
-/**
- * GitHub as an OAuth connector. The callback must be registered on the OAuth App or GitHub App.
- * `selectAccount` sends `prompt=select_account`: GitHub then shows its account picker on each
- * sign-in, also to a user who authorized the app before and has one account signed in, in place of
- * passing the user through with no click. Its name is `github` unless `name` sets another.
- */
-export function github(credentials: GitHubCredentials): OauthConnector {
-  return {
-    kind: "oauth",
-    provider: "github",
-    name: credentials.name ?? "github",
-    label: "GitHub",
-    // GitHub publishes RFC 8414 metadata for this issuer and sends it as `iss` on its
-    // authorization response (RFC 9207).
-    issuer: "https://github.com/login/oauth",
-    scopes: ["read:user", "user:email"],
-    clientId: credentials.clientId,
-    clientSecret: credentials.clientSecret,
-    identity: githubIdentity,
-    ...(credentials.selectAccount === undefined
-      ? {}
-      : { selectAccount: credentials.selectAccount }),
-  };
 }

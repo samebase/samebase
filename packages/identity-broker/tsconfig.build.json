@@ -13,6 +13,7 @@
     "src/index.ts",
     "src/hosts/convex/hub.ts",
     "src/hosts/cloudflare/hub.ts",
+    "src/connections/index.ts",
     "src/moderation/server.ts",
     "src/moderation/api.ts",
     "src/core/testing/harness.ts"

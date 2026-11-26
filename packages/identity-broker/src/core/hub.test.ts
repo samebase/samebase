@@ -11,12 +11,18 @@ import {
 } from "effect";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
-import { afterEach, expect, test, vi } from "vite-plus/test";
+import { afterEach, expect, expectTypeOf, test, vi } from "vite-plus/test";
+import * as Connections from "../connections/index.ts";
+import type { ConnectionSpec } from "../connections/providers.ts";
 import { makeMemoryStore } from "../hosts/memory.ts";
+import * as Connectors from "./connectors/index.ts";
+import type { ConnectorSpec, Secret } from "./connectors/types.ts";
 import { hub } from "./hub.ts";
 import { hubLogLine, TEST_ISSUER, TEST_SERVICE } from "./testing/harness.ts";
 
 class PerRequestTag extends Context.Service<PerRequestTag, string>()("test/PerRequestTag") {}
+class SecretsA extends Context.Service<SecretsA, string>()("test/SecretsA") {}
+class SecretsB extends Context.Service<SecretsB, string>()("test/SecretsB") {}
 
 /** A configuration provider over `values` that records each name it is asked for. */
 const recordingProvider = (values: Record<string, string>, asked: string[]) =>
@@ -34,7 +40,9 @@ const google = {
   clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
 };
 
-const start = (options: Parameters<typeof hub<never>>[0], values: Record<string, string>) => {
+type Options = Parameters<typeof hub<ConnectorSpec, ConnectionSpec, Secret>>[0];
+
+const start = (options: Options, values: Record<string, string>) => {
   const asked: string[] = [];
   const run = hub(options).pipe(
     Effect.provide(makeMemoryStore().layer),
@@ -72,7 +80,7 @@ afterEach(() => {
 test("with every secret a Config, the hub reads each when it runs, and a missing one stops it", async () => {
   const options = {
     issuer: TEST_ISSUER,
-    connectors: { google },
+    connectors: [Connectors.google(google)],
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
@@ -97,7 +105,7 @@ test("with one other secret, nothing is built before the first request, and the 
   });
   const options = {
     issuer: TEST_ISSUER,
-    connectors: { google: { clientId: google.clientId, clientSecret } },
+    connectors: [Connectors.google({ clientId: google.clientId, clientSecret })],
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
@@ -123,7 +131,7 @@ test("a failed build answers 500 with a fixed reason code, logs no error text, a
   const options = {
     issuer: TEST_ISSUER,
     keys,
-    connectors: { google },
+    connectors: [Connectors.google(google)],
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
@@ -155,7 +163,7 @@ test("a wrapped Config that is missing logs reason missing_config on a lazy buil
   const wrapped = Config.Redacted("MISSING_WRAPPED_SECRET").pipe(Effect.map((value) => value));
   const options = {
     issuer: TEST_ISSUER,
-    connectors: { google: { clientId: google.clientId, clientSecret: wrapped } },
+    connectors: [Connectors.google({ clientId: google.clientId, clientSecret: wrapped })],
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
@@ -180,9 +188,12 @@ test("a lazy hub gives each request its own per-event context, and keeps the sta
   const scopes: Array<Scope.Scope> = [];
   const options = {
     issuer: TEST_ISSUER,
-    connectors: {
-      google: { clientId: google.clientId, clientSecret: Effect.succeed(Redacted.make("secret")) },
-    },
+    connectors: [
+      Connectors.google({
+        clientId: google.clientId,
+        clientSecret: Effect.succeed(Redacted.make("secret")),
+      }),
+    ],
     registration: {
       routes: [
         {
@@ -274,16 +285,24 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
     reads += 1;
     return Redacted.make("secret");
   });
+  const googleSpec = Connectors.google({ clientId: google.clientId, clientSecret });
   const options = {
     issuer: TEST_ISSUER,
-    connectors: { google: { clientId: google.clientId, clientSecret } },
+    connectors: [googleSpec],
     registration: { routes: [] },
     service: TEST_SERVICE,
   };
-  const cases: ReadonlyArray<{
-    readonly config: Parameters<typeof hub<never>>[0];
-    readonly expected: string;
-  }> = [
+  const connection = (name: string, resource: string) =>
+    Connections.oauth({
+      name,
+      resource,
+      issuer: "https://api.example.com",
+      authorizationEndpoint: "https://api.example.com/authorize",
+      tokenEndpoint: "https://api.example.com/token",
+      clientId: google.clientId,
+      clientSecret,
+    });
+  const cases: ReadonlyArray<{ readonly config: Options; readonly expected: string }> = [
     {
       config: { ...options, issuer: "http://example.com" },
       expected: "The issuer must be https, or http on a loopback host for local development",
@@ -301,12 +320,72 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
       expected: "The issuer must not have credentials",
     },
     {
-      config: { ...options, connectors: {}, keys: clientSecret },
+      config: { ...options, connectors: [], keys: clientSecret },
       expected: "At least one connector is required",
     },
     {
-      config: { ...options, connections: {} },
+      config: { ...options, connectors: [googleSpec, googleSpec] },
+      expected: "Connector names must be unique",
+    },
+    {
+      config: {
+        ...options,
+        connectors: [
+          Connectors.oidc({
+            name: "Okta",
+            label: "Okta",
+            issuer: "https://okta.example.com",
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected: 'Connector "Okta" has a provider that is not [a-z0-9-]+',
+    },
+    {
+      config: {
+        ...options,
+        connectors: [
+          googleSpec,
+          Connectors.oidc({
+            name: "google-workspace",
+            provider: "google",
+            label: "Google Workspace",
+            issuer: "https://workspace.example.com",
+            clientId: google.clientId,
+            clientSecret,
+          }),
+        ],
+      },
+      expected: 'The connectors of provider "google" have two issuers',
+    },
+    {
+      config: { ...options, connections: [] },
       expected: "The connections setting names no provider",
+    },
+    {
+      config: {
+        ...options,
+        connections: [
+          connection("api", "https://api.example.com"),
+          connection("api", "https://api.example.com/v2"),
+        ],
+      },
+      expected: "Connection names must be unique",
+    },
+    {
+      config: {
+        ...options,
+        connections: [
+          connection("api", "https://api.example.com"),
+          connection("api-two", "https://api.example.com"),
+        ],
+      },
+      expected: "Connection resources must be unique",
+    },
+    {
+      config: { ...options, connections: [connection("api", "https://api.example.com/#v1")] },
+      expected: 'Connection "api" has a resource that is not an absolute URI with no fragment',
     },
   ];
   for (const { config, expected } of cases) {
@@ -321,4 +400,110 @@ test("with a lazy secret, wrong static settings stop the start with specific mes
     }
   }
   expect(reads).toBe(0);
+});
+
+test("a lazy hub of any OIDC and OAuth connector and connection names them in order in discovery", async () => {
+  const secret = Effect.succeed(Redacted.make("secret"));
+  const started = start(
+    {
+      issuer: TEST_ISSUER,
+      connectors: [
+        Connectors.oidc({
+          name: "okta",
+          label: "Okta",
+          issuer: "https://okta.example.com",
+          clientId: google.clientId,
+          clientSecret: secret,
+        }),
+        Connectors.oauth({
+          name: "forge",
+          label: "Forge",
+          issuer: "https://forge.example.com",
+          scopes: ["read:user"],
+          identity: async () => ({ upstreamId: "1" }),
+          clientId: google.clientId,
+          clientSecret: google.clientSecret,
+        }),
+      ],
+      connections: [
+        Connections.oauth({
+          name: "api",
+          resource: "https://api.example.com",
+          issuer: "https://api.example.com",
+          authorizationEndpoint: "https://api.example.com/authorize",
+          tokenEndpoint: "https://api.example.com/token",
+          revocationEndpoint: "https://api.example.com/revoke",
+          clientId: google.clientId,
+          clientSecret: google.clientSecret,
+        }),
+      ],
+      registration: { routes: [] },
+      service: TEST_SERVICE,
+    },
+    { GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "secret", IDENTITY_BROKER_KEYS: "{}" },
+  );
+  const built = await Effect.runPromise(started.run);
+  const response = await answer(
+    built.fetch,
+    new Request(`${TEST_ISSUER}/.well-known/openid-configuration`),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    connectors_supported: ["okta", "forge"],
+    revocation_endpoint: `${TEST_ISSUER}/revoke`,
+  });
+});
+
+test("secrets that need two different services in one connectors array are each read once", async () => {
+  const reads: string[] = [];
+  const readFrom = (service: typeof SecretsA | typeof SecretsB) =>
+    Effect.gen(function* () {
+      const value = yield* service;
+      reads.push(value);
+      return Redacted.make(value);
+    });
+  const asked: string[] = [];
+  const built = await Effect.runPromise(
+    hub({
+      issuer: TEST_ISSUER,
+      connectors: [
+        Connectors.google({ clientId: google.clientId, clientSecret: readFrom(SecretsA) }),
+        Connectors.oidc({
+          name: "okta",
+          label: "Okta",
+          issuer: "https://okta.example.com",
+          clientId: google.clientId,
+          clientSecret: readFrom(SecretsB),
+        }),
+      ],
+      registration: { routes: [] },
+      service: TEST_SERVICE,
+    }).pipe(
+      Effect.provide(makeMemoryStore().layer),
+      Effect.provideService(
+        ConfigProvider.ConfigProvider,
+        recordingProvider({ GOOGLE_CLIENT_ID: "id", IDENTITY_BROKER_KEYS: "{}" }, asked),
+      ),
+    ),
+  );
+  expectTypeOf(built.fetch).toEqualTypeOf<
+    Effect.Effect<
+      HttpServerResponse.HttpServerResponse,
+      never,
+      HttpServerRequest.HttpServerRequest | SecretsA | SecretsB
+    >
+  >();
+  const status = async () =>
+    (
+      await answer(
+        built.fetch.pipe(
+          Effect.provideService(SecretsA, "a"),
+          Effect.provideService(SecretsB, "b"),
+        ),
+        new Request(`${TEST_ISSUER}/.well-known/openid-configuration`),
+      )
+    ).status;
+  expect(await status()).toBe(200);
+  expect(await status()).toBe(200);
+  expect(reads).toEqual(["a", "b"]);
 });

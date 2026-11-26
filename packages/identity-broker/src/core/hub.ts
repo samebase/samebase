@@ -1,15 +1,11 @@
 import { Cause, Config, ConfigProvider, Context, Effect, Exit, Layer, Logger } from "effect";
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
+import { checkProviders, type ConnectionSpec } from "../connections/providers.ts";
 import { makeConnections } from "../connections/routes.ts";
-import { connectionCredentials, type ConnectionSettings } from "../connections/providers.ts";
-import {
-  connectorCredentials,
-  defaultKeys,
-  hubSettings,
-  type HubSettings,
-} from "../hosts/settings.ts";
+import { defaultKeys, hubSettings, type HubSettings } from "../hosts/settings.ts";
 import { Store } from "../store/Store.ts";
+import type { ConnectorSpec, Secret, SecretServices } from "./connectors/types.ts";
 import {
   hubLogger,
   makeHandle,
@@ -19,6 +15,7 @@ import {
   type Registration,
 } from "./router.ts";
 import {
+  checkConnectors,
   Fetch,
   HubConfig,
   HubConfigError,
@@ -39,7 +36,7 @@ type Hub<R = never> = {
 
 type HubOptions<R> = HubSettings<R> & {
   /** Without it the hub mounts no connection route. */
-  readonly connections?: ConnectionSettings<R>;
+  readonly connections?: ReadonlyArray<ConnectionSpec<R>>;
 } & (
     | { readonly registration: Registration & { readonly public?: never } }
     | {
@@ -84,7 +81,7 @@ const startFailureReason = (
 const buildRuntime = <E, R, RC = never>(
   settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
   registration: Registration,
-  connections?: ConnectionSettings<RC>,
+  connections?: ReadonlyArray<ConnectionSpec<RC>>,
 ): Effect.Effect<Hub, unknown, Store | R | RC> =>
   Effect.gen(function* () {
     const part = connections === undefined ? undefined : yield* makeConnections(connections);
@@ -118,22 +115,32 @@ const buildRuntime = <E, R, RC = never>(
 export const hubRuntime = <E, R, RC = never>(
   settings: Layer.Layer<HubConfig | SignInPage | Keys, E, R>,
   registration: Registration,
-  connections?: ConnectionSettings<RC>,
+  connections?: ReadonlyArray<ConnectionSpec<RC>>,
 ): Effect.Effect<Hub, never, Store | R | RC> =>
   buildRuntime(settings, registration, connections).pipe(cannotStart);
 
 /** Reads each `Config` secret now; with another kind of secret the hub builds at the first request. */
-export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, never, Store> =>
+export const hub = <
+  // Each spec infers its own services: one `R` in `ReadonlyArray<ConnectorSpec<R>>` would make
+  // TypeScript pick the services of one spec and refuse the others.
+  Connector extends ConnectorSpec<unknown>,
+  Connection extends ConnectionSpec<unknown> = never,
+  Keys extends Secret<unknown> = never,
+  R = SecretServices<Connector | Connection> | Effect.Services<Keys>,
+>(
+  options: {
+    readonly connectors: ReadonlyArray<Connector>;
+    readonly connections?: ReadonlyArray<Connection>;
+    readonly keys?: Keys;
+  } & HubOptions<NoInfer<R>>,
+): Effect.Effect<Hub<R>, never, Store> =>
   Effect.gen(function* () {
     const build = buildRuntime(hubSettings(options), options.registration, options.connections);
-    const connectors = connectorCredentials(options.connectors);
-    const providers =
-      options.connections === undefined ? [] : connectionCredentials(options.connections);
-    const credentials = [...connectors, ...providers].flatMap((client) => [
-      client.clientId,
-      client.clientSecret,
-    ]);
-    const secrets = [options.keys ?? defaultKeys, ...credentials];
+    const specs = [...options.connectors, ...(options.connections ?? [])];
+    const secrets = [
+      options.keys ?? defaultKeys,
+      ...specs.flatMap((spec) => [spec.clientId, spec.clientSecret]),
+    ];
     if (secrets.every((secret) => Config.isConfig(secret))) {
       // @ts-expect-error Each secret is a `Config` here, and a `Config` needs no service.
       const now: Effect.Effect<Hub, never, Store> = build.pipe(cannotStart);
@@ -147,11 +154,9 @@ export const hub = <R = never>(options: HubOptions<R>): Effect.Effect<Hub<R>, ne
     }
     yield* Effect.gen(function* () {
       yield* parseIssuer(options.issuer);
-      if (connectors.length === 0) {
-        return yield* new HubConfigError({ message: "At least one connector is required" });
-      }
-      if (options.connections !== undefined && providers.length === 0) {
-        return yield* Effect.die(new Error("The connections setting names no provider"));
+      yield* checkConnectors(options.connectors);
+      if (options.connections !== undefined) {
+        yield* checkProviders(options.connections);
       }
     }).pipe(cannotStart);
     // Also carries the start's configuration provider, which each build reads.

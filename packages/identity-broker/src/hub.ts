@@ -3,23 +3,23 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Config, Effect } from "effect";
 import { DurableObjectStore, hubWorkerProps } from "./hosts/cloudflare/hub.ts";
-import { github, hub } from "./index.ts";
+import { Connectors, github, hub } from "./index.ts";
 
 export default class Hub extends Cloudflare.Worker<Hub>()(
   "Hub",
   { ...hubWorkerProps, main: import.meta.url, name: "identity-broker-effect-dev-spike" },
   hub({
     issuer: "https://identity-broker-effect-dev-spike.pfp.workers.dev",
-    connectors: {
-      google: {
+    connectors: [
+      Connectors.google({
         clientId: Config.Redacted("GOOGLE_CLIENT_ID"),
         clientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET"),
-      },
-      github: {
+      }),
+      Connectors.github({
         clientId: Config.Redacted("AUTH_GITHUB_CLIENT_ID"),
         clientSecret: Config.Redacted("AUTH_GITHUB_CLIENT_SECRET"),
-      },
-    },
+      }),
+    ],
     // samebase/samebase and the samebase organization.
     registration: github([{ repositoryId: "1021726325", ownerId: "285392744" }]),
     service: {

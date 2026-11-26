@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.40.0
+
+- `connectors` is an array, in the order that the sign-in page and discovery name them. The
+  `Connectors` export of the main entry makes each one: `Connectors.google` and `Connectors.github`,
+  `Connectors.oidc` for any OpenID Connect provider, and `Connectors.oauth` for a plain OAuth 2.0
+  provider with its own `identity` function.
+- `connections` is an array too, made with `convex`, `cloudflare`, `github` and `oauth` of the new
+  entry `./connections`. `oauth` takes the endpoints, the exact `resource` and the issuer of another
+  OAuth 2.0 server. A hub without connections imports none of them.
+- `makeConnections` is an export of `./connections` and takes the array. The third argument of
+  `hubRuntime` is the array.
+- The hub checks at its start, before it reads a secret, that connector names are unique, that each
+  provider is `[a-z0-9-]+` with one issuer, and that connection names and resources are unique, each
+  resource an absolute URI with no fragment.
+- Gone: the `{ google, github }` and `{ convex, cloudflare, github }` objects, `ConnectionSettings`,
+  and `makeConnections` of the main entry.
+
 ## 0.39.0
 
 - The hub is one Effect of the main export: `hub(options)`, with the settings, `registration`,

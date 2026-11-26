@@ -28,10 +28,10 @@ import { playStep } from "../../store/testing.ts";
 import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
-import { github } from "../connectors/github.ts";
+import { readConnector } from "../../hosts/settings.ts";
 import { hubLogger, makeHandle, type Part, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
-import { google } from "../connectors/google.ts";
+import { github, google } from "../connectors/index.ts";
 import type { Connector } from "../connectors/types.ts";
 import { createKeySet, type KeySet } from "../keys.ts";
 import {
@@ -169,18 +169,22 @@ export const TEST_ISSUER = "https://auth.example.com";
 
 /** The two connectors of the hub, with fake credentials. */
 export function testConnectors(): Connector[] {
-  return [
-    google({
-      clientId: Redacted.make("google-client-id"),
-      clientSecret: Redacted.make("google-client-secret"),
-      selectAccount: true,
-    }),
-    github({
-      clientId: Redacted.make("github-client-id"),
-      clientSecret: Redacted.make("github-client-secret"),
-      selectAccount: true,
-    }),
-  ];
+  return Effect.runSync(
+    Effect.all([
+      readConnector(
+        google({
+          clientId: Effect.succeed(Redacted.make("google-client-id")),
+          clientSecret: Effect.succeed(Redacted.make("google-client-secret")),
+        }),
+      ),
+      readConnector(
+        github({
+          clientId: Effect.succeed(Redacted.make("github-client-id")),
+          clientSecret: Effect.succeed(Redacted.make("github-client-secret")),
+        }),
+      ),
+    ]),
+  );
 }
 
 /** The test hub's sign-in service. */
