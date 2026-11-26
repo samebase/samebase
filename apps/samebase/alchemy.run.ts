@@ -23,7 +23,7 @@ const PRODUCTION_SITE_URL = "https://samebase.com";
 /**
 The two routes of a deployment that receive the broker's answers: the identity broker's callback into
 Convex Auth, after CONVEX_SITE_URL (convex/convex.config.ts), and the provider connections callback
-(convex/hubResourceOAuth.ts).
+(convex/brokerResourceOAuth.ts).
 */
 const callbacks = (siteUrl: string) => [
   `${siteUrl}/auth/hub/callback`,

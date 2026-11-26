@@ -22,7 +22,7 @@ import {
   BROKER_GRANT_IDLE_MS,
   refreshResourceOAuthToken,
   revokeBrokerRefreshToken,
-} from "./hubResourceOAuth";
+} from "./brokerResourceOAuth";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
 import { readActiveUser } from "./identity/lifecycle";

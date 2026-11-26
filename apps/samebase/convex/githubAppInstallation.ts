@@ -36,7 +36,7 @@ import {
   brokerCallbackOrigin,
   readBrokerAuthorizationError,
   revokeBrokerRefreshToken,
-} from "./hubResourceOAuth";
+} from "./brokerResourceOAuth";
 import { vGitHubAppSetupPurpose } from "./githubAppSetupModel";
 import { githubUserAuthorizationAad } from "./githubUserAuthorizationModel";
 import {

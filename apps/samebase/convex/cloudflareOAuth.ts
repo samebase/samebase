@@ -4,7 +4,7 @@ import {
   refreshResourceOAuthToken,
   expiringResourceTokens,
   revokeBrokerRefreshToken,
-} from "./hubResourceOAuth";
+} from "./brokerResourceOAuth";
 import { ResponseBodyError } from "oauth4webapi";
 import { Infer, v } from "convex/values";
 

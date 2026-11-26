@@ -54,7 +54,7 @@ app.use(auth, {
 });
 // GitHub and Google sign-in run through the team's identity broker, an OpenID Provider at
 // IDENTITY_HUB_ISSUER, with one client per deployment for both methods and for the provider
-// connections (convex/hubResourceOAuth.ts). The client holds two return addresses: the broker sends
+// connections (convex/brokerResourceOAuth.ts). The client holds two return addresses: the broker sends
 // a sign-in back to <site>/auth/hub/callback, next to the other sign-in routes under /auth, and a
 // connection back to <site>/oauth/hub/callback (convex/http.ts). Convex refuses to bind the
 // component's required variables to optional ones, so every deployment holds the three
