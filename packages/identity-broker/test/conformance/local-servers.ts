@@ -5,8 +5,10 @@
 //   verifier to that code's token request: the OP plans of the suite send no PKCE, which the hub
 //   requires. The adapter changes nothing else: no other parameter, no response, no suite check.
 // - The fake OpenID provider: the hub's `fake` connector in the OP plans. It signs in one test user
-//   with no password, and always as a fresh login, so `prompt=login` and `max_age` work. The OP
-//   plans test the hub as a provider, not this upstream.
+//   with no password and keeps a session per browser: it reuses the time of that browser's last
+//   login while a request's `max_age` allows it, and logs in again for `prompt=login`,
+//   `max_age=0`, an exceeded `max_age`, or no session. The OP plans test the hub as a provider,
+//   not this upstream.
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { request as httpRequest } from "node:http";
@@ -133,6 +135,10 @@ export async function startFakeUpstream(
     string,
     { nonce: string | null; challenge: string | null; authTime: number; scope: string }
   >();
+  /** The second of each browser's last login, by the id in its session cookie. */
+  const sessions = new Map<string, number>();
+  const sessionOf = (request: IncomingMessage) =>
+    /(?:^|;\s*)fake_session=([^;]+)/.exec(request.headers.cookie ?? "")?.[1];
   const secretMatches = (secret: string | null) =>
     secret !== null &&
     secret.length === client.secret.length &&
@@ -160,17 +166,33 @@ export async function startFakeUpstream(
       if (query.get("client_id") !== client.id || query.get("redirect_uri") !== FAKE_CALLBACK) {
         return json(response, 400, { error: "invalid_request" });
       }
+      const now = Math.floor(Date.now() / 1000);
+      const maxAge = query.get("max_age");
+      const forced =
+        (query.get("prompt") ?? "").split(" ").includes("login") ||
+        (maxAge !== null && Number(maxAge) === 0);
+      const cookie = sessionOf(request);
+      const session = cookie !== undefined && sessions.has(cookie) ? cookie : randomUUID();
+      const lastLogin = sessions.get(session);
+      const authTime =
+        !forced && lastLogin !== undefined && (maxAge === null || now - lastLogin <= Number(maxAge))
+          ? lastLogin
+          : now;
+      sessions.set(session, authTime);
       const code = randomUUID();
       codes.set(code, {
         nonce: query.get("nonce"),
         challenge: query.get("code_challenge"),
-        authTime: Math.floor(Date.now() / 1000),
+        authTime,
         scope: query.get("scope") ?? "",
       });
       const callback = new URL(FAKE_CALLBACK);
       callback.searchParams.set("code", code);
       callback.searchParams.set("state", query.get("state") ?? "");
-      response.writeHead(302, { Location: callback.href });
+      response.writeHead(302, {
+        Location: callback.href,
+        "Set-Cookie": `fake_session=${session}; Path=/; HttpOnly; Secure; SameSite=Lax`,
+      });
       return response.end();
     }
     if (url.pathname === "/token" && request.method === "POST") {

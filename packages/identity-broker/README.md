@@ -199,6 +199,14 @@ Connectors.oidc({
 });
 ```
 
+The hub keeps no session, so the provider answers an app's `prompt=login` and `max_age`. Set
+`promptLogin: true` when the provider documents `prompt=login`: a request with `prompt=login` or
+`max_age=0` then goes upstream as a forced login. Set `maxAge: true` when the provider obeys
+`max_age` and returns `auth_time`: a positive `max_age` then goes upstream as itself, and the hub
+accepts the provider's login when its `auth_time` is within that age. With only `promptLogin`, a
+positive `max_age` is a forced login. A connector with neither answers such a request with
+`login_required`. Both are off by default, and `google` and `github` have neither.
+
 `connections` are optional. Each one lets a client get the provider's own tokens for an API, with
 the `resource` of RFC 8707. `@samebase/identity-broker/connections` has `convex`, `cloudflare` and
 `github`, and `oauth` for another OAuth 2.0 server. Each connection's callback is

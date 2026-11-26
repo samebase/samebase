@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.41.0
+
+- A positive `max_age` means "a login that is not older than this", as OpenID Connect Core section
+  3.1.2.1 says, no longer "log in again now". An OIDC connector has a new required field, `maxAge`:
+  the provider obeys `max_age` and returns `auth_time`. `Connectors.oidc` takes it as an option, off
+  by default; `Connectors.google` has it off.
+- With `maxAge`, the hub sends a positive `max_age` upstream as itself, without `prompt=login`, and
+  accepts the provider's login when its `auth_time` is not later than now plus 60 seconds and not
+  older than `max_age`, with no tolerance. Otherwise the app gets `login_required`.
+- Without `maxAge`, a positive `max_age` is a forced login on a connector with `promptLogin`, as
+  before, and the hub also checks the age. `prompt=login` and `max_age=0` are forced logins, as
+  before; with `prompt=login` and a positive `max_age`, the age is checked too.
+- The id_token has `auth_time` when the request had `prompt=login` or a `max_age`.
+- A stored request has a new optional field, `maxAge`. A request stored by 0.40.0 still reads.
+- `max_age` must be decimal digits that make a safe integer: `1e3` and `0x10` are `invalid_request`.
+- An app that used a positive `max_age` to force a new login can now get an older one: send
+  `max_age=0` or `prompt=login` for that.
+
 ## 0.40.0
 
 - `connectors` is an array, in the order that the sign-in page and discovery name them. The new

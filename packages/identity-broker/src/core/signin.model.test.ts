@@ -1121,6 +1121,7 @@ describe("the login's age", () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     try {
       await fc.assert(
+        // oxlint-disable-next-line complexity -- one branch per path of the model, each with its checks.
         fc.asyncProperty(ageCase, async (c) => {
           vi.useFakeTimers({ now: T, toFake: ["Date"] });
           const fetch = stubFetch();
