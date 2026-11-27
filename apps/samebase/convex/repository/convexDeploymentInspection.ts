@@ -10,7 +10,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx, type DatabaseReader } from "../_generated/server";
-import type { ConvexCloudDeployment } from "../convexManagementApi/client";
+import type { ConvexCloudDeployment } from "../convexManagementApi";
 import { isRecord, toErrorMessage } from "../jsonUtils";
 import { requireRepositoryForUser } from "../organizationAccess";
 import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";

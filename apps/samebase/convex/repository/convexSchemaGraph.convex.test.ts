@@ -224,7 +224,7 @@ function installSchemaGraphFetchStub(requests: RecordedRequest[]) {
           isDefault: true,
           kind: "cloud",
           name: "demo-prod",
-          projectId: "1001",
+          projectId: 1001,
           reference: "prod",
           region: "aws-us-east-1",
         });

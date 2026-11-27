@@ -138,7 +138,7 @@ function productionDeploymentResponse(): Response {
     "isDefault":true,
     "kind":"cloud",
     "name":"demo-prod",
-    "projectId":"1001",
+    "projectId":1001,
     "reference":"prod",
     "region":"aws-us-east-1"
   }`);
@@ -412,7 +412,7 @@ function installStackFetchStub() {
           isDefault: true,
           kind: "cloud",
           name: "artful-alligator-66",
-          projectId: "3259168",
+          projectId: 3259168,
           reference: "production",
           region: "aws-us-east-1",
         });

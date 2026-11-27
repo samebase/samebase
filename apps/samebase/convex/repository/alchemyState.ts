@@ -35,11 +35,10 @@ import {
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
-import {
-  createConvexManagementClient,
-  listConvexManagementProjects,
-} from "../convexManagementApi/client";
-import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
+import * as management from "@distilled.cloud/convex/management";
+import { parseConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
+
+import { listConvexManagementProjects, runConvexManagement } from "../convexManagementApi";
 import { action } from "../functions";
 import { readRepositoryCloudflareStacks } from "./cloudflareStateStore";
 import { readRepositoryGitHubStacks } from "./githubStateStore";
@@ -108,6 +107,17 @@ function withoutSecretValues(stage: AlchemyStoredStage): AlchemyStoredStage {
   };
 }
 
+/** A custom domain's destination, or null for one that Samebase does not show. */
+function readCustomDomainDestination(destination: string): "convexCloud" | "convexSite" | null {
+  switch (destination) {
+    case "convexCloud":
+    case "convexSite":
+      return destination;
+    default:
+      return null;
+  }
+}
+
 /** The production deployment of the connected team's `alchemy-state-store` project. */
 async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamId" | "token">) {
   const project = (
@@ -115,7 +125,7 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
   ).find((candidate) => candidate.name === ALCHEMY_STATE_PROJECT_NAME);
   // A store project without a production deployment holds no state yet.
   return project
-    ? await readConvexProductionDeployment({ token: target.token, projectId: project.id })
+    ? await readConvexProductionDeployment({ token: target.token, projectId: String(project.id) })
     : null;
 }
 
@@ -676,9 +686,8 @@ async function readLiveDeployments(
           token: target.token,
           projectId: deployment.projectId,
         }).catch(() => null),
-        ConvexManagement.GET["/deployments/{deployment_name}/custom_domains"]({
-          client: createConvexManagementClient({ token: target.token }),
-          path: { deployment_name: deployment.deploymentName },
+        runConvexManagement(target.token, management.listCustomDomains, {
+          deploymentName: deployment.deploymentName,
         })
           .then(({ domains }) => domains)
           .catch(() => []),
@@ -692,14 +701,20 @@ async function readLiveDeployments(
               deploymentName: deployment.deploymentName,
             })
           : null,
-        region: live?.name === deployment.deploymentName ? live.region : null,
+        region:
+          live?.name === deployment.deploymentName
+            ? parseConvexDeploymentRegion(live.region)
+            : null,
         customDomains: customDomains
           .filter(({ verificationTime }) => verificationTime)
           .sort(
             (left, right) =>
               left.creationTime - right.creationTime || left.domain.localeCompare(right.domain),
           )
-          .map(({ domain, requestDestination }) => ({ domain, requestDestination })),
+          .flatMap(({ domain, requestDestination }) => {
+            const destination = readCustomDomainDestination(requestDestination);
+            return destination ? [{ domain, requestDestination: destination }] : [];
+          }),
       };
     }),
   );

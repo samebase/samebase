@@ -8,7 +8,7 @@ import { connectConvexCredential } from "./organizationProviderCredentials";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 import { sealSecret, vSealedSecret } from "./sealedSecret";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
-import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
+import { fetchConvexTeamTokenDetails } from "./convexManagementApi";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import { buildProviderOAuthStoreReturnUrl } from "./authorizationCompletion";
 import { buildResourceOAuthUrl, exchangeResourceOAuthCode } from "./brokerResourceOAuth";

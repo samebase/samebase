@@ -5,8 +5,8 @@ import { ConvexError, Infer, v } from "convex/values";
 import { vViewerAccess, vViewerRoleResult } from "./identity/accessValidators";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
-import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
-import { ConvexManagementApiError } from "./convexManagementApi/errors";
+import { fetchConvexTeamTokenDetails } from "./convexManagementApi";
+import { ConvexManagementApiError } from "./convexManagementApi";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import {
   getOrganizationCiCredentials,
@@ -171,7 +171,7 @@ async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
     ) {
       throw new ConvexError("Invalid Convex API key");
     }
-    if (error instanceof ConvexManagementApiError) {
+    if (error instanceof ConvexManagementApiError && error.status !== null) {
       throw new ConvexError(`Convex API key check failed (${error.status}).`);
     }
     throw new ConvexError("Convex API key check failed.");

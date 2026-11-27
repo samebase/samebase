@@ -2,11 +2,15 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
+import * as management from "@distilled.cloud/convex/management";
+
 import {
   listConvexManagementProjects,
-  createConvexManagementClient,
-} from "./convexManagementApi/client";
-import { ConvexManagement } from "./convexManagementApi/generated/sdk.gen";
+  readConvexTokenDetails,
+  runConvexManagement,
+  toConvexId,
+  vConvexDeploymentPage,
+} from "./convexManagementApi";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 import { openSecret } from "./sealedSecret";
 
@@ -90,7 +94,7 @@ export const checkConvexConnectionAccess = action({
     const tokenProbe = await runConvexProbe({
       key: "token",
       run: async () => {
-        return await readConvexTokenDetails(token);
+        return await readConvexTokenIdentity(token);
       },
     });
     checks.push({
@@ -112,11 +116,12 @@ export const checkConvexConnectionAccess = action({
       runConvexProbe({
         key: "deployments",
         run: async () => {
-          return await ConvexManagement.GET["/teams/{team_id}/list_deployments"]({
-            client: createConvexManagementClient({ token }),
-            path: { team_id: teamId },
-            query: { limit: 100 },
-          });
+          return await runConvexManagement(
+            token,
+            management.listTeamDeployments,
+            { teamId: toConvexId(teamId, "Convex team ID"), limit: 100 },
+            vConvexDeploymentPage,
+          );
         },
       }),
     ]);
@@ -128,7 +133,8 @@ export const checkConvexConnectionAccess = action({
       firstProjectTeamSlug &&
       projectsProbe.state === "ok" &&
       projectsProbe.value.every(
-        (project) => project.teamId === teamId && project.teamSlug.trim() === firstProjectTeamSlug,
+        (project) =>
+          String(project.teamId) === teamId && project.teamSlug.trim() === firstProjectTeamSlug,
       )
         ? firstProjectTeamSlug
         : undefined;
@@ -171,14 +177,12 @@ async function runConvexProbe<Value>({
   }
 }
 
-async function readConvexTokenDetails(token: string): Promise<ConvexTokenIdentity> {
-  const details = await ConvexManagement.GET["/token_details"]({
-    client: createConvexManagementClient({ token }),
-  });
+async function readConvexTokenIdentity(token: string): Promise<ConvexTokenIdentity> {
+  const details = await readConvexTokenDetails(token);
   if (details.type === "teamToken") {
     return {
       type: "team_token",
-      teamId: details.teamId,
+      teamId: String(details.teamId),
     };
   }
 

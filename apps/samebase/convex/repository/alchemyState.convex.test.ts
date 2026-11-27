@@ -287,7 +287,7 @@ function installAlchemyStateFetchStub(args: {
           isDefault: true,
           kind: "cloud",
           name: "brave-heron-201",
-          projectId: "3300001",
+          projectId: 3300001,
           reference: "production",
           region: "aws-us-east-1",
         });
