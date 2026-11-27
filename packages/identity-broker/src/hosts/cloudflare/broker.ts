@@ -83,9 +83,9 @@ export class BrokerStoreObject extends Cloudflare.DurableObject<BrokerStoreObjec
 
       // Cleanup every `CLEANUP_EVERY_MS` in bounded batches, as Alchemy's durable callback: its row
       // and the native alarm live in the object's own `alchemy_*` tables. Each batch schedules the
-      // next one with the run's cutoff, or the next run; the job is then never absent. A failed batch is
-      // tried again after `FALLBACK_MS`. The failure carries no text: a defect's message must
-      // reach no log line.
+      // next one with the run's cutoff, or the next run; the job is then never absent. A failed
+      // batch is tried again after `FALLBACK_MS`. The failure carries no text: a defect's message
+      // must reach no log line.
       const cleanup: Alchemy.Callback<typeof CleanupPayload.Encoded> = yield* Alchemy.makeCallback(
         "cleanup",
         Effect.fn("BrokerStoreObject.cleanup")(

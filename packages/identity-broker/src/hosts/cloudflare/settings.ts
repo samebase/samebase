@@ -5,7 +5,7 @@
 export const FALLBACK_MS = 60 * 60 * 1000;
 /** The delay to the next batch of a cleanup run that has more to delete. */
 export const NEXT_BATCH_MS = 1000;
-/** The delay to the next cleanup run: the life of a sign-in request, so expired ones do not pile up. */
+/** The delay to the next cleanup run: the life of a sign-in request, so expired ones stay few. */
 export const CLEANUP_EVERY_MS = 10 * 60 * 1000;
 
 /**

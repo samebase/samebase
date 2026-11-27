@@ -122,7 +122,7 @@ export const begin = Effect.fnUntraced(function* (args: typeof BeginArgs.Type, s
   return { next: "fetch" as const, fetchStartedAt: step.now };
 });
 
-/** Every card of `host`, at most `limit`: the policy keeps each id of a host on `https://<host>/`. */
+/** The cards of `host`, at most `limit`: each id of a host starts with `https://<host>/`. */
 const hostCards = Effect.fnUntraced(function* (host: string, limit: number) {
   return yield* (yield* CimdTx).query("clients", "by_client_id", {
     eq: [],
@@ -138,8 +138,9 @@ const hostCards = Effect.fnUntraced(function* (host: string, limit: number) {
 
 /**
  * The card from a document that the layer accepted. With no card of the id, and fewer than
- * `clientsPerHost` cards of its host, a token of the new-client budget makes one. A card is replaced only by a fetch that started after the fetch that
- * it holds: an older, slower fetch changes nothing. A document that does not list the sign-in's
+ * `clientsPerHost` cards of its host, a token of the new-client budget makes one. A card is
+ * replaced only by a fetch that started after the fetch that it holds: an older, slower fetch
+ * changes nothing. A document that does not list the sign-in's
  * address still replaces a card, but makes none, and the answer is `not_listed`. The block and the
  * id are checked again here, so no other path writes a public card of a blocked host or of another
  * kind of id.

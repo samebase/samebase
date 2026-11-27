@@ -48,7 +48,7 @@ const PATHS = ["/cb1", "/cb2"] as const;
 const DOCUMENTS = [["/cb1"], ["/cb2"], ["/cb1", "/cb2"]] as const;
 const FRESH_MS = [0, MINUTE, HOUR, DAY] as const;
 const TICKS = [1, 1, 1_000, 30_000, MINUTE, 10 * MINUTE, HOUR, DAY, USED_MS] as const;
-/** Small budgets, so that a story reaches them: fetchesPerMinute 4, newClientsPerHour 2, clientsPerHost 2. */
+/** Small limits, so that a story reaches them: fetchesPerMinute 4, newClientsPerHour 2. */
 const FETCHES = { rate: 4, periodMs: MINUTE, capacity: 4 };
 const NEW_CLIENTS = { rate: 2, periodMs: HOUR, capacity: 2 };
 const CLIENTS_PER_HOST = 2;
