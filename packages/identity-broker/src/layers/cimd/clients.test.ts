@@ -41,6 +41,7 @@ const put = (
     freshUntil: fetchStartedAt + 3_600_000,
     redirectUris,
     connectors: ["g"],
+    clientsPerHost: 20,
     newClients: { rate: 30, periodMs: 3_600_000, capacity: 30 },
     ...more,
   });
@@ -124,7 +125,7 @@ describe.each(hosts)("%s", (_name, make) => {
     expect(budget(t, NEW_CLIENT_BUDGET)).toBe(29);
   });
 
-  test("the removal of a card deletes the budget row of its host, and never the two broker-wide rows", () => {
+  test("the removal of a card keeps the sign-in budget of its host, which its other cards share", () => {
     const t = make({ now: T });
     expect(put(t, startedAt(t), [OLD_URI])).toBe("inserted");
     seed(t, "signInBudgets", [{ key: HOST_BUDGET, tokens: 3, at: T }]);
@@ -132,9 +133,27 @@ describe.each(hosts)("%s", (_name, make) => {
     expect(t.run("cimd.remove", { clientId: ID, fetchStartedAt: startedAt(t, NEW_URI) })).toEqual({
       removed: true,
     });
-    expect(budget(t, HOST_BUDGET)).toBeUndefined();
-    expect(budget(t, FETCH_BUDGET)).toBeDefined();
-    expect(budget(t, NEW_CLIENT_BUDGET)).toBeDefined();
+    expect(budget(t, HOST_BUDGET)).toBe(3);
+  });
+
+  test("clientsPerHost cards of one exact host, by a range of the index: the next one answers rate_limited before the new-client budget, and another host still gets a card", () => {
+    const t = make({ now: T });
+    const at = (path: string, host = "app.example.com") => ({
+      clientId: `https://${host}${path}`,
+      redirectUri: `https://${host}/cb`,
+      clientsPerHost: 2,
+    });
+    const card = (path: string, host?: string) =>
+      put(t, T, [at(path, host).redirectUri], at(path, host));
+    expect(card("/one.json")).toBe("inserted");
+    expect(card("/two.json")).toBe("inserted");
+    expect(card("/three.json")).toBe("rate_limited");
+    expect(budget(t, NEW_CLIENT_BUDGET)).toBe(28);
+    // `app.example.co` starts with the same text, and `a.app.example.com` ends with it.
+    expect(card("/one.json", "app.example.co")).toBe("inserted");
+    expect(card("/one.json", "a.app.example.com")).toBe("inserted");
+    // The count stops new cards only: a document of a stored card still goes to its card.
+    expect(card("/one.json")).toBe("older");
   });
 
   test("the budgets: a refused fetch or card stores nothing", () => {

@@ -1,6 +1,6 @@
 {
   "name": "@samebase/identity-broker",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "description": "An OpenID Provider that holds a team's upstream sign-in connections once and keeps no user accounts. It runs on any platform with your own storage, with ready hosts for Convex and Cloudflare.",
   "license": "Apache-2.0",
   "repository": {

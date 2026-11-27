@@ -614,24 +614,34 @@ test("an httpAction keeps both Set-Cookie fields of one response", async () => {
   expect(response.headers.getSetCookie()).toEqual(["a=1; Path=/", "b=2; Path=/"]);
 });
 
-const CleanupResult = Schema.Struct({ signIns: Schema.Number, more: Schema.Boolean });
+const CleanupResult = Schema.Struct({ clients: Schema.Number, more: Schema.Boolean });
 
 test("the cleanup runs batches until none is left", async () => {
   emptyComponent();
-  // More than two batches (`BATCH` in src/rules/lifecycle.ts is 200) of sign-ins from 1970.
+  // More than two batches (`BATCH` in src/rules/lifecycle.ts is 200) of cards from 1970, one host each.
   for (let at = 1; at <= 450; at++) {
+    const host = `h${at}.example.com`;
     await client.mutation(api.ops.command, {
-      name: "signIns.record",
-      args: { clientId: "c", ref: "test:a", connector: "idp", sub: "s", at },
-      now: Date.now(),
+      name: "cimd.put",
+      args: {
+        clientId: `https://${host}/c.json`,
+        redirectUri: `https://${host}/cb`,
+        fetchStartedAt: at,
+        freshUntil: at,
+        redirectUris: [`https://${host}/cb`],
+        connectors: ["idp"],
+        clientsPerHost: 1,
+        newClients: { rate: 1, periodMs: 1, capacity: 1 },
+      },
+      now: at,
     });
   }
   convexCli(["run", "broker:cleanup"]);
-  // A batch at the same retention finds none of them left.
+  // A batch at the same cutoff finds none of them left.
   const after = await client.mutation(api.ops.command, {
     name: "lifecycle.cleanup",
-    args: { now: Date.now(), signInRetentionMs: 0 },
+    args: { now: Date.now() },
     now: Date.now(),
   });
-  expect(Schema.decodeUnknownSync(CleanupResult)(after)).toEqual({ signIns: 0, more: false });
+  expect(Schema.decodeUnknownSync(CleanupResult)(after)).toEqual({ clients: 0, more: false });
 }, 120_000);

@@ -161,10 +161,11 @@ describe("/token: each card shape with each kind of client authentication", () =
     "basic, empty password": { kind: "basic", secret: "" },
     assertion: { kind: "assertion" },
   });
+  // A Basic header with an empty password is no secret (RFC 7591 `none`).
   const cases = [
-    { card: "public", accepts: "none" },
-    { card: "client_secret_post", accepts: "post" },
-    { card: "client_secret_basic", accepts: "basic" },
+    { card: "public", accepts: ["none", "basic, empty password"] },
+    { card: "client_secret_post", accepts: ["post"] },
+    { card: "client_secret_basic", accepts: ["basic"] },
   ] as const;
 
   test.each(cases)(
@@ -179,26 +180,42 @@ describe("/token: each card shape with each kind of client authentication", () =
               redirectUri: REDIRECT_URI,
               tokenEndpointAuthMethod: card,
             });
-      const { code, verifier } = await signIn(h, client.clientId);
       const all = variants(client.clientSecret);
+      const accepted = new Set<string>(accepts);
+      const first = await signIn(h, client.clientId);
       for (const [name, authentication] of Object.entries(all)) {
-        if (name === accepts) continue;
-        const refused = await tokenRequest(h, { ...client, code, verifier, authentication });
+        if (accepted.has(name)) continue;
+        const refused = await tokenRequest(h, { ...client, ...first, authentication });
         expect([name, refused.status, (await errorOf(refused)).error]).toEqual([
           name,
           401,
           "invalid_client",
         ]);
       }
-      const answer = await tokenRequest(h, {
-        ...client,
-        code,
-        verifier,
-        authentication: all[accepts] ?? { kind: "none" },
-      });
-      expect(answer.status).toBe(200);
+      for (const [index, name] of accepts.entries()) {
+        const { code, verifier } = index === 0 ? first : await signIn(h, client.clientId);
+        const answer = await tokenRequest(h, {
+          ...client,
+          code,
+          verifier,
+          authentication: all[name] ?? { kind: "none" },
+        });
+        expect([name, answer.status]).toEqual([name, 200]);
+      }
     },
   );
+
+  test("a body over 16 KB answers 413, at /token and at /authorize", async () => {
+    const h = await publicBroker();
+    for (const path of ["/token", "/authorize"]) {
+      const answer = await h.fetchBroker(`${h.issuer}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `grant_type=authorization_code&code=${"x".repeat(20 * 1024)}`,
+      });
+      expect([path, answer.status]).toEqual([path, 413]);
+    }
+  });
 
   test("a public client's sign-in calls the layer once, at /authorize", async () => {
     const h = await publicBroker();
@@ -308,7 +325,7 @@ describe("/authorize and the resolver", () => {
 });
 
 describe("discovery", () => {
-  test("names metadata documents and the method none only with a resolver", async () => {
+  test("names metadata documents and the method none only with a resolver, and the secret methods only with a layer that has none", async () => {
     const read = async (h: Broker) =>
       Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
         await (await h.fetchBroker(`${h.issuer}/.well-known/openid-configuration`)).json(),
@@ -316,7 +333,7 @@ describe("discovery", () => {
     const withResolver = await read(await publicBroker());
     expect(withResolver).toMatchObject({
       client_id_metadata_document_supported: true,
-      token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic", "none"],
+      token_endpoint_auth_methods_supported: ["none"],
     });
     expect(withResolver).not.toHaveProperty("registration_endpoint");
     const without = await read(await publicBroker({ routes: [] }));
@@ -324,6 +341,12 @@ describe("discovery", () => {
     expect(without["token_endpoint_auth_methods_supported"]).toEqual([
       "client_secret_post",
       "client_secret_basic",
+    ]);
+    const both = await read(await publicBroker([testLayer().layer, { routes: [] }]));
+    expect(both["token_endpoint_auth_methods_supported"]).toEqual([
+      "client_secret_post",
+      "client_secret_basic",
+      "none",
     ]);
   });
 });

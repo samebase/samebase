@@ -304,8 +304,7 @@ describe.each(hosts)("%s", (_name, make) => {
       start(t, { now: late });
       claim(t, { now: late });
       complete(t, { authTime: late, codeExpiresAt: late + 60_000, now: late });
-      const cleanup = (at: number) =>
-        t.run("lifecycle.cleanup", { now: at, signInRetentionMs: 90 * 86_400_000 });
+      const cleanup = (at: number) => t.run("lifecycle.cleanup", { now: at });
       expect(cleanup(late + 59_000)).toMatchObject({ authRequests: 0 });
       expect(exchange(t, { now: late + 59_000 })).toMatchObject({ ok: true });
     });

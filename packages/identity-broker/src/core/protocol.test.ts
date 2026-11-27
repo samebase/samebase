@@ -155,7 +155,7 @@ describe("token", () => {
     expect(readClientAuthentication("Bearer x", new URLSearchParams()).ok).toBe(false);
   });
 
-  test("no authentication only with no Authorization header, a client_id and no client_secret", () => {
+  test("no authentication: a client_id and no client_secret, or HTTP Basic with an empty password", () => {
     const none = { ok: true, value: { method: "none", clientId: "https://app.test/c.json" } };
     expect(
       readClientAuthentication(null, new URLSearchParams({ client_id: "https://app.test/c.json" })),
@@ -167,14 +167,13 @@ describe("token", () => {
         new URLSearchParams("client_id=https%3A%2F%2Fapp.test%2Fc.json&client_secret="),
       ),
     ).toEqual(none);
-    // A Basic header with an empty password is a secret, never no authentication.
-    expect(readClientAuthentication(`Basic ${btoa("a:")}`, new URLSearchParams())).toEqual({
-      ok: true,
-      value: { clientId: "a", clientSecret: "", method: "client_secret_basic" },
-    });
+    // A public client that sends `client_id:` in Basic has no secret (RFC 7591 `none`).
     expect(
-      readClientAuthentication(`Basic ${btoa("a:")}`, new URLSearchParams({ client_id: "a" })),
-    ).toMatchObject({ ok: true, value: { method: "client_secret_basic" } });
+      readClientAuthentication(
+        `Basic ${btoa("https%3A%2F%2Fapp.test%2Fc.json:")}`,
+        new URLSearchParams(),
+      ),
+    ).toEqual(none);
     expect(
       readClientAuthentication("Bearer x", new URLSearchParams({ client_id: "a" })),
     ).toMatchObject({ ok: false, status: 401, error: "invalid_client" });

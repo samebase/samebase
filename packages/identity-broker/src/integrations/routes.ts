@@ -484,13 +484,13 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
    */
   const revoke = Effect.fn("connections.revoke")(function* (request: Request) {
     const { fetch } = yield* Fetch;
-    const params = yield* Effect.promise(() => readParameters(request));
-    if (params === null) {
-      return oauthError(
-        400,
-        "invalid_request",
-        "The body must be application/x-www-form-urlencoded.",
-      );
+    const params = yield* Effect.promise(() =>
+      readParameters(request, () =>
+        oauthError(400, "invalid_request", "The body must be application/x-www-form-urlencoded."),
+      ),
+    );
+    if (params instanceof Response) {
+      return params;
     }
     const clientAuth = readClientAuthentication(request.headers.get("authorization"), params);
     if (!clientAuth.ok) {

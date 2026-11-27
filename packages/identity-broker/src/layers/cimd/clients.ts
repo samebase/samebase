@@ -50,6 +50,8 @@ export const PutArgs = Schema.Struct({
   freshUntil: Schema.Finite,
   redirectUris: Strs,
   connectors: Strs,
+  /** The most cards of one host at a time. */
+  clientsPerHost: Schema.Finite,
   newClients: Limits,
 });
 export const PutResult = Schema.Literals([
@@ -96,9 +98,10 @@ const sameSet = (a: ReadonlyArray<string>, b: ReadonlyArray<string>) =>
   a.length === b.length && a.every((name) => b.includes(name));
 
 /**
- * The step before a fetch: a blocked host stops here; a card that is fresh, that holds the
- * request's return address and the layer's connectors of now is used as it is; else the fetch
- * takes a token of the broker-wide fetch budget, and its start is the step clock.
+ * The step before a fetch: a blocked host stops here; a card that holds the request's return
+ * address and the layer's connectors of now is used as it is when it is fresh, or when the
+ * broker-wide fetch budget is empty; else the fetch takes a token of that budget, and its start is
+ * the step clock.
  */
 export const begin = Effect.fnUntraced(function* (args: typeof BeginArgs.Type, step: Step) {
   const host = yield* hostOf(args.clientId);
@@ -106,24 +109,38 @@ export const begin = Effect.fnUntraced(function* (args: typeof BeginArgs.Type, s
     return { next: "stopped" as const };
   }
   const card = yield* cardOf(args.clientId);
-  if (
+  const usable =
     card !== undefined &&
-    card.fetched.freshUntil > step.now &&
     card.doc.redirectUris.includes(args.redirectUri) &&
-    sameSet(card.doc.connectors, args.connectors)
-  ) {
+    sameSet(card.doc.connectors, args.connectors);
+  if (usable && card.fetched.freshUntil > step.now) {
     return { next: "fresh" as const };
   }
   if (!(yield* spendBudget(FETCH_BUDGET, step.now, args.fetches))) {
-    return { next: "rate_limited" as const };
+    return usable ? { next: "fresh" as const } : { next: "rate_limited" as const };
   }
   return { next: "fetch" as const, fetchStartedAt: step.now };
 });
 
+/** The cards of `host`, at most `limit`: each id of a host starts with `https://<host>/`. */
+const hostCards = Effect.fnUntraced(function* (host: string, limit: number) {
+  return yield* (yield* CimdTx).query("clients", "by_client_id", {
+    eq: [],
+    // `0` is the code unit after `/`.
+    range: [
+      { op: "gte", value: `https://${host}/` },
+      { op: "lt", value: `https://${host}0` },
+    ],
+    order: "asc",
+    limit,
+  });
+});
+
 /**
- * The card from a document that the layer accepted. With no card of the id, a token of the
- * new-client budget makes one. A card is replaced only by a fetch that started after the fetch that
- * it holds: an older, slower fetch changes nothing. A document that does not list the sign-in's
+ * The card from a document that the layer accepted. With no card of the id, and fewer than
+ * `clientsPerHost` cards of its host, a token of the new-client budget makes one. A card is
+ * replaced only by a fetch that started after the fetch that it holds: an older, slower fetch
+ * changes nothing. A document that does not list the sign-in's
  * address still replaces a card, but makes none, and the answer is `not_listed`. The block and the
  * id are checked again here, so no other path writes a public card of a blocked host or of another
  * kind of id.
@@ -140,6 +157,9 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
   if (card === undefined) {
     if (!listed) {
       return "not_listed" as const;
+    }
+    if ((yield* hostCards(host, args.clientsPerHost)).length >= args.clientsPerHost) {
+      return "rate_limited" as const;
     }
     if (!(yield* spendBudget(NEW_CLIENT_BUDGET, step.now, args.newClients))) {
       return "rate_limited" as const;
@@ -176,20 +196,15 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
 });
 
 /**
- * A fetch whose document is gone or refused deletes the card, when it started after the card's,
- * and the budget row of the card's host.
+ * A fetch whose document is gone or refused deletes the card, when it started after the card's.
+ * The sign-in budget of its host stays: the other cards of the host share it.
  */
 export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type) {
-  const tx = yield* CimdTx;
   const card = yield* cardOf(args.clientId);
   if (card === undefined || card.fetched.fetchStartedAt >= args.fetchStartedAt) {
     return { removed: false };
   }
-  yield* tx.delete("clients", card.id);
-  const budget = yield* unique(tx, "signInBudgets", "by_key", [card.doc.budget]);
-  if (budget !== undefined) {
-    yield* tx.delete("signInBudgets", budget.id);
-  }
+  yield* (yield* CimdTx).delete("clients", card.id);
   return { removed: true };
 });
 

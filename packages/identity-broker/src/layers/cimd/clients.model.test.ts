@@ -6,9 +6,12 @@
 //   reads in progress   client, start, return address; several of one client, ending in any order
 //   fetch budget        a bucket of fetchesPerMinute tokens that refills fetchesPerMinute each minute
 //   new-client budget   a bucket of newClientsPerHour tokens that refills newClientsPerHour each hour
+//   cards of a host     at most clientsPerHost at a time
+//   sign-in budget      the row of a host's key, shared by its cards
 //   sign-ins            pending, at the provider, or finished
 // Events (store commands):
-//   a read starts       cimd.begin: "stopped", "fresh" (a sign-in starts at once), "fetch" (a read)
+//   a read starts       cimd.begin: "stopped", "fresh" (a sign-in starts at once), "fetch" (a read),
+//                       "rate_limited"
 //   a read ends, good   cimd.put; its sign-in starts when the document lists the read's address
 //   a read ends, gone   cimd.remove: the file answers 404, or the reader or the policy refuses it
 //   a read ends, short  nothing: no answer, 429 or 5xx, and the card stays
@@ -31,20 +34,24 @@ const UNUSED_MS = DAY;
 const USED_MS = 14 * DAY;
 const REQUEST_MS = 10 * MINUTE;
 
+// `a.example.co` starts with the same text as `a.example.com`, and is another host.
 const CLIENTS = [
   { id: "https://a.example.com/one.json", host: "a.example.com" },
   { id: "https://a.example.com/two.json", host: "a.example.com" },
+  { id: "https://a.example.com/three.json", host: "a.example.com" },
+  { id: "https://a.example.co/c.json", host: "a.example.co" },
   { id: "https://b.example.com/c.json", host: "b.example.com" },
 ] as const;
-const HOSTS = ["a.example.com", "b.example.com"] as const;
+const HOSTS = ["a.example.com", "a.example.co", "b.example.com"] as const;
 const PATHS = ["/cb1", "/cb2"] as const;
 /** The return addresses of each document a read can find, as paths on the client's origin. */
 const DOCUMENTS = [["/cb1"], ["/cb2"], ["/cb1", "/cb2"]] as const;
 const FRESH_MS = [0, MINUTE, HOUR, DAY] as const;
 const TICKS = [1, 1, 1_000, 30_000, MINUTE, 10 * MINUTE, HOUR, DAY, USED_MS] as const;
-/** Small budgets, so that a story reaches them: fetchesPerMinute 4, newClientsPerHour 1. */
+/** Small limits, so that a story reaches them: fetchesPerMinute 4, newClientsPerHour 2. */
 const FETCHES = { rate: 4, periodMs: MINUTE, capacity: 4 };
-const NEW_CLIENTS = { rate: 1, periodMs: HOUR, capacity: 1 };
+const NEW_CLIENTS = { rate: 2, periodMs: HOUR, capacity: 2 };
+const CLIENTS_PER_HOST = 2;
 const BROKER = { configured: ["g"], liveGates: [] };
 
 type Event =
@@ -90,11 +97,17 @@ const event: fc.Arbitrary<Event> = fc.oneof(
   },
   {
     weight: 1,
-    arbitrary: fc.record({ kind: fc.constant("block" as const), host: fc.nat({ max: 1 }) }),
+    arbitrary: fc.record({
+      kind: fc.constant("block" as const),
+      host: fc.nat({ max: HOSTS.length - 1 }),
+    }),
   },
   {
     weight: 1,
-    arbitrary: fc.record({ kind: fc.constant("unblock" as const), host: fc.nat({ max: 1 }) }),
+    arbitrary: fc.record({
+      kind: fc.constant("unblock" as const),
+      host: fc.nat({ max: HOSTS.length - 1 }),
+    }),
   },
   {
     weight: 4,
@@ -182,6 +195,17 @@ function play(events: ReadonlyArray<Event>, strict = false) {
   const onCard = (client: number, redirectUri: string) =>
     model(client).card?.redirectUris.includes(redirectUri) === true;
 
+  /** The model's cards of `host`. */
+  const cardsOf = (host: string) =>
+    clients.filter((client, index) => hostOf(index) === host && client.card !== undefined).length;
+
+  /** The stored row of a budget key, if any. */
+  const budgetRow = (key: string) =>
+    rowsOf(t, "signInBudgets", "by_key").find((row) => row.key === key);
+
+  /** No read could start in the last minute: the fetch bucket is empty only then. */
+  const fetchesSpent = () => now - (fetchStarts.at(-1) ?? -Infinity) < FETCHES.periodMs;
+
   const startSignIn = (client: number, redirectUri: string) => {
     const requestId = `r${signIns.length}`;
     const created = t.run("authRequests.create", {
@@ -227,13 +251,23 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           return;
         }
         expect(begun.next).not.toBe("stopped");
-        // README: a card is used while its file is fresh and it holds the address; else the file is read.
-        const usable =
-          card !== undefined && card.freshUntil > now && card.redirectUris.includes(redirectUri);
-        expect(begun.next === "fresh").toBe(usable);
-        if (begun.next === "rate_limited") {
-          // A bucket of N each minute always has a token after a minute with no read.
-          expect(now - (fetchStarts.at(-1) ?? -Infinity)).toBeLessThan(FETCHES.periodMs);
+        // README: a card that holds the address is used while its file is fresh, and when no read
+        // can start (the fetch budget is empty); else the file is read. With no such card and no
+        // read possible, the answer is 429.
+        const holds = card !== undefined && card.redirectUris.includes(redirectUri);
+        const fresh = holds && card.freshUntil > now;
+        if (fresh) {
+          expect(begun.next).toBe("fresh");
+        }
+        if (!holds) {
+          expect(begun.next).not.toBe("fresh");
+        }
+        if (holds) {
+          expect(begun.next).not.toBe("rate_limited");
+        }
+        // A bucket of N each minute always has a token after a minute with no read.
+        if (begun.next === "rate_limited" || (begun.next === "fresh" && !fresh)) {
+          expect(fetchesSpent()).toBe(true);
         }
         if (begun.next === "fetch") {
           reads.push({ client: e.client, start: begun.fetchStartedAt, redirectUri });
@@ -243,9 +277,10 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           if (strict) {
             expect(laterGoodRead(e.client)).toBe(true);
           }
-          // The bounded promise: a card that an earlier read stored again gives sign-ins only while that read is fresh.
+          // The bounded promise: a card that an earlier read stored again gives sign-ins only while
+          // that read is fresh, or while no read can start.
           if (card !== undefined && gone.some((start) => start > card.start)) {
-            expect(now).toBeLessThan(card.freshUntil);
+            expect(now < card.freshUntil || fetchesSpent()).toBe(true);
           }
           startSignIn(e.client, redirectUri);
         }
@@ -261,6 +296,8 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           .sort();
         const client = model(read.client);
         const { card } = client;
+        const newClientsBefore = budgetRow("cimd:new-clients");
+        const hostFull = cardsOf(hostOf(read.client)) >= CLIENTS_PER_HOST;
         const put = t.run("cimd.put", {
           clientId: CLIENTS[read.client]?.id ?? "",
           redirectUri: read.redirectUri,
@@ -268,6 +305,7 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           freshUntil: now + e.freshMs,
           redirectUris,
           connectors: ["g"],
+          clientsPerHost: CLIENTS_PER_HOST,
           newClients: NEW_CLIENTS,
         });
         expect(put === "stopped").toBe(blocked.has(hostOf(read.client)));
@@ -293,9 +331,14 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           return;
         }
         expect(put === "inserted" || put === "rate_limited").toBe(card === undefined);
+        if (card === undefined && hostFull) {
+          // A host with clientsPerHost cards gets no new one, and spends no new-client token.
+          expect(put).toBe("rate_limited");
+          expect(budgetRow("cimd:new-clients")).toEqual(newClientsBefore);
+        }
         if (put === "rate_limited") {
           // A bucket of N each hour always has a token after an hour with no new client.
-          expect(now - (inserts.at(-1) ?? -Infinity)).toBeLessThan(NEW_CLIENTS.periodMs);
+          expect(hostFull || now - (inserts.at(-1) ?? -Infinity) < NEW_CLIENTS.periodMs).toBe(true);
           return;
         }
         if (card !== undefined) {
@@ -327,12 +370,16 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           return;
         }
         const client = model(read.client);
+        const hostBudget = `cimd:host:${hostOf(read.client)}`;
+        const budgetBefore = budgetRow(hostBudget);
         const { removed } = t.run("cimd.remove", {
           clientId: CLIENTS[read.client]?.id ?? "",
           fetchStartedAt: read.start,
         });
         // Design C.2 step 7: the card goes when this read started after the read that the card holds.
         expect(removed).toBe(client.card !== undefined && read.start > client.card.start);
+        // The sign-in budget of the host stays: a removed card does not refill it.
+        expect(budgetRow(hostBudget)).toEqual(budgetBefore);
         if (removed) {
           client.stored = [];
           client.card = undefined;
@@ -356,7 +403,7 @@ function play(events: ReadonlyArray<Event>, strict = false) {
         t.setNow(now);
         return;
       case "cleanup": {
-        t.run("lifecycle.cleanup", { now, signInRetentionMs: 90 * DAY });
+        t.run("lifecycle.cleanup", { now });
         const present = new Set(rowsOf(t, "clients", "by_client_id").map((row) => row.clientId));
         clients.forEach((client, index) => {
           if (client.card === undefined) {
@@ -477,13 +524,16 @@ function play(events: ReadonlyArray<Event>, strict = false) {
     });
     expectBucket(fetchStarts, FETCHES);
     expectBucket(inserts, NEW_CLIENTS);
+    for (const host of HOSTS) {
+      expect(cardsOf(host)).toBeLessThanOrEqual(CLIENTS_PER_HOST);
+    }
   }
 }
 
 const stories = fc.array(event, { minLength: 1, maxLength: 40, size: "max" });
 
 describe("the stored state of the CIMD layer", () => {
-  test("blocks, card shape, the later read wins, freshness, the two budgets as token buckets, and the card's lifetime hold after every event", () => {
+  test("blocks, card shape, the later read wins, freshness, a held card when no read can start, the two budgets as token buckets, the cards of a host, the host's budget after a removal, and the card's lifetime hold after every event", () => {
     fc.assert(
       fc.property(stories, (events) => {
         play(events);

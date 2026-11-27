@@ -148,7 +148,7 @@ export const coreTables = {
     }),
     indexes: { by_code_hash: [s("codeHash")], by_expires_at: [n("expiresAt")] },
   },
-  /** One row per issued id_token, kept 90 days: no email, no name, no token. */
+  /** Written by 0.46.0 and earlier, one row per issued id_token; the cleanup deletes every row. */
   signIns: {
     schema: Schema.Struct({ clientId: Str, ref: Str, connector: Str, sub: Str, at: Num }),
     indexes: { by_at: [n("at")] },

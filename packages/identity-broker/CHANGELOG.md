@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.47.0
+
+- Changed in the CIMD layer: when the read budget (`fetchesPerMinute`) is empty, a card that holds
+  the request's return address and the layer's connectors is used as it is, fresh or not. So callers
+  who spend the budget no longer stop sign-in at sites that already have a card. A blocked host is
+  still refused first, and a site with no such card still gets 429.
+- New option of the CIMD layer: `clientsPerHost`, the most clients of one host at a time (default
+  5). One more answers 429 and spends no token of `newClientsPerHour`. `a.example.com` and
+  `example.com` are two hosts.
+- Changed: the default of `newClientsPerHour` is 200 (was 30).
+- Changed in the CIMD layer: a client id whose scheme or host is not in lower case is refused
+  (`The scheme or the host of the client ID is not in lower case.`), so each id of a host starts
+  with `https://<host>/`.
+- Changed in the CIMD layer: a removed card keeps the sign-in budget of its host, which its other
+  cards share. The cleanup removes an idle budget row with the last card, as before.
+- Changed on Cloudflare: the Durable Object's cleanup runs every 10 minutes (was once a day at 04:17
+  UTC). A stored daily job moves to 10 minutes from the object's next start.
+- Removed: the broker keeps no record of who signed in. `/token` no longer writes a `signIns` row,
+  and the cleanup deletes every stored row of it, whatever its age. The `sign_in` log line stays.
+- Changed at `/token`: HTTP Basic with an empty password is no client authentication (`none`), so a
+  public client may send `client_id:` in Basic.
+- Changed in discovery: `token_endpoint_auth_methods_supported` lists `client_secret_post` and
+  `client_secret_basic` only when a mounted layer makes clients with a secret. A broker with only
+  the CIMD layer lists `["none"]`.
+- Changed: a form body over 16 KB answers 413, and the broker stops reading it there.
+- For a store of your own: the command `signIns.record` is gone, and `lifecycle.cleanup` takes
+  `{ now }` (no `signInRetentionMs`). `cimd.put` takes `clientsPerHost`. The `signIns` table stays
+  in the layout, and no index changes.
+
 ## 0.46.0
 
 - New: a page's script on any site can read the answers of discovery, the JWKS, `/token` and

@@ -109,7 +109,7 @@ const isDnsHost = (host: string) =>
   /^(?:[a-z0-9-]+\.)*[a-z0-9-]+$/.test(host) && !/^\d+$/.test(host.split(".").at(-1) ?? "");
 
 describe("acceptDocument and readClientId: README and design section C.1", () => {
-  test("an accepted client has an id of at most 255 characters with no query and no port on a DNS name that is not localhost, offers none and the code flow, and has 1 to 8 distinct return addresses, each https on the origin of its id, listed in its document as written, with no user info, no fragment and no authorization response parameter", () => {
+  test("an accepted client has an id of at most 255 characters with no query and no port on a DNS name that is not localhost, with its scheme and host in lower case, offers none and the code flow, and has 1 to 8 distinct return addresses, each https on the origin of its id, listed in its document as written, with no user info, no fragment and no authorization response parameter", () => {
     let accepted = 0;
     fc.assert(
       fc.property(checkedClient, ({ id, json }) => {
@@ -127,6 +127,9 @@ describe("acceptDocument and readClientId: README and design section C.1", () =>
         expect(id.id).not.toContain("?");
         expect(id.id.slice("https://".length).split("/")[0]).not.toContain(":");
         expect(isDnsHost(origin.hostname)).toBe(true);
+        expect(id.id.startsWith(`https://${id.id.slice(8).split("/")[0]?.toLowerCase()}/`)).toBe(
+          true,
+        );
         expect(origin.hostname === "localhost" || origin.hostname.endsWith(".localhost")).toBe(
           false,
         );
@@ -201,14 +204,13 @@ describe("hosts: README, The CIMD layer", () => {
 });
 
 describe("broker origin: draft section 10.1", () => {
-  test("an id on the broker's own origin is never accepted, whatever the case of its host, its path, and `hosts`", () => {
+  test("an id on the broker's own origin is never accepted, whatever the case of the issuer's host, its path, and `hosts`", () => {
     const input = dnsHost.chain((host) =>
       fc.tuple(
         anyCase(host).map((h) => `https://${h}`),
         fc.constantFrom("", "/", ":443", ":443/", "/issuer"),
-        clientIdText.chain((text) =>
-          anyCase(host).map((h) => text.replace(/^https:\/\/[^/?]*/, `https://${h}`)),
-        ),
+        // An id with upper case in its scheme or host is refused before (`readClientId`).
+        clientIdText.map((text) => text.replace(/^https:\/\/[^/?]*/, `https://${host}`)),
         fc.option(
           fc.constantFrom([host], [`*.${host.split(".").slice(1).join(".") || "com"}`], ["*.com"]),
           { nil: undefined },

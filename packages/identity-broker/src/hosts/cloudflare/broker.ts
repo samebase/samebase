@@ -30,7 +30,7 @@ import {
 export const BROKER_STORE_INSTANCE_NAME = "connections";
 /** The stored class name of deployed brokers' Durable Object namespace. */
 export const BROKER_STORE_CLASS_ID = "Hub";
-import { alarmPlan, nextDailyAt, FALLBACK_MS } from "./settings.ts";
+import { alarmPlan, CLEANUP_EVERY_MS, FALLBACK_MS } from "./settings.ts";
 
 declare global {
   // Alchemy reads `main: import.meta.url` in Node and in the bundle; workerd gives each module its
@@ -81,11 +81,11 @@ export class BrokerStoreObject extends Cloudflare.DurableObject<BrokerStoreObjec
         });
       };
 
-      // Daily cleanup in bounded batches, as Alchemy's durable callback: its row and the native
-      // alarm live in the object's own `alchemy_*` tables. Each batch schedules the next one with
-      // the run's cutoff, or the next daily run; the job is then never absent. A failed batch is
-      // tried again after `FALLBACK_MS`. The failure carries no text: a defect's message must
-      // reach no log line.
+      // Cleanup every `CLEANUP_EVERY_MS` in bounded batches, as Alchemy's durable callback: its row
+      // and the native alarm live in the object's own `alchemy_*` tables. Each batch schedules the
+      // next one with the run's cutoff, or the next run; the job is then never absent. A failed
+      // batch is tried again after `FALLBACK_MS`. The failure carries no text: a defect's message
+      // must reach no log line.
       const cleanup: Alchemy.Callback<typeof CleanupPayload.Encoded> = yield* Alchemy.makeCallback(
         "cleanup",
         Effect.fn("BrokerStoreObject.cleanup")(
@@ -110,12 +110,12 @@ export class BrokerStoreObject extends Cloudflare.DurableObject<BrokerStoreObjec
         ),
         { retry: { delay: FALLBACK_MS } },
       );
-      if ((yield* cleanup.getStatus(CLEANUP_JOB).pipe(Effect.orDie)) === undefined) {
+      const started = yield* Clock.currentTimeMillis;
+      const pending = yield* cleanup.getStatus(CLEANUP_JOB).pipe(Effect.orDie);
+      // A later job is the daily run of 0.46.0 and earlier, which holds no cutoff.
+      if (pending === undefined || pending.scheduledAt > started + CLEANUP_EVERY_MS) {
         yield* cleanup
-          .schedule(CLEANUP_JOB, {
-            at: nextDailyAt(yield* Clock.currentTimeMillis),
-            payload: {},
-          })
+          .schedule(CLEANUP_JOB, { at: started + CLEANUP_EVERY_MS, payload: {} })
           .pipe(Effect.orDie);
       }
 

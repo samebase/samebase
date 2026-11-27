@@ -195,7 +195,6 @@ describe("sign-in through the hub", () => {
       const signedIn = yield* text(yield* get(`${APP}/`));
       expect(signedIn).toContain("<dt>Subject</dt><dd>google:24400320</dd>");
       expect(signedIn).toContain('<a href="/logout">Sign out</a>');
-      expect(hub.rows().signIns.map((row) => row.sub)).toEqual(["google:24400320"]);
 
       // A second use of the same answer is refused: the sign-in cookie is gone.
       const replay = yield* get(appCallback.href);

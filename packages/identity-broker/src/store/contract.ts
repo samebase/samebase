@@ -533,20 +533,16 @@ const signInCommands: ReadonlyArray<Command> = [
       now: T,
     },
   },
-  {
-    name: "signIns.record",
-    args: { clientId: "client-1", ref: "github:gh-1", connector: "g", sub: "g:1", at: T },
-  },
   { name: "github.renew", args: { clientId: "client-1", registrationTokenHash: "r", ...settings } },
-  { name: "lifecycle.cleanup", args: { now: T + 40 * DAY, signInRetentionMs: DAY } },
+  { name: "lifecycle.cleanup", args: { now: T + 40 * DAY } },
 ];
 
-/** What the cleanup at the end of `signInCommands` deletes: the used code and the old sign-in. */
+/** What the cleanup at the end of `signInCommands` deletes: the used code. */
 export const signInCleanup = {
   authRequests: 0,
   authorizationCodes: 1,
   clients: 0,
-  signIns: 1,
+  signIns: 0,
   more: false,
 };
 

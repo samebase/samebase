@@ -5,13 +5,8 @@
 export const FALLBACK_MS = 60 * 60 * 1000;
 /** The delay to the next batch of a cleanup run that has more to delete. */
 export const NEXT_BATCH_MS = 1000;
-
-/** The next daily cleanup, at 04:17 UTC as the Convex broker's cron, strictly after `now`. */
-export function nextDailyAt(now: number): number {
-  const day = new Date(now);
-  const today = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 4, 17);
-  return today > now ? today : today + 24 * 60 * 60 * 1000;
-}
+/** The delay to the next cleanup run: the life of a sign-in request, so expired ones stay few. */
+export const CLEANUP_EVERY_MS = 10 * 60 * 1000;
 
 /**
  * One delivered alarm's decisions. `stored` is the cutoff of the run in progress, if one is. The
@@ -26,6 +21,6 @@ export function alarmPlan(stored: number | undefined, now: number) {
     after: (more: boolean) =>
       more
         ? { store: cutoff, alarmAt: now + NEXT_BATCH_MS }
-        : { store: undefined, alarmAt: nextDailyAt(now) },
+        : { store: undefined, alarmAt: now + CLEANUP_EVERY_MS },
   };
 }

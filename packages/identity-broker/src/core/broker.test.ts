@@ -374,7 +374,7 @@ describe("clients", () => {
 describe("authorization code flow with an OAuth connector", () => {
   test("a card with one connector and no page goes straight upstream and back with a code", async () => {
     const h = await fakeBroker();
-    const { ref, clientId, clientSecret } = await h.registerClient({
+    const { clientId, clientSecret } = await h.registerClient({
       appName: "My app",
       redirectUri: REDIRECT_URI,
     });
@@ -421,10 +421,8 @@ describe("authorization code flow with an OAuth connector", () => {
     expect(userinfo.status).toBe(200);
     expect(await userinfo.json()).toMatchObject({ sub: claims.sub, connector: "fake" });
 
-    const signIns = h.memory.db.contents().signIns;
-    expect(signIns).toHaveLength(1);
-    expect(signIns[0]).toMatchObject({ ref, clientId, connector: "fake", sub: claims.sub });
-    expect(signIns[0]).not.toHaveProperty("email");
+    // The broker keeps no record of who signed in.
+    expect(h.memory.db.contents().signIns).toEqual([]);
 
     // The subject is public: the provider's own id, so another app of the same user gets the same.
     expect(claims.sub).toBe("fake:42");

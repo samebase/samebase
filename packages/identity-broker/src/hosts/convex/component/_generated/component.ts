@@ -278,6 +278,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           args: {
             clientId: string;
+            clientsPerHost: number;
             connectors: Array<string>;
             fetchStartedAt: number;
             freshUntil: number;
@@ -896,7 +897,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       cleanup: FunctionReference<
         "mutation",
         "internal",
-        { args: { now: number; signInRetentionMs: number }; now: number },
+        { args: { now: number }; now: number },
         {
           authRequests: number;
           authorizationCodes: number;
@@ -904,24 +905,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           more: boolean;
           signIns: number;
         },
-        Name
-      >;
-    };
-    signIns: {
-      record: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          args: {
-            at: number;
-            clientId: string;
-            connector: string;
-            ref: string;
-            sub: string;
-          };
-          now: number;
-        },
-        null,
         Name
       >;
     };

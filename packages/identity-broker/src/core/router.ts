@@ -127,7 +127,8 @@ const preflight = (methods: string) => () =>
  * The parameters of a request, read from a copy: the body of a request can be read once, and the
  * handler that answers reads it again.
  */
-const peekParameters = (request: Request) => Effect.promise(() => readParameters(request.clone()));
+const peekParameters = (request: Request) =>
+  Effect.promise(() => readParameters(request.clone(), () => new Response(null, { status: 415 })));
 
 /**
  * The broker's logger: one JSON object per line, on the console method of the entry's level, which is
@@ -190,6 +191,8 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
     registration: layerRoutes.some(
       (route) => route.method === "POST" && route.path === "/register" && route.match === "exact",
     ),
+    // A layer with a resolver makes public cards only; every other layer makes cards with a secret.
+    secretClients: layers.some((layer) => layer.resolveClient === undefined),
     publicClients: resolveClient !== undefined,
     extend: part?.metadata ?? ((document) => document),
   });
@@ -217,7 +220,8 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
         return yield* authorizeCore(request);
       }
       const params = yield* peekParameters(request);
-      return params !== null && params.has("resource")
+      // A refused body goes to the core, which answers its own error.
+      return !(params instanceof Response) && params.has("resource")
         ? yield* part.authorize(request, params)
         : yield* authorizeCore(request);
     });
@@ -228,7 +232,8 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
       : (request: Request) =>
           Effect.gen(function* () {
             const params = yield* peekParameters(request);
-            const answer = params === null ? undefined : yield* part.token(request, params);
+            const answer =
+              params instanceof Response ? undefined : yield* part.token(request, params);
             return answer ?? (yield* tokenCore(request));
           });
   const at = (route: Route<R | LiveGates>): Mounted<R> => ({

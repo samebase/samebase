@@ -7,7 +7,6 @@ import * as authRequests from "./authRequests.ts";
 import * as clients from "./clients.ts";
 import * as lifecycle from "./lifecycle.ts";
 import * as S from "./schemas.ts";
-import * as signIns from "./signIns.ts";
 import type { Tx } from "./tables.ts";
 
 /** What the storage host gives a step: its clock at command entry, in milliseconds. */
@@ -80,12 +79,6 @@ const definitions = {
     result: S.ClientResult,
     readOnly: true,
     rule: clients.get,
-  }),
-  "signIns.record": command({
-    args: S.RecordArgs,
-    result: Schema.Null,
-    readOnly: false,
-    rule: signIns.record,
   }),
   "lifecycle.cleanup": command({
     args: S.CleanupArgs,

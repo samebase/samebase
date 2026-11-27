@@ -276,10 +276,7 @@ describe("the lease", () => {
     expect(await readOwnRecord(h, development)).toBe(200);
     expect(clientRow(h, development.client_id)?.removeAt).toBe(h.clock.now() + LEASE_MS);
 
-    const counts = h.memory.run("lifecycle.cleanup", {
-      now: h.clock.now() + LEASE_MS + 1,
-      signInRetentionMs: 1,
-    });
+    const counts = h.memory.run("lifecycle.cleanup", { now: h.clock.now() + LEASE_MS + 1 });
     expect(counts.clients).toBe(1);
     expect(clientRow(h, development.client_id)).toBeUndefined();
     // The production client of the token has no removal date, and stays.

@@ -196,19 +196,9 @@ export const ClientResult = Schema.NullOr(
   Schema.Struct({ clientId: Str, ref: Str, redirectUris: Strs, connectors: Strs, confirm: Bool }),
 );
 
-// signIns
-
-export const RecordArgs = Schema.Struct({
-  clientId: Str,
-  ref: Str,
-  connector: Str,
-  sub: Str,
-  at: Num,
-});
-
 // lifecycle
 
-export const CleanupArgs = Schema.Struct({ now: Num, signInRetentionMs: Num });
+export const CleanupArgs = Schema.Struct({ now: Num });
 export const CleanupResult = Schema.Struct({
   authRequests: Num,
   authorizationCodes: Num,
