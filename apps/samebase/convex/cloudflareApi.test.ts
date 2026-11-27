@@ -64,6 +64,14 @@ describe("runCloudflare", () => {
     );
   });
 
+  it("rejects a result that does not match the operation's schema", async () => {
+    answer(() => Response.json({ success: true, result: { status: "active" } }));
+
+    await expect(runCloudflare("token", user.verifyToken({}))).rejects.toThrow(
+      "Cloudflare GET /user/tokens/verify failed: CloudflareParseError.",
+    );
+  });
+
   it("rejects without the provider body or the account ID", async () => {
     answer(() => new Response("private provider detail", { status: 503 }));
 

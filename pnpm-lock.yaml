@@ -654,6 +654,9 @@ importers:
       '@distilled.cloud/cloudflare':
         specifier: 1.0.0-rc.20
         version: 1.0.0-rc.20(effect@4.1.4)
+      '@distilled.cloud/core':
+        specifier: 1.0.0-rc.20
+        version: 1.0.0-rc.20(effect@4.1.4)
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0

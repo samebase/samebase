@@ -1,6 +1,7 @@
 import * as Credentials from "@distilled.cloud/cloudflare/Credentials";
 import type { CloudflareOpContext } from "@distilled.cloud/cloudflare/Protocol";
 import * as Retry from "@distilled.cloud/cloudflare/Retry";
+import { ResponseValidation } from "@distilled.cloud/core";
 import { Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient } from "effect/http";
 
@@ -38,8 +39,8 @@ Runs one `@distilled.cloud/cloudflare` operation with `token`, without retries: 
 retries "Authentication error" for about 25 seconds, and the access checks ask exactly whether
 Cloudflare refuses the token. The callers are user actions that report a failure at once.
 
-distilled returns any 2xx body as read, so a 2xx answer must be a `success: true` envelope here, or
-an HTML page or an empty body would pass an access check. A failure rejects with an Error that names
+A 2xx answer must be a `success: true` envelope whose result matches the operation's schema.
+distilled returns any 2xx body as read unless a validation mode is provided. A failure rejects with an Error that names
 the route and the distilled error tag only: distilled errors can quote the provider body, and Convex
 logs an exception that leaves an action.
 */
@@ -80,6 +81,7 @@ export async function runCloudflare<A, E>(
         FetchHttpClient.layer,
         Layer.succeed(FetchHttpClient.Fetch, fetchSuccessEnvelope),
         Credentials.fromApiToken({ apiToken: Redacted.make(apiToken) }),
+        ResponseValidation.additionalProperties,
       ),
     ),
     Effect.runPromise,
