@@ -632,11 +632,16 @@ describe("broker client moderation", () => {
               clientUri: null,
               logoUri: null,
               redirectUris: ["https://notes.example.test/callback"],
+              json: JSON.stringify(notesFile, null, 2),
             },
           },
           {
             ...spam,
-            file: { status: "refused", reason: "The host answered with a status that is not 200." },
+            file: {
+              status: "refused",
+              reason: "The host answered with a status that is not 200.",
+              json: null,
+            },
           },
         ],
         limitReached: true,

@@ -785,7 +785,11 @@ describe("AdminBrokerClientsPage", () => {
             host: "notes.example.test",
             createdAt: 1,
             lastSignInAt: null,
-            file: { status: "refused", reason: "The document is not UTF-8 JSON." },
+            file: {
+              status: "refused",
+              reason: "The document's jwks holds private or symmetric key material.",
+              json: '{\n  "client_id": "https://notes.example.test/oauth-client.json"\n}',
+            },
           },
         ],
         limitReached: true,
@@ -808,7 +812,11 @@ describe("AdminBrokerClientsPage", () => {
         "https://notes.example.test/oauth-client.json",
       );
       expect(page.rootElement.textContent).toContain(
-        "File refused: The document is not UTF-8 JSON.",
+        "File refused: The document's jwks holds private or symmetric key material.",
+      );
+      // A refused file that is JSON still shows, folded, so the admin sees why.
+      expect(page.rootElement.querySelector("details pre")?.textContent).toContain(
+        '"client_id": "https://notes.example.test/oauth-client.json"',
       );
       expect(page.rootElement.textContent).toContain("The newest 1 sites.");
       await act(async () => button(page.rootElement, "Host blocks 1").click());

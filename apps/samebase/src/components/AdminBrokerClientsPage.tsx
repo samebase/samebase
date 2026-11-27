@@ -368,15 +368,24 @@ function SiteFile({ file }: { file: LoginBroker["siteList"]["clients"][number]["
   if (file === null) {
     return null;
   }
-  if (file.status === "refused") {
-    return <span className="block text-destructive">File refused: {file.reason}</span>;
-  }
   return (
-    <span className="block break-all text-muted-foreground">
-      Returns to {file.redirectUris.join(", ")}
-      {file.clientUri === null ? null : `; site ${file.clientUri}`}
-      {file.logoUri === null ? null : `; logo ${file.logoUri}`}
-    </span>
+    <>
+      {file.status === "refused" ? (
+        <span className="block text-destructive">File refused: {file.reason}</span>
+      ) : (
+        <span className="block break-all text-muted-foreground">
+          Returns to {file.redirectUris.join(", ")}
+          {file.clientUri === null ? null : `; site ${file.clientUri}`}
+          {file.logoUri === null ? null : `; logo ${file.logoUri}`}
+        </span>
+      )}
+      {file.json === null ? null : (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-muted-foreground">Show file</summary>
+          <pre className="mt-1 overflow-x-auto bg-muted p-3 font-mono text-xs">{file.json}</pre>
+        </details>
+      )}
+    </>
   );
 }
 

@@ -145,8 +145,11 @@ const vSiteFile = union(
     clientUri: union(string(), v.null()),
     logoUri: union(string(), v.null()),
     redirectUris: array(string()),
+    /** The whole file, formatted. */
+    json: string(),
   }),
-  object({ status: literal("refused"), reason: string() }),
+  /** `json` is null when no JSON object was read. */
+  object({ status: literal("refused"), reason: string(), json: union(string(), v.null()) }),
 );
 
 /** The sites of a broker's CIMD layer: each `clientId` is the address of a metadata file on `host`. */
@@ -176,17 +179,19 @@ const readSiteFile = (clientId: string) =>
   Effect.gen(function* () {
     const parsed = parseClientId(clientId);
     if (parsed._tag !== "ClientId") {
-      return { status: "refused" as const, reason: refusalDescriptions[parsed.code] };
+      return { status: "refused" as const, reason: refusalDescriptions[parsed.code], json: null };
     }
     const fetched = yield* fetchDocument(parsed, (request) => fetch(request));
     if (fetched._tag !== "Document") {
-      return { status: "refused" as const, reason: refusalDescriptions[fetched.code] };
+      return { status: "refused" as const, reason: refusalDescriptions[fetched.code], json: null };
     }
+    const json = JSON.stringify(fetched.json, null, 2);
     const checked = checkDocument(parsed.id, fetched.json);
     if (checked._tag !== "Checked") {
-      return { status: "refused" as const, reason: refusalDescriptions[checked.code] };
+      return { status: "refused" as const, reason: refusalDescriptions[checked.code], json };
     }
     return {
+      json,
       status: "ok" as const,
       clientName: checked.selfAsserted.clientName ?? null,
       clientUri: checked.selfAsserted.clientUri ?? null,
