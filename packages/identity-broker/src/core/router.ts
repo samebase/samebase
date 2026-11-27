@@ -34,7 +34,7 @@ export type RouteError = CommandFailed | ProviderUnavailable;
 
 /** A route of the core, or of a layer whose handlers also need its own services `R`. */
 export type Route<R = never> = {
-  readonly method: "GET" | "POST" | "DELETE" | "PUT";
+  readonly method: "GET" | "POST" | "DELETE" | "PUT" | "OPTIONS";
   /** After the issuer's path prefix: "/register" (exact) or "/register/" (prefix). */
   readonly path: string;
   readonly match: "exact" | "prefix";
@@ -99,8 +99,26 @@ export type Part = {
   readonly metadata: (document: Metadata) => object;
 };
 
-/** A route of the table, with its full path. The core's sign-in routes read `LiveGates`. */
-type Mounted<R> = Route<R | LiveGates> & { readonly fullPath: string };
+/**
+ * A route of the table, with its full path. The core's sign-in routes read `LiveGates`. With
+ * `cors`, a page's script on any origin may read every answer of the route: the route reads no
+ * cookie, so the answer gives a page nothing more than a server gets.
+ */
+type Mounted<R> = Route<R | LiveGates> & { readonly fullPath: string; readonly cors?: true };
+
+/** The answer to a CORS-preflight request (Fetch Standard section 4.8): an ok status. */
+const preflight = (methods: string) => () =>
+  Effect.succeed(
+    new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Methods": methods,
+        // The Fetch Standard's wildcard never covers `Authorization`, so the names are listed.
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    }),
+  );
 
 /**
  * The parameters of a request, read from a copy: the body of a request can be read once, and the
@@ -212,13 +230,16 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
     fullPath: `${broker.prefix}${route.path}`,
   });
   const routes: Mounted<R>[] = [
-    at({
-      method: "GET",
-      path: "/.well-known/openid-configuration",
-      match: "exact",
-      template: "/.well-known/openid-configuration",
-      handler: metadata,
-    }),
+    {
+      ...at({
+        method: "GET",
+        path: "/.well-known/openid-configuration",
+        match: "exact",
+        template: "/.well-known/openid-configuration",
+        handler: metadata,
+      }),
+      cors: true,
+    },
     {
       method: "GET",
       path: "/.well-known/oauth-authorization-server",
@@ -226,14 +247,18 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
       match: "exact",
       template: "/.well-known/oauth-authorization-server",
       handler: metadata,
+      cors: true,
     },
-    at({
-      method: "GET",
-      path: "/.well-known/jwks.json",
-      match: "exact",
-      template: "/.well-known/jwks.json",
-      handler: jwks,
-    }),
+    {
+      ...at({
+        method: "GET",
+        path: "/.well-known/jwks.json",
+        match: "exact",
+        template: "/.well-known/jwks.json",
+        handler: jwks,
+      }),
+      cors: true,
+    },
     at({
       method: "GET",
       path: "/authorize",
@@ -255,27 +280,43 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
       template: "/continue",
       handler: continueSignIn,
     }),
-    at({
-      method: "POST",
-      path: "/token",
-      match: "exact",
-      template: "/token",
-      handler: tokenRoute,
-    }),
-    at({
-      method: "GET",
-      path: "/userinfo",
-      match: "exact",
-      template: "/userinfo",
-      handler: userinfo,
-    }),
-    at({
-      method: "POST",
-      path: "/userinfo",
-      match: "exact",
-      template: "/userinfo",
-      handler: userinfo,
-    }),
+    ...[
+      at({
+        method: "POST",
+        path: "/token",
+        match: "exact",
+        template: "/token",
+        handler: tokenRoute,
+      }),
+      at({
+        method: "OPTIONS",
+        path: "/token",
+        match: "exact",
+        template: "/token",
+        handler: preflight("POST"),
+      }),
+      at({
+        method: "GET",
+        path: "/userinfo",
+        match: "exact",
+        template: "/userinfo",
+        handler: userinfo,
+      }),
+      at({
+        method: "POST",
+        path: "/userinfo",
+        match: "exact",
+        template: "/userinfo",
+        handler: userinfo,
+      }),
+      at({
+        method: "OPTIONS",
+        path: "/userinfo",
+        match: "exact",
+        template: "/userinfo",
+        handler: preflight("GET, POST"),
+      }),
+    ].map((route) => ({ ...route, cors: true as const })),
     ...broker.connectors.map((connector) =>
       at({
         method: "GET",
@@ -342,5 +383,9 @@ const handleOver = <R>(routes: ReadonlyArray<Mounted<R>>, liveGates: LiveGates["
       Effect.catchCause(() => serverError({ route: route.template, category: "defect" })),
       Effect.provideService(LiveGates, liveGates),
     );
-    return head ? new Response(null, response) : response;
+    const answer = head ? new Response(null, response) : response;
+    if (route.cors) {
+      answer.headers.set("Access-Control-Allow-Origin", "*");
+    }
+    return answer;
   });

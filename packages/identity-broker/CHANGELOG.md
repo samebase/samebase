@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.46.0
+
+- New: a page's script on any site can read the answers of discovery, the JWKS, `/token` and
+  `/userinfo`, errors too: they carry `Access-Control-Allow-Origin: *`. `OPTIONS` on `/token` and
+  `/userinfo` answers the preflight with 204. No other route sends a CORS header, and none allows
+  credentials. So a site with no server, such as a static site, can sign in with the code flow and
+  PKCE as a public client. On Convex, `addHttpRoutes` also routes `OPTIONS` to the broker.
+
 ## 0.45.0
 
 - New: clients with no registration and no secret, whose `client_id` is the https address of their

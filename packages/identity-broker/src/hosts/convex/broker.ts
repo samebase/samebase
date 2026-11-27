@@ -115,7 +115,7 @@ export const convexBroker = (
      * app's own wins over these, as Convex's router orders them. HEAD runs the GET route.
      */
     addHttpRoutes: (http: HttpRouter): void => {
-      for (const method of ["GET", "POST", "PUT", "DELETE"] as const) {
+      for (const method of ["GET", "POST", "PUT", "DELETE", "OPTIONS"] as const) {
         http.route({ pathPrefix: "/", method, handler: fetch });
       }
     },
