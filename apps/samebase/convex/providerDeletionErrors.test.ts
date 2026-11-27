@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  ConvexManagementApiError,
-  isConvexManagementNotFoundError,
-} from "./convexManagementApi/errors";
+import { ConvexManagementApiError, isConvexManagementNotFoundError } from "./convexManagementApi";
 
 describe("provider deletion errors", () => {
   it("recognizes Convex management not-found errors", () => {
@@ -11,8 +8,7 @@ describe("provider deletion errors", () => {
       isConvexManagementNotFoundError(
         new ConvexManagementApiError({
           status: 404,
-          path: "/projects/project-123/delete",
-          responseBodySummary: "not found",
+          message: "Convex Management API POST /projects/{project_id}/delete failed.",
         }),
       ),
     ).toBe(true);
@@ -23,8 +19,7 @@ describe("provider deletion errors", () => {
       isConvexManagementNotFoundError(
         new ConvexManagementApiError({
           status: 500,
-          path: "/projects/project-123/delete",
-          responseBodySummary: "provider failure",
+          message: "Convex Management API POST /projects/{project_id}/delete failed.",
         }),
       ),
     ).toBe(false);

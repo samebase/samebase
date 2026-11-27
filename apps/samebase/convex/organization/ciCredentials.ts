@@ -8,8 +8,8 @@ import { ConvexError } from "convex/values";
 
 import type { CloudflareAccount } from "../cloudflareAccountDiscovery";
 import { runCloudflare } from "../cloudflareApi";
-import { verifyConvexTeamAccessToken } from "../convexManagementApi/client";
-import { ConvexManagementApiError } from "../convexManagementApi/errors";
+import { verifyConvexTeamAccessToken } from "../convexManagementApi";
+import { ConvexManagementApiError } from "../convexManagementApi";
 
 /* The checks of the organization's CI tokens. Saving a token runs them. */
 

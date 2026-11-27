@@ -5,7 +5,7 @@ import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString } from "../jsonUtils";
 import { findRepositoryForUser, requireRepositoryForUser } from "../organizationAccess";
-import type { ConvexCloudDeployment } from "../convexManagementApi/client";
+import type { ConvexCloudDeployment } from "../convexManagementApi";
 import { isLiveConnectedRepository } from "./state";
 import {
   fetchConvexDeploymentJson,

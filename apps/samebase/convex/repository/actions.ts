@@ -24,7 +24,7 @@ import {
   tryParseGitHubRepositoryFullName,
 } from "../../shared/githubRepositoryName";
 import { canAccess } from "../../shared/accessModel";
-import { listConvexManagementProjects } from "../convexManagementApi/client";
+import { listConvexManagementProjects } from "../convexManagementApi";
 import {
   buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,

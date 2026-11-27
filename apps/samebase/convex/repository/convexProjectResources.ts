@@ -1,17 +1,17 @@
+import * as management from "@distilled.cloud/convex/management";
+
 import {
   isConvexCloudDeployment,
-  createConvexManagementClient,
+  isConvexManagementNotFoundError,
+  runConvexManagement,
+  toConvexId,
   type ConvexCloudDeployment,
-} from "../convexManagementApi/client";
-import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
-import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
-import type {
-  PlatformDeploymentResponse,
-  ProjectResponse,
-} from "../convexManagementApi/generated/types.gen";
+  type ConvexDeployment,
+  type ConvexProject,
+} from "../convexManagementApi";
 
 function requireDefaultProductionDeployment(args: {
-  deployment: PlatformDeploymentResponse;
+  deployment: ConvexDeployment;
   projectId: string;
 }): ConvexCloudDeployment {
   if (!isConvexCloudDeployment(args.deployment)) {
@@ -19,8 +19,10 @@ function requireDefaultProductionDeployment(args: {
   }
   if (
     args.deployment.deploymentType !== "prod" ||
-    args.deployment.projectId !== args.projectId ||
-    args.deployment.isDefault !== true
+    String(args.deployment.projectId) !== args.projectId ||
+    args.deployment.isDefault !== true ||
+    !args.deployment.name ||
+    !args.deployment.deploymentUrl
   ) {
     throw new Error("Convex returned an inconsistent default production deployment.");
   }
@@ -31,13 +33,12 @@ export async function readConvexProjectResource(args: {
   token: string;
   teamId: string;
   projectId: string;
-}): Promise<ProjectResponse | null> {
+}): Promise<ConvexProject | null> {
   try {
-    const project = await ConvexManagement.GET["/projects/{project_id}"]({
-      client: createConvexManagementClient({ token: args.token }),
-      path: { project_id: args.projectId },
+    const project = await runConvexManagement(args.token, management.getProject, {
+      projectId: toConvexId(args.projectId, "Convex project ID"),
     });
-    if (project.teamId !== args.teamId) {
+    if (String(project.teamId) !== args.teamId) {
       throw new Error("Convex project belonged to a different team.");
     }
     return project;
@@ -54,10 +55,9 @@ export async function readConvexProductionDeployment(args: {
   projectId: string;
 }): Promise<ConvexCloudDeployment | null> {
   try {
-    const deployment = await ConvexManagement.GET["/projects/{project_id}/deployment"]({
-      client: createConvexManagementClient({ token: args.token }),
-      path: { project_id: args.projectId },
-      query: { defaultProd: true },
+    const deployment = await runConvexManagement(args.token, management.getProjectDeployment, {
+      projectId: toConvexId(args.projectId, "Convex project ID"),
+      defaultProd: true,
     });
     return requireDefaultProductionDeployment({ deployment, projectId: args.projectId });
   } catch (error) {

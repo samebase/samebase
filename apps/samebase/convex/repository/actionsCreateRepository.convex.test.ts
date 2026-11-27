@@ -22,8 +22,8 @@ vi.mock("../githubApp", async (importOriginal) => {
   };
 });
 
-vi.mock("../convexManagementApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
+vi.mock("../convexManagementApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../convexManagementApi")>();
   return {
     ...actual,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,

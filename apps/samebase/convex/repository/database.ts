@@ -4,7 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import type { AuthenticatedAppViewer } from "../functions";
-import type { ConvexCloudDeployment } from "../convexManagementApi/client";
+import type { ConvexCloudDeployment } from "../convexManagementApi";
 import {
   createConvexDeploymentDeployKey,
   deleteConvexDeploymentDeployKey,

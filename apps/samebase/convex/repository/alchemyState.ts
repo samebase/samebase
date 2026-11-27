@@ -35,11 +35,10 @@ import {
 } from "../../shared/alchemyStateModel";
 import type { Id } from "../_generated/dataModel";
 import { env, type ActionCtx } from "../_generated/server";
-import {
-  createConvexManagementClient,
-  listConvexManagementProjects,
-} from "../convexManagementApi/client";
-import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
+import * as management from "@distilled.cloud/convex/management";
+import { parseConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
+
+import { listConvexManagementProjects, runConvexManagement } from "../convexManagementApi";
 import { action } from "../functions";
 import { readRepositoryCloudflareStacks } from "./cloudflareStateStore";
 import { readRepositoryGitHubStacks } from "./githubStateStore";
@@ -115,7 +114,7 @@ async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamI
   ).find((candidate) => candidate.name === ALCHEMY_STATE_PROJECT_NAME);
   // A store project without a production deployment holds no state yet.
   return project
-    ? await readConvexProductionDeployment({ token: target.token, projectId: project.id })
+    ? await readConvexProductionDeployment({ token: target.token, projectId: String(project.id) })
     : null;
 }
 
@@ -676,9 +675,8 @@ async function readLiveDeployments(
           token: target.token,
           projectId: deployment.projectId,
         }).catch(() => null),
-        ConvexManagement.GET["/deployments/{deployment_name}/custom_domains"]({
-          client: createConvexManagementClient({ token: target.token }),
-          path: { deployment_name: deployment.deploymentName },
+        runConvexManagement(target.token, management.listCustomDomains, {
+          deploymentName: deployment.deploymentName,
         })
           .then(({ domains }) => domains)
           .catch(() => []),
@@ -692,7 +690,10 @@ async function readLiveDeployments(
               deploymentName: deployment.deploymentName,
             })
           : null,
-        region: live?.name === deployment.deploymentName ? live.region : null,
+        region:
+          live?.name === deployment.deploymentName
+            ? parseConvexDeploymentRegion(live.region)
+            : null,
         customDomains: customDomains
           .filter(({ verificationTime }) => verificationTime)
           .sort(

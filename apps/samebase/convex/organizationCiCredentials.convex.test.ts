@@ -4,8 +4,8 @@ const managementMocks = vi.hoisted(() => ({
   verifyConvexTeamAccessToken: vi.fn(),
 }));
 
-vi.mock("./convexManagementApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./convexManagementApi/client")>();
+vi.mock("./convexManagementApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./convexManagementApi")>();
   return {
     ...actual,
     verifyConvexTeamAccessToken: managementMocks.verifyConvexTeamAccessToken,
@@ -13,7 +13,7 @@ vi.mock("./convexManagementApi/client", async (importOriginal) => {
 });
 
 import { api } from "./_generated/api";
-import { ConvexManagementApiError } from "./convexManagementApi/errors";
+import { ConvexManagementApiError } from "./convexManagementApi";
 import { organizationCiCredentialAad } from "./organization/providerCredentialModel";
 import { openSecret } from "./sealedSecret";
 import { insertTestOrganizationBillingAccount, makeConvexTest, testCredential } from "./test.setup";
@@ -260,8 +260,7 @@ describe("organization CI credentials", () => {
     managementMocks.verifyConvexTeamAccessToken.mockRejectedValue(
       new ConvexManagementApiError({
         status: 403,
-        path: "/teams/41/projects",
-        responseBodySummary: "Forbidden",
+        message: "Convex Management API GET /teams/{team_id}/projects failed (403): Forbidden.",
       }),
     );
 

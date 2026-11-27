@@ -865,8 +865,7 @@ describe("organization provider status", () => {
       { check: "token" },
       expect.objectContaining({
         name: "ConvexManagementApiError",
-        path: "/token_details",
-        responseBodySummary: "Invalid access token",
+        message: "Convex Management API GET /token_details failed (401): Unauthorized.",
         status: 401,
       }),
     );

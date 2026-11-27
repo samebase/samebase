@@ -117,8 +117,6 @@ export default defineConfig({
       "packages/alchemy-convex/src/store/*/_generated/**",
       "packages/alchemy-convex/test/fixtures/**",
       "packages/identity-broker/src/alchemy/fixtures/**",
-      // Hey API owns these SDK and validator files.
-      "apps/samebase/convex/convexManagementApi/generated/**",
       "**/src/components/ui",
       "apps/sidebars-example/src/routeTree.gen.ts",
       // This fixture is linted after its packed Sidebars dependency is installed.

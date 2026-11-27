@@ -1,9 +1,10 @@
-import type { PlatformCreateDeployKeyArgs } from "../convexManagementApi/generated/types.gen";
-import { createConvexManagementClient } from "../convexManagementApi/client";
-import { ConvexManagement } from "../convexManagementApi/generated/sdk.gen";
+import * as management from "@distilled.cloud/convex/management";
+import { Redacted } from "effect";
+
+import { runConvexManagement } from "../convexManagementApi";
 
 export type ConvexDeployKeyAllowedAction = NonNullable<
-  PlatformCreateDeployKeyArgs["allowedActions"]
+  management.CreateDeployKeyRequest["allowedActions"]
 >[number];
 
 export type ConvexDeployKeyAuthMethod = "api_key" | "oauth";
@@ -37,14 +38,11 @@ export async function createConvexDeploymentDeployKey(args: {
       : {
           name: args.name,
         };
-  const { deployKey } = await ConvexManagement.POST[
-    "/deployments/{deployment_name}/create_deploy_key"
-  ]({
-    client: createConvexManagementClient({ token: args.token }),
-    path: { deployment_name: args.deploymentName },
-    body,
+  const { deployKey } = await runConvexManagement(args.token, management.createDeployKey, {
+    deploymentName: args.deploymentName,
+    ...body,
   });
-  return deployKey;
+  return Redacted.value(deployKey);
 }
 
 export async function deleteConvexDeploymentDeployKey(args: {
@@ -52,9 +50,8 @@ export async function deleteConvexDeploymentDeployKey(args: {
   name: string;
   token: string;
 }): Promise<void> {
-  await ConvexManagement.POST["/deployments/{deployment_name}/delete_deploy_key"]({
-    client: createConvexManagementClient({ token: args.token }),
-    path: { deployment_name: args.deploymentName },
-    body: { id: args.name },
+  await runConvexManagement(args.token, management.deleteDeployKey, {
+    deploymentName: args.deploymentName,
+    id: args.name,
   });
 }
