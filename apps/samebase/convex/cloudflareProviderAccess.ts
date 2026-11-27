@@ -9,8 +9,15 @@ import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
 } from "./cloudflareAccountDiscovery";
-import { createCloudflareClient, resolveCloudflareApiTransport } from "./cloudflareApi/client";
-import { Cloudflare } from "./cloudflareApi/generated/sdk.gen";
+import * as user from "@distilled.cloud/cloudflare/user";
+import * as workers from "@distilled.cloud/cloudflare/workers";
+import * as workersBuilds from "@distilled.cloud/cloudflare/workers_builds";
+
+import {
+  resolveCloudflareApiTransport,
+  runCloudflare,
+  type CloudflareApiTransport,
+} from "./cloudflareApi";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
@@ -271,16 +278,11 @@ async function runCloudflareProbe<Value>({
   }
 }
 
-async function checkCloudflareApiTokenAccess({
-  token,
-  transport,
-}: {
+async function checkCloudflareApiTokenAccess(args: {
   token: string;
-  transport: ReturnType<typeof resolveCloudflareApiTransport>;
+  transport: CloudflareApiTransport;
 }): Promise<void> {
-  await Cloudflare.GET["/user/tokens/verify"]({
-    client: createCloudflareClient({ token, transport }),
-  });
+  await runCloudflare(args, user.verifyToken({}));
 }
 
 async function checkCloudflareWorkersAccess({
@@ -290,12 +292,9 @@ async function checkCloudflareWorkersAccess({
 }: {
   accountId: string;
   token: string;
-  transport: ReturnType<typeof resolveCloudflareApiTransport>;
+  transport: CloudflareApiTransport;
 }): Promise<void> {
-  await Cloudflare.GET["/accounts/{account_id}/workers/account-settings"]({
-    client: createCloudflareClient({ token, transport }),
-    path: { account_id: accountId },
-  });
+  await runCloudflare({ token, transport }, workers.getAccountSetting({ accountId }));
 }
 
 async function checkCloudflareWorkersBuildsAccess({
@@ -305,12 +304,9 @@ async function checkCloudflareWorkersBuildsAccess({
 }: {
   accountId: string;
   token: string;
-  transport: ReturnType<typeof resolveCloudflareApiTransport>;
+  transport: CloudflareApiTransport;
 }): Promise<void> {
-  await Cloudflare.GET["/accounts/{account_id}/builds/account/limits"]({
-    client: createCloudflareClient({ token, transport }),
-    path: { account_id: accountId },
-  });
+  await runCloudflare({ token, transport }, workersBuilds.getAccountLimits({ accountId }));
 }
 
 function buildCloudflareOAuthTokenCheck({

@@ -968,8 +968,8 @@ describe("organization provider status", () => {
       "cloudflare:provider_access_probe_failed",
       { check: "accounts" },
       expect.objectContaining({
-        details: [{ code: "971", message: providerError.errors[0]?.message }],
-        name: "CloudflareApiError",
+        _tag: "TooManyRequests",
+        message: providerError.errors[0]?.message,
       }),
     );
   });
