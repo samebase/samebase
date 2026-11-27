@@ -210,7 +210,8 @@ export type TokenInput = {
  * token request, so it also refuses a repeated parameter (RFC 6749 section 3.2) and a request that
  * uses both methods (section 2.3): an Authorization header and a `client_secret` in the body. A
  * `client_id` in the body names the client and is not a method; an empty `client_secret` counts as
- * omitted (section 3.2). No Authorization header and no `client_secret` is no authentication. A
+ * omitted (section 3.2). No Authorization header and no `client_secret` is no authentication, and
+ * so is HTTP Basic with an empty password: the client has no secret (RFC 7591 `none`). A
  * client assertion (RFC 7521) is refused: the broker checks none.
  */
 export function readClientAuthentication(
@@ -246,13 +247,14 @@ export function readClientAuthentication(
       );
     }
     try {
+      const clientId = decodeURIComponent(decoded.slice(0, separator));
+      const clientSecret = decodeURIComponent(decoded.slice(separator + 1));
       return {
         ok: true,
-        value: {
-          clientId: decodeURIComponent(decoded.slice(0, separator)),
-          clientSecret: decodeURIComponent(decoded.slice(separator + 1)),
-          method: "client_secret_basic",
-        },
+        value:
+          clientSecret.length === 0
+            ? { method: "none", clientId }
+            : { clientId, clientSecret, method: "client_secret_basic" },
       };
     } catch {
       return invalid(401, "invalid_client", "The Authorization header is not valid form encoding.");

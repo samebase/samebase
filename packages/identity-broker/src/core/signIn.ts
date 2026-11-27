@@ -157,7 +157,11 @@ const callbackUrl = (broker: BrokerConfigShape, connector: Connector) =>
 
 const metadata = (
   broker: BrokerConfigShape,
-  mounted: { readonly registration: boolean; readonly publicClients: boolean },
+  mounted: {
+    readonly registration: boolean;
+    readonly secretClients: boolean;
+    readonly publicClients: boolean;
+  },
 ) => {
   const { issuer } = broker;
   return {
@@ -181,8 +185,7 @@ const metadata = (
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: [SIGNING_ALGORITHM],
     token_endpoint_auth_methods_supported: [
-      "client_secret_post",
-      "client_secret_basic",
+      ...(mounted.secretClients ? ["client_secret_post", "client_secret_basic"] : []),
       ...(mounted.publicClients ? ["none"] : []),
     ],
     code_challenge_methods_supported: ["S256"],
@@ -211,12 +214,13 @@ const metadata = (
 export type Metadata = ReturnType<typeof metadata>;
 
 /**
- * The discovery documents, with `registration_endpoint` when `registration` is mounted, the public
- * client fields when a layer resolves clients (`publicClients`), and the fields that a mounted part
- * adds (`extend`).
+ * The discovery documents, with `registration_endpoint` when `registration` is mounted, the secret
+ * methods when a layer makes clients with a secret (`secretClients`), the public client fields when
+ * a layer resolves clients (`publicClients`), and the fields that a mounted part adds (`extend`).
  */
 export const discovery = (options: {
   readonly registration: boolean;
+  readonly secretClients: boolean;
   readonly publicClients: boolean;
   readonly extend: (document: Metadata) => object;
 }) =>
@@ -354,9 +358,13 @@ export const authorize = Effect.fn("authorize")(function* (
 ) {
   const broker = yield* BrokerConfig;
   const cookies = txnCookies(broker);
-  const params = yield* Effect.promise(() => readParameters(request));
-  if (params === null) {
-    return oauthError(415, "invalid_request", "A POST must be application/x-www-form-urlencoded.");
+  const params = yield* Effect.promise(() =>
+    readParameters(request, () =>
+      oauthError(415, "invalid_request", "A POST must be application/x-www-form-urlencoded."),
+    ),
+  );
+  if (params instanceof Response) {
+    return params;
   }
   const target = validateAuthorizeTarget(params);
   if (!target.ok) {
@@ -766,14 +774,14 @@ export const upstreamCallback = (connector: Connector) =>
  */
 export const token = Effect.fn("token")(function* (request: Request, publicClients: boolean) {
   const broker = yield* BrokerConfig;
-  const params = yield* Effect.promise(() => readParameters(request));
   // RFC 6749 section 5.2: every token error but invalid_client answers 400.
-  if (params === null) {
-    return oauthError(
-      400,
-      "invalid_request",
-      "The body must be application/x-www-form-urlencoded.",
-    );
+  const params = yield* Effect.promise(() =>
+    readParameters(request, () =>
+      oauthError(400, "invalid_request", "The body must be application/x-www-form-urlencoded."),
+    ),
+  );
+  if (params instanceof Response) {
+    return params;
   }
   const authorization = request.headers.get("authorization");
   // A 401 carries a challenge (RFC 9110 section 15.5.2), which also names the scheme this endpoint
