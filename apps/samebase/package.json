@@ -125,7 +125,6 @@
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "@alchemy.run/github": "2.0.0-beta.87",
     "@distilled.cloud/cloudflare": "1.0.0-rc.20",
-    "@distilled.cloud/core": "1.0.0-rc.20",
     "@edge-runtime/vm": "^5.0.0",
     "@effect/platform-node": "4.1.4",
     "@hey-api/openapi-ts": "0.99.0",

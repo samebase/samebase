@@ -946,8 +946,7 @@ describe("organization provider status", () => {
     expect(access.checks).toContainEqual({ key: "accounts", status: "error" });
     expect(warn).toHaveBeenCalledWith("cloudflare:provider_access_probe_failed", {
       check: "accounts",
-      error: "TooManyRequests",
-      code: null,
+      error: "Cloudflare GET /accounts failed: TooManyRequests.",
     });
   });
 

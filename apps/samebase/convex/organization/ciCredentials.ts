@@ -49,8 +49,10 @@ export async function requireCloudflareCiTokenPermissions(args: {
   token: string;
   account: CloudflareAccount;
 }): Promise<void> {
-  const verification = await runCloudflare(args.token, user.verifyToken({})).catch(() => undefined);
-  if (verification?.status !== "active") {
+  const verified = await runCloudflare(args.token, user.verifyToken({}))
+    .then((verification) => verification.status === "active" && verification.id.trim() !== "")
+    .catch(() => false);
+  if (!verified) {
     throw new ConvexError(
       "Cloudflare could not verify the Cloudflare CI token as an active API token. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, or try again.",
     );
