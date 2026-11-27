@@ -215,9 +215,13 @@ const invalidToken: typeof InvalidToken.Encoded = {
 
 type Sent = { url: string; method: string; authorization: string | null; body: unknown };
 let route: (request: Request) => Promise<Response> = async () => Response.error();
+/** The redirect mode of each fetch as Convex's runtime reads it: from the second argument only. */
+const redirectModes = new Map<string, string>();
 // Effect's FetchHttpClient keeps the first global `fetch` it reads, so one stub serves every test.
 vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
-  return await route(new Request(input, init));
+  const request = new Request(input, init);
+  redirectModes.set(request.url, init?.redirect ?? "follow");
+  return await route(request);
 });
 
 /** The broker's moderation endpoints, answered with the fixtures above or by `answer`. */
@@ -323,6 +327,9 @@ describe("broker client moderation", () => {
         "Access denied",
       );
       await expect(
+        viewer.action(api.brokerClients.moderation.readLoginSiteFiles, {}),
+      ).rejects.toThrow("Access denied");
+      await expect(
         viewer.action(api.brokerClients.moderation.changeLoginHostBlock, {
           action: "block",
           host: "spam.example.test",
@@ -344,6 +351,9 @@ describe("broker client moderation", () => {
       status: "off",
     });
     expect(await admin.action(api.brokerClients.moderation.readLoginBroker, {})).toEqual({
+      status: "off",
+    });
+    expect(await admin.action(api.brokerClients.moderation.readLoginSiteFiles, {})).toEqual({
       status: "off",
     });
     expect(
@@ -598,9 +608,30 @@ describe("broker client moderation", () => {
     ]);
   });
 
-  it("reads the sites, each site's file as it is now, and the host blocks at login.samebase.com", async () => {
+  it("reads the sites and the host blocks at login.samebase.com with its own key, and no site's file", async () => {
     const t = makeConvexTest();
     turnModerationOn();
+    vi.stubEnv("LOGIN_BROKER_MODERATION_KEY", LOGIN_MODERATION_KEY);
+    const requests = stubBroker((request) =>
+      jsonResponse(
+        new URL(request.url).pathname === "/moderation/host-blocks" ? hostBlockList : siteList,
+      ),
+    );
+    const admin = await viewerWith(t, "nicu@samebase.com");
+
+    expect(await admin.action(api.brokerClients.moderation.readLoginBroker, {})).toEqual({
+      status: "on",
+      siteList: siteList.cimd,
+      hostBlockList,
+    });
+    expect(requests.map(({ url, authorization }) => [url, authorization])).toEqual([
+      [`${LOGIN_ISSUER}/moderation/clients`, `Bearer ${LOGIN_MODERATION_KEY}`],
+      [`${LOGIN_ISSUER}/moderation/host-blocks`, `Bearer ${LOGIN_MODERATION_KEY}`],
+    ]);
+  });
+
+  it("reads each listed site's file as it is now, with no key and no redirect", async () => {
+    const t = makeConvexTest();
     vi.stubEnv("LOGIN_BROKER_MODERATION_KEY", LOGIN_MODERATION_KEY);
     const notesFile = {
       client_id: "https://notes.example.test/oauth-client.json",
@@ -608,55 +639,39 @@ describe("broker client moderation", () => {
       redirect_uris: ["https://notes.example.test/callback"],
     };
     const requests = stubBroker((request) => {
-      const { host, pathname } = new URL(request.url);
+      const { host } = new URL(request.url);
       if (host === "notes.example.test") {
         return jsonResponse(notesFile);
       }
       if (host === "spam.example.test") {
         return new Response("Not found", { status: 404 });
       }
-      return jsonResponse(pathname === "/moderation/host-blocks" ? hostBlockList : siteList);
+      return jsonResponse(siteList);
     });
     const admin = await viewerWith(t, "nicu@samebase.com");
 
-    const [notes, spam] = siteList.cimd?.clients ?? [];
-    expect(await admin.action(api.brokerClients.moderation.readLoginBroker, {})).toEqual({
+    expect(await admin.action(api.brokerClients.moderation.readLoginSiteFiles, {})).toEqual({
       status: "on",
-      siteList: {
-        clients: [
-          {
-            ...notes,
-            file: {
-              status: "ok",
-              clientName: "Notes",
-              clientUri: null,
-              logoUri: null,
-              redirectUris: ["https://notes.example.test/callback"],
-              json: JSON.stringify(notesFile, null, 2),
-            },
+      files: [
+        {
+          clientId: "https://notes.example.test/oauth-client.json",
+          file: {
+            status: "ok",
+            clientName: "Notes",
+            clientUri: null,
+            logoUri: null,
+            redirectUris: ["https://notes.example.test/callback"],
+            json: JSON.stringify(notesFile, null, 2),
           },
-          {
-            ...spam,
-            // A file that answers 404 is gone, usually a deleted preview.
-            file: { status: "gone" },
-          },
-        ],
-        limitReached: true,
-      },
-      hostBlockList,
+        },
+        // A file that answers 404 is gone, usually a deleted preview.
+        { clientId: "https://spam.example.test/client.json", file: { status: "gone" } },
+      ],
     });
-    expect(
-      requests
-        .filter(({ url }) => url.startsWith(LOGIN_ISSUER))
-        .map(({ url, authorization }) => [url, authorization]),
-    ).toEqual([
-      [`${LOGIN_ISSUER}/moderation/clients`, `Bearer ${LOGIN_MODERATION_KEY}`],
-      [`${LOGIN_ISSUER}/moderation/host-blocks`, `Bearer ${LOGIN_MODERATION_KEY}`],
-    ]);
-    // A site's file is fetched with no key of the broker.
-    expect(
-      requests.filter(({ url }) => !url.startsWith(LOGIN_ISSUER)).map((sent) => sent.authorization),
-    ).toEqual([null, null]);
+    const fileRequests = requests.filter(({ url }) => !url.startsWith(LOGIN_ISSUER));
+    expect(fileRequests.map(({ authorization }) => authorization)).toEqual([null, null]);
+    // Convex follows a redirect unless the mode is in fetch's second argument.
+    expect(fileRequests.map(({ url }) => redirectModes.get(url))).toEqual(["manual", "manual"]);
   });
 
   it("blocks and unblocks a host at login.samebase.com by its lower-case name", async () => {

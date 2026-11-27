@@ -150,7 +150,7 @@ const vSiteFile = union(
   }),
   /** `json` is null when no JSON object was read. */
   object({ status: literal("refused"), reason: string(), json: union(string(), v.null()) }),
-  /** The host answers 404 or 410, or does not answer: usually a deleted preview. */
+  /** The host answers 404 or 410: usually a deleted preview. */
   object({ status: literal("gone") }),
 );
 
@@ -162,14 +162,12 @@ const vSiteList = object({
       host: string(),
       createdAt: number(),
       lastSignInAt: union(number(), v.null()),
-      /** Null past the newest `SITE_FILES_READ` sites. */
-      file: union(vSiteFile, v.null()),
     }),
   ),
   limitReached: boolean(),
 });
 
-/** The files that one read of the page fetches, so the page stays fast. */
+/** The files of the newest sites that one load of the page reads. */
 const SITE_FILES_READ = 50;
 
 /**
@@ -183,10 +181,13 @@ const readSiteFile = (clientId: string) =>
     if (parsed._tag !== "ClientId") {
       return { status: "refused" as const, reason: refusalDescriptions[parsed.code], json: null };
     }
-    const fetched = yield* fetchDocument(parsed, (request) => fetch(request));
+    // Convex's fetch takes the redirect mode only from its second argument, as the broker's does.
+    const fetched = yield* fetchDocument(parsed, (request) =>
+      fetch(request, { redirect: "manual" }),
+    );
     if (
-      fetched.code === "unreachable" ||
-      (fetched.code === "unexpected_status" && (fetched.status === 404 || fetched.status === 410))
+      fetched.code === "unexpected_status" &&
+      (fetched.status === 404 || fetched.status === 410)
     ) {
       return { status: "gone" as const };
     }
@@ -568,22 +569,10 @@ export const readLoginBroker = action({
     if (clientList.cimd === undefined) {
       throw new Error("login.samebase.com answered without its CIMD layer.");
     }
-    const sites = clientList.cimd.clients;
-    const clients = await Effect.runPromise(
-      Effect.forEach(
-        sites,
-        (site, index) =>
-          Effect.gen(function* () {
-            const file = index < SITE_FILES_READ ? yield* readSiteFile(site.clientId) : null;
-            return { ...site, file };
-          }),
-        { concurrency: 8 },
-      ),
-    );
     return {
       status: "on" as const,
       siteList: {
-        clients,
+        clients: [...clientList.cimd.clients],
         limitReached: clientList.cimd.limitReached,
       },
       hostBlockList: {
@@ -591,6 +580,40 @@ export const readLoginBroker = action({
         limitReached: hostBlockList.limitReached,
       },
     };
+  },
+});
+
+/**
+The files of the newest sites at login.samebase.com, read now. Apart from `readLoginBroker`, so a
+slow file never holds the list or the host blocks. The sites come from the broker, never from the
+caller, so no request can make samebase.com fetch an address of the caller's choice.
+*/
+export const readLoginSiteFiles = action({
+  access: "access_admin",
+  args: {},
+  returns: union(
+    vOff,
+    object({
+      status: literal("on"),
+      files: array(object({ clientId: string(), file: vSiteFile })),
+    }),
+  ),
+  handler: async () => {
+    const moderation = readLoginModeration();
+    if (moderation === null) {
+      return { status: "off" as const };
+    }
+
+    const clientList = await askBroker(moderation, (broker) => broker.clients({ query: {} }));
+    const sites = clientList.cimd?.clients.slice(0, SITE_FILES_READ) ?? [];
+    const files = await Effect.runPromise(
+      Effect.forEach(
+        sites,
+        ({ clientId }) => Effect.map(readSiteFile(clientId), (file) => ({ clientId, file })),
+        { concurrency: 8 },
+      ),
+    );
+    return { status: "on" as const, files };
   },
 });
 

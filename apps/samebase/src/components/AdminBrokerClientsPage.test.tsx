@@ -18,6 +18,7 @@ const testState = vi.hoisted(() => {
     changeConnectorGrant: vi.fn(),
     lookupRepository: vi.fn(),
     readLoginBroker: vi.fn(),
+    readLoginSiteFiles: vi.fn(),
     changeLoginHostBlock: vi.fn(),
     navigate: vi.fn(),
     search,
@@ -44,6 +45,9 @@ vi.mock("convex/react", async (importOriginal) => {
       }
       if (name === getFunctionName(api.brokerClients.moderation.readLoginBroker)) {
         return testState.readLoginBroker;
+      }
+      if (name === getFunctionName(api.brokerClients.moderation.readLoginSiteFiles)) {
+        return testState.readLoginSiteFiles;
       }
       if (name === getFunctionName(api.brokerClients.moderation.changeLoginHostBlock)) {
         return testState.changeLoginHostBlock;
@@ -205,7 +209,8 @@ async function renderPage() {
       </QueryClientProvider>,
     );
   });
-  // The overview resolves after the first render.
+  // The overview resolves after the first render, and the site files after the site list.
+  await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
   await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
   return {
     rootElement,
@@ -257,6 +262,8 @@ describe("AdminBrokerClientsPage", () => {
     testState.lookupRepository.mockReset();
     testState.readLoginBroker.mockReset();
     testState.readLoginBroker.mockResolvedValue({ status: "off" });
+    testState.readLoginSiteFiles.mockReset();
+    testState.readLoginSiteFiles.mockResolvedValue({ status: "off" });
     testState.changeLoginHostBlock.mockReset();
     testState.navigate.mockReset();
     testState.search = {};
@@ -785,18 +792,12 @@ describe("AdminBrokerClientsPage", () => {
             host: "notes.example.test",
             createdAt: 1,
             lastSignInAt: null,
-            file: {
-              status: "refused",
-              reason: "The document's jwks holds private or symmetric key material.",
-              json: '{\n  "client_id": "https://notes.example.test/oauth-client.json"\n}',
-            },
           },
           {
             clientId: "https://old-preview.example.test/oauth-client.json",
             host: "old-preview.example.test",
             createdAt: 0,
             lastSignInAt: null,
-            file: { status: "gone" },
           },
         ],
         limitReached: true,
@@ -805,6 +806,23 @@ describe("AdminBrokerClientsPage", () => {
         blocks: [{ host: "spam.example.test", createdAt: 2 }],
         limitReached: false,
       },
+    });
+    testState.readLoginSiteFiles.mockResolvedValue({
+      status: "on",
+      files: [
+        {
+          clientId: "https://notes.example.test/oauth-client.json",
+          file: {
+            status: "refused",
+            reason: "The document's jwks holds private or symmetric key material.",
+            json: '{\n  "client_id": "https://notes.example.test/oauth-client.json"\n}',
+          },
+        },
+        {
+          clientId: "https://old-preview.example.test/oauth-client.json",
+          file: { status: "gone" },
+        },
+      ],
     });
     let finish: (answer: { status: "on"; changed: boolean }) => void = () => undefined;
     testState.changeLoginHostBlock.mockReturnValueOnce(

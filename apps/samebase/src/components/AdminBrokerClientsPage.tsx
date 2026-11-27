@@ -279,11 +279,23 @@ type ChangeLoginHostBlock = ReturnType<
 function LoginBrokerModeration() {
   const readLoginBroker = useAction(api.brokerClients.moderation.readLoginBroker);
   const changeLoginHostBlock = useAction(api.brokerClients.moderation.changeLoginHostBlock);
+  const readLoginSiteFiles = useAction(api.brokerClients.moderation.readLoginSiteFiles);
   const loginBroker = useQuery({
     queryKey: ["admin-broker-clients-login-broker"],
     queryFn: async () => await readLoginBroker({}),
     retry: false,
   });
+  const siteFiles = useQuery({
+    queryKey: ["admin-broker-clients-login-site-files"],
+    queryFn: async () => await readLoginSiteFiles({}),
+    enabled: loginBroker.data?.status === "on",
+    retry: false,
+  });
+  const files = new Map(
+    siteFiles.data?.status === "on"
+      ? siteFiles.data.files.map(({ clientId, file }) => [clientId, file])
+      : [],
+  );
   const refetch = async () => {
     await loginBroker.refetch();
   };
@@ -310,7 +322,7 @@ function LoginBrokerModeration() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="sites">
-            <SitesSection siteList={loginBroker.data.siteList} />
+            <SitesSection siteList={loginBroker.data.siteList} files={files} />
           </TabsContent>
           <TabsContent value="host-blocks">
             <HostBlocksSection
@@ -325,18 +337,30 @@ function LoginBrokerModeration() {
   );
 }
 
-function SitesSection({ siteList }: { siteList: LoginBroker["siteList"] }) {
-  const gone = siteList.clients.filter((site) => site.file?.status === "gone");
-  const live = siteList.clients.filter((site) => site.file?.status !== "gone");
+type SiteFileState = Extract<
+  FunctionReturnType<typeof api.brokerClients.moderation.readLoginSiteFiles>,
+  { status: "on" }
+>["files"][number]["file"];
+
+/** The sites, with the files read so far; a site whose file is gone is folded away. */
+function SitesSection({
+  siteList,
+  files,
+}: {
+  siteList: LoginBroker["siteList"];
+  files: ReadonlyMap<string, SiteFileState>;
+}) {
+  const gone = siteList.clients.filter((site) => files.get(site.clientId)?.status === "gone");
+  const live = siteList.clients.filter((site) => files.get(site.clientId)?.status !== "gone");
   return siteList.clients.length === 0 ? (
     <p className="mt-4 text-sm text-muted-foreground">No sites.</p>
   ) : (
     <>
-      <SiteRows sites={live} />
+      <SiteRows sites={live} files={files} />
       {gone.length === 0 ? null : (
         <details className="mt-4 text-sm">
           <summary className="cursor-pointer text-muted-foreground">Gone ({gone.length})</summary>
-          <SiteRows sites={gone} />
+          <SiteRows sites={gone} files={files} />
         </details>
       )}
       {siteList.limitReached ? (
@@ -348,14 +372,17 @@ function SitesSection({ siteList }: { siteList: LoginBroker["siteList"] }) {
   );
 }
 
-function SiteRows({ sites }: { sites: LoginBroker["siteList"]["clients"] }) {
+function SiteRows({
+  sites,
+  files,
+}: {
+  sites: LoginBroker["siteList"]["clients"];
+  files: ReadonlyMap<string, SiteFileState>;
+}) {
   return sites.length === 0 ? null : (
     <ul className="mt-4 divide-y border-y">
       {sites.map((site) => (
         <li key={site.clientId} className="py-3 text-sm">
-          {site.file?.status === "ok" && site.file.clientName !== null ? (
-            <span className="block font-medium break-words">{site.file.clientName}</span>
-          ) : null}
           <a
             className="block break-all"
             href={site.clientId}
@@ -370,7 +397,7 @@ function SiteRows({ sites }: { sites: LoginBroker["siteList"]["clients"] }) {
               ? "no sign-in"
               : `last sign-in ${formatTime(site.lastSignInAt)}`}
           </span>
-          <SiteFile file={site.file} />
+          <SiteFile file={files.get(site.clientId)} />
         </li>
       ))}
     </ul>
@@ -378,8 +405,8 @@ function SiteRows({ sites }: { sites: LoginBroker["siteList"]["clients"] }) {
 }
 
 /** What the site's file says now, as text: a stranger wrote it, so no address of it is loaded. */
-function SiteFile({ file }: { file: LoginBroker["siteList"]["clients"][number]["file"] }) {
-  if (file === null) {
+function SiteFile({ file }: { file: SiteFileState | undefined }) {
+  if (file === undefined) {
     return null;
   }
   if (file.status === "gone") {
@@ -391,7 +418,8 @@ function SiteFile({ file }: { file: LoginBroker["siteList"]["clients"][number]["
         <span className="block text-destructive">File refused: {file.reason}</span>
       ) : (
         <span className="block break-all text-muted-foreground">
-          Returns to {file.redirectUris.join(", ")}
+          {file.clientName === null ? null : `Named "${file.clientName}"; `}
+          returns to {file.redirectUris.join(", ")}
           {file.clientUri === null ? null : `; site ${file.clientUri}`}
           {file.logoUri === null ? null : `; logo ${file.logoUri}`}
         </span>
