@@ -2,6 +2,7 @@ import * as Credentials from "@distilled.cloud/cloudflare/Credentials";
 import { CloudflareParseError } from "@distilled.cloud/cloudflare/Errors";
 import type { CloudflareOpContext } from "@distilled.cloud/cloudflare/Protocol";
 import * as Retry from "@distilled.cloud/cloudflare/Retry";
+import { ResponseValidation } from "@distilled.cloud/core";
 import { Effect, Layer, Redacted } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
@@ -14,6 +15,10 @@ const TIMEOUT = "30 seconds";
 Runs one `@distilled.cloud/cloudflare` operation with `token`, without retries: the default policy
 retries "Authentication error" for about 25 seconds, and the access checks ask exactly whether
 Cloudflare refuses the token. The callers are user actions that report a failure at once.
+
+A 2xx response must match the operation's output schema. distilled returns any 2xx body as read
+by default, so a text body would pass an access check. The rejected error can quote the provider
+body: log only its `_tag` and `code`.
 */
 export async function runCloudflare<A, E>(
   token: string,
@@ -56,7 +61,11 @@ export async function runCloudflare<A, E>(
     Retry.none,
     Effect.timeout(TIMEOUT),
     Effect.provide(
-      Layer.mergeAll(client, Credentials.fromApiToken({ apiToken: Redacted.make(apiToken) })),
+      Layer.mergeAll(
+        client,
+        Credentials.fromApiToken({ apiToken: Redacted.make(apiToken) }),
+        ResponseValidation.additionalProperties,
+      ),
     ),
     Effect.runPromise,
   );

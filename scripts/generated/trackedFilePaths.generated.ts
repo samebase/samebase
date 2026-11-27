@@ -306,6 +306,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/brokerClients/moderation.ts",
   "apps/samebase/convex/brokerResourceOAuth.ts",
   "apps/samebase/convex/cloudflareAccountDiscovery.ts",
+  "apps/samebase/convex/cloudflareApi.test.ts",
   "apps/samebase/convex/cloudflareApi.ts",
   "apps/samebase/convex/cloudflareOAuth.convex.test.ts",
   "apps/samebase/convex/cloudflareOAuth.ts",

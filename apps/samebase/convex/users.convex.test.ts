@@ -944,14 +944,11 @@ describe("organization provider status", () => {
     );
 
     expect(access.checks).toContainEqual({ key: "accounts", status: "error" });
-    expect(warn).toHaveBeenCalledWith(
-      "cloudflare:provider_access_probe_failed",
-      { check: "accounts" },
-      expect.objectContaining({
-        _tag: "TooManyRequests",
-        message: providerError.errors[0]?.message,
-      }),
-    );
+    expect(warn).toHaveBeenCalledWith("cloudflare:provider_access_probe_failed", {
+      check: "accounts",
+      error: "TooManyRequests",
+      code: null,
+    });
   });
 
   it("tells the owner to reconnect when the broker refuses a Cloudflare grant", async () => {

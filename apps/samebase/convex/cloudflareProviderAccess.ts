@@ -249,7 +249,17 @@ async function runCloudflareProbe<Value>({
       },
     };
   } catch (error) {
-    console.warn("cloudflare:provider_access_probe_failed", { check: key }, error);
+    // The error can quote the provider body, so only its tag and Cloudflare code are logged.
+    const tag =
+      typeof error === "object" && error !== null && "_tag" in error ? String(error._tag) : null;
+    const code =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof error.code === "number"
+        ? error.code
+        : null;
+    console.warn("cloudflare:provider_access_probe_failed", { check: key, error: tag, code });
     return {
       state: "error",
       check: {
