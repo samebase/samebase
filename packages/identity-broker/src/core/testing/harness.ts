@@ -129,8 +129,9 @@ export function testClock(start = 1_700_000_000_000) {
     currentTimeNanos: Effect.sync(() => BigInt(now) * 1_000_000n),
     monotonicTimeNanosUnsafe: () => BigInt(now) * 1_000_000n,
     monotonicTimeNanos: Effect.sync(() => BigInt(now) * 1_000_000n),
-    // The core does not sleep; a sleep that reaches here ends at once.
-    sleep: () => Effect.void,
+    // A sleep never ends, so the time limit of a request (a fetch of a metadata document) never
+    // ends it in a test: the test moves the clock itself.
+    sleep: () => Effect.never,
   };
   return {
     clock,
@@ -417,7 +418,7 @@ export async function createBroker(
   options: {
     config?: Partial<BrokerConfigInput>;
     seed?: number;
-    registration?: Registration;
+    registration?: Registration | ReadonlyArray<Registration>;
     /** An optional part of the broker, such as integrations. */
     part?: Part;
     fetch?: StubFetch;
@@ -434,8 +435,10 @@ export async function createBroker(
         ? Effect.fail(new StoreUnavailable())
         : memory.store.run(name, args),
   });
-  const handle = makeHandle(options.registration ?? { routes: [] }, options.part);
   const layer = Layer.merge(core.layer, Layer.succeed(Store, store));
+  const handle = await Effect.runPromise(
+    makeHandle(options.registration ?? { routes: [] }, options.part).pipe(Effect.provide(layer)),
+  );
   const clock = {
     now: core.clock.now,
     set: (millis: number) => {
@@ -500,6 +503,32 @@ export async function createBroker(
     return { clientId, clientSecret, connectors, ref };
   }
 
+  /**
+   * One public card of `clientId`, an https address, with `redirectUri`, as a resolving layer
+   * writes it: no secret, every configured connector, the page shown, and the host's gate and
+   * budget `cimd:host:<host>`.
+   */
+  async function registerPublicClient(args: { clientId: string; redirectUri: string }) {
+    const hostKey = `cimd:host:${new URL(args.clientId).hostname}`;
+    await memory.seed((tx) =>
+      Effect.asVoid(
+        tx.insert("clients", {
+          tokenEndpointAuthMethod: "none",
+          clientId: args.clientId,
+          secretHash: null,
+          redirectUris: [args.redirectUri],
+          connectors: core.broker.connectors.map((connector) => connector.name).sort(),
+          connections: [],
+          gates: [hostKey],
+          confirm: true,
+          budget: hostKey,
+          ref: `cimd:${args.clientId}`,
+          createdAt: clock.now(),
+        }),
+      ),
+    );
+  }
+
   /** Replaces the card of `clientId` with `change` applied, in one step, as a layer's rewrite. */
   const editCard = (clientId: string, change: (card: Doc<"clients">) => Doc<"clients">) =>
     memory.seed((tx) =>
@@ -534,6 +563,7 @@ export async function createBroker(
     layer,
     fetchBroker,
     registerClient,
+    registerPublicClient,
     editCard,
     setStop,
     issuer: core.broker.issuer,

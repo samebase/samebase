@@ -11,6 +11,7 @@ import {
   makeHandle,
   serverError,
   type CoreServices,
+  type PrivateRegistration,
   type PublicRegistration,
   type Registration,
 } from "./router.ts";
@@ -34,13 +35,17 @@ type Broker<R = never> = {
   >;
 };
 
+/** One layer, or a list of layers whose routes do not collide (src/core/router.ts). */
+type Registrations = Registration | ReadonlyArray<Registration>;
+
 type BrokerOptions<R> = BrokerSettings<R> & {
   /** Without it the broker mounts no integration route. */
   readonly integrations?: ReadonlyArray<IntegrationSpec<R>>;
 } & (
-    | { readonly registration: Registration & { readonly public?: never } }
+    | { readonly registration: PrivateRegistration | ReadonlyArray<PrivateRegistration> }
     | {
-        readonly registration: PublicRegistration;
+        /** A list may hold a public layer: `makeHandle` refuses it at start without `service`. */
+        readonly registration: PublicRegistration | ReadonlyArray<Registration>;
         readonly service: ServiceSettings;
       }
   );
@@ -80,12 +85,12 @@ const startFailureReason = (
 
 const buildRuntime = <E, R, Integration extends IntegrationSpec<unknown> = never>(
   settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
-  registration: Registration,
+  registration: Registrations,
   integrations?: ReadonlyArray<Integration>,
 ): Effect.Effect<Broker, unknown, Store | R | SecretServices<Integration>> =>
   Effect.gen(function* () {
     const part = integrations === undefined ? undefined : yield* makeIntegrations(integrations);
-    const handle = makeHandle(registration, part);
+    const handle = yield* makeHandle(registration, part);
     // Only the broker's own services: a lazy build runs in request 1, whose request and scope must
     // not reach a later request.
     const services = Context.pick(
@@ -114,7 +119,7 @@ const buildRuntime = <E, R, Integration extends IntegrationSpec<unknown> = never
  */
 export const brokerRuntime = <E, R, Integration extends IntegrationSpec<unknown> = never>(
   settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
-  registration: Registration,
+  registration: Registrations,
   integrations?: ReadonlyArray<Integration>,
 ): Effect.Effect<Broker, never, Store | R | SecretServices<Integration>> =>
   buildRuntime(settings, registration, integrations).pipe(cannotStart);

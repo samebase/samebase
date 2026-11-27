@@ -4,15 +4,27 @@
 // read this declaration; the core's rules read only their own part through their `Tx`.
 import { Schema } from "effect";
 import { connectionTables } from "../integrations/tables.ts";
+import * as cimd from "../layers/cimd/tables.ts";
 import * as github from "../layers/github/tables.ts";
 import * as stack from "../layers/stack/tables.ts";
-import { cardFields, cardIndexes, coreTables } from "../rules/tables.ts";
+import { cardIndexes, coreTables, publicCardFields, secretCardFields } from "../rules/tables.ts";
 import type { DocOf, IndexOf } from "./Tx.ts";
+
+/** A field that a card of this shape never holds: its layer writes cards of the other shape only. */
+const never = Schema.optionalKey(Schema.Never);
 
 export const tables = {
   ...coreTables,
   clients: {
-    schema: Schema.Struct({ ...cardFields, ...github.cardFields, ...stack.cardFields }),
+    schema: Schema.Union([
+      Schema.Struct({
+        ...secretCardFields,
+        ...github.cardFields,
+        ...stack.cardFields,
+        cimd: never,
+      }),
+      Schema.Struct({ ...publicCardFields, ...cimd.cardFields, github: never, stack: never }),
+    ]),
     indexes: { ...cardIndexes, ...github.cardIndexes },
   },
   ...github.githubTables,

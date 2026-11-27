@@ -169,6 +169,16 @@ describe("POST /register with a key", () => {
     expect(h.cards()).toEqual([]);
   });
 
+  test("refuses the method none: a key's client always has a secret", async () => {
+    const h = await createStackBroker();
+    const response = await register(h, PREVIEW_KEY, { token_endpoint_auth_method: "none" });
+    expect(response.status).toBe(400);
+    expect(Schema.decodeUnknownSync(Refusal)(await response.json()).error).toBe(
+      "invalid_client_metadata",
+    );
+    expect(h.cards()).toEqual([]);
+  });
+
   test("a broker without a configured key refuses every registration", async () => {
     for (const keys of [{}, { preview: absentKey }]) {
       const h = await createStackBroker(keys);

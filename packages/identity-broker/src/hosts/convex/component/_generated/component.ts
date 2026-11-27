@@ -141,8 +141,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           args: {
+            authentication:
+              | { method: "none" }
+              | {
+                  method: "client_secret_post" | "client_secret_basic";
+                  secretHash: string;
+                };
             clientId: string;
-            clientSecretHash: string;
             codeChallengeOfVerifier: string;
             codeHash: string;
             configured: Array<string>;
@@ -150,8 +155,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             now: number;
             redirectUri: string;
             resource?: string;
-            tokenEndpointAuthMethod:
-              "client_secret_post" | "client_secret_basic";
           };
           now: number;
         },
@@ -217,6 +220,68 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             ok: false;
           }
         | { error: "not_found"; ok: false },
+        Name
+      >;
+    };
+    cimd: {
+      begin: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          args: {
+            clientId: string;
+            connectors: Array<string>;
+            fetches: { capacity: number; periodMs: number; rate: number };
+            redirectUri: string;
+          };
+          now: number;
+        },
+        | { next: "stopped" | "fresh" | "rate_limited" }
+        | { fetchStartedAt: number; next: "fetch" },
+        Name
+      >;
+      blockHost: FunctionReference<
+        "mutation",
+        "internal",
+        { args: { host: string }; now: number },
+        { changed: boolean },
+        Name
+      >;
+      put: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          args: {
+            clientId: string;
+            connectors: Array<string>;
+            fetchStartedAt: number;
+            freshUntil: number;
+            newClients: { capacity: number; periodMs: number; rate: number };
+            redirectUri: string;
+            redirectUris: Array<string>;
+          };
+          now: number;
+        },
+        | "inserted"
+        | "replaced"
+        | "older"
+        | "stopped"
+        | "rate_limited"
+        | "not_listed",
+        Name
+      >;
+      remove: FunctionReference<
+        "mutation",
+        "internal",
+        { args: { clientId: string; fetchStartedAt: number }; now: number },
+        { removed: boolean },
+        Name
+      >;
+      unblockHost: FunctionReference<
+        "mutation",
+        "internal",
+        { args: { host: string }; now: number },
+        { changed: boolean },
         Name
       >;
     };

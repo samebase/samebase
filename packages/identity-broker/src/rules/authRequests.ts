@@ -74,23 +74,32 @@ const baseFields = (request: AuthRequest) => ({
 const completedExpiresAt = (request: AuthRequest, codeExpiresAt: number) =>
   Math.max(request.expiresAt, codeExpiresAt + 60 * 1000);
 
+/** A token bucket: `rate` tokens each `periodMs`, at most `capacity` saved. */
+export type BudgetLimits = {
+  readonly rate: number;
+  readonly periodMs: number;
+  readonly capacity: number;
+};
+
 /** The sign-in budget of one key: 120 per minute, at most 240 saved. */
-const BUDGET_RATE = 120;
-const BUDGET_PERIOD_MS = 60_000;
-const BUDGET_CAPACITY = 240;
+const SIGN_IN_BUDGET: BudgetLimits = { rate: 120, periodMs: 60_000, capacity: 240 };
 
 /**
- * Takes one sign-in from the token bucket of `key` at `now`, or answers false and writes nothing.
- * The bucket's time never moves back, so a step with an older clock refills nothing. A connection
- * start spends from the same bucket.
+ * Takes one token from the bucket of `key` at `now`, or answers false and writes nothing. The
+ * bucket's time never moves back, so a step with an older clock refills nothing. A connection start
+ * spends from the same bucket as a sign-in; a layer can keep its own keys with its own `limits`.
  */
-export const spendBudget = Effect.fnUntraced(function* (key: string, now: number) {
+export const spendBudget = Effect.fnUntraced(function* (
+  key: string,
+  now: number,
+  limits: BudgetLimits = SIGN_IN_BUDGET,
+) {
   const tx = yield* Tx;
   const row = yield* unique(tx, "signInBudgets", "by_key", [key]);
   const at = row === undefined ? now : Math.max(row.doc.at, now);
-  const saved = row === undefined ? BUDGET_CAPACITY : row.doc.tokens;
+  const saved = row === undefined ? limits.capacity : row.doc.tokens;
   const elapsed = row === undefined ? 0 : at - row.doc.at;
-  const tokens = Math.min(BUDGET_CAPACITY, saved + (elapsed * BUDGET_RATE) / BUDGET_PERIOD_MS);
+  const tokens = Math.min(limits.capacity, saved + (elapsed * limits.rate) / limits.periodMs);
   if (tokens < 1) {
     return false;
   }
@@ -319,8 +328,10 @@ const invalid = (
 ) => ({ ok: false, error, description }) satisfies ExchangeResult;
 
 /**
- * Authenticates the client and redeems an authorization code: single use, bound to the client, the
- * redirect URI and the PKCE challenge of its request (OAuth 2.1 section 4.1.3). The card is read in
+ * Authenticates the client by its card's method (a public card only with no authentication, a
+ * secret card only with its method and its secret) and redeems an authorization code: single use,
+ * bound to the client, the redirect URI and the PKCE challenge of its request (OAuth 2.1 section
+ * 4.1.3). The card is read in
  * this step, so a client that fails authentication leaves the code as it was, and a stop that
  * commits first refuses the client. The request's return address must still be on the card, and
  * its connector usable (`usableCard`). On success the code is marked used, the request is gone, and
@@ -332,10 +343,11 @@ export const exchangeCode = Effect.fnUntraced(function* (
 ): Effect.fn.Return<ExchangeResult, never, Tx> {
   const tx = yield* Tx;
   const card = yield* cardRow(args.clientId);
+  const { authentication } = args;
   if (
     card === undefined ||
-    card.doc.tokenEndpointAuthMethod !== args.tokenEndpointAuthMethod ||
-    card.doc.secretHash !== args.clientSecretHash ||
+    card.doc.tokenEndpointAuthMethod !== authentication.method ||
+    (authentication.method !== "none" && card.doc.secretHash !== authentication.secretHash) ||
     (yield* isStopped(card.doc, args.liveGates))
   ) {
     return invalid("invalid_client", "Client authentication failed.");

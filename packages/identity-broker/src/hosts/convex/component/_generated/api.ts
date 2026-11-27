@@ -9,6 +9,7 @@
  */
 
 import type * as authRequests from "../authRequests.js";
+import type * as cimd from "../cimd.js";
 import type * as clients from "../clients.js";
 import type * as connections from "../connections.js";
 import type * as github from "../github.js";
@@ -25,6 +26,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   authRequests: typeof authRequests;
+  cimd: typeof cimd;
   clients: typeof clients;
   connections: typeof connections;
   github: typeof github;

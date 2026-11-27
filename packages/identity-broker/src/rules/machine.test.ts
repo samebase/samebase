@@ -59,7 +59,13 @@ type Action =
   | {
       readonly kind: "exchange";
       readonly r: string;
-      readonly variant: "right" | "otherClient" | "badSecret" | "badRedirect" | "badVerifier";
+      readonly variant:
+        | "right"
+        | "otherClient"
+        | "badSecret"
+        | "otherMethod"
+        | "badRedirect"
+        | "badVerifier";
     }
   | { readonly kind: "tick" }
   /** A stop on one gate of the card commits, or goes. */
@@ -98,9 +104,9 @@ const alphabet = (requestIds: ReadonlyArray<string>): ReadonlyArray<Action> => [
     ),
     { kind: "complete", r },
     { kind: "abandon", r },
-    ...(["right", "otherClient", "badSecret", "badRedirect", "badVerifier"] as const).map(
-      (variant): Action => ({ kind: "exchange", r, variant }),
-    ),
+    ...(
+      ["right", "otherClient", "badSecret", "otherMethod", "badRedirect", "badVerifier"] as const
+    ).map((variant): Action => ({ kind: "exchange", r, variant })),
   ]),
   { kind: "tick" },
   ...GATES.map((gate): Action => ({ kind: "stop", gate })),
@@ -111,11 +117,12 @@ const alphabet = (requestIds: ReadonlyArray<string>): ReadonlyArray<Action> => [
   { kind: "cleanup" },
 ];
 
-const card = (clientId: string, secretHash: string): Doc<"clients"> => ({
-  clientId,
+/** A card with the secret whose hash is `secretHash`, or a public card when it is null. */
+const card = (clientId: string, secretHash: string | null): Doc<"clients"> => ({
+  ...(secretHash === null
+    ? { tokenEndpointAuthMethod: "none", clientId, secretHash }
+    : { tokenEndpointAuthMethod: "client_secret_post", clientId, secretHash }),
   redirectUris: [redirectUri, otherUri],
-  tokenEndpointAuthMethod: "client_secret_post",
-  secretHash,
   connectors: CONNECTORS,
   connections: [],
   gates: GATES,
@@ -125,17 +132,39 @@ const card = (clientId: string, secretHash: string): Doc<"clients"> => ({
   createdAt: 0,
 });
 
-/** One state search: the alphabet over `requestIds`, every state up to `depth` steps from the start. */
-const search = (requestIds: ReadonlyArray<string>, depth: number) => {
+/**
+ * One state search: the alphabet over `requestIds`, every state up to `depth` steps from the start.
+ * The requests are of a client with a secret, or of a public client (`publicClient`), which
+ * authenticates with nothing at the exchange.
+ */
+const search = (requestIds: ReadonlyArray<string>, depth: number, publicClient = false) => {
   const broker = makeMemoryStore({ now: 0 });
-  seed(broker, "clients", [card("cl", "sec"), card("cl2", "sec2")]);
+  const cl = publicClient ? "https://app.test/client.json" : "cl";
+  seed(broker, "clients", [card(cl, publicClient ? null : "sec"), card("cl2", "sec2")]);
   const actions = alphabet(requestIds);
+  /** The authentication of each exchange variant: only `right` is the card's own. */
+  const authenticationOf = (variant: Action & { readonly kind: "exchange" }) => {
+    switch (variant.variant) {
+      case "otherClient":
+        return { method: "client_secret_post", secretHash: "sec2" } as const;
+      case "badSecret":
+        return { method: "client_secret_post", secretHash: publicClient ? "sec" : "bad" } as const;
+      case "otherMethod":
+        return publicClient
+          ? ({ method: "client_secret_basic", secretHash: "sec" } as const)
+          : ({ method: "none" } as const);
+      default:
+        return publicClient
+          ? ({ method: "none" } as const)
+          : ({ method: "client_secret_post", secretHash: "sec" } as const);
+    }
+  };
 
   const run = <N extends CommandName>(name: N, args: Args<N>): Result<N> => broker.run(name, args);
   const docs = () => broker.db.contents();
   const requestOf = (r: string) => docs().authRequests.find((request) => request.requestId === r);
   const codeOf = (r: string) => docs().authorizationCodes.find((code) => code.requestId === r);
-  const cardOf = () => docs().clients.find((client) => client.clientId === "cl");
+  const cardOf = () => docs().clients.find((client) => client.clientId === cl);
   /** Whether the layer's live gates hold `key:b` in the step being applied. */
   let keyLive = true;
   /** A stop holds a gate of the card, or a gate of the card left the layer's live gates. */
@@ -193,7 +222,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         const before = cardOf();
         const result = run("authRequests.create", {
           requestId: action.r,
-          clientId: "cl",
+          clientId: cl,
           redirectUri,
           scope: "openid",
           codeChallenge: `challenge-${action.r}`,
@@ -325,10 +354,8 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
           request?.status === "completed" && usable(request, request.identity.connector);
         const { variant } = action;
         const result = run("authRequests.exchangeCode", {
-          clientId: variant === "otherClient" ? "cl2" : "cl",
-          clientSecretHash:
-            variant === "otherClient" ? "sec2" : variant === "badSecret" ? "bad" : "sec",
-          tokenEndpointAuthMethod: "client_secret_post",
+          clientId: variant === "otherClient" ? "cl2" : cl,
+          authentication: authenticationOf(action),
           codeHash: `code-${action.r}`,
           redirectUri: variant === "badRedirect" ? otherUri : redirectUri,
           codeChallengeOfVerifier:
@@ -393,13 +420,13 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         next = { ...next, keyLive: !keyLive };
         break;
       case "connector":
-        patch(broker, "clients", "by_client_id", ["cl"], (doc) => ({
+        patch(broker, "clients", "by_client_id", [cl], (doc) => ({
           ...doc,
           connectors: doc.connectors.includes("h") ? ["g"] : CONNECTORS,
         }));
         break;
       case "redirect":
-        patch(broker, "clients", "by_client_id", ["cl"], (doc) => ({
+        patch(broker, "clients", "by_client_id", [cl], (doc) => ({
           ...doc,
           redirectUris: doc.redirectUris.includes(redirectUri)
             ? [otherUri]
@@ -407,7 +434,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number) => {
         }));
         break;
       case "confirm":
-        patch(broker, "clients", "by_client_id", ["cl"], (doc) => ({
+        patch(broker, "clients", "by_client_id", [cl], (doc) => ({
           ...doc,
           confirm: !doc.confirm,
         }));
@@ -488,6 +515,12 @@ describe("the authorization request machine", () => {
     // Depth 7 (57,012 states) takes about 10 s on the development Mac.
     const result = search(["r1", "r3"], depthOf("MACHINE_DEPTH_TWO", 7));
     console.log("two requests", result);
+    expect(result.states).toBeGreaterThan(1);
+  }, 300_000);
+
+  test("one request of a public client: every property holds in every reachable state", () => {
+    const result = search(["r2"], depthOf("MACHINE_DEPTH_ONE", 12), true);
+    console.log("one request of a public client", result);
     expect(result.states).toBeGreaterThan(1);
   }, 300_000);
 });

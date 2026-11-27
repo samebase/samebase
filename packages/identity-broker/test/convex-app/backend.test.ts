@@ -16,6 +16,7 @@ import { FetchHttpClient, HttpClientRequest } from "effect/http";
 import { HttpApiClient, HttpApiMiddleware } from "effect/http-api";
 import fc from "fast-check";
 import { base64url, createLocalJWKSet, jwtVerify } from "jose";
+import * as openid from "openid-client";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vite-plus/test";
 import { createKeySet } from "../../src/core/keys.ts";
 import { sha256Hex } from "../../src/core/subject.ts";
@@ -27,6 +28,7 @@ import {
   txnCookie,
   type StubFetch,
 } from "../../src/core/testing/harness.ts";
+import { clientIdMetadataDocuments } from "../../src/layers/cimd/registration.ts";
 import { githubActions } from "../../src/layers/github/routes.ts";
 import { ModerationApi, ModerationKey } from "../../src/moderation/api.ts";
 import {
@@ -254,7 +256,7 @@ const memoryBroker = async (): Promise<TestBroker> => {
   const h = await createBroker({
     fetch: upstream,
     config: { issuer: siteUrl, connectors: [idp.connector] },
-    registration: githubActions(ALLOW_LIST),
+    registration: [githubActions(ALLOW_LIST), clientIdMetadataDocuments()],
   });
   h.clock.set(Date.now());
   return {
@@ -535,6 +537,63 @@ test("the moderation API answers its typed client from an httpAction", async () 
     anonymous.headers.get("www-authenticate"),
     anonymous.headers.get("cache-control"),
   ]).toEqual([401, 'Bearer realm="moderation"', "no-store"]);
+}, 60_000);
+
+test("openid-client signs in as a public client whose client id is the address of its file", async () => {
+  emptyComponent();
+  // The client's file is on the provider's host, which convex/broker.ts sends to loopback.
+  const clientId = `${FAKE_IDP_ISSUER}/oauth-client.json`;
+  const redirectUri = `${FAKE_IDP_ISSUER}/app/callback`;
+  convexUpstream.json(clientId, {
+    client_id: clientId,
+    redirect_uris: [redirectUri],
+    token_endpoint_auth_methods_supported: ["none"],
+  });
+  const config = await openid.discovery(new URL(siteUrl), clientId, undefined, openid.None(), {
+    execute: [openid.allowInsecureRequests],
+  });
+  const codeVerifier = openid.randomPKCECodeVerifier();
+  const nonce = openid.randomNonce();
+  const page = await fetch(
+    openid.buildAuthorizationUrl(config, {
+      redirect_uri: redirectUri,
+      scope: "openid",
+      code_challenge: await openid.calculatePKCECodeChallenge(codeVerifier),
+      code_challenge_method: "S256",
+      state: "client-state",
+      nonce,
+    }),
+    { redirect: "manual" },
+  );
+  expect(page.status).toBe(200);
+  const cookie = txnCookie(page);
+  const href = /href="([^"]*\/continue\?[^"]*)"/.exec(await page.text())?.[1] ?? "";
+  const started = await fetch(new URL(href.replaceAll("&amp;", "&"), siteUrl), {
+    headers: cookie,
+    redirect: "manual",
+  });
+  const upstream = new URL(started.headers.get("location") ?? "");
+  convexIdp.nextIdToken({
+    nonce: upstream.searchParams.get("nonce") ?? "",
+    authTime: Math.floor(Date.now() / 1000),
+  });
+  const callback = new URL(upstream.searchParams.get("redirect_uri") ?? "");
+  callback.searchParams.set("code", "upstream-code");
+  callback.searchParams.set("state", upstream.searchParams.get("state") ?? "");
+  const back = await fetch(callback, { headers: cookie, redirect: "manual" });
+  const tokens = await openid.authorizationCodeGrant(
+    config,
+    new URL(back.headers.get("location") ?? ""),
+    { pkceCodeVerifier: codeVerifier, expectedState: "client-state", expectedNonce: nonce },
+  );
+  expect(tokens.claims()?.aud).toBe(clientId);
+  const userinfo = await openid.fetchUserInfo(
+    config,
+    tokens.access_token,
+    tokens.claims()?.sub ?? "",
+  );
+  expect(userinfo.sub).toBe("idp:24400320");
+  expect(convexUpstream.unexpected).toEqual([]);
 }, 60_000);
 
 test("an httpAction keeps both Set-Cookie fields of one response", async () => {

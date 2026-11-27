@@ -81,6 +81,16 @@ describe("authorize", () => {
     expect(connectors(" github  google github ")).toEqual(["github", "google"]);
   });
 
+  test("an https client_id is kept as sent; any other client_id is trimmed", () => {
+    const clientId = (value: string) => {
+      const target = validateAuthorizeTarget(new URLSearchParams({ ...base, client_id: value }));
+      return target.ok ? target.value.clientId : target.error;
+    };
+    expect(clientId(" cl_1 ")).toBe("cl_1");
+    expect(clientId("https://app.test/c.json")).toBe("https://app.test/c.json");
+    expect(clientId(" https://app.test/c.json ")).toBe(" https://app.test/c.json ");
+  });
+
   test("a repeated parameter of any name is refused before the target is read", () => {
     for (const name of ["client_id", "redirect_uri", "scope"]) {
       const params = new URLSearchParams(base);
@@ -138,10 +148,54 @@ describe("token", () => {
       new URLSearchParams({ client_id: "a", client_secret: "b" }),
     );
     expect(post.ok && post.value.method).toBe("client_secret_post");
-    const basic = readClientAuthentication(`Basic ${btoa("a:b%3Ac")}`, new URLSearchParams());
-    expect(basic.ok && basic.value.clientSecret).toBe("b:c");
+    expect(readClientAuthentication(`Basic ${btoa("a:b%3Ac")}`, new URLSearchParams())).toEqual({
+      ok: true,
+      value: { clientId: "a", clientSecret: "b:c", method: "client_secret_basic" },
+    });
     expect(readClientAuthentication("Bearer x", new URLSearchParams()).ok).toBe(false);
-    expect(readClientAuthentication(null, new URLSearchParams({ client_id: "a" })).ok).toBe(false);
+  });
+
+  test("no authentication only with no Authorization header, a client_id and no client_secret", () => {
+    const none = { ok: true, value: { method: "none", clientId: "https://app.test/c.json" } };
+    expect(
+      readClientAuthentication(null, new URLSearchParams({ client_id: "https://app.test/c.json" })),
+    ).toEqual(none);
+    // An empty client_secret counts as omitted (RFC 6749 section 3.2).
+    expect(
+      readClientAuthentication(
+        null,
+        new URLSearchParams("client_id=https%3A%2F%2Fapp.test%2Fc.json&client_secret="),
+      ),
+    ).toEqual(none);
+    // A Basic header with an empty password is a secret, never no authentication.
+    expect(readClientAuthentication(`Basic ${btoa("a:")}`, new URLSearchParams())).toEqual({
+      ok: true,
+      value: { clientId: "a", clientSecret: "", method: "client_secret_basic" },
+    });
+    expect(
+      readClientAuthentication(`Basic ${btoa("a:")}`, new URLSearchParams({ client_id: "a" })),
+    ).toMatchObject({ ok: true, value: { method: "client_secret_basic" } });
+    expect(
+      readClientAuthentication("Bearer x", new URLSearchParams({ client_id: "a" })),
+    ).toMatchObject({ ok: false, status: 401, error: "invalid_client" });
+    expect(readClientAuthentication(null, new URLSearchParams())).toMatchObject({
+      ok: false,
+      status: 401,
+      error: "invalid_client",
+    });
+  });
+
+  test("a client assertion is invalid_client, with or without another method", () => {
+    for (const name of ["client_assertion", "client_assertion_type"]) {
+      for (const authorization of [null, `Basic ${btoa("a:b")}`]) {
+        expect(
+          readClientAuthentication(
+            authorization,
+            new URLSearchParams({ client_id: "a", [name]: "x" }),
+          ),
+        ).toMatchObject({ ok: false, status: 401, error: "invalid_client" });
+      }
+    }
   });
 
   test("one method, no repeated parameter, and a malformed Basic header is invalid_client", () => {

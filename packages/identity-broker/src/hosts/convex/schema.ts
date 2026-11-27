@@ -52,12 +52,17 @@ const object = (ast: SchemaAST.Objects) => {
   }
   return v.object(
     Object.fromEntries(
-      ast.propertySignatures.map((property) => {
+      ast.propertySignatures.flatMap((property) => {
         if (typeof property.name !== "string") {
           throw new Error("Only string keys convert");
         }
+        // An optional `Never` field is one that the object never holds: `v.object` refuses an
+        // undeclared field.
+        if (property.type._tag === "Never" && SchemaAST.isOptional(property.type)) {
+          return [];
+        }
         const field = value(property.type);
-        return [property.name, SchemaAST.isOptional(property.type) ? v.optional(field) : field];
+        return [[property.name, SchemaAST.isOptional(property.type) ? v.optional(field) : field]];
       }),
     ),
   );

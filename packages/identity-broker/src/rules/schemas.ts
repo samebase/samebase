@@ -146,12 +146,18 @@ export const CompleteArgs = Schema.Struct({
 /** The deleted request's return address when the card holds it; null when it does not, or no request. */
 export const AbandonResult = Schema.NullOr(Return);
 
+/**
+ * How a token request authenticated its client, which must be the method on the card: no
+ * authentication, or a secret by one of the two methods, as its SHA-256 hex.
+ */
+export const ClientAuthentication = Schema.Union([
+  Schema.Struct({ method: Schema.Literal("none") }),
+  Schema.Struct({ method: TokenEndpointAuthMethod, secretHash: Str }),
+]);
+
 export const ExchangeCodeArgs = Schema.Struct({
   clientId: Str,
-  /** SHA-256 hex of the client secret the token request carried. */
-  clientSecretHash: Str,
-  /** How the token request carried the credentials; it must be the method on the card. */
-  tokenEndpointAuthMethod: TokenEndpointAuthMethod,
+  authentication: ClientAuthentication,
   codeHash: Str,
   /** The address the token request names, which must be the one the authorization request named. */
   redirectUri: Str,

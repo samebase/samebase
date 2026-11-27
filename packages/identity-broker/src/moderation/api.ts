@@ -162,6 +162,15 @@ export const ConnectorGrantChange = Schema.Struct({
   reason: Reason,
 });
 
+/**
+ * Blocks or unblocks sign-in for every client of one host of the CIMD layer: the clients whose
+ * id is an address on `host`, a DNS name in lower case. A block refuses their sign-ins at once.
+ */
+export const HostBlockChange = Schema.Struct({
+  action: BlockAction,
+  host: Schema.String.check(Schema.isPattern(/^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/)),
+});
+
 const description = { error_description: Schema.String };
 
 /** A request with no Bearer token: a challenge with no error code (RFC 6750 section 3.1). */
@@ -269,6 +278,10 @@ export class Moderation extends HttpApiGroup.make("moderation")
       query: { owner: Schema.optionalKey(GithubId) },
       success: Changed,
     }).annotate(HttpApi.QueryParseOptions, strictQuery),
+    HttpApiEndpoint.post("changeHostBlock", "/host-blocks", {
+      payload: HostBlockChange,
+      success: Changed,
+    }),
   )
   // The last middleware runs first: the key is checked before the request is decoded.
   .middleware(RequestCheck)

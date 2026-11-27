@@ -5,6 +5,8 @@
 import { Effect, Schema } from "effect";
 import { integrationsCommands } from "../integrations/commands.ts";
 import { IntegrationsTx } from "../integrations/tables.ts";
+import { cimdCommands } from "../layers/cimd/commands.ts";
+import { CimdTx } from "../layers/cimd/tables.ts";
 import { githubCommands } from "../layers/github/commands.ts";
 import { GithubTx } from "../layers/github/tables.ts";
 import { stackCommands } from "../layers/stack/commands.ts";
@@ -19,6 +21,7 @@ const definitions = {
   ...coreCommands,
   ...githubCommands,
   ...stackCommands,
+  ...cimdCommands,
   ...integrationsCommands,
 };
 
@@ -32,7 +35,7 @@ export const commands: {
   readonly [N in CommandName]: Command<
     Args<N>,
     Result<N>,
-    Tx | GithubTx | StackTx | IntegrationsTx
+    Tx | GithubTx | StackTx | CimdTx | IntegrationsTx
   >;
 } = definitions;
 
@@ -65,6 +68,11 @@ export const commandNames = [
   "stack.createClient",
   "stack.renew",
   "stack.remove",
+  "cimd.begin",
+  "cimd.put",
+  "cimd.remove",
+  "cimd.blockHost",
+  "cimd.unblockHost",
   "connections.create",
   "connections.claim",
   "connections.complete",
@@ -114,6 +122,7 @@ const ruleOver = <N extends CommandName>(
     .pipe(
       Effect.provideService(GithubTx, tx),
       Effect.provideService(StackTx, tx),
+      Effect.provideService(CimdTx, tx),
       Effect.provideService(IntegrationsTx, tx),
       Effect.provideService(Tx, coreView(tx)),
     );

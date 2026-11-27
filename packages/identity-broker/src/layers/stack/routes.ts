@@ -7,7 +7,7 @@
 import { Config, Effect, Option, Redacted } from "effect";
 import { readBearerToken } from "../../core/protocol.ts";
 import { invalidToken, json, noToken } from "../../core/responses.ts";
-import type { Registration } from "../../core/router.ts";
+import type { PrivateRegistration } from "../../core/router.ts";
 import { BrokerConfig } from "../../core/services.ts";
 import { sha256HexEffect } from "../../core/subject.ts";
 import {
@@ -204,7 +204,7 @@ const deleteClient = Effect.fn("stack.deleteClient")(function* (request: Request
  * has the key of that name, so a key removed from the settings refuses every sign-in step of its
  * clients.
  */
-export const keys = (settings: Readonly<Record<string, Key>>): Registration => ({
+export const keys = (settings: Readonly<Record<string, Key>>): PrivateRegistration => ({
   routes: [
     {
       method: "POST",

@@ -23,7 +23,8 @@ and answers, and the errors of RFC 6750.
 
 ## Registration
 
-A broker mounts one registration layer, which decides who may register a client:
+A broker mounts a registration layer, or a list of layers whose routes do not collide. A layer
+decides who may have a client:
 
 - `Registration.githubActions(allowList, options)`: a GitHub Actions workflow registers with its
   OIDC token. The allow-list is `"any"`, or entries `{ ownerId, repositoryId? }` of GitHub's numeric
@@ -37,9 +38,84 @@ A broker mounts one registration layer, which decides who may register a client:
   production clients; the clients of other keys get a removal date. A key's `integrations` names the
   integrations that its clients may use
   ([Connectors and integrations](#connectors-and-integrations)).
+- `Registration.clientIdMetadataDocuments(options)`: a client with no registration, whose id is the
+  address of its Client ID Metadata Document (CIMD) ([The CIMD layer](#the-cimd-layer)). It mounts
+  no route, so it goes beside either layer above:
+  `registration: [Registration.githubActions(...), Registration.clientIdMetadataDocuments()]`.
 
-Both are exports of `@samebase/identity-broker/registration`
+All are exports of `@samebase/identity-broker/registration`
 (`import * as Registration from "@samebase/identity-broker/registration"`).
+
+## Sign in with a Client ID Metadata Document
+
+For an app on a broker that mounts the CIMD layer. The app serves one JSON file on its own site,
+such as `https://app.example.com/oauth-client.json`:
+
+```json
+{
+  "client_id": "https://app.example.com/oauth-client.json",
+  "client_name": "My app",
+  "redirect_uris": ["https://app.example.com/auth/callback"],
+  "token_endpoint_auth_methods_supported": ["none"]
+}
+```
+
+The address of the file is the app's `client_id`. The app is a public client: it uses the code flow
+with PKCE (S256) and sends no client secret at `/token`. Any OpenID Connect library does this, such
+as `openid-client` with `client.None()`. Nothing is registered, and the app's deploy does not talk
+to the broker.
+
+The broker reads the file at the first sign-in, and again at the first sign-in after the file's
+`Cache-Control: max-age` (1 hour without one, at most 24 hours). Its rules
+([draft-ietf-oauth-client-id-metadata-document-03](https://www.ietf.org/archive/id/draft-ietf-oauth-client-id-metadata-document-03.html)):
+the address has no query and no port; `client_id` is the address, character for character; the file
+offers `none`; and each return address is https on the file's origin. The broker ignores other
+return addresses, such as a loopback address, and keeps at most 8. The user sees the broker's page
+with the app's host before the provider. A file that answers 404 or is refused ends the app's
+sign-ins at the next read.
+
+## The CIMD layer
+
+For a broker's owner. The layer reads each client's file at `/authorize` through the broker's
+`Fetch`, and keeps a card while the file is fresh. A sign-in whose return address is not on the
+fresh card, but is https on the file's origin, reads the file again, so an app that adds an address
+does not wait, and each such request takes one read of the broker's budget. A card that nobody signs
+in with goes 24 hours after its last good read; after a sign-in it stays 14 days, as other temporary
+clients.
+
+```ts
+Registration.clientIdMetadataDocuments(); // any host: the broker needs `service`
+Registration.clientIdMetadataDocuments({ hosts: ["app.example.com", "*.previews.example.com"] });
+```
+
+| Option              | Default                    | What it does                                                 |
+| ------------------- | -------------------------- | ------------------------------------------------------------ |
+| `hosts`             | any host                   | The hosts that may sign in. `*.` matches one or more labels. |
+| `connectors`        | every configured connector | The connectors of the layer's clients.                       |
+| `fetchesPerMinute`  | 120                        | Reads of files for the whole broker. More get 429.           |
+| `newClientsPerHour` | 30                         | New clients for the whole broker. More get 429.              |
+
+Each host also has the sign-in budget of every client, 120 each minute, shared by every file of the
+host. To block a host at once, `POST /moderation/host-blocks` with
+`{ "action": "block", "host": "app.example.com" }` (`"unblock"` undoes it), on the moderation API
+that `Registration.githubActions` mounts ([Moderation](#moderation)). The block refuses each next
+step of its sign-ins; an access token that is already issued lives its 5 minutes.
+
+On Convex the broker must run in an HTTP action (as `convexBroker` mounts it), never in a
+`"use node"` action: only the default runtime refuses a fetch to a private address. Cloudflare
+Workers refuse one too. A broker with its own page function must show the host it is given.
+
+Known limits of this version:
+
+- No limit for each caller: the broker has no trusted caller address. One caller can spend the two
+  broker-wide budgets, and a new host then gets 429 until they refill; hosts with a fresh card are
+  not affected. Put a rate limit for each address at the edge in front of a public broker.
+- Two publishers on one host look the same on the page. On a host where people publish by path, use
+  `hosts`.
+- An app that removes its file and puts it back with the same return address can finish a sign-in
+  that started before the removal (a sign-in lives 10 minutes).
+- No loopback return address, no return address on another origin, no client with a key. Such a file
+  is accepted only for its https addresses on its own origin, and its keys are never read.
 
 ## On Convex
 
@@ -465,6 +541,7 @@ bound.
 | `GET`, `POST /moderation/connector-grants` | The connector grants; grant or revoke one                            |
 | `GET /moderation/clients`                  | The newest clients, or with `?owner=` those of one GitHub owner      |
 | `DELETE /moderation/clients/<client id>`   | Deletes one client                                                   |
+| `POST /moderation/host-blocks`             | Blocks or unblocks every client of one host of the CIMD layer        |
 
 A change applies at once: a block refuses the next step of each sign-in, and a grant or an exemption
 rewrites the clients it covers.
@@ -519,9 +596,10 @@ has `Cache-Control: no-store`. The typed client fails with the error's class.
 
 ## Write your own host
 
-`makeHandle(registration)` of `@samebase/identity-broker` is the whole broker: an Effect program
-from a `Request` to a `Response`. It never fails; an error answers 500. A host provides its
-services:
+`makeHandle(registration)` of `@samebase/identity-broker` makes the whole broker once, from the
+broker's settings: an Effect program from a `Request` to a `Response`. It fails when the layers'
+routes collide or a public layer has no `service`. The handler never fails; an error answers 500. A
+host provides its services:
 
 - `Store`: your storage (below).
 - `brokerSettings(settings)`: the issuer, the connectors, the service (optional) and the signing
@@ -604,9 +682,6 @@ export const makeStore = (database: DatabaseSync) => {
 
 export const makeBroker = (database: DatabaseSync) => {
   const { store } = makeStore(database);
-  const handle = makeHandle(
-    Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } }),
-  );
   const services = Layer.mergeAll(
     brokerSettings({
       issuer: "https://auth.example.com",
@@ -621,6 +696,11 @@ export const makeBroker = (database: DatabaseSync) => {
     Fetch.layer,
     Layer.succeed(Store, store),
     brokerLogger,
+  );
+  const handle = Effect.runSync(
+    makeHandle(Registration.keys({ preview: { key: Config.Redacted("BROKER_PREVIEW_KEY") } })).pipe(
+      Effect.provide(services),
+    ),
   );
   return {
     /** A fetch handler, for `Deno.serve`, `Bun.serve` or any server of `Request` and `Response`. */

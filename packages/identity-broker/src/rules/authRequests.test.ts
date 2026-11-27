@@ -20,8 +20,7 @@ const GATES = ["layer:repository:1", "layer:owner:65"];
 /** The client's credentials and the return address every request of these tests names. */
 const cl = {
   clientId: "cl",
-  clientSecretHash: "secret-hash",
-  tokenEndpointAuthMethod: "client_secret_post",
+  authentication: { method: "client_secret_post", secretHash: "secret-hash" },
   redirectUri: "https://app.test/cb",
 } as const;
 /** The return address of a step that read it on the card, with the app's state. */
@@ -30,8 +29,8 @@ const back = { redirectUri: cl.redirectUri, state: "s" };
 const card = (expires: boolean): Doc<"clients"> => ({
   clientId: cl.clientId,
   redirectUris: [cl.redirectUri, "https://app.test/other"],
-  tokenEndpointAuthMethod: cl.tokenEndpointAuthMethod,
-  secretHash: cl.clientSecretHash,
+  tokenEndpointAuthMethod: cl.authentication.method,
+  secretHash: cl.authentication.secretHash,
   connectors: CONNECTORS,
   connections: [],
   gates: GATES,
@@ -174,10 +173,7 @@ describe.each(hosts)("%s", (_name, make) => {
       claim(t);
       complete(t);
       const redeem = (
-        credentials: Pick<
-          Args<"authRequests.exchangeCode">,
-          "clientId" | "clientSecretHash" | "tokenEndpointAuthMethod"
-        >,
+        credentials: Pick<Args<"authRequests.exchangeCode">, "clientId" | "authentication">,
       ) => exchange(t, { ...credentials });
       return { t, redeem };
     };
@@ -196,8 +192,9 @@ describe.each(hosts)("%s", (_name, make) => {
     test("a client that fails authentication in the redemption leaves the code as it was", () => {
       const { t, redeem } = completedCode();
       for (const credentials of [
-        { ...cl, clientSecretHash: "wrong-hash" },
-        { ...cl, tokenEndpointAuthMethod: "client_secret_basic" as const },
+        { ...cl, authentication: { ...cl.authentication, secretHash: "wrong-hash" } },
+        { ...cl, authentication: { ...cl.authentication, method: "client_secret_basic" as const } },
+        { ...cl, authentication: { method: "none" as const } },
         { ...cl, clientId: "cl_unknown" },
       ]) {
         expect(redeem(credentials)).toEqual(refused);
@@ -252,7 +249,9 @@ describe.each(hosts)("%s", (_name, make) => {
       const { t, redeem } = completedCode();
       expect(redeem(cl)).toMatchObject({ ok: true, ref: "layer:1" });
       expect(codes(t)).toMatchObject([{ codeHash: "ch", usedAt: now }]);
-      expect(redeem({ ...cl, clientSecretHash: "wrong-hash" })).toEqual(refused);
+      expect(
+        redeem({ ...cl, authentication: { ...cl.authentication, secretHash: "wrong-hash" } }),
+      ).toEqual(refused);
       expect(codes(t)).toMatchObject([{ codeHash: "ch", usedAt: now }]);
       // The client's own replay revokes the code (RFC 9700 section 4.5.3).
       expect(redeem(cl)).toMatchObject({

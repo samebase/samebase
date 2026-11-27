@@ -524,8 +524,7 @@ const signInCommands: ReadonlyArray<Command> = [
     name: "authRequests.exchangeCode",
     args: {
       clientId: "client-1",
-      clientSecretHash: "s",
-      tokenEndpointAuthMethod: "client_secret_basic",
+      authentication: { method: "client_secret_basic", secretHash: "s" },
       redirectUri: "https://app.test/cb",
       codeHash: "ch",
       codeChallengeOfVerifier: "challenge",

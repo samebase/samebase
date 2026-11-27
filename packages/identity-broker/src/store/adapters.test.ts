@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { convexTest } from "convex-test";
-import { Cause, Clock, Effect, Exit } from "effect";
+import { Cause, Clock, Effect, Exit, Schema } from "effect";
 import { expect, test } from "vite-plus/test";
 import { checkStore, sqliteTestStore, type HostUnderTest } from "../core/testing/harness.ts";
 import { api } from "../hosts/convex/component/_generated/api.ts";
@@ -17,9 +17,9 @@ import { convexTx } from "../hosts/convex/tx.ts";
 import { sqliteStep } from "../hosts/nodeSqlite.ts";
 import { decodeCommand } from "./commands.ts";
 import { MemoryDb } from "./memory.ts";
-import { ensureLayout } from "./sql.ts";
+import { ensureLayout, layoutStatements } from "./sql.ts";
 import { microtaskScheduler, Store } from "./Store.ts";
-import type { Tables } from "./tables.ts";
+import { tables, type Tables } from "./tables.ts";
 import type { TxShape } from "./Tx.ts";
 
 const componentModules = import.meta.glob("../hosts/convex/component/**/*.ts");
@@ -165,6 +165,164 @@ test("a store saved by 0.36.0 keeps every row and gets the tables that this buil
   expect(() => sqliteTestStore(saved(stored.slice(0, stored.lastIndexOf(";\n"))), 2)).toThrow(
     "layout",
   );
+});
+
+/**
+ * Cards as 0.44.0 stores them, written by that version's own commands (`github.createClient` for a
+ * production and a preview client, `stack.createClient`, and a sign-in to its code exchange, which
+ * wrote `lastSignInAt`).
+ */
+const cards044 = [
+  {
+    clientId: "cl_production",
+    redirectUris: ["https://app.test/cb"],
+    tokenEndpointAuthMethod: "client_secret_basic",
+    secretHash: "4f2b8a0c1e9d7b6a5f3e2d1c0b9a8f7e6d5c4b3a29180f7e6d5c4b3a2918a0b1",
+    connectors: ["g"],
+    connections: [],
+    gates: ["github:repository:1", "github:owner:65"],
+    confirm: true,
+    budget: "github:gh-1",
+    ref: "github:gh-1",
+    createdAt: 1800000000000,
+    github: {
+      appId: "gh-1-web",
+      app: "web",
+      deploymentType: "production",
+      clientName: "prod",
+      softwareVersion: "1",
+      registrationTokenHash: "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a29180f7e6d5c4b3a2918a0b1c2d3e4",
+      renewedAt: 1800000000000,
+      registeredBy: {
+        kind: "github",
+        githubRepository: "owner-65/repo",
+        githubOwnerId: "65",
+        githubActorId: "9",
+        githubActorLogin: "actor",
+        commitSha: "sha",
+      },
+      enrollment: ["g"],
+    },
+    lastSignInAt: 1800000001000,
+  },
+  {
+    clientId: "cl_preview",
+    redirectUris: ["https://app.test/cb"],
+    tokenEndpointAuthMethod: "client_secret_post",
+    secretHash: "4f2b8a0c1e9d7b6a5f3e2d1c0b9a8f7e6d5c4b3a29180f7e6d5c4b3a2918a0b1",
+    connectors: ["g"],
+    connections: [],
+    gates: ["github:repository:1", "github:owner:65"],
+    confirm: true,
+    budget: "github:gh-1",
+    ref: "github:gh-1",
+    removeAt: 1801209600000,
+    createdAt: 1800000000000,
+    github: {
+      appId: "gh-1-web",
+      app: "web",
+      deploymentType: "preview",
+      clientName: "pr-1",
+      softwareVersion: "1",
+      registrationTokenHash: "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f809",
+      renewedAt: 1800000000000,
+      registeredBy: {
+        kind: "github",
+        githubRepository: "owner-65/repo",
+        githubOwnerId: "65",
+        githubActorId: "9",
+        githubActorLogin: "actor",
+        commitSha: "sha",
+      },
+      enrollment: ["g"],
+    },
+  },
+  {
+    clientId: "cl_stack",
+    redirectUris: ["https://app-pr-1.example.workers.dev/callback"],
+    tokenEndpointAuthMethod: "client_secret_post",
+    secretHash: "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+    connectors: ["g"],
+    connections: ["cloudflare"],
+    gates: ["stack:preview"],
+    confirm: false,
+    budget: "stack:preview",
+    ref: "stack:preview:pr-1",
+    removeAt: 1801209600000,
+    createdAt: 1800000000000,
+    stack: {
+      key: "preview",
+      name: "pr-1",
+      softwareId: "apps/example",
+      softwareVersion: "abc",
+      registrationTokenHash: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+      enrollment: ["g"],
+    },
+  },
+];
+
+test("a store of 0.44.0 opens as it is: the same SQL layout, and its cards decode on every store", async () => {
+  // The layout text that 0.44.0 records in `meta`, read from that version's `layoutStatements`: a
+  // changed layout would stop a live Durable Object until a migration.
+  const stored = readFileSync(new URL("./layout-0.44.0.sql", import.meta.url), "utf8").trimEnd();
+  expect(layoutStatements.join(";\n")).toBe(stored);
+  const decode = Schema.decodeUnknownSync(tables.clients.schema);
+  const byClientId = (rows: ReadonlyArray<{ readonly doc: unknown }>) => rows.map((row) => row.doc);
+
+  // Memory: the store checks each document on its write.
+  const memory = new MemoryDb();
+  expect(cards044.map((card) => decode(card))).toEqual(cards044);
+  memory.step((tx) =>
+    Effect.runSync(Effect.forEach(cards044, (card) => tx.insert("clients", decode(card)))),
+  );
+  expect(memory.contents().clients).toEqual(cards044);
+
+  // SQL: the rows as 0.44.0 wrote them, the document text and its key columns.
+  const database = freshSqlite();
+  for (const card of cards044) {
+    database
+      .prepare(
+        `INSERT INTO "clients" (doc, "clientId", "ref", "removeAt", "github.appId", "github.deploymentType") VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        JSON.stringify(card),
+        card.clientId,
+        card.ref,
+        card.removeAt ?? null,
+        card.github?.appId ?? null,
+        card.github?.deploymentType ?? null,
+      );
+  }
+  const read = (tx: TxShape<Tables>) =>
+    Effect.runSync(
+      Effect.forEach(cards044, (card) =>
+        tx.query("clients", "by_client_id", { eq: [card.clientId], order: "asc", limit: 2 }),
+      ),
+    ).flat();
+  expect(byClientId(sqliteStep(database, read))).toEqual(cards044);
+
+  // Convex: convex-test checks each raw document against the component's schema, and the
+  // adapter decodes it on its read.
+  const t = convexTest(componentSchema, componentModules);
+  const fromConvex = await t.run(async (ctx) => {
+    for (const card of cards044) {
+      await ctx.db.insert("clients", card);
+    }
+    return await Effect.runPromise(
+      Effect.forEach(cards044, (card) =>
+        // @ts-expect-error convex-test types `ctx.db` with the data model of the component's
+        // schema, whose tables come from a string-keyed record. At run time it is the reader
+        // that `queryGeneric` gives a command as `GenericDatabaseReader<GenericDataModel>`.
+        convexTx(ctx.db).query("clients", "by_client_id", {
+          eq: [card.clientId],
+          order: "asc",
+          limit: 2,
+        }),
+      ).pipe(Effect.map((rows) => byClientId(rows.flat()))),
+      { scheduler: microtaskScheduler() },
+    );
+  });
+  expect(fromConvex).toEqual(cards044);
 });
 
 test("a rule that suspends between two writes stores neither, and its late write meets a closed Tx", async () => {

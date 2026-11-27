@@ -2,10 +2,12 @@
 // provider of the core's tests (`fakeOidcUpstream` in src/core/testing/harness.ts), whose issuer,
 // client id and client secret these are. The test on a real backend (../backend.test.ts) serves
 // that provider and sets the environment variables of the local deployment: the signing keys and
-// `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner.
+// `IDP_CLIENT_SECRET`. The allow-list names the test's repository with its owner. The CIMD
+// layer is mounted beside the GitHub layer; the test serves a client's file on the provider's host.
 import { Config, Effect, Layer, Redacted } from "effect";
 import { convexBroker } from "../../../src/hosts/convex/broker.ts";
 import { BrokerConfig, brokerRuntime, Keys, SignInPage } from "../../../src/index.ts";
+import { clientIdMetadataDocuments } from "../../../src/layers/cimd/registration.ts";
 import { githubActions } from "../../../src/layers/github/routes.ts";
 import { moderation } from "../../../src/moderation/server.ts";
 import { components } from "./_generated/api.js";
@@ -64,12 +66,12 @@ const settings = Layer.unwrap(
 
 export const broker = convexBroker(
   components.identityBroker,
-  brokerRuntime(
-    settings,
+  brokerRuntime(settings, [
     githubActions([{ repositoryId: "1", ownerId: "65" }], {
       moderation: moderation({ key: Config.Redacted("MODERATION_KEY") }),
     }),
-  ),
+    clientIdMetadataDocuments(),
+  ]),
 );
 
 export const cleanup = broker.cleanup;

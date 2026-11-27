@@ -1,12 +1,16 @@
 // What a host of the broker needs, on any platform. The README's "Write your own host" shows its
 // use.
 
-// The broker: `makeHandle(registration, part)` gives `(request) => Effect<Response>`, where `part` is
-// what `makeIntegrations` of `./integrations` gives, or absent.
+// The broker: `makeHandle(registration, part)` gives, once at start, the handler
+// `(request) => Effect<Response>`, where `registration` is one layer or a list, and `part` is what
+// `makeIntegrations` of `./integrations` gives, or absent.
 export {
   brokerLogger,
   makeHandle,
+  type ClientRefusal,
+  type ClientResolver,
   type CoreServices,
+  type PrivateRegistration,
   type PublicRegistration,
   type Registration,
 } from "./core/router.ts";

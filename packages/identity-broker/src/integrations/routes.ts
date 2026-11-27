@@ -75,6 +75,10 @@ const tokenResponse = (tokens: typeof ProviderTokens.Type, now: number) =>
 const unavailable = () =>
   oauthError(503, "temporarily_unavailable", "The provider is unavailable. Retry shortly.");
 
+/** A refresh or a revocation with no client authentication: a public client has no connection. */
+const noSecret = () =>
+  oauthError(401, "invalid_client", "Client authentication failed.", challenge);
+
 /** The answer of RFC 6749 section 5.2 when the client's credentials could not be read. */
 const clientAuthError = (clientAuth: {
   readonly status: number;
@@ -353,6 +357,10 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
     if (!clientAuth.ok) {
       return clientAuthError(clientAuth);
     }
+    const client = clientAuth.value;
+    if (client.method === "none") {
+      return noSecret();
+    }
     const refreshToken = params.get("refresh_token");
     if (refreshToken === null) {
       return oauthError(400, "invalid_request", "refresh_token is required.");
@@ -371,7 +379,7 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
       return oauthError(400, "invalid_target", "Request one configured API resource.");
     }
     const admitted = yield* command("connections.admitRefresh", {
-      ...(yield* clientArgs(clientAuth.value)),
+      ...(yield* clientArgs(client)),
       resource: provider.resource,
       ...(yield* brokerNow),
       now: yield* Clock.currentTimeMillis,
@@ -392,7 +400,7 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
       }),
     );
     const line = {
-      clientId: clientAuth.value.clientId,
+      clientId: client.clientId,
       ref: admitted.ref,
       connector: provider.name,
     };
@@ -422,22 +430,25 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
       return yield* refresh(request, params);
     }
     const clientAuth = readClientAuthentication(request.headers.get("authorization"), params);
-    // Every request that the part does not take answers as the core answers it.
+    // Every request that the part does not take answers as the core answers it. A connection
+    // client has a secret, so a request with no client authentication is the core's.
     if (
       grantType !== "authorization_code" ||
       !clientAuth.ok ||
+      clientAuth.value.method === "none" ||
       params.getAll("resource").length > 1
     ) {
       return undefined;
     }
-    const validation = validateTokenRequest(params, clientAuth.value);
+    const client = clientAuth.value;
+    const validation = validateTokenRequest(params, client);
     if (!validation.ok) {
       return undefined;
     }
     const resource = params.get("resource") ?? undefined;
     const now = yield* Clock.currentTimeMillis;
     const exchange = yield* command("connections.exchangeCode", {
-      ...(yield* clientArgs(clientAuth.value)),
+      ...(yield* clientArgs(client)),
       codeHash: yield* sha256HexEffect(validation.value.code),
       redirectUri: validation.value.redirectUri,
       codeChallengeOfVerifier: yield* s256Challenge(validation.value.codeVerifier),
@@ -458,7 +469,7 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
     }
     logBrokerEvent({
       event: "connection",
-      clientId: clientAuth.value.clientId,
+      clientId: client.clientId,
       ref: exchange.ref,
       connector: nameOf(exchange.resource),
       reason: null,
@@ -485,6 +496,10 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
     if (!clientAuth.ok) {
       return clientAuthError(clientAuth);
     }
+    const client = clientAuth.value;
+    if (client.method === "none") {
+      return noSecret();
+    }
     const token = params.get("token");
     if (token === null) {
       return oauthError(400, "invalid_request", "token is required.");
@@ -494,14 +509,14 @@ export const integrationsPart = (providers: ReadonlyArray<Integration>): Part =>
     if (provider === undefined) {
       return oauthError(400, "invalid_target", "Request one configured API resource.");
     }
-    const ref = yield* command("connections.authenticate", yield* clientArgs(clientAuth.value));
+    const ref = yield* command("connections.authenticate", yield* clientArgs(client));
     if (ref === null) {
       return oauthError(401, "invalid_client", "Client authentication failed.", challenge);
     }
     const logRevoke = (reason: string | null) =>
       logBrokerEvent({
         event: "revoke",
-        clientId: clientAuth.value.clientId,
+        clientId: client.clientId,
         ref,
         connector: provider.name,
         reason,

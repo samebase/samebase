@@ -5,6 +5,7 @@
 import { Effect } from "effect";
 import { LEASE_MS } from "../../rules/clients.ts";
 import type { Step } from "../../rules/commands.ts";
+import type { TokenEndpointAuthMethod } from "../../rules/tables.ts";
 import type { Doc, Tables } from "../../store/tables.ts";
 import { allBelow, first, unique, type Row } from "../../store/Tx.ts";
 import type { AllowList as AllowListSchema, RemoveArgs, RenewArgs } from "./schemas.ts";
@@ -231,7 +232,7 @@ export interface NewCard {
   readonly clientId: string;
   readonly secretHash: string;
   readonly registrationTokenHash: string;
-  readonly tokenEndpointAuthMethod: Doc<"clients">["tokenEndpointAuthMethod"];
+  readonly tokenEndpointAuthMethod: typeof TokenEndpointAuthMethod.Type;
   readonly redirectUris: ReadonlyArray<string>;
   readonly clientName: string;
   readonly softwareVersion: string;
@@ -345,11 +346,14 @@ export const insertCard = Effect.fnUntraced(function* (args: NewCard) {
 /** The card of `clientId` with its `github` fields, when `registrationTokenHash` is its token's. */
 const managedCard = Effect.fnUntraced(function* (clientId: string, registrationTokenHash: string) {
   const card = yield* unique(yield* GithubTx, "clients", "by_client_id", [clientId]);
-  const client = card?.doc.github;
-  return card !== undefined &&
-    client !== undefined &&
-    client.registrationTokenHash === registrationTokenHash
-    ? { card, client }
+  if (card === undefined) {
+    return undefined;
+  }
+  const { id, doc } = card;
+  return doc.tokenEndpointAuthMethod !== "none" &&
+    doc.github !== undefined &&
+    doc.github.registrationTokenHash === registrationTokenHash
+    ? { card: { id, doc }, client: doc.github }
     : undefined;
 });
 

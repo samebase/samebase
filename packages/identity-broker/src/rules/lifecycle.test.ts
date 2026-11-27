@@ -8,7 +8,8 @@ import { rowsOf, seed, testHosts, type TestHost } from "./testing.ts";
 
 const hosts = testHosts(() => new DatabaseSync(":memory:"));
 
-const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 const NOW = 1_000 * DAY;
 
 /** A card; `layer` gives it fields of a layer beside the core's, which go with the row. */
@@ -16,6 +17,7 @@ const cardOf = (fields: {
   readonly clientId: string;
   readonly removeAt?: number;
   readonly layer?: true;
+  readonly budget?: string;
 }): Doc<"clients"> => ({
   clientId: fields.clientId,
   redirectUris: ["https://app.test/callback"],
@@ -25,7 +27,7 @@ const cardOf = (fields: {
   connections: [],
   gates: [],
   confirm: true,
-  budget: "test:app",
+  budget: fields.budget ?? "test:app",
   ref: "test:app",
   ...(fields.removeAt === undefined ? {} : { removeAt: fields.removeAt }),
   createdAt: 0,
@@ -74,6 +76,25 @@ describe.each(hosts)("%s", (_name, make) => {
       expect(
         rowsOf(t, "clients", "by_github_app_id_and_deployment_type").map((row) => row.clientId),
       ).toEqual(["at-cutoff", "ahead", "undated"]);
+    });
+
+    test("a deleted card takes its budget row when nothing spent from it for an hour", () => {
+      const t = make();
+      seed(t, "clients", [
+        cardOf({ clientId: "idle", removeAt: NOW - 1, budget: "idle" }),
+        cardOf({ clientId: "recent", removeAt: NOW - 1, budget: "recent" }),
+        cardOf({ clientId: "ahead", removeAt: NOW + 1, budget: "ahead" }),
+      ]);
+      seed(t, "signInBudgets", [
+        { key: "idle", tokens: 0, at: NOW - HOUR - 1 },
+        { key: "recent", tokens: 0, at: NOW - HOUR },
+        { key: "ahead", tokens: 0, at: 0 },
+      ]);
+      expect(cleanup(t)).toMatchObject({ clients: 2, more: false });
+      expect(rowsOf(t, "signInBudgets", "by_key").map((row) => row.key)).toEqual([
+        "ahead",
+        "recent",
+      ]);
     });
 
     test("a full batch of expired cards leaves the rest to the next call", () => {

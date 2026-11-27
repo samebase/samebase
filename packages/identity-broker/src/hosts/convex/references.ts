@@ -117,6 +117,26 @@ export const commandFunctions = (component: ComponentApi | typeof api): CommandF
     kind: "mutation",
     reference: component.stack.remove,
   },
+  "cimd.begin": {
+    kind: "mutation",
+    reference: component.cimd.begin,
+  },
+  "cimd.put": {
+    kind: "mutation",
+    reference: component.cimd.put,
+  },
+  "cimd.remove": {
+    kind: "mutation",
+    reference: component.cimd.remove,
+  },
+  "cimd.blockHost": {
+    kind: "mutation",
+    reference: component.cimd.blockHost,
+  },
+  "cimd.unblockHost": {
+    kind: "mutation",
+    reference: component.cimd.unblockHost,
+  },
   "connections.create": {
     kind: "mutation",
     reference: component.connections.create,
