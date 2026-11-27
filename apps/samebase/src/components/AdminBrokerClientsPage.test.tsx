@@ -17,6 +17,8 @@ const testState = vi.hoisted(() => {
     changeSignInPage: vi.fn(),
     changeConnectorGrant: vi.fn(),
     lookupRepository: vi.fn(),
+    readLoginBroker: vi.fn(),
+    changeLoginHostBlock: vi.fn(),
     navigate: vi.fn(),
     search,
   };
@@ -39,6 +41,12 @@ vi.mock("convex/react", async (importOriginal) => {
       }
       if (name === getFunctionName(api.brokerClients.moderation.lookupRepository)) {
         return testState.lookupRepository;
+      }
+      if (name === getFunctionName(api.brokerClients.moderation.readLoginBroker)) {
+        return testState.readLoginBroker;
+      }
+      if (name === getFunctionName(api.brokerClients.moderation.changeLoginHostBlock)) {
+        return testState.changeLoginHostBlock;
       }
       return testState.changeBlock;
     },
@@ -247,6 +255,9 @@ describe("AdminBrokerClientsPage", () => {
     testState.changeConnectorGrant.mockReset();
     testState.changeConnectorGrant.mockResolvedValue({ status: "on", result: "changed" });
     testState.lookupRepository.mockReset();
+    testState.readLoginBroker.mockReset();
+    testState.readLoginBroker.mockResolvedValue({ status: "off" });
+    testState.changeLoginHostBlock.mockReset();
     testState.navigate.mockReset();
     testState.search = {};
   });
@@ -758,6 +769,71 @@ describe("AdminBrokerClientsPage", () => {
         expectedOwnerId: "90",
         grant: false,
         reason: "Done",
+      });
+    } finally {
+      await page.unmount();
+    }
+  });
+
+  it("blocks a typed host and unblocks a row's host at login.samebase.com, each control off while one runs", async () => {
+    testState.readLoginBroker.mockResolvedValue({
+      status: "on",
+      siteList: {
+        clients: [
+          {
+            clientId: "https://notes.example.test/oauth-client.json",
+            host: "notes.example.test",
+            createdAt: 1,
+            lastSignInAt: null,
+          },
+        ],
+        limitReached: true,
+      },
+      hostBlockList: {
+        blocks: [{ host: "spam.example.test", createdAt: 2 }],
+        limitReached: false,
+      },
+    });
+    let finish: (answer: { status: "on"; changed: boolean }) => void = () => undefined;
+    testState.changeLoginHostBlock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    testState.changeLoginHostBlock.mockResolvedValue({ status: "on", changed: true });
+    const page = await renderPage();
+    try {
+      expect(page.rootElement.textContent).toContain(
+        "https://notes.example.test/oauth-client.json",
+      );
+      expect(page.rootElement.textContent).toContain("The newest 1 sites.");
+      await act(async () => button(page.rootElement, "Host blocks 1").click());
+
+      await act(async () =>
+        type(page.rootElement, "#admin-broker-clients-login-host", "other.example.test"),
+      );
+      await act(async () => {
+        button(page.rootElement, "Block").click();
+        await Promise.resolve();
+      });
+      expect(testState.changeLoginHostBlock).toHaveBeenLastCalledWith({
+        action: "block",
+        host: "other.example.test",
+      });
+      expect(button(page.rootElement, "Blocking...").disabled).toBe(true);
+      expect(button(page.rootElement, "Unblock").disabled).toBe(true);
+
+      await act(async () => {
+        finish({ status: "on", changed: true });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      await act(async () => {
+        button(page.rootElement, "Unblock").click();
+        await Promise.resolve();
+      });
+      expect(testState.changeLoginHostBlock).toHaveBeenLastCalledWith({
+        action: "unblock",
+        host: "spam.example.test",
       });
     } finally {
       await page.unmount();
