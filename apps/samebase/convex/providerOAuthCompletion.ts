@@ -6,12 +6,8 @@ import { vOAuthProvider } from "./oauthState";
 import { readRequiredEnv } from "./oauthUtils";
 import { completeConvexOAuth } from "./convexOAuth";
 import { completeCloudflareOAuth } from "./cloudflareOAuth";
-import { completeCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
-import {
-  buildProviderOAuthDefaultReturnUrl,
-  readProviderOAuthAuthorizationProvider,
-} from "../shared/providerOAuthReturn";
+import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { parseSiteOrigin } from "../shared/siteOrigin";
 
 const { string } = v;
@@ -40,7 +36,6 @@ export const completeProviderOAuth = action({
     const appOrigin = parseSiteOrigin(
       process.env["SITE_URL"] ?? readRequiredEnv("CONVEX_SITE_URL"),
     );
-    const authorizationProvider = readProviderOAuthAuthorizationProvider(args.provider);
     const organizationsUrl = new URL("/org", appOrigin).toString();
 
     const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
@@ -49,7 +44,7 @@ export const completeProviderOAuth = action({
     });
     if (oauthState === null) {
       return buildAuthorizationErrorUrl(organizationsUrl, {
-        provider: authorizationProvider,
+        provider: args.provider,
         code: "expired",
       });
     }
@@ -64,7 +59,7 @@ export const completeProviderOAuth = action({
         outcome: "started-by-another-account",
       });
       return buildAuthorizationErrorUrl(organizationsUrl, {
-        provider: authorizationProvider,
+        provider: args.provider,
         code: "started-by-another-account",
       });
     }
@@ -87,7 +82,7 @@ export const completeProviderOAuth = action({
         id: oauthState._id,
       });
       return buildAuthorizationErrorUrl(organizationsUrl, {
-        provider: authorizationProvider,
+        provider: args.provider,
         code: "failed",
       });
     }
@@ -102,7 +97,7 @@ export const completeProviderOAuth = action({
         outcome: "expired",
       });
       return buildAuthorizationErrorUrl(returnUrl, {
-        provider: authorizationProvider,
+        provider: args.provider,
         code: "expired",
       });
     }
@@ -112,8 +107,6 @@ export const completeProviderOAuth = action({
         return await completeConvexOAuth(ctx, { code: args.code, oauthState, returnUrl });
       case "cloudflare":
         return await completeCloudflareOAuth(ctx, { code: args.code, oauthState, returnUrl });
-      case "cloudflare_mcp":
-        return await completeCloudflareMcpOAuth(ctx, { code: args.code, oauthState, returnUrl });
       default:
         oauthState satisfies never;
         throw new Error("Unsupported OAuth provider.");

@@ -5,10 +5,10 @@
 - Status: Superseded
 - Owner: Noter platform + infra
 - Last updated: 2026-08-07
-- Superseded by: `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`,
+- Superseded by: `archive/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`,
   `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`, and
   `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
-- Runtime transport selection: Superseded by `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`
+- Runtime transport selection: Superseded by `archive/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`
 - Related specs:
   - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`

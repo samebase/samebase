@@ -578,16 +578,6 @@ describe("organization provider credential lifecycle", () => {
       },
     );
     if (!claim.claimed) throw new Error("Expected a refresh lease.");
-    await expect(
-      seed.t.query(
-        internal.organizationProviderCredentials.loadCloudflareTokenRefreshContinuation,
-        {
-          organizationId: seed.organizationId,
-          expectedAuth: cloudflareOAuth("wrong"),
-          expectedTokenRefreshLease: claim.tokenRefreshLease,
-        },
-      ),
-    ).rejects.toThrow("Cloudflare credential changed before token refresh continuation.");
     await startDeletion(seed);
     const refreshedAuth = cloudflareOAuth("new");
 

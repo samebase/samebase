@@ -81,7 +81,7 @@ describe("ProviderOAuthCompletionPage", () => {
   it("does not continue to a return URL on another origin", async () => {
     completeProviderOAuthMock.mockResolvedValue("https://evil.example/org/acme/providers");
 
-    await renderAt("/oauth/provider-complete#provider=cloudflare_mcp&state=state-value&code=code");
+    await renderAt("/oauth/provider-complete#provider=cloudflare&state=state-value&code=code");
 
     await vi.waitFor(() => {
       expect(navigateMock).toHaveBeenCalledTimes(1);

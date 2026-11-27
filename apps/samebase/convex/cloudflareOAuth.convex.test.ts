@@ -92,11 +92,6 @@ describe("Cloudflare connection refresh", () => {
       auth: { ...oauth, credentialExpiresAt: now + 60_000 },
       endpoint: "https://broker.example.test/token",
     },
-    {
-      name: "expired MCP OAuth",
-      auth: { ...oauth, method: "mcp_oauth" as const, clientId: "mcp-client" },
-      endpoint: "https://mcp.cloudflare.com/token",
-    },
   ])("refreshes $name under the token lease", async ({ auth, endpoint }) => {
     const seed = await seedConnection(auth);
     const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -106,11 +101,9 @@ describe("Cloudflare connection refresh", () => {
       const body = await request.formData();
       expect(body.get("grant_type")).toBe("refresh_token");
       expect(body.get("refresh_token")).toBe("old-refresh");
-      if (auth.method === "oauth") {
-        expect(body.get("client_id")).toBe("resource-client");
-        expect(body.get("client_secret")).toBe("resource-secret");
-        expect(body.get("resource")).toBe("https://api.cloudflare.com/client/v4/");
-      }
+      expect(body.get("client_id")).toBe("resource-client");
+      expect(body.get("client_secret")).toBe("resource-secret");
+      expect(body.get("resource")).toBe("https://api.cloudflare.com/client/v4/");
       const credentials = await seed.t.run(async (ctx) => await ctx.db.get(seed.credentialId));
       expect(credentials?.cloudflare?.tokenRefreshLease).toMatchObject({ startedAt: now });
       return Response.json({

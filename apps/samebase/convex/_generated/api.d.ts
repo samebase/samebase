@@ -29,8 +29,6 @@ import type * as brokerClients_moderation from "../brokerClients/moderation.js";
 import type * as brokerResourceOAuth from "../brokerResourceOAuth.js";
 import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.js";
 import type * as cloudflareApi from "../cloudflareApi.js";
-import type * as cloudflareMcp from "../cloudflareMcp.js";
-import type * as cloudflareMcpOAuth from "../cloudflareMcpOAuth.js";
 import type * as cloudflareOAuth from "../cloudflareOAuth.js";
 import type * as cloudflareProviderAccess from "../cloudflareProviderAccess.js";
 import type * as collaborative from "../collaborative.js";
@@ -215,8 +213,6 @@ declare const fullApi: ApiFromModules<{
   brokerResourceOAuth: typeof brokerResourceOAuth;
   cloudflareAccountDiscovery: typeof cloudflareAccountDiscovery;
   cloudflareApi: typeof cloudflareApi;
-  cloudflareMcp: typeof cloudflareMcp;
-  cloudflareMcpOAuth: typeof cloudflareMcpOAuth;
   cloudflareOAuth: typeof cloudflareOAuth;
   cloudflareProviderAccess: typeof cloudflareProviderAccess;
   collaborative: typeof collaborative;

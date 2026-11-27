@@ -106,11 +106,7 @@ export const vProviderOAuthStoreResult = union(
 );
 export type ProviderOAuthStoreResult = Infer<typeof vProviderOAuthStoreResult>;
 
-export const vOAuthProvider = union(
-  literal("convex"),
-  literal("cloudflare"),
-  literal("cloudflare_mcp"),
-);
+export const vOAuthProvider = union(literal("convex"), literal("cloudflare"));
 export type OAuthProvider = Infer<typeof vOAuthProvider>;
 
 const providerOAuthCallbackStateFields = {
@@ -134,16 +130,9 @@ export const vCloudflareProviderOAuthCallbackState = object({
   // Requests created before resource authorization expire without this verifier.
   codeVerifier: optional(string()),
 });
-export const vCloudflareMcpProviderOAuthCallbackState = object({
-  provider: literal("cloudflare_mcp"),
-  ...providerOAuthCallbackStateFields,
-  codeVerifier: string(),
-  clientId: string(),
-});
 export const vProviderOAuthCallbackState = union(
   vConvexProviderOAuthCallbackState,
   vCloudflareProviderOAuthCallbackState,
-  vCloudflareMcpProviderOAuthCallbackState,
 );
 
 export const organizationProviderCredentialTables = {

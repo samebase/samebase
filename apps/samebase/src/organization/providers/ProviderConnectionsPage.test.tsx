@@ -175,7 +175,7 @@ function providerPopupConfig(popup: Window | null = window) {
       popupRef: { current: popup },
     },
     cloudflare: {
-      completionEventTypes: ["cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"],
+      completionEventTypes: ["cloudflare-oauth-complete"],
       popupOriginRef,
       popupRef: { current: popup },
     },
@@ -803,7 +803,7 @@ describe("ProviderConnectionsPage", () => {
     );
   });
 
-  it.each(["convex-oauth-complete", "cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"])(
+  it.each(["convex-oauth-complete", "cloudflare-oauth-complete"])(
     "navigates the opener to the exact scoped URL for %s",
     (type) => {
       const navigate = vi.fn();

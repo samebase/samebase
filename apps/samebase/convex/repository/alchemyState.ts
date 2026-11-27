@@ -303,7 +303,6 @@ export async function assertRepositoryHasNoStack(
     case "unsupported_version":
       throw new ConvexError(CLOUDFLARE_STORE_UNREADABLE);
     case "not_connected":
-    case "unsupported_connection":
     case "no_store":
       break;
     default:

@@ -167,8 +167,6 @@ export const vCloudflareStacksRead = union(
   object({ state: literal("not_connected") }),
   /** Cloudflare refused the connection's token: an owner must connect again. */
   object({ state: literal("reconnect") }),
-  /** A Cloudflare MCP connection cannot upload the preview Worker that reads the store token. */
-  object({ state: literal("unsupported_connection") }),
   /** The account has no store that Samebase can find. */
   object({ state: literal("no_store") }),
   object({ state: literal("unsupported_version"), version: number() }),

@@ -432,11 +432,6 @@ export async function readRepositoryCloudflareStacks(
   if (connection === null) {
     return { state: "not_connected" };
   }
-  // An MCP connection reaches the API only through Cloudflare's MCP server, which cannot upload
-  // the preview Worker that reads the store token.
-  if (connection.auth.method === "mcp_oauth") {
-    return { state: "unsupported_connection" };
-  }
   const token = (
     await openSecret({
       sealed: connection.auth.credential,

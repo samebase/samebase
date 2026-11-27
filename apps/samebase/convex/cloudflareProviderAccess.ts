@@ -13,12 +13,7 @@ import * as user from "@distilled.cloud/cloudflare/user";
 import * as workers from "@distilled.cloud/cloudflare/workers";
 import * as workersBuilds from "@distilled.cloud/cloudflare/workers_builds";
 
-import {
-  resolveCloudflareApiTransport,
-  runCloudflare,
-  type CloudflareApiTransport,
-} from "./cloudflareApi";
-import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
+import { runCloudflare } from "./cloudflareApi";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 import { openSecret } from "./sealedSecret";
@@ -36,11 +31,7 @@ const CLOUDFLARE_OAUTH_SCOPES = [
   "offline_access",
 ] as const;
 
-const vCloudflareProviderAuthMethod = union(
-  literal("api_key"),
-  literal("oauth"),
-  literal("mcp_oauth"),
-);
+const vCloudflareProviderAuthMethod = union(literal("api_key"), literal("oauth"));
 
 const vCloudflareAccessCheckKey = union(
   literal("token"),
@@ -165,17 +156,13 @@ export const checkCloudflareConnectionAccess = action({
         aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
       })
     ).trim();
-    const transport = resolveCloudflareApiTransport(authMethod);
     const checks: CloudflareAccessCheck[] = [];
 
     if (authMethod === "api_key") {
       const tokenProbe = await runCloudflareProbe({
         key: "token",
         run: async () => {
-          await checkCloudflareApiTokenAccess({
-            token,
-            transport,
-          });
+          await runCloudflare(token, user.verifyToken({}));
         },
       });
       checks.push(tokenProbe.check);
@@ -193,10 +180,7 @@ export const checkCloudflareConnectionAccess = action({
     const rawAccountsProbe = await runCloudflareProbe({
       key: "accounts",
       run: async () => {
-        const accounts = await listCloudflareAccountsForToken({
-          token,
-          transport,
-        });
+        const accounts = await listCloudflareAccountsForToken(token);
         return accounts.filter((account) => account.accountId === configuredAccount.accountId);
       },
     });
@@ -220,21 +204,19 @@ export const checkCloudflareConnectionAccess = action({
         runCloudflareProbe({
           key: "workers",
           run: async () => {
-            await checkCloudflareWorkersAccess({
-              accountId: configuredVisibleAccount.accountId,
+            await runCloudflare(
               token,
-              transport,
-            });
+              workers.getAccountSetting({ accountId: configuredVisibleAccount.accountId }),
+            );
           },
         }),
         runCloudflareProbe({
           key: "workers_builds",
           run: async () => {
-            await checkCloudflareWorkersBuildsAccess({
-              accountId: configuredVisibleAccount.accountId,
+            await runCloudflare(
               token,
-              transport,
-            });
+              workersBuilds.getAccountLimits({ accountId: configuredVisibleAccount.accountId }),
+            );
           },
         }),
       ]);
@@ -278,43 +260,12 @@ async function runCloudflareProbe<Value>({
   }
 }
 
-async function checkCloudflareApiTokenAccess(args: {
-  token: string;
-  transport: CloudflareApiTransport;
-}): Promise<void> {
-  await runCloudflare(args, user.verifyToken({}));
-}
-
-async function checkCloudflareWorkersAccess({
-  accountId,
-  token,
-  transport,
-}: {
-  accountId: string;
-  token: string;
-  transport: CloudflareApiTransport;
-}): Promise<void> {
-  await runCloudflare({ token, transport }, workers.getAccountSetting({ accountId }));
-}
-
-async function checkCloudflareWorkersBuildsAccess({
-  accountId,
-  token,
-  transport,
-}: {
-  accountId: string;
-  token: string;
-  transport: CloudflareApiTransport;
-}): Promise<void> {
-  await runCloudflare({ token, transport }, workersBuilds.getAccountLimits({ accountId }));
-}
-
 function buildCloudflareOAuthTokenCheck({
   auth,
   tokenHealth,
   checkedAt,
 }: {
-  auth: Extract<ResolvedCloudflareConnection["auth"], { method: "oauth" | "mcp_oauth" }>;
+  auth: Extract<ResolvedCloudflareConnection["auth"], { method: "oauth" }>;
   tokenHealth?: McpTokenHealth;
   checkedAt: number;
 }): CloudflareAccessCheck {
@@ -370,8 +321,6 @@ function getCloudflareRequestedScopes(
       return [];
     case "oauth":
       return CLOUDFLARE_OAUTH_SCOPES.map((scope) => ({ scope }));
-    case "mcp_oauth":
-      return CLOUDFLARE_MCP_OAUTH_SCOPES.map((scope) => ({ scope }));
     default:
       authMethod satisfies never;
       return [];

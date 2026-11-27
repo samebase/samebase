@@ -1,6 +1,5 @@
 import { httpRouter } from "convex/server";
 import { routeAll } from "@samebase/convex-hosting";
-import { finishCloudflareMcpOAuth } from "./cloudflareMcpOAuth";
 import { finishGitHubAppInstallation, finishBrokerOAuth } from "./githubAppInstallation";
 import {
   authorizeMcpOauthRequest,
@@ -58,12 +57,6 @@ http.route({
   path: "/oauth/hub/callback",
   method: "GET",
   handler: finishBrokerOAuth,
-});
-
-http.route({
-  path: "/oauth/cloudflare-mcp/callback",
-  method: "GET",
-  handler: finishCloudflareMcpOAuth,
 });
 
 http.route({

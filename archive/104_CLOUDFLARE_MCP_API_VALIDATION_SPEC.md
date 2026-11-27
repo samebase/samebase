@@ -1,6 +1,7 @@
 # 104 Cloudflare MCP API Validation Spec
 
-Status: Accepted
+Status: Superseded on 2026-11-27. Samebase calls Cloudflare through `@distilled.cloud/cloudflare`
+and no longer has a Cloudflare MCP connection.
 
 ## Problem
 

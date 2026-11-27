@@ -677,14 +677,6 @@ describe("the stack check before a GitHub repository deletion", () => {
     method: "api_key" as const,
     credential: testCredential("cloudflare-api-token"),
   };
-  /** A Cloudflare MCP connection whose token is still valid, so the resolver refreshes nothing. */
-  const mcpAuth = {
-    method: "mcp_oauth" as const,
-    credential: testCredential("cloudflare-mcp-token"),
-    refreshCredential: testCredential("cloudflare-mcp-refresh"),
-    credentialExpiresAt: Date.now() + 3_600_000,
-    clientId: "mcp-client",
-  };
   const cloudflareRun = {
     version: 1,
     repository: "acme/app",
@@ -705,7 +697,7 @@ describe("the stack check before a GitHub repository deletion", () => {
   async function requestDeletionWithCloudflare(
     cloudflareStoreReplies: Record<string, unknown>,
     urls: Partial<Record<string, () => Response>> = {},
-    auth: typeof apiKeyAuth | typeof mcpAuth | null = apiKeyAuth,
+    auth: typeof apiKeyAuth | null = apiKeyAuth,
   ) {
     const t = makeConvexTest();
     const { ids, user } = await seedAlchemyRepository(t);
@@ -830,7 +822,6 @@ describe("the stack check before a GitHub repository deletion", () => {
       urls: { [`${cloudflareStore}/version`]: () => new Response(null, { status: 404 }) },
       store: {},
     },
-    { outcome: "unsupported_connection", auth: mcpAuth, urls: {}, store: {} },
     { outcome: "not_connected", auth: null, urls: {}, store: {} },
   ])("passes when the Cloudflare read is $outcome", async ({ auth, urls, store }) => {
     await expect(requestDeletionWithCloudflare(store, urls, auth)).rejects.toThrow(passedTheCheck);

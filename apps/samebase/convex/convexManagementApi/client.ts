@@ -134,7 +134,6 @@ export function createConvexManagementClient(args: {
         phase: response ? "response" : "request",
         method,
         path: options.url,
-        transport: null,
         issues: error.issues,
       });
       if (!response)
@@ -146,7 +145,6 @@ export function createConvexManagementClient(args: {
         provider: "convex",
         method,
         path: options.url,
-        transport: null,
         reason: "invalid_json",
       });
     }

@@ -8,7 +8,6 @@ import type { ProviderOAuthStoreResult } from "./organization/providerCredential
 export type AuthorizationCompletionEventType =
   | "convex-oauth-complete"
   | "cloudflare-oauth-complete"
-  | "cloudflare-mcp-oauth-complete"
   | "github-app-setup-complete";
 
 export function classifyAuthorizationCallbackError(

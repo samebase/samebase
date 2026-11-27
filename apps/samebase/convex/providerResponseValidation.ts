@@ -15,7 +15,6 @@ export function logProviderValidationFailure(args: {
   phase: "request" | "response";
   method: string;
   path: string;
-  transport: "direct" | "mcp" | null;
   issues: readonly Pick<BaseIssue<unknown>, "kind" | "type" | "expected">[];
 }) {
   const topic =
@@ -29,7 +28,6 @@ export function logProviderValidationFailure(args: {
       provider: args.provider,
       method: args.method,
       path: args.path,
-      transport: args.transport,
       issue_count: args.issues.length,
       issues: args.issues.map(({ kind, type, expected }) => ({ kind, type, expected })),
     })}`,
@@ -40,7 +38,6 @@ export function logProviderResponseParseFailure(args: {
   provider: "cloudflare" | "convex";
   method: string;
   path: string;
-  transport: "direct" | "mcp" | null;
   reason: "invalid_json" | "non_object_response";
 }) {
   console.error(
@@ -50,7 +47,6 @@ export function logProviderResponseParseFailure(args: {
       provider: args.provider,
       method: args.method,
       path: args.path,
-      transport: args.transport,
       reason: args.reason,
     })}`,
   );

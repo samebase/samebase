@@ -307,8 +307,8 @@ not copy provider domain or URL state into a Convex table.
 
 ## Runtime Configuration
 
-Cloudflare `oauth` and `api_key` credentials call `api.cloudflare.com` directly. Only legacy
-`mcp_oauth` credentials call the Cloudflare MCP server.
+Cloudflare `oauth` and `api_key` credentials call `api.cloudflare.com` directly through
+`@distilled.cloud/cloudflare`.
 
 For Cloudflare, `api_key` stores a user API token, not a global API key or an account-owned token.
 Workers Builds currently accepts only user API tokens as build credentials.
@@ -324,10 +324,6 @@ Each deployment registers its `/oauth/hub/callback` at the hub, as a second retu
 one client, next to the sign-in's `/auth/hub/callback`. Provider client secrets and fixed provider
 callback URLs are configured on the hub, in
 [apps/samebase/identity-hub](../apps/samebase/identity-hub/index.ts).
-
-Legacy Cloudflare MCP OAuth route, kept for existing rows only:
-
-- `PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL`
 
 Repository default branch:
 

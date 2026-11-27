@@ -71,15 +71,6 @@ function stubResourceBroker(): void {
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
 }
 
-function stubCloudflareRefreshFailure(detail: string): void {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () =>
-      cloudflareFailureResponse({ error: "invalid_grant", error_description: detail }, 400),
-    ),
-  );
-}
-
 function convexProjectResponse() {
   return {
     createTime: 1_710_000_000_000,
@@ -136,7 +127,7 @@ async function readActionError(operation: Promise<unknown>): Promise<Error> {
 }
 
 async function seedProviderOrganization(options?: {
-  cloudflareAuthMethod?: "api_key" | "oauth" | "mcp_oauth";
+  cloudflareAuthMethod?: "api_key" | "oauth";
   cloudflareState?: "connected" | "not_configured";
   convexAuthMethod?: "api_key" | "oauth";
 }) {
@@ -214,18 +205,10 @@ async function seedProviderOrganization(options?: {
                         refreshCredential: testCredential("refresh-token"),
                         credentialExpiresAt: 0,
                       }
-                    : options?.cloudflareAuthMethod === "mcp_oauth"
-                      ? {
-                          method: "mcp_oauth" as const,
-                          credential: testCredential("expired-access-token"),
-                          refreshCredential: testCredential("refresh-token"),
-                          credentialExpiresAt: 0,
-                          clientId: "dynamic-client-id",
-                        }
-                      : {
-                          method: "api_key" as const,
-                          credential: testCredential("cloudflare-credential"),
-                        },
+                    : {
+                        method: "api_key" as const,
+                        credential: testCredential("cloudflare-credential"),
+                      },
                 connectedByUserId: userId,
                 updatedAt: 1,
               },
@@ -317,7 +300,7 @@ describe("organization provider status", () => {
 
   it("shows the OAuth connector to organization owners", async () => {
     const { memberId, organizationId, t, userId } = await seedProviderOrganization({
-      cloudflareAuthMethod: "mcp_oauth",
+      cloudflareAuthMethod: "oauth",
       convexAuthMethod: "oauth",
     });
     await t.run(async (ctx) => {
@@ -342,7 +325,7 @@ describe("organization provider status", () => {
     await expect(
       asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
     ).resolves.toMatchObject({
-      authMethod: "mcp_oauth",
+      authMethod: "oauth",
       connectedBy: { kind: "displayName", label: "Provider Owner" },
       state: "connected",
     });
@@ -521,32 +504,29 @@ describe("organization provider status", () => {
     ).resolves.toEqual(teamBefore);
   });
 
-  it.each(["oauth", "mcp_oauth"] as const)(
-    "disconnects Cloudflare $method locally without an upstream request",
-    async (cloudflareAuthMethod) => {
-      const { organizationId, t, userId } = await seedProviderOrganization({
-        cloudflareAuthMethod,
-      });
-      const asOwner = t.withIdentity({
-        subject: userId,
-        tokenIdentifier: `test:${userId}`,
-      });
-      const fetch = vi.fn();
-      vi.stubGlobal("fetch", fetch);
+  it("disconnects Cloudflare OAuth locally without an upstream request", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization({
+      cloudflareAuthMethod: "oauth",
+    });
+    const asOwner = t.withIdentity({
+      subject: userId,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
 
-      await expect(
-        asOwner.action(api.users.disconnectCloudflare, { organizationId }),
-      ).resolves.toBeNull();
-      expect(fetch).not.toHaveBeenCalled();
-      await expect(
-        asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
-      ).resolves.toEqual({
-        state: "disconnected",
-        accountId: primaryCloudflareAccountId,
-        accountName: "Primary account",
-      });
-    },
-  );
+    await expect(
+      asOwner.action(api.users.disconnectCloudflare, { organizationId }),
+    ).resolves.toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      state: "disconnected",
+      accountId: primaryCloudflareAccountId,
+      accountName: "Primary account",
+    });
+  });
 
   it("connects a Cloudflare API token to its only accessible account", async () => {
     const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
@@ -1078,81 +1058,5 @@ describe("organization provider status", () => {
         aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),
       }),
     ).resolves.toBe("refreshed-refresh-token");
-  });
-
-  it("clears a shared MCP refresh lease when account deletion wins the return race", async () => {
-    const { memberId, organizationId, providerCredentialsId, t, userId } =
-      await seedProviderOrganization({ cloudflareAuthMethod: "mcp_oauth" });
-    await t.run(async (ctx) => {
-      const credentials = await ctx.db.get(providerCredentialsId);
-      if (credentials?.cloudflare === undefined) {
-        throw new Error("Expected a Cloudflare credential.");
-      }
-      await ctx.db.patch(credentials._id, {
-        cloudflare: { ...credentials.cloudflare, connectedByUserId: memberId },
-      });
-    });
-    const asOwner = t.withIdentity({
-      subject: userId,
-      tokenIdentifier: `test:${userId}`,
-    });
-    const fetch = vi.fn(async (input: string | URL | Request) => {
-      const url = input instanceof Request ? input.url : input.toString();
-      expect(url).toBe("https://mcp.cloudflare.com/token");
-      await t.run(async (ctx) => {
-        await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
-      });
-      return Response.json({
-        access_token: "new-access-token",
-        refresh_token: "new-refresh-token",
-        expires_in: 3_600,
-      });
-    });
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      asOwner.action(api.users.refreshCloudflareMcpTokenIfNeeded, {
-        organizationId,
-        force: true,
-      }),
-    ).rejects.toThrow("Provider credentials are unavailable during account deletion.");
-
-    const credentials = await t.run(async (ctx) => await ctx.db.get(providerCredentialsId));
-    expect(credentials).toMatchObject({
-      cloudflare: { connectedByUserId: memberId, auth: { method: "mcp_oauth" } },
-    });
-    const auth = credentials?.cloudflare?.auth;
-    if (auth?.method !== "mcp_oauth") {
-      throw new Error("Expected the Cloudflare MCP credential.");
-    }
-    await expect(
-      openSecret({
-        sealed: auth.credential,
-        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.credential"),
-      }),
-    ).resolves.toBe("new-access-token");
-    await expect(
-      openSecret({
-        sealed: auth.refreshCredential,
-        aad: organizationProviderCredentialAad(organizationId, "cloudflare.auth.refreshCredential"),
-      }),
-    ).resolves.toBe("new-refresh-token");
-    expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();
-    expect(fetch).toHaveBeenCalledOnce();
-  });
-
-  it("preserves MCP refresh errors at the shared resolver boundary", async () => {
-    const { organizationId, t, userId } = await seedProviderOrganization({
-      cloudflareAuthMethod: "mcp_oauth",
-    });
-    stubCloudflareRefreshFailure("private refresh detail");
-
-    const error = await readActionError(
-      t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-        organizationId,
-        userId,
-      }),
-    );
-    expect(error.message).toContain("private refresh detail");
   });
 });

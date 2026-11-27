@@ -1,15 +1,12 @@
 import { includes } from "@samebase/dependent/main";
 
 import { parseSiteOrigin } from "./siteOrigin";
-import {
-  removeAuthorizationSensitiveSearchParams,
-  type AuthorizationProvider,
-} from "./authorizationError";
+import { removeAuthorizationSensitiveSearchParams } from "./authorizationError";
 import { createUrlSearchParams, readUrlSearchParamsRecord } from "./urlSearchParams";
 
 export const PROVIDER_OAUTH_COMPLETION_ROUTE = "/oauth/provider-complete";
 
-const PROVIDER_OAUTH_COMPLETION_PROVIDERS = ["convex", "cloudflare", "cloudflare_mcp"] as const;
+const PROVIDER_OAUTH_COMPLETION_PROVIDERS = ["convex", "cloudflare"] as const;
 type ProviderOAuthCompletionProvider = (typeof PROVIDER_OAUTH_COMPLETION_PROVIDERS)[number];
 
 /**
@@ -51,21 +48,6 @@ export function readProviderOAuthAppOrigin(args: {
   return args.configuredAppUrl
     ? parseSiteOrigin(args.configuredAppUrl)
     : new URL("/", args.requestUrl);
-}
-
-export function readProviderOAuthAuthorizationProvider(
-  provider: ProviderOAuthCompletionProvider,
-): Extract<AuthorizationProvider, "convex" | "cloudflare"> {
-  switch (provider) {
-    case "convex":
-      return "convex";
-    case "cloudflare":
-    case "cloudflare_mcp":
-      return "cloudflare";
-    default:
-      provider satisfies never;
-      throw new Error("Unsupported OAuth provider.");
-  }
 }
 
 export function buildProviderOAuthDefaultReturnUrl(args: {
