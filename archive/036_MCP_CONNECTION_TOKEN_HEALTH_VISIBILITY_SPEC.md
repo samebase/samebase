@@ -5,7 +5,7 @@
 - Status: Superseded
 - Owner: Noter platform
 - Last updated: 2026-08-07
-- Superseded by: `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md` and
+- Superseded by: `archive/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md` and
   `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Related specs:
   - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`

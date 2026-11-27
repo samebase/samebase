@@ -19,7 +19,6 @@ import {
 import { readAuthorizationCompletionReturnTo } from "@/lib/authorizationCompletionMessage";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/organization/providers/githubAppSetupFlow";
-import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -42,8 +41,6 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../../shared/cloudflareTokenRefresh";
 import type { AuthorizationError } from "../../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
@@ -114,7 +111,6 @@ type ApiCheckViewModel = {
   target: string;
 };
 type ProviderDisconnectResult = (typeof api.users.disconnectConvex)["_returnType"];
-type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "poll";
 type GitHubUserAuthorizationRequestState = "idle" | "authorizing" | "revoking";
 export type ProviderConnectionsPageConnectionState = {
   cloudflareAccess: AppCloudflareConnectionAccess | null;
@@ -158,7 +154,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     popupName: "convex-oauth",
   },
   cloudflare: {
-    completionEventTypes: ["cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"],
+    completionEventTypes: ["cloudflare-oauth-complete"],
     icon: <CloudflareProviderLogo />,
     label: "Cloudflare",
     oauthButtonLabel: "Cloudflare OAuth",
@@ -180,17 +176,13 @@ const GITHUB_ACCESS_CHECKS = [
   { key: "installation", target: "/app/installations/{installation_id}" },
 ] satisfies readonly ProviderAccessCheckDefinition[];
 
-function formatAuthMethod(
-  method: "oauth" | "mcp_oauth" | "api_key" | undefined,
-  kind: "Team" | "Account",
-) {
+function formatAuthMethod(method: "oauth" | "api_key" | undefined, kind: "Team" | "Account") {
   if (method === "api_key") return kind === "Account" ? "API token" : "API key";
   if (method === "oauth") return "OAuth";
-  if (method === "mcp_oauth") return "OAuth";
   return "Unknown";
 }
 
-function getCloudflareManageAccessUrl(authMethod: "oauth" | "mcp_oauth" | "api_key" | undefined) {
+function getCloudflareManageAccessUrl(authMethod: "oauth" | "api_key" | undefined) {
   if (authMethod === "api_key") {
     return "https://dash.cloudflare.com/profile/api-tokens";
   }
@@ -239,7 +231,7 @@ function ProviderTargetStatus({
   name,
   state,
 }: {
-  authMethod: "oauth" | "mcp_oauth" | "api_key" | undefined;
+  authMethod: "oauth" | "api_key" | undefined;
   connectedBy?: string;
   href?: string;
   kind: "Team" | "Account";
@@ -574,7 +566,7 @@ function ProviderAccessChecks({
 }
 
 function getCloudflareAccessChecks(
-  authMethod: "oauth" | "mcp_oauth" | "api_key",
+  authMethod: "oauth" | "api_key",
 ): readonly ProviderAccessCheckDefinition[] {
   const checks: ProviderAccessCheckDefinition[] = [
     { key: "accounts", target: "/accounts" },
@@ -597,13 +589,13 @@ function getConvexRemediation(authMethod: "oauth" | "api_key"): string {
   return authMethod === "oauth" ? "Reauthorize Convex." : "Update the Convex token.";
 }
 
-function getCloudflareCredentialRemediation(authMethod: "oauth" | "mcp_oauth" | "api_key"): string {
+function getCloudflareCredentialRemediation(authMethod: "oauth" | "api_key"): string {
   return authMethod === "api_key" ? "Update the Cloudflare API token." : "Reconnect Cloudflare.";
 }
 
 function getCloudflareRemediation(
   key: AppCloudflareConnectionAccess["checks"][number]["key"],
-  authMethod: "oauth" | "mcp_oauth" | "api_key",
+  authMethod: "oauth" | "api_key",
 ): string {
   const persistentFailureAction =
     authMethod === "api_key" ? "update the Cloudflare API token" : "reconnect Cloudflare";
@@ -666,7 +658,7 @@ function CloudflareConnectionDetails({
   isChecking,
 }: {
   access: AppCloudflareConnectionAccess | null;
-  authMethod: "oauth" | "mcp_oauth" | "api_key";
+  authMethod: "oauth" | "api_key";
   error: boolean;
   isChecking: boolean;
 }) {
@@ -1052,7 +1044,7 @@ export function ProviderConnectionsPageView({
       ]
     : [];
   const getCloudflareCredentialAction = (
-    authMethod: "oauth" | "mcp_oauth" | "api_key",
+    authMethod: "oauth" | "api_key",
   ): ProviderConnectionActionViewModel =>
     authMethod === "api_key"
       ? {
@@ -1258,98 +1250,6 @@ function useProviderOAuthPopupCompletionNavigation({
   }, [cloudflarePopupOriginRef, cloudflarePopupRef, convexPopupOriginRef, convexPopupRef]);
 }
 
-function useCloudflareMcpTokenAutoCheck({
-  cloudflareConnection,
-  organizationId,
-  refreshCloudflareMcpTokenIfNeeded,
-}: {
-  cloudflareConnection: AppCloudflareConnection | undefined;
-  organizationId: Id<"organizations"> | null;
-  refreshCloudflareMcpTokenIfNeeded: (args: {
-    force: false;
-    organizationId: Id<"organizations">;
-    trigger: CloudflareTokenAutoCheckTrigger;
-  }) => Promise<unknown>;
-}) {
-  const cloudflareAutoCheckInFlightRef = useRef(false);
-  const credentialedCloudflareConnection =
-    cloudflareConnection?.state === "connected" ? cloudflareConnection : null;
-
-  useEffect(() => {
-    if (credentialedCloudflareConnection?.authMethod !== "mcp_oauth" || organizationId === null) {
-      return;
-    }
-
-    const debounceKey = organizationId;
-    const runAutoCheck = (trigger: CloudflareTokenAutoCheckTrigger) => {
-      if (cloudflareAutoCheckInFlightRef.current) {
-        return;
-      }
-      if (
-        !claimRefreshDebounce(
-          "cloudflare_token",
-          debounceKey,
-          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
-        )
-      ) {
-        return;
-      }
-
-      cloudflareAutoCheckInFlightRef.current = true;
-      void refreshCloudflareMcpTokenIfNeeded({ organizationId, trigger, force: false })
-        .catch((error: unknown) => {
-          console.error("Failed to auto-check Cloudflare token:", error);
-        })
-        .finally(() => {
-          releaseRefreshDebounce("cloudflare_token", debounceKey);
-          cloudflareAutoCheckInFlightRef.current = false;
-        });
-    };
-
-    const handleFocus = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      runAutoCheck("focus");
-    };
-
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === "visible";
-      if (isVisible) {
-        runAutoCheck("visibility");
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const pollId = window.setInterval(() => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      if (
-        typeof credentialedCloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
-        Date.now() < credentialedCloudflareConnection.mcpTokenNextAutoCheckAt
-      ) {
-        return;
-      }
-      runAutoCheck("poll");
-    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.clearInterval(pollId);
-      cloudflareAutoCheckInFlightRef.current = false;
-    };
-  }, [
-    credentialedCloudflareConnection?.authMethod,
-    credentialedCloudflareConnection?.mcpTokenNextAutoCheckAt,
-    organizationId,
-    refreshCloudflareMcpTokenIfNeeded,
-  ]);
-}
-
 export function ProviderConnectionsPage({
   authorizationError = null,
   organization,
@@ -1371,7 +1271,6 @@ export function ProviderConnectionsPage({
   const getGitHubUserAuthorizationUrl = useMutation(
     api.githubAppInstallation.getGitHubUserAuthorizationUrl,
   );
-  const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectCloudflareWithApiToken = useAction(api.users.connectCloudflareWithApiToken);
   const disconnectConvex = useAction(api.users.disconnectConvex);
@@ -1535,11 +1434,6 @@ export function ProviderConnectionsPage({
     cloudflarePopupRef,
     convexPopupOriginRef,
     convexPopupRef,
-  });
-  useCloudflareMcpTokenAutoCheck({
-    cloudflareConnection,
-    organizationId,
-    refreshCloudflareMcpTokenIfNeeded,
   });
 
   const handleConnect = async (provider: ProviderKey) => {

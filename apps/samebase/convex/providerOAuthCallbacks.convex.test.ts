@@ -2,8 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const providerMocks = vi.hoisted(() => ({
   fetchConvexTeamTokenDetails: vi.fn(),
-  createCloudflareClient: vi.fn(),
-  getCloudflareAccounts: vi.fn(),
+  runCloudflare: vi.fn(),
 }));
 
 vi.mock("./convexManagementApi/client", async (importOriginal) => {
@@ -14,21 +13,10 @@ vi.mock("./convexManagementApi/client", async (importOriginal) => {
   };
 });
 
-vi.mock("./cloudflareApi/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./cloudflareApi/client")>();
-  return {
-    ...actual,
-    createCloudflareClient: providerMocks.createCloudflareClient.mockImplementation(
-      actual.createCloudflareClient,
-    ),
-  };
+vi.mock("./cloudflareApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./cloudflareApi")>();
+  return { ...actual, runCloudflare: providerMocks.runCloudflare };
 });
-
-vi.mock("./cloudflareApi/generated/sdk.gen", () => ({
-  Cloudflare: {
-    GET: { "/accounts": providerMocks.getCloudflareAccounts },
-  },
-}));
 
 // t.fetch loads convex/http.ts, which imports these modules that only a build and a deploy write.
 vi.mock("../dist/server/server.js", () => ({ default: { fetch: async () => new Response() } }));
@@ -56,39 +44,9 @@ const callbackScenarios = [
     path: "/oauth/hub/callback",
     accessChange: "removed",
   },
-  {
-    provider: "cloudflare_mcp",
-    path: "/oauth/cloudflare-mcp/callback",
-    accessChange: "member",
-  },
 ] as const;
 type TestBackend = ReturnType<typeof makeConvexTest>;
 
-async function createCloudflareMcpCallbackState(
-  t: TestBackend,
-  args: {
-    userId: Id<"users">;
-    organizationId: Id<"organizations">;
-    state: string;
-    clientId: string;
-    codeVerifier: string;
-    returnToPath?: string;
-    createdAt: number;
-    expiresAt: number;
-  },
-): Promise<void> {
-  await t.mutation(internal.oauthState.createOauthState, {
-    provider: "cloudflare_mcp",
-    userId: args.userId,
-    organizationId: args.organizationId,
-    returnToPath: args.returnToPath,
-    state: args.state,
-    clientId: args.clientId,
-    codeVerifier: args.codeVerifier,
-    createdAt: args.createdAt,
-    expiresAt: args.expiresAt,
-  });
-}
 const storageBoundaryScenarios = [
   {
     completionEventType: "convex-oauth-complete",
@@ -114,23 +72,6 @@ const storageBoundaryScenarios = [
     },
     storedAuth: { method: "oauth", credentialExpiresAt: expect.any(Number) },
   },
-  {
-    completionEventType: "cloudflare-mcp-oauth-complete",
-    provider: "cloudflare_mcp",
-    path: "/oauth/cloudflare-mcp/callback",
-    tokenEndpoint: "https://mcp.cloudflare.com/token",
-    tokenResponse: {
-      access_token: "cloudflare-mcp-access-token",
-      token_type: "bearer",
-      refresh_token: "cloudflare-mcp-refresh-token",
-      expires_in: 3_600,
-    },
-    storedAuth: {
-      method: "mcp_oauth",
-      credentialExpiresAt: expect.any(Number),
-      clientId: "cloudflare-mcp-client",
-    },
-  },
 ] as const;
 const storageBoundaryCases = storageBoundaryScenarios.flatMap((scenario) =>
   (["removed", "member"] as const).map((accessChange) => ({ ...scenario, accessChange })),
@@ -140,33 +81,11 @@ const reusedCloudflareGrantScenarios = [
     provider: "cloudflare",
     path: "/oauth/hub/callback",
     tokenEndpoint: "https://broker.example.test/token",
-    clientId: undefined,
-    codeVerifier: undefined,
     auth: {
       method: "oauth" as const,
       credential: testCredential("stored-access-token"),
       refreshCredential: testCredential("shared-refresh-token"),
       credentialExpiresAt: Date.now() + 60_000,
-    },
-    tokenResponse: {
-      access_token: "exchanged-access-token",
-      token_type: "bearer",
-      refresh_token: "shared-refresh-token",
-      expires_in: 3_600,
-    },
-  },
-  {
-    provider: "cloudflare_mcp",
-    path: "/oauth/cloudflare-mcp/callback",
-    tokenEndpoint: "https://mcp.cloudflare.com/token",
-    clientId: "shared-client-id",
-    codeVerifier: "cloudflare-mcp-code-verifier",
-    auth: {
-      method: "mcp_oauth" as const,
-      credential: testCredential("stored-access-token"),
-      refreshCredential: testCredential("shared-refresh-token"),
-      credentialExpiresAt: Date.now() + 60_000,
-      clientId: "shared-client-id",
     },
     tokenResponse: {
       access_token: "exchanged-access-token",
@@ -206,8 +125,6 @@ function readCompletionEventType(provider: OAuthProvider) {
       return "convex-oauth-complete";
     case "cloudflare":
       return "cloudflare-oauth-complete";
-    case "cloudflare_mcp":
-      return "cloudflare-mcp-oauth-complete";
     default:
       provider satisfies never;
       return "convex-oauth-complete";
@@ -243,13 +160,6 @@ async function createCallbackState(
       await t.mutation(internal.oauthState.createOauthState, {
         ...commonState,
         provider: "cloudflare",
-        codeVerifier: "cloudflare-code-verifier",
-      });
-      return;
-    case "cloudflare_mcp":
-      await createCloudflareMcpCallbackState(t, {
-        ...commonState,
-        clientId: "cloudflare-client",
         codeVerifier: "cloudflare-code-verifier",
       });
       return;
@@ -294,12 +204,6 @@ function stubProviderOAuthEnv(provider: OAuthProvider) {
   switch (provider) {
     case "convex":
     case "cloudflare":
-      return;
-    case "cloudflare_mcp":
-      vi.stubEnv(
-        "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-        "https://samebase.com/oauth/cloudflare-mcp",
-      );
       return;
     default:
       provider satisfies never;
@@ -373,7 +277,7 @@ beforeEach(() => {
   vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
   vi.stubEnv("CONVEX_SITE_URL", "https://samebase.com");
   providerMocks.fetchConvexTeamTokenDetails.mockResolvedValue({ teamId: "convex-team" });
-  providerMocks.getCloudflareAccounts.mockResolvedValue({
+  providerMocks.runCloudflare.mockResolvedValue({
     result: [{ id: "cloudflare-account", name: "Cloudflare Account" }],
   });
 });
@@ -575,7 +479,7 @@ describe("provider OAuth callback organization returns", () => {
       await expect(response.text()).resolves.toBe("Invalid OAuth state");
       expect(providerFetch).not.toHaveBeenCalled();
       expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
-      expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();
+      expect(providerMocks.runCloudflare).not.toHaveBeenCalled();
     },
   );
 
@@ -623,13 +527,6 @@ describe("provider OAuth callback organization returns", () => {
           await t.mutation(internal.oauthState.createOauthState, {
             ...commonState,
             provider: "cloudflare",
-            codeVerifier: "cloudflare-code-verifier",
-          });
-          break;
-        case "cloudflare_mcp":
-          await createCloudflareMcpCallbackState(t, {
-            ...commonState,
-            clientId: "cloudflare-client",
             codeVerifier: "cloudflare-code-verifier",
           });
           break;
@@ -753,7 +650,7 @@ describe("provider OAuth callback organization returns", () => {
       });
       expect(providerFetch).not.toHaveBeenCalled();
       expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
-      expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();
+      expect(providerMocks.runCloudflare).not.toHaveBeenCalled();
       await expect(readProviderOAuthSnapshot(t, { organizationId, state })).resolves.toMatchObject({
         credentials: null,
         oauthState: { state, userId },
@@ -808,17 +705,6 @@ describe("provider OAuth callback organization returns", () => {
             codeVerifier: "cloudflare-code-verifier",
           });
           break;
-        case "cloudflare_mcp":
-          await createCloudflareMcpCallbackState(t, {
-            ...commonState,
-            clientId: "cloudflare-mcp-client",
-            codeVerifier: "cloudflare-mcp-code-verifier",
-          });
-          vi.stubEnv(
-            "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-            "https://samebase.com/oauth/cloudflare-mcp",
-          );
-          break;
         default:
           scenario satisfies never;
       }
@@ -828,17 +714,15 @@ describe("provider OAuth callback organization returns", () => {
         const requestUrl =
           typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
         expect(requestUrl).toBe(scenario.tokenEndpoint);
-        if (scenario.provider !== "cloudflare_mcp") {
-          const body = await new Request(input, init).formData();
-          expect(body.get("client_id")).toBe("resource-client");
-          expect(body.get("redirect_uri")).toBe("https://samebase.com/oauth/hub/callback");
-          expect(body.get("code_verifier")).toBe(`${scenario.provider}-code-verifier`);
-          expect(body.get("resource")).toBe(
-            scenario.provider === "convex"
-              ? "https://api.convex.dev"
-              : "https://api.cloudflare.com/client/v4/",
-          );
-        }
+        const body = await new Request(input, init).formData();
+        expect(body.get("client_id")).toBe("resource-client");
+        expect(body.get("redirect_uri")).toBe("https://samebase.com/oauth/hub/callback");
+        expect(body.get("code_verifier")).toBe(`${scenario.provider}-code-verifier`);
+        expect(body.get("resource")).toBe(
+          scenario.provider === "convex"
+            ? "https://api.convex.dev"
+            : "https://api.cloudflare.com/client/v4/",
+        );
         return new Response(JSON.stringify(scenario.tokenResponse), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -933,17 +817,6 @@ describe("provider OAuth callback organization returns", () => {
             provider: "cloudflare",
             codeVerifier: "cloudflare-code-verifier",
           });
-          break;
-        case "cloudflare_mcp":
-          await createCloudflareMcpCallbackState(t, {
-            ...commonState,
-            clientId: "cloudflare-mcp-client",
-            codeVerifier: "cloudflare-mcp-code-verifier",
-          });
-          vi.stubEnv(
-            "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-            "https://samebase.com/oauth/cloudflare-mcp",
-          );
           break;
         default:
           scenario satisfies never;
@@ -1047,30 +920,16 @@ describe("provider OAuth callback organization returns", () => {
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       };
-      if (scenario.provider === "cloudflare") {
-        await t.mutation(internal.oauthState.createOauthState, {
-          ...commonState,
-          provider: "cloudflare",
-          codeVerifier: "cloudflare-code-verifier",
-        });
-      } else {
-        await createCloudflareMcpCallbackState(t, {
-          ...commonState,
-          clientId: scenario.clientId,
-          codeVerifier: scenario.codeVerifier,
-        });
-        vi.stubEnv(
-          "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-          "https://samebase.com/oauth/cloudflare-mcp",
-        );
-      }
+      await t.mutation(internal.oauthState.createOauthState, {
+        ...commonState,
+        provider: "cloudflare",
+        codeVerifier: "cloudflare-code-verifier",
+      });
       vi.stubEnv("SITE_URL", "https://samebase.com");
       if (scenario.accounts === null) {
-        providerMocks.getCloudflareAccounts.mockRejectedValue(
-          new Error("Account discovery failed"),
-        );
+        providerMocks.runCloudflare.mockRejectedValue(new Error("Account discovery failed"));
       } else {
-        providerMocks.getCloudflareAccounts.mockResolvedValue({ result: scenario.accounts });
+        providerMocks.runCloudflare.mockResolvedValue({ result: scenario.accounts });
       }
       const revocations: Request[] = [];
       const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1097,14 +956,10 @@ describe("provider OAuth callback organization returns", () => {
           code: scenario.accounts === null ? "failed" : "target-mismatch",
         }),
       );
-      expect(providerMocks.createCloudflareClient).toHaveBeenCalledWith({
-        token: scenario.tokenResponse.access_token,
-        transport: scenario.provider === "cloudflare" ? "direct" : "mcp",
-      });
-      expect(providerMocks.getCloudflareAccounts).toHaveBeenCalledWith({
-        client: providerMocks.createCloudflareClient.mock.results.at(-1)?.value,
-        query: { page: 1, per_page: 5 },
-      });
+      expect(providerMocks.runCloudflare).toHaveBeenCalledWith(
+        scenario.tokenResponse.access_token,
+        expect.anything(),
+      );
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
           .query("organizationProviderCredentials")
@@ -1119,11 +974,9 @@ describe("provider OAuth callback organization returns", () => {
       expect(snapshot.credentials).toBeNull();
       expect(snapshot.oauthState).toBeNull();
       expect(snapshot.organization).not.toHaveProperty("cloudflareAccount");
-      expect(fetch).toHaveBeenCalledTimes(scenario.provider === "cloudflare" ? 2 : 1);
-      if (scenario.provider === "cloudflare") {
-        expect(revocations).toHaveLength(1);
-        await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
-      }
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(revocations).toHaveLength(1);
+      await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
     },
   );
 
@@ -1153,20 +1006,12 @@ describe("provider OAuth callback organization returns", () => {
       const initialAuth =
         scenario.failure === "access_lost"
           ? scenario.auth
-          : scenario.provider === "cloudflare"
-            ? {
-                method: "oauth" as const,
-                credential: testCredential("old-access-token"),
-                refreshCredential: testCredential("old-refresh-token"),
-                credentialExpiresAt: Date.now() + 60_000,
-              }
-            : {
-                method: "mcp_oauth" as const,
-                credential: testCredential("old-access-token"),
-                refreshCredential: testCredential("old-refresh-token"),
-                credentialExpiresAt: Date.now() + 60_000,
-                clientId: scenario.clientId,
-              };
+          : {
+              method: "oauth" as const,
+              credential: testCredential("old-access-token"),
+              refreshCredential: testCredential("old-refresh-token"),
+              credentialExpiresAt: Date.now() + 60_000,
+            };
       await t.run(async (ctx) => {
         await ctx.db.patch(organizationId, {
           cloudflareAccount: {
@@ -1186,31 +1031,15 @@ describe("provider OAuth callback organization returns", () => {
 
       const state = `${scenario.provider}-current-grant-state`;
       const now = Date.now();
-      if (scenario.provider === "cloudflare") {
-        await t.mutation(internal.oauthState.createOauthState, {
-          provider: "cloudflare",
-          codeVerifier: "cloudflare-code-verifier",
-          userId,
-          organizationId,
-          state,
-          createdAt: now,
-          expiresAt: now + 60_000,
-        });
-      } else {
-        await createCloudflareMcpCallbackState(t, {
-          userId,
-          organizationId,
-          state,
-          clientId: scenario.clientId,
-          codeVerifier: scenario.codeVerifier,
-          createdAt: now,
-          expiresAt: now + 60_000,
-        });
-        vi.stubEnv(
-          "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-          "https://samebase.com/oauth/cloudflare-mcp",
-        );
-      }
+      await t.mutation(internal.oauthState.createOauthState, {
+        provider: "cloudflare",
+        codeVerifier: "cloudflare-code-verifier",
+        userId,
+        organizationId,
+        state,
+        createdAt: now,
+        expiresAt: now + 60_000,
+      });
       vi.stubEnv("SITE_URL", "https://samebase.com");
 
       const revocations: Request[] = [];
@@ -1270,11 +1099,9 @@ describe("provider OAuth callback organization returns", () => {
           code: scenario.failure === "access_lost" ? "access-changed" : "configuration-changed",
         }),
       );
-      expect(fetch).toHaveBeenCalledTimes(scenario.provider === "cloudflare" ? 2 : 1);
-      if (scenario.provider === "cloudflare") {
-        expect(revocations).toHaveLength(1);
-        await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
-      }
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(revocations).toHaveLength(1);
+      await expectBrokerRevocation(revocations[0], scenario.tokenResponse.refresh_token);
       const snapshot = await t.run(async (ctx) => ({
         credentials: await ctx.db
           .query("organizationProviderCredentials")
@@ -1430,25 +1257,13 @@ describe("provider OAuth callback organization returns", () => {
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       };
-      if (scenario.provider === "cloudflare") {
-        await t.mutation(internal.oauthState.createOauthState, {
-          ...commonState,
-          provider: "cloudflare",
-          codeVerifier: "cloudflare-code-verifier",
-        });
-      } else {
-        await createCloudflareMcpCallbackState(t, {
-          ...commonState,
-          clientId: scenario.clientId,
-          codeVerifier: scenario.codeVerifier,
-        });
-        vi.stubEnv(
-          "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
-          "https://samebase.com/oauth/cloudflare-mcp",
-        );
-      }
+      await t.mutation(internal.oauthState.createOauthState, {
+        ...commonState,
+        provider: "cloudflare",
+        codeVerifier: "cloudflare-code-verifier",
+      });
       vi.stubEnv("SITE_URL", "https://samebase.com");
-      providerMocks.getCloudflareAccounts.mockResolvedValue({
+      providerMocks.runCloudflare.mockResolvedValue({
         result: [
           { id: "configured-account", name: "Configured Account" },
           { id: "other-account", name: "Other Account" },
@@ -1577,7 +1392,7 @@ describe("provider OAuth completion binding", () => {
       });
       expect(providerFetch).not.toHaveBeenCalled();
       expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
-      expect(providerMocks.getCloudflareAccounts).not.toHaveBeenCalled();
+      expect(providerMocks.runCloudflare).not.toHaveBeenCalled();
     },
   );
 

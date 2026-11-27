@@ -24,14 +24,6 @@ function serializeProviderAuth(auth: ProviderAuth): string {
             auth.credentialExpiresAt,
           ])
         : JSON.stringify(["convex_oauth", serializeSealedSecret(auth.credential)]);
-    case "mcp_oauth":
-      return JSON.stringify([
-        "cloudflare_mcp_oauth",
-        serializeSealedSecret(auth.credential),
-        serializeSealedSecret(auth.refreshCredential),
-        auth.credentialExpiresAt,
-        auth.clientId,
-      ]);
   }
 }
 

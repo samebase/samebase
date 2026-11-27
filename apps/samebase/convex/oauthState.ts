@@ -3,7 +3,6 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import {
-  vCloudflareMcpProviderOAuthCallbackState,
   vCloudflareProviderOAuthCallbackState,
   vConvexProviderOAuthCallbackState,
   vOAuthProvider,
@@ -26,7 +25,6 @@ const providerOAuthCallbackStateSystemFields = {
 const vProviderOAuthCallbackStateResult = v.union(
   vConvexProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
   vCloudflareProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
-  vCloudflareMcpProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
 );
 
 const stateCreationFields = {
@@ -43,7 +41,6 @@ export const createOauthState = internalMutation({
   args: {
     provider: vOAuthProvider,
     ...stateCreationFields,
-    clientId: v.optional(v.string()),
   },
   returns: v.id("providerOAuthCallbackStates"),
   handler: async (ctx, args) => {
@@ -84,19 +81,9 @@ export const createOauthState = internalMutation({
     switch (args.provider) {
       case "convex":
       case "cloudflare":
-        if (args.clientId !== undefined)
-          throw new Error("Resource authorization uses the configured broker client.");
         return await ctx.db.insert("providerOAuthCallbackStates", {
           provider: args.provider,
           ...commonState,
-        });
-      case "cloudflare_mcp":
-        if (args.clientId === undefined)
-          throw new Error("Cloudflare MCP authorization requires its client ID.");
-        return await ctx.db.insert("providerOAuthCallbackStates", {
-          provider: "cloudflare_mcp",
-          ...commonState,
-          clientId: args.clientId,
         });
       default:
         args.provider satisfies never;
@@ -117,7 +104,7 @@ export const getResourceOauthState = internalQuery({
       .query("providerOAuthCallbackStates")
       .withIndex("by_state", (q) => q.eq("state", args.state))
       .unique();
-    if (record === null || record.provider === "cloudflare_mcp") return null;
+    if (record === null) return null;
     const user = await ctx.db.get(record.userId);
     return user === null || readActiveUser(user) === null ? null : record;
   },

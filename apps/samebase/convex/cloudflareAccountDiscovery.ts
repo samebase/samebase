@@ -2,12 +2,13 @@
 
 import { v } from "convex/values";
 
-import { internalAction } from "./_generated/server";
-import { createCloudflareClient, type CloudflareApiTransport } from "./cloudflareApi/client";
-import { Cloudflare } from "./cloudflareApi/generated/sdk.gen";
-import type { IamAccount } from "./cloudflareApi/generated/types.gen";
+import * as accounts from "@distilled.cloud/cloudflare/accounts";
+import * as user from "@distilled.cloud/cloudflare/user";
 
-type CloudflareAccountIdentity = Pick<IamAccount, "id" | "name">;
+import { internalAction } from "./_generated/server";
+import { runCloudflare } from "./cloudflareApi";
+
+type CloudflareAccountIdentity = { id: string; name: string };
 
 export type CloudflareAccount = {
   accountId: string;
@@ -56,34 +57,20 @@ export function resolveCloudflareAccountAfterAuthorization(
     : null;
 }
 
-export async function listCloudflareAccountsForToken(args: {
-  token: string;
-  transport: CloudflareApiTransport;
-}): Promise<CloudflareAccount[]> {
-  const { result: accounts } = await Cloudflare.GET["/accounts"]({
-    client: createCloudflareClient({ token: args.token, transport: args.transport }),
-    query: {
-      page: 1,
-      per_page: 5,
-    },
-  });
-  if (!accounts) {
-    throw new Error("Cloudflare account response did not include accounts.");
-  }
-  return normalizeCloudflareAccounts(accounts);
+export async function listCloudflareAccountsForToken(token: string): Promise<CloudflareAccount[]> {
+  const { result } = await runCloudflare(token, accounts.listAccounts({ page: 1, perPage: 5 }));
+  return normalizeCloudflareAccounts(result);
 }
 
 /** Verify a user API token with GET /user/tokens/verify, then return its direct-API accounts. */
 export async function listAccountsForVerifiedUserApiToken(
   token: string,
 ): Promise<CloudflareAccount[]> {
-  const { result: verification } = await Cloudflare.GET["/user/tokens/verify"]({
-    client: createCloudflareClient({ token, transport: "direct" }),
-  });
-  if (!verification?.id.trim() || verification.status !== "active") {
+  const verification = await runCloudflare(token, user.verifyToken({}));
+  if (!verification.id.trim() || verification.status !== "active") {
     throw new Error("Cloudflare API token is not active.");
   }
-  return await listCloudflareAccountsForToken({ token, transport: "direct" });
+  return await listCloudflareAccountsForToken(token);
 }
 
 /** Verify the user token required by Workers Builds, then return its direct-API accounts. */

@@ -380,7 +380,6 @@ export function useRepositoryAlchemyState(
 const CLOUDFLARE_PROBLEMS = {
   found: undefined,
   not_connected: undefined,
-  unsupported_connection: undefined,
   no_store: undefined,
   reconnect: "reconnect",
   failed: "unreadable",

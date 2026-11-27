@@ -3,10 +3,7 @@ import { useAction } from "convex/react";
 import { useEffect, useRef } from "react";
 import { api } from "../../../convex/_generated/api";
 import { buildAuthorizationErrorUrl } from "../../../shared/authorizationError";
-import {
-  readProviderOAuthAuthorizationProvider,
-  readProviderOAuthCompletionFragment,
-} from "../../../shared/providerOAuthReturn";
+import { readProviderOAuthCompletionFragment } from "../../../shared/providerOAuthReturn";
 import { ORGANIZATIONS_ROUTE } from "@/organization/organizationRoutes";
 
 /**
@@ -40,7 +37,7 @@ export function ProviderOAuthCompletionPage() {
     }
 
     const failedHref = buildAuthorizationErrorUrl(ORGANIZATIONS_ROUTE, {
-      provider: readProviderOAuthAuthorizationProvider(completion.provider),
+      provider: completion.provider,
       code: "failed",
     });
     void completeProviderOAuth({

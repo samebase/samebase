@@ -1,9 +1,13 @@
+import * as accounts from "@distilled.cloud/cloudflare/accounts";
+import * as secretsStore from "@distilled.cloud/cloudflare/secrets_store";
+import * as user from "@distilled.cloud/cloudflare/user";
+import * as workers from "@distilled.cloud/cloudflare/workers";
+import * as workersBuilds from "@distilled.cloud/cloudflare/workers_builds";
 import { notEmpty } from "@samebase/dependent/main";
 import { ConvexError } from "convex/values";
 
 import type { CloudflareAccount } from "../cloudflareAccountDiscovery";
-import { createCloudflareClient } from "../cloudflareApi/client";
-import { Cloudflare } from "../cloudflareApi/generated/sdk.gen";
+import { runCloudflare } from "../cloudflareApi";
 import { verifyConvexTeamAccessToken } from "../convexManagementApi/client";
 import { ConvexManagementApiError } from "../convexManagementApi/errors";
 
@@ -12,24 +16,27 @@ import { ConvexManagementApiError } from "../convexManagementApi/errors";
 /**
 One read per permission group that the template's setup stack needs, the groups that
 buildCloudflareCiApiTokenUrl preselects. A read cannot prove Edit, so a token with only Read passes
-here and fails in the stack's first deploy. A probe reads only Cloudflare's success flag, so it
-parses no response body.
+here and fails in the stack's first deploy.
 */
 const CLOUDFLARE_CI_TOKEN_PROBES = [
-  { permission: "Account Settings Read", url: "/accounts/{account_id}", query: {} },
-  { permission: "Workers Scripts Edit", url: "/accounts/{account_id}/workers/scripts", query: {} },
+  {
+    permission: "Account Settings Read",
+    read: (accountId: string) => accounts.getAccount({ accountId }),
+  },
+  {
+    permission: "Workers Scripts Edit",
+    read: (accountId: string) => workers.listScripts({ accountId }),
+  },
   // Alchemy's state store in the account reads its bearer token from the Secrets Store.
   {
     permission: "Secrets Store Edit",
-    url: "/accounts/{account_id}/secrets_store/stores",
-    query: { page: 1, per_page: 1 },
+    read: (accountId: string) => secretsStore.listStores({ accountId, page: 1, perPage: 1 }),
   },
   // The read that @samebase/alchemy-cloudflare-workers-builds makes before it links the Worker:
   // the account's Workers Builds tokens.
   {
     permission: "Workers Builds Configuration Edit",
-    url: "/accounts/{account_id}/builds/tokens",
-    query: { page: 1, per_page: 1 },
+    read: (accountId: string) => workersBuilds.listTokens({ accountId, page: 1, perPage: 1 }),
   },
 ] as const;
 
@@ -42,12 +49,10 @@ export async function requireCloudflareCiTokenPermissions(args: {
   token: string;
   account: CloudflareAccount;
 }): Promise<void> {
-  const client = createCloudflareClient({ token: args.token, transport: "direct" });
-  const verification = await Cloudflare.GET["/user/tokens/verify"]({ client }).then(
-    ({ result }) => result,
-    () => undefined,
-  );
-  if (verification?.status !== "active") {
+  const verified = await runCloudflare(args.token, user.verifyToken({}))
+    .then((verification) => verification.status === "active" && verification.id.trim() !== "")
+    .catch(() => false);
+  if (!verified) {
     throw new ConvexError(
       "Cloudflare could not verify the Cloudflare CI token as an active API token. Save a new token from the Cloudflare API tokens link under CI credentials on the Providers page, or try again.",
     );
@@ -56,12 +61,10 @@ export async function requireCloudflareCiTokenPermissions(args: {
   const missing = (
     await Promise.all(
       CLOUDFLARE_CI_TOKEN_PROBES.map((probe) =>
-        client
-          .get({ url: probe.url, path: { account_id: args.account.accountId }, query: probe.query })
-          .then(
-            () => null,
-            () => probe.permission,
-          ),
+        runCloudflare<unknown, unknown>(args.token, probe.read(args.account.accountId)).then(
+          () => null,
+          () => probe.permission,
+        ),
       ),
     )
   ).filter(notEmpty);

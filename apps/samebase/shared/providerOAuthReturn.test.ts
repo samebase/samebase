@@ -113,7 +113,7 @@ describe("provider OAuth completion URL", () => {
     const completionUrl = new URL(
       buildProviderOAuthCompletionUrl({
         appOrigin,
-        completion: { provider: "cloudflare_mcp", state: "state value", code: "code/value" },
+        completion: { provider: "cloudflare", state: "state value", code: "code/value" },
       }),
     );
 
@@ -121,7 +121,7 @@ describe("provider OAuth completion URL", () => {
     expect(completionUrl.pathname).toBe("/oauth/provider-complete");
     expect(completionUrl.search).toBe("");
     expect(readProviderOAuthCompletionFragment(completionUrl.hash)).toEqual({
-      provider: "cloudflare_mcp",
+      provider: "cloudflare",
       state: "state value",
       code: "code/value",
     });

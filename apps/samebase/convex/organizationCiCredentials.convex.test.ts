@@ -61,7 +61,11 @@ function stubCloudflareCiToken({
         { status: 403 },
       );
     }
-    return Response.json({ success: true, errors: [], messages: [], result: [] });
+    const result =
+      url.pathname === probePaths.accountSettings
+        ? { id: cloudflareAccountId, name: "Acme", type: "standard" }
+        : [];
+    return Response.json({ success: true, errors: [], messages: [], result });
   });
   vi.stubGlobal("fetch", fetch);
   return fetch;

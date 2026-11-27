@@ -1130,74 +1130,62 @@ describe("account deletion organization boundary", () => {
     expect(stagedFile.lastEditUserId).toBe(ids.teammateUserId);
   });
 
-  it.each(["oauth", "mcp_oauth"] as const)(
-    "removes local Cloudflare %s access and revokes only broker refresh grants",
-    async (cloudflareAuthMethod) => {
-      vi.useFakeTimers();
-      vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
-      vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
-      vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
-      const { ids, t } = await seedRunningDeletion();
-      await t.run(async (ctx) => {
-        const credentials = await ctx.db.get(ids.organizationProviderCredentialsId);
-        if (credentials?.cloudflare === undefined) {
-          throw new Error("Expected Cloudflare credentials.");
-        }
-        await ctx.db.patch(credentials._id, {
-          cloudflare: {
-            ...credentials.cloudflare,
-            auth:
-              cloudflareAuthMethod === "oauth"
-                ? {
-                    method: "oauth",
-                    credential: testCredential("cloudflare-access-token"),
-                    refreshCredential: testCredential("broker-refresh-token"),
-                    credentialExpiresAt: 2_000_000_000_000,
-                  }
-                : {
-                    method: "mcp_oauth",
-                    credential: testCredential("cloudflare-mcp-access-token"),
-                    refreshCredential: testCredential("cloudflare-mcp-refresh-token"),
-                    credentialExpiresAt: 2_000_000_000_000,
-                    clientId: "cloudflare-mcp-client",
-                  },
+  it("removes local Cloudflare OAuth access and revokes its broker refresh grant", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("IDENTITY_HUB_ISSUER", "https://broker.example.test");
+    vi.stubEnv("IDENTITY_HUB_CLIENT_ID", "resource-client");
+    vi.stubEnv("IDENTITY_HUB_CLIENT_SECRET", "resource-secret");
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      const credentials = await ctx.db.get(ids.organizationProviderCredentialsId);
+      if (credentials?.cloudflare === undefined) {
+        throw new Error("Expected Cloudflare credentials.");
+      }
+      await ctx.db.patch(credentials._id, {
+        cloudflare: {
+          ...credentials.cloudflare,
+          auth: {
+            method: "oauth",
+            credential: testCredential("cloudflare-access-token"),
+            refreshCredential: testCredential("broker-refresh-token"),
+            credentialExpiresAt: 2_000_000_000_000,
           },
-        });
+        },
       });
-      await sealTestCredentials(t);
-      const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const request = new Request(input, init);
-        expect(request.url).toBe("https://broker.example.test/revoke");
-        expect((await request.formData()).get("token")).toBe("broker-refresh-token");
-        return new Response(null, { status: 200 });
-      });
-      vi.stubGlobal("fetch", fetch);
+    });
+    await sealTestCredentials(t);
+    const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      expect(request.url).toBe("https://broker.example.test/revoke");
+      expect((await request.formData()).get("token")).toBe("broker-refresh-token");
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetch);
 
-      await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
+    await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
+      runId: ids.runId,
+      workflowId,
+    });
+    await expect(
+      t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
         runId: ids.runId,
         workflowId,
-      });
-      await expect(
-        t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
-          runId: ids.runId,
-          workflowId,
-        }),
-      ).resolves.toEqual({ done: true, convexManualRevocationRequired: true });
+      }),
+    ).resolves.toEqual({ done: true, convexManualRevocationRequired: true });
 
-      const snapshot = await t.run(async (ctx) => {
-        return {
-          credentials: await ctx.db.get(ids.organizationProviderCredentialsId),
-          run: await ctx.db.get(ids.runId),
-        };
-      });
-      expect(fetch).not.toHaveBeenCalled();
-      expect(snapshot.credentials).toBeNull();
-      expect(snapshot.run?.outcomes.providerRevocation).toEqual({
-        state: "in_progress",
-        convexManualRevocationRequired: true,
-      });
-      await t.finishAllScheduledFunctions(vi.runAllTimers);
-      expect(fetch).toHaveBeenCalledTimes(cloudflareAuthMethod === "oauth" ? 1 : 0);
-    },
-  );
+    const snapshot = await t.run(async (ctx) => {
+      return {
+        credentials: await ctx.db.get(ids.organizationProviderCredentialsId),
+        run: await ctx.db.get(ids.runId),
+      };
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(snapshot.credentials).toBeNull();
+    expect(snapshot.run?.outcomes.providerRevocation).toEqual({
+      state: "in_progress",
+      convexManualRevocationRequired: true,
+    });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
 });

@@ -2,7 +2,7 @@ import { Infer, v } from "convex/values";
 
 import { sameSealedSecret, vSealedSecret } from "./sealedSecret";
 
-const { literal, number, object, string, union } = v;
+const { literal, number, object, union } = v;
 
 export const vOAuthAuth = object({
   method: literal("oauth"),
@@ -16,22 +16,14 @@ export const vCloudflareOAuthAuth = object({
   credentialExpiresAt: number(),
 });
 
-export const vMcpOAuthAuth = object({
-  method: literal("mcp_oauth"),
-  credential: vSealedSecret,
-  refreshCredential: vSealedSecret,
-  credentialExpiresAt: number(),
-  clientId: string(),
-});
-
 export const vApiKeyAuth = object({
   method: literal("api_key"),
   credential: vSealedSecret,
 });
 
 export const vStandardProviderAuth = union(vOAuthAuth, vApiKeyAuth);
-export const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
-export const vProviderAuth = union(vOAuthAuth, vCloudflareOAuthAuth, vMcpOAuthAuth, vApiKeyAuth);
+export const vCloudflareProviderAuth = union(vCloudflareOAuthAuth, vApiKeyAuth);
+export const vProviderAuth = union(vOAuthAuth, vCloudflareOAuthAuth, vApiKeyAuth);
 export type ProviderAuth = Infer<typeof vProviderAuth>;
 
 export function providerAuthMatches(left: ProviderAuth, right: ProviderAuth): boolean {
@@ -55,14 +47,6 @@ export function providerAuthMatches(left: ProviderAuth, right: ProviderAuth): bo
         );
       }
       return true;
-    case "mcp_oauth":
-      return (
-        right.method === "mcp_oauth" &&
-        sameSealedSecret(left.credential, right.credential) &&
-        sameSealedSecret(left.refreshCredential, right.refreshCredential) &&
-        left.credentialExpiresAt === right.credentialExpiresAt &&
-        left.clientId === right.clientId
-      );
   }
 }
 
@@ -70,7 +54,7 @@ export function requireCloudflareAuthUsableDuringRefresh(
   auth: Infer<typeof vCloudflareProviderAuth>,
   now: number,
 ): void {
-  if ((auth.method === "oauth" || auth.method === "mcp_oauth") && auth.credentialExpiresAt <= now) {
+  if (auth.method === "oauth" && auth.credentialExpiresAt <= now) {
     throw new Error("Cloudflare token refresh is in progress. Retry shortly.");
   }
 }

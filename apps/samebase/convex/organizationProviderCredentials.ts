@@ -52,11 +52,6 @@ const vOrganizationProviderConfiguration = object({
 });
 export type OrganizationProviderConfiguration = Infer<typeof vOrganizationProviderConfiguration>;
 
-const vCloudflareTokenRefreshConfiguration = object({
-  cloudflareAccount: optional(vOrganizationCloudflareAccount),
-  cloudflareCredential: vCloudflareProviderCredential,
-});
-
 export const vConnectedProviderCredential = union(
   object({
     provider: literal("convex"),
@@ -167,7 +162,7 @@ async function requireOAuthStateForCredentialWrite(
   args: {
     oauthStateId: Id<"providerOAuthCallbackStates"> | undefined;
     oauthState: string | undefined;
-    expectedProvider: "convex" | "cloudflare" | "cloudflare_mcp" | null;
+    expectedProvider: "convex" | "cloudflare" | null;
     organizationId: Id<"organizations">;
     userId: Id<"users">;
     expectedProviderSnapshotHash: string;
@@ -227,43 +222,6 @@ export const loadForProviderStatus = internalQuery({
     }
     await requireOrganizationMembershipRecord(ctx.db, args);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
-  },
-});
-
-export const loadCloudflareTokenRefreshContinuation = internalQuery({
-  args: {
-    organizationId: id("organizations"),
-    expectedAuth: vCloudflareProviderAuth,
-    expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
-  },
-  returns: vCloudflareTokenRefreshConfiguration,
-  handler: async (ctx, args) => {
-    const [organization, credentials] = await Promise.all([
-      ctx.db.get(args.organizationId),
-      getOrganizationProviderCredentials(ctx.db, args.organizationId),
-    ]);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const credential = credentials?.cloudflare;
-    if (credential === undefined) {
-      throw new Error("Cloudflare credential not found.");
-    }
-    if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
-      throw new Error("Cloudflare credential changed before token refresh continuation.");
-    }
-    if (
-      credential.tokenRefreshLease?.startedAt !== args.expectedTokenRefreshLease.startedAt ||
-      credential.tokenRefreshLease.expiresAt !== args.expectedTokenRefreshLease.expiresAt
-    ) {
-      throw new Error("Cloudflare token refresh lease changed before continuation.");
-    }
-    return {
-      ...(organization.cloudflareAccount
-        ? { cloudflareAccount: organization.cloudflareAccount }
-        : {}),
-      cloudflareCredential: credential,
-    };
   },
 });
 
@@ -548,12 +506,7 @@ export async function connectCloudflareCredential(
   const oauthState = await requireOAuthStateForCredentialWrite(ctx, {
     oauthStateId: args.oauthStateId,
     oauthState: args.oauthState,
-    expectedProvider:
-      args.auth.method === "oauth"
-        ? "cloudflare"
-        : args.auth.method === "mcp_oauth"
-          ? "cloudflare_mcp"
-          : null,
+    expectedProvider: args.auth.method === "oauth" ? "cloudflare" : null,
     organizationId: args.organizationId,
     userId: args.connectedByUserId,
     expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
@@ -717,7 +670,7 @@ async function claimCloudflareTokenRefreshAfterAuthority(
   if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
     throw new Error("Cloudflare credential changed before token refresh claim.");
   }
-  if (credential.auth.method !== "oauth" && credential.auth.method !== "mcp_oauth") {
+  if (credential.auth.method !== "oauth") {
     return { claimed: false as const };
   }
 
