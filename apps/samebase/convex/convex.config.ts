@@ -34,6 +34,10 @@ const app = defineApp({
     // brokerClients/moderation.ts. Set by hand. Unset, as in CI: the page says that moderation is off.
     PUBLIC_IDENTITY_HUB_ISSUER: v.optional(v.string()),
     PUBLIC_IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
+    // The key of the moderation endpoints of login.samebase.com (samebase/public-identity-broker),
+    // which /admin/broker-clients calls through brokerClients/moderation.ts. Set by hand. Unset: the
+    // page's login.samebase.com section says that moderation is off.
+    LOGIN_BROKER_MODERATION_KEY: v.optional(v.string()),
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
     PASSWORD_AUTH_ENABLED: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
