@@ -637,11 +637,8 @@ describe("broker client moderation", () => {
           },
           {
             ...spam,
-            file: {
-              status: "refused",
-              reason: "The host answered with a status that is not 200.",
-              json: null,
-            },
+            // A file that answers 404 is gone, usually a deleted preview.
+            file: { status: "gone" },
           },
         ],
         limitReached: true,

@@ -150,6 +150,8 @@ const vSiteFile = union(
   }),
   /** `json` is null when no JSON object was read. */
   object({ status: literal("refused"), reason: string(), json: union(string(), v.null()) }),
+  /** The host answers 404 or 410, or does not answer: usually a deleted preview. */
+  object({ status: literal("gone") }),
 );
 
 /** The sites of a broker's CIMD layer: each `clientId` is the address of a metadata file on `host`. */
@@ -182,6 +184,12 @@ const readSiteFile = (clientId: string) =>
       return { status: "refused" as const, reason: refusalDescriptions[parsed.code], json: null };
     }
     const fetched = yield* fetchDocument(parsed, (request) => fetch(request));
+    if (
+      fetched.code === "unreachable" ||
+      (fetched.code === "unexpected_status" && (fetched.status === 404 || fetched.status === 410))
+    ) {
+      return { status: "gone" as const };
+    }
     if (fetched._tag !== "Document") {
       return { status: "refused" as const, reason: refusalDescriptions[fetched.code], json: null };
     }

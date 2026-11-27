@@ -326,34 +326,19 @@ function LoginBrokerModeration() {
 }
 
 function SitesSection({ siteList }: { siteList: LoginBroker["siteList"] }) {
+  const gone = siteList.clients.filter((site) => site.file?.status === "gone");
+  const live = siteList.clients.filter((site) => site.file?.status !== "gone");
   return siteList.clients.length === 0 ? (
     <p className="mt-4 text-sm text-muted-foreground">No sites.</p>
   ) : (
     <>
-      <ul className="mt-4 divide-y border-y">
-        {siteList.clients.map((site) => (
-          <li key={site.clientId} className="py-3 text-sm">
-            {site.file?.status === "ok" && site.file.clientName !== null ? (
-              <span className="block font-medium break-words">{site.file.clientName}</span>
-            ) : null}
-            <a
-              className="block break-all"
-              href={site.clientId}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              {site.clientId}
-            </a>
-            <span className="block text-muted-foreground">
-              {site.host}, first use {formatTime(site.createdAt)},{" "}
-              {site.lastSignInAt === null
-                ? "no sign-in"
-                : `last sign-in ${formatTime(site.lastSignInAt)}`}
-            </span>
-            <SiteFile file={site.file} />
-          </li>
-        ))}
-      </ul>
+      <SiteRows sites={live} />
+      {gone.length === 0 ? null : (
+        <details className="mt-4 text-sm">
+          <summary className="cursor-pointer text-muted-foreground">Gone ({gone.length})</summary>
+          <SiteRows sites={gone} />
+        </details>
+      )}
       {siteList.limitReached ? (
         <p className="mt-4 text-sm text-muted-foreground">
           The newest {siteList.clients.length} sites.
@@ -363,10 +348,42 @@ function SitesSection({ siteList }: { siteList: LoginBroker["siteList"] }) {
   );
 }
 
+function SiteRows({ sites }: { sites: LoginBroker["siteList"]["clients"] }) {
+  return sites.length === 0 ? null : (
+    <ul className="mt-4 divide-y border-y">
+      {sites.map((site) => (
+        <li key={site.clientId} className="py-3 text-sm">
+          {site.file?.status === "ok" && site.file.clientName !== null ? (
+            <span className="block font-medium break-words">{site.file.clientName}</span>
+          ) : null}
+          <a
+            className="block break-all"
+            href={site.clientId}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {site.clientId}
+          </a>
+          <span className="block text-muted-foreground">
+            {site.host}, first use {formatTime(site.createdAt)},{" "}
+            {site.lastSignInAt === null
+              ? "no sign-in"
+              : `last sign-in ${formatTime(site.lastSignInAt)}`}
+          </span>
+          <SiteFile file={site.file} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** What the site's file says now, as text: a stranger wrote it, so no address of it is loaded. */
 function SiteFile({ file }: { file: LoginBroker["siteList"]["clients"][number]["file"] }) {
   if (file === null) {
     return null;
+  }
+  if (file.status === "gone") {
+    return <span className="block text-muted-foreground">File gone</span>;
   }
   return (
     <>

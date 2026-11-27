@@ -791,6 +791,13 @@ describe("AdminBrokerClientsPage", () => {
               json: '{\n  "client_id": "https://notes.example.test/oauth-client.json"\n}',
             },
           },
+          {
+            clientId: "https://old-preview.example.test/oauth-client.json",
+            host: "old-preview.example.test",
+            createdAt: 0,
+            lastSignInAt: null,
+            file: { status: "gone" },
+          },
         ],
         limitReached: true,
       },
@@ -818,7 +825,13 @@ describe("AdminBrokerClientsPage", () => {
       expect(page.rootElement.querySelector("details pre")?.textContent).toContain(
         '"client_id": "https://notes.example.test/oauth-client.json"',
       );
-      expect(page.rootElement.textContent).toContain("The newest 1 sites.");
+      expect(page.rootElement.textContent).toContain("The newest 2 sites.");
+      // A site whose file is gone is folded away under "Gone (1)", not among the live sites.
+      expect(
+        [...page.rootElement.querySelectorAll("details")].find(
+          (element) => element.querySelector(":scope > summary")?.textContent === "Gone (1)",
+        )?.textContent,
+      ).toContain("https://old-preview.example.test/oauth-client.json");
       await act(async () => button(page.rootElement, "Host blocks 1").click());
 
       await act(async () =>
