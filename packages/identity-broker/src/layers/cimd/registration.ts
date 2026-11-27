@@ -39,19 +39,26 @@ export type ClientIdMetadataDocumentOptions = {
   readonly connectors?: ReadonlyArray<string>;
   /** Fetches of documents for the whole broker. Default: 120 each minute. */
   readonly fetchesPerMinute?: number;
-  /** New clients for the whole broker. Default: 30 each hour. */
+  /** The most clients of one host at a time. Default: 20. */
+  readonly clientsPerHost?: number;
+  /** New clients for the whole broker. Default: 200 each hour. */
   readonly newClientsPerHour?: number;
 };
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 
-/** A bucket that saves at most one period's tokens. */
-const perPeriod = (count: number, periodMs: number, name: string) => {
+const wholeNumber = (count: number, name: string) => {
   if (!Number.isInteger(count) || count < 1) {
     throw new Error(`clientIdMetadataDocuments: ${name} must be a whole number of 1 or more`);
   }
-  return { rate: count, periodMs, capacity: count };
+  return count;
+};
+
+/** A bucket that saves at most one period's tokens. */
+const perPeriod = (count: number, periodMs: number, name: string) => {
+  const rate = wholeNumber(count, name);
+  return { rate, periodMs, capacity: rate };
 };
 
 const checkPattern = (pattern: string) => {
@@ -68,6 +75,7 @@ const resolver = (settings: {
   readonly hosts: ReadonlyArray<string> | undefined;
   readonly connectors: ReadonlyArray<string> | undefined;
   readonly fetches: { rate: number; periodMs: number; capacity: number };
+  readonly clientsPerHost: number;
   readonly newClients: { rate: number; periodMs: number; capacity: number };
 }): ClientResolver =>
   Effect.fn("cimd.resolveClient")(function* (request: {
@@ -166,6 +174,7 @@ const resolver = (settings: {
       freshUntil: fetched.freshUntil,
       redirectUris: accepted.redirectUris,
       connectors,
+      clientsPerHost: settings.clientsPerHost,
       newClients: settings.newClients,
     });
     switch (put) {
@@ -213,7 +222,8 @@ export function clientIdMetadataDocuments(
     hosts: options.hosts?.map(checkPattern),
     connectors: options.connectors,
     fetches: perPeriod(options.fetchesPerMinute ?? 120, MINUTE_MS, "fetchesPerMinute"),
-    newClients: perPeriod(options.newClientsPerHour ?? 30, HOUR_MS, "newClientsPerHour"),
+    clientsPerHost: wholeNumber(options.clientsPerHost ?? 20, "clientsPerHost"),
+    newClients: perPeriod(options.newClientsPerHour ?? 200, HOUR_MS, "newClientsPerHour"),
   });
   const moderation = { layer: "cimd" } as const;
   return options.hosts === undefined

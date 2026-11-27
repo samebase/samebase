@@ -148,6 +148,7 @@ describe("a stored card of the layer", () => {
       freshUntil: h.clock.now() + 3_600_000,
       redirectUris: [REDIRECT_URI],
       connectors: ["fake"],
+      clientsPerHost: 20,
       newClients: { rate: 30, periodMs: 3_600_000, capacity: 30 },
     });
   const authorize = (h: Broker, redirectUri = REDIRECT_URI) =>

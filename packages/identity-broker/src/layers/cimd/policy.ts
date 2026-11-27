@@ -10,6 +10,7 @@ export const policyRefusals = {
   client_id_query: "The client ID has a query, which this broker does not accept.",
   client_id_port: "The client ID names a port, which this broker does not accept.",
   client_id_not_dns_name: "The host of the client ID is not a DNS name.",
+  client_id_not_lower_case: "The scheme or the host of the client ID is not in lower case.",
   host_not_allowed: "This broker does not accept clients of this host.",
   broker_origin: "The client ID is on the broker's own origin.",
   host_blocked: "The broker's operator blocked sign-in for this host.",
@@ -32,7 +33,7 @@ const refuse = <const Code extends string>(code: Code) => ({ _tag: "Refused", co
 
 /**
  * The client id when the reader takes it and this policy's rules of an id do: at most 255
- * characters, no query, no port, and a host that is a DNS name. The rules of `hosts` and of the
+ * characters, no query, no port, a host that is a DNS name, and a scheme and host in lower case. The rules of `hosts` and of the
  * broker's origin need the layer's settings and are `hostRefusal`'s.
  */
 export function readClientId(raw: string) {
@@ -51,6 +52,10 @@ export function readClientId(raw: string) {
   }
   if (!isDnsName(id.hostname)) {
     return refuse("client_id_not_dns_name");
+  }
+  // So every card of a host has an id that starts with `https://<host>/` (`hostCards` of ./clients.ts).
+  if (!raw.startsWith(`https://${id.hostname}/`)) {
+    return refuse("client_id_not_lower_case");
   }
   return id;
 }
