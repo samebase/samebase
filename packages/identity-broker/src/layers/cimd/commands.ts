@@ -1,6 +1,8 @@
 // The CIMD layer's commands and their typed runner. Each writes or reads cards with the layer's
 // view, `CimdTx`; the budgets are the core's (`spendBudget`), on the core's view.
+import { Schema } from "effect";
 import { runCommand } from "../../core/command.ts";
+import * as Api from "../../moderation/api.ts";
 import { command as define, type Command } from "../../rules/commands.ts";
 import type { Tx } from "../../rules/tables.ts";
 import * as clients from "./clients.ts";
@@ -36,6 +38,18 @@ const definitions = {
     result: clients.HostResult,
     readOnly: false,
     rule: clients.unblockHost,
+  }),
+  "cimd.hostBlocks": define({
+    args: Schema.Struct({}),
+    result: Api.HostBlockList,
+    readOnly: true,
+    rule: clients.hostBlocks,
+  }),
+  "cimd.clients": define({
+    args: Schema.Struct({}),
+    result: Api.CimdClientList,
+    readOnly: true,
+    rule: clients.listClients,
   }),
 };
 

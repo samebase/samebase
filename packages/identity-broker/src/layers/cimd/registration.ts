@@ -215,7 +215,8 @@ export function clientIdMetadataDocuments(
     fetches: perPeriod(options.fetchesPerMinute ?? 120, MINUTE_MS, "fetchesPerMinute"),
     newClients: perPeriod(options.newClientsPerHour ?? 30, HOUR_MS, "newClientsPerHour"),
   });
+  const moderation = { layer: "cimd" } as const;
   return options.hosts === undefined
-    ? { routes: [], resolveClient, public: true }
-    : { routes: [], resolveClient };
+    ? { routes: [], resolveClient, public: true, moderation }
+    : { routes: [], resolveClient, moderation };
 }

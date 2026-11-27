@@ -2051,6 +2051,7 @@ export const trackedFilePaths = [
   "packages/identity-broker/src/core/connectors/oidc.test.ts",
   "packages/identity-broker/src/core/connectors/types.ts",
   "packages/identity-broker/src/core/connectors/upstream.ts",
+  "packages/identity-broker/src/core/cors.test.ts",
   "packages/identity-broker/src/core/html.ts",
   "packages/identity-broker/src/core/identityBroker.test.ts",
   "packages/identity-broker/src/core/identityBroker.ts",

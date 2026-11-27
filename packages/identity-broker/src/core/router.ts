@@ -6,6 +6,7 @@ import type { Store } from "../store/Store.ts";
 import type { CommandFailed } from "./command.ts";
 import type { ProviderUnavailable } from "./connectors/upstream.ts";
 import { json, readParameters } from "./responses.ts";
+import type { ModerationPart, ModerationRoutes } from "../moderation/server.ts";
 import type { GateNamespace } from "../rules/schemas.ts";
 import {
   BrokerConfig,
@@ -34,7 +35,7 @@ export type RouteError = CommandFailed | ProviderUnavailable;
 
 /** A route of the core, or of a layer whose handlers also need its own services `R`. */
 export type Route<R = never> = {
-  readonly method: "GET" | "POST" | "DELETE" | "PUT";
+  readonly method: "GET" | "POST" | "DELETE" | "PUT" | "OPTIONS";
   /** After the issuer's path prefix: "/register" (exact) or "/register/" (prefix). */
   readonly path: string;
   readonly match: "exact" | "prefix";
@@ -72,6 +73,8 @@ export type Registration<R = never> = {
   readonly resolveClient?: ClientResolver;
   /** Strangers use the layer, so the broker needs its `service` settings. */
   readonly public?: true;
+  /** The layer's endpoints of the moderation API. Absent: it has none. */
+  readonly moderation?: ModerationPart;
 };
 
 /** A registration layer where strangers register, so `identityBroker(options)` needs the broker's `service`. */
@@ -100,7 +103,25 @@ export type Part = {
 };
 
 /** A route of the table, with its full path. The core's sign-in routes read `LiveGates`. */
-type Mounted<R> = Route<R | LiveGates> & { readonly fullPath: string };
+type Mounted<R> = Route<R | LiveGates> & {
+  readonly fullPath: string;
+  /** A page's script on any origin may read the route's answers: the route reads no cookie. */
+  readonly cors?: true;
+};
+
+/** The answer to a CORS-preflight request (Fetch Standard section 4.8): an ok status. */
+const preflight = (methods: string) => () =>
+  Effect.succeed(
+    new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Methods": methods,
+        // The Fetch Standard's wildcard never covers `Authorization`, so the names are listed.
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        "Access-Control-Max-Age": "86400",
+      },
+    }),
+  );
 
 /**
  * The parameters of a request, read from a copy: the body of a request can be read once, and the
@@ -137,12 +158,15 @@ export const serverError = (annotations: {
  * `registration` is the layer, or the layers, that the broker mounts: their routes, such as the
  * client registration endpoint, beside the core's sign-in routes, their live gates, and at most one
  * resolver. `part` is an optional part of the broker, such as integrations; without it the broker
- * has none of its routes. It fails when two routes have the same method, path and match, when two
- * layers have a resolver, and when a layer is public and the broker has no `service`.
+ * has none of its routes. `moderation` is the moderation API (src/moderation/server.ts) over the
+ * layers' endpoints; without it the broker has no `/moderation/` route. It fails when two routes
+ * have the same method, path and match, when two layers have a resolver, and when a layer is
+ * public and the broker has no `service`.
  */
 export const makeHandle = Effect.fnUntraced(function* <R = never>(
   registration: Registration<R> | ReadonlyArray<Registration<R>>,
   part?: Part,
+  moderation?: ModerationRoutes,
 ) {
   const broker = yield* BrokerConfig;
   const layers: ReadonlyArray<Registration<R>> = Array.isArray(registration)
@@ -212,13 +236,16 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
     fullPath: `${broker.prefix}${route.path}`,
   });
   const routes: Mounted<R>[] = [
-    at({
-      method: "GET",
-      path: "/.well-known/openid-configuration",
-      match: "exact",
-      template: "/.well-known/openid-configuration",
-      handler: metadata,
-    }),
+    {
+      ...at({
+        method: "GET",
+        path: "/.well-known/openid-configuration",
+        match: "exact",
+        template: "/.well-known/openid-configuration",
+        handler: metadata,
+      }),
+      cors: true,
+    },
     {
       method: "GET",
       path: "/.well-known/oauth-authorization-server",
@@ -226,14 +253,18 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
       match: "exact",
       template: "/.well-known/oauth-authorization-server",
       handler: metadata,
+      cors: true,
     },
-    at({
-      method: "GET",
-      path: "/.well-known/jwks.json",
-      match: "exact",
-      template: "/.well-known/jwks.json",
-      handler: jwks,
-    }),
+    {
+      ...at({
+        method: "GET",
+        path: "/.well-known/jwks.json",
+        match: "exact",
+        template: "/.well-known/jwks.json",
+        handler: jwks,
+      }),
+      cors: true,
+    },
     at({
       method: "GET",
       path: "/authorize",
@@ -255,27 +286,43 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
       template: "/continue",
       handler: continueSignIn,
     }),
-    at({
-      method: "POST",
-      path: "/token",
-      match: "exact",
-      template: "/token",
-      handler: tokenRoute,
-    }),
-    at({
-      method: "GET",
-      path: "/userinfo",
-      match: "exact",
-      template: "/userinfo",
-      handler: userinfo,
-    }),
-    at({
-      method: "POST",
-      path: "/userinfo",
-      match: "exact",
-      template: "/userinfo",
-      handler: userinfo,
-    }),
+    ...[
+      at({
+        method: "POST",
+        path: "/token",
+        match: "exact",
+        template: "/token",
+        handler: tokenRoute,
+      }),
+      at({
+        method: "OPTIONS",
+        path: "/token",
+        match: "exact",
+        template: "/token",
+        handler: preflight("POST"),
+      }),
+      at({
+        method: "GET",
+        path: "/userinfo",
+        match: "exact",
+        template: "/userinfo",
+        handler: userinfo,
+      }),
+      at({
+        method: "POST",
+        path: "/userinfo",
+        match: "exact",
+        template: "/userinfo",
+        handler: userinfo,
+      }),
+      at({
+        method: "OPTIONS",
+        path: "/userinfo",
+        match: "exact",
+        template: "/userinfo",
+        handler: preflight("GET, POST"),
+      }),
+    ].map((route) => ({ ...route, cors: true as const })),
     ...broker.connectors.map((connector) =>
       at({
         method: "GET",
@@ -287,6 +334,7 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
     ),
     ...(part?.routes ?? []).map(at),
     ...layerRoutes.map(at),
+    ...(moderation?.(layers.flatMap((layer) => layer.moderation ?? [])) ?? []).map(at),
   ];
   const mounted = new Set<string>();
   for (const route of routes) {
@@ -342,5 +390,9 @@ const handleOver = <R>(routes: ReadonlyArray<Mounted<R>>, liveGates: LiveGates["
       Effect.catchCause(() => serverError({ route: route.template, category: "defect" })),
       Effect.provideService(LiveGates, liveGates),
     );
-    return head ? new Response(null, response) : response;
+    const answer = head ? new Response(null, response) : response;
+    if (route.cors) {
+      answer.headers.set("Access-Control-Allow-Origin", "*");
+    }
+    return answer;
   });

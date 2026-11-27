@@ -29,6 +29,7 @@ import { Store, StoreUnavailable } from "../../store/Store.ts";
 import type { Doc, IndexName, TableName, Tables } from "../../store/tables.ts";
 import { first, type TxShape } from "../../store/Tx.ts";
 import { readConnector } from "../../hosts/settings.ts";
+import type { ModerationRoutes } from "../../moderation/server.ts";
 import { brokerLogger, makeHandle, type Part, type Registration } from "../router.ts";
 import { sha256Hex } from "../subject.ts";
 import { github, google } from "../connectors/index.ts";
@@ -421,6 +422,8 @@ export async function createBroker(
     registration?: Registration | ReadonlyArray<Registration>;
     /** An optional part of the broker, such as integrations. */
     part?: Part;
+    /** `moderation({ key })` of src/moderation/server.ts. */
+    moderation?: ModerationRoutes;
     fetch?: StubFetch;
     signInPage?: SignInPageFunction;
   } = {},
@@ -437,7 +440,9 @@ export async function createBroker(
   });
   const layer = Layer.merge(core.layer, Layer.succeed(Store, store));
   const handle = await Effect.runPromise(
-    makeHandle(options.registration ?? { routes: [] }, options.part).pipe(Effect.provide(layer)),
+    makeHandle(options.registration ?? { routes: [] }, options.part, options.moderation).pipe(
+      Effect.provide(layer),
+    ),
   );
   const clock = {
     now: core.clock.now,

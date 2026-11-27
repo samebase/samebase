@@ -247,6 +247,31 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         { changed: boolean },
         Name
       >;
+      clients: FunctionReference<
+        "query",
+        "internal",
+        { args: {}; now: number },
+        {
+          clients: Array<{
+            clientId: string;
+            createdAt: number;
+            host: string;
+            lastSignInAt: number | null;
+          }>;
+          limitReached: boolean;
+        },
+        Name
+      >;
+      hostBlocks: FunctionReference<
+        "query",
+        "internal",
+        { args: {}; now: number },
+        {
+          blocks: Array<{ createdAt: number; host: string }>;
+          limitReached: boolean;
+        },
+        Name
+      >;
       put: FunctionReference<
         "mutation",
         "internal",
@@ -637,6 +662,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           now: number;
         },
         {
+          cimd?: {
+            clients: Array<{
+              clientId: string;
+              createdAt: number;
+              host: string;
+              lastSignInAt: number | null;
+            }>;
+            limitReached: boolean;
+          };
           clients: Array<{
             appId: string;
             clientId: string;

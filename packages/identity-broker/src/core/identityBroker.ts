@@ -2,6 +2,7 @@ import { Cause, Config, ConfigProvider, Context, Effect, Exit, Layer, Logger } f
 import * as HttpServerRequest from "effect/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { checkProviders, type IntegrationSpec } from "../integrations/providers.ts";
+import type { ModerationRoutes } from "../moderation/server.ts";
 import { makeIntegrations } from "../integrations/routes.ts";
 import { defaultKeys, brokerSettings, type BrokerSettings } from "../hosts/settings.ts";
 import { Store } from "../store/Store.ts";
@@ -41,6 +42,8 @@ type Registrations = Registration | ReadonlyArray<Registration>;
 type BrokerOptions<R> = BrokerSettings<R> & {
   /** Without it the broker mounts no integration route. */
   readonly integrations?: ReadonlyArray<IntegrationSpec<R>>;
+  /** `moderation({ key })` of src/moderation/server.ts. Without it the broker has no moderation route. */
+  readonly moderation?: ModerationRoutes;
 } & (
     | { readonly registration: PrivateRegistration | ReadonlyArray<PrivateRegistration> }
     | {
@@ -87,10 +90,11 @@ const buildRuntime = <E, R, Integration extends IntegrationSpec<unknown> = never
   settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
   registration: Registrations,
   integrations?: ReadonlyArray<Integration>,
+  moderation?: ModerationRoutes,
 ): Effect.Effect<Broker, unknown, Store | R | SecretServices<Integration>> =>
   Effect.gen(function* () {
     const part = integrations === undefined ? undefined : yield* makeIntegrations(integrations);
-    const handle = yield* makeHandle(registration, part);
+    const handle = yield* makeHandle(registration, part, moderation);
     // Only the broker's own services: a lazy build runs in request 1, whose request and scope must
     // not reach a later request.
     const services = Context.pick(
@@ -121,8 +125,9 @@ export const brokerRuntime = <E, R, Integration extends IntegrationSpec<unknown>
   settings: Layer.Layer<BrokerConfig | SignInPage | Keys, E, R>,
   registration: Registrations,
   integrations?: ReadonlyArray<Integration>,
+  moderation?: ModerationRoutes,
 ): Effect.Effect<Broker, never, Store | R | SecretServices<Integration>> =>
-  buildRuntime(settings, registration, integrations).pipe(cannotStart);
+  buildRuntime(settings, registration, integrations, moderation).pipe(cannotStart);
 
 /** Reads each `Config` secret now; with another kind of secret the broker builds at the first request. */
 export const identityBroker = <
@@ -157,6 +162,7 @@ export const identityBroker = <
       }),
       options.registration,
       options.integrations,
+      options.moderation,
     );
     const specs = [...options.connectors, ...(options.integrations ?? [])];
     const secrets = [

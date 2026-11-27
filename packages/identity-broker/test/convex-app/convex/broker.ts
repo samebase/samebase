@@ -66,12 +66,12 @@ const settings = Layer.unwrap(
 
 export const broker = convexBroker(
   components.identityBroker,
-  brokerRuntime(settings, [
-    githubActions([{ repositoryId: "1", ownerId: "65" }], {
-      moderation: moderation({ key: Config.Redacted("MODERATION_KEY") }),
-    }),
-    clientIdMetadataDocuments(),
-  ]),
+  brokerRuntime(
+    settings,
+    [githubActions([{ repositoryId: "1", ownerId: "65" }]), clientIdMetadataDocuments()],
+    undefined,
+    moderation({ key: Config.Redacted("MODERATION_KEY") }),
+  ),
 );
 
 export const cleanup = broker.cleanup;

@@ -1,7 +1,7 @@
 // Test helpers of the GitHub layer (`POST /register`, `/register/<client>`), on the memory Store
 // and the core services of src/core/testing/harness.ts. No test framework import: a helper returns
 // values, and the test asserts. The port of the Convex broker's test helpers.
-import { Effect, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from "jose";
 import {
   createBroker,
@@ -11,7 +11,7 @@ import {
   TEST_ISSUER,
   txnCookie,
 } from "../../../core/testing/harness.ts";
-import type { Route } from "../../../core/router.ts";
+import type { ModerationRoutes } from "../../../moderation/server.ts";
 import { first } from "../../../store/Tx.ts";
 import { ownerStop, refOf, repositoryStop, tenantIdOf } from "../clients.ts";
 import { githubRoutes } from "../routes.ts";
@@ -55,29 +55,30 @@ export async function createGithubBroker(
   options: {
     allowList?: typeof AllowList.Type;
     seed?: number;
-    /** The routes of `moderation` (src/moderation/server.ts), mounted as `githubActions` does. */
-    moderation?: ReadonlyArray<Route<GithubSettings>>;
+    /** `moderation({ key })` of src/moderation/server.ts. */
+    moderation?: ModerationRoutes;
   } = {},
 ) {
   const fetch = stubFetch();
   const { connector } = fakeUpstream(fetch);
   let allowList = options.allowList ?? TEST_ALLOW_LIST;
+  // Each request reads the allow-list of that moment, as a host reads its settings.
+  const settings = Layer.effect(
+    GithubSettings,
+    Effect.sync(() => GithubSettings.of({ allowList, paused: false })),
+  );
   const broker = await createBroker({
     fetch,
     config: { connectors: [connector, { ...connector, name: "other", label: "Other" }] },
     ...(options.seed === undefined ? {} : { seed: options.seed }),
-    // Each request reads the allow-list of that moment, as a host reads its settings.
     registration: {
-      routes: [...githubRoutes, ...(options.moderation ?? [])].map((route) => ({
+      routes: githubRoutes.map((route) => ({
         ...route,
-        handler: (request: Request) =>
-          Effect.suspend(() =>
-            route
-              .handler(request)
-              .pipe(Effect.provideService(GithubSettings, { allowList, paused: false })),
-          ),
+        handler: (request: Request) => route.handler(request).pipe(Effect.provide(settings)),
       })),
+      moderation: { layer: "github", settings },
     },
+    ...(options.moderation === undefined ? {} : { moderation: options.moderation }),
   });
   broker.clock.set(EPOCH);
   return {

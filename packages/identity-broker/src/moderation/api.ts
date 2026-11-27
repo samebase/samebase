@@ -102,11 +102,26 @@ export const Client = Schema.Struct({
   grantedConnectors: Schema.NullOr(Connectors),
 });
 
+/** A client of the CIMD layer: its id is the address of its metadata document on `host`. */
+export const CimdClient = Schema.Struct({
+  clientId: Schema.String,
+  host: Schema.String,
+  createdAt: Schema.Number,
+  lastSignInAt: Schema.NullOr(Schema.Number),
+});
+
+export const CimdClientList = Schema.Struct({
+  clients: Schema.Array(CimdClient),
+  limitReached: Schema.Boolean,
+});
+
 /** Newest first. With `?owner=`, the clients of the repositories that the broker records under it. */
 export const ClientList = Schema.Struct({
   owner: Schema.optionalKey(Schema.String),
   clients: Schema.Array(Client),
   limitReached: Schema.Boolean,
+  /** The CIMD layer's clients: without `?owner=`, while the broker mounts that layer. */
+  cimd: Schema.optionalKey(CimdClientList),
 });
 
 /** The exemptions from the broker's sign-in page. */
@@ -169,6 +184,12 @@ export const ConnectorGrantChange = Schema.Struct({
 export const HostBlockChange = Schema.Struct({
   action: BlockAction,
   host: Schema.String.check(Schema.isPattern(/^(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*$/)),
+});
+
+/** The newest blocks of hosts of the CIMD layer, newest first. */
+export const HostBlockList = Schema.Struct({
+  blocks: Schema.Array(Schema.Struct({ host: Schema.String, createdAt: Schema.Number })),
+  limitReached: Schema.Boolean,
 });
 
 const description = { error_description: Schema.String };
@@ -248,6 +269,11 @@ export class RequestCheck extends HttpApiMiddleware.Service<RequestCheck>()(
   { error: InvalidRequest },
 ) {}
 
+/** Answers 404 for an endpoint of a registration layer that the broker does not mount. */
+export class MountedLayers extends HttpApiMiddleware.Service<MountedLayers>()(
+  "identity-broker/moderation/MountedLayers",
+) {}
+
 /** A query with a parameter that the endpoint does not declare is refused. */
 const strictQuery = { onExcessProperty: "error" } as const;
 
@@ -278,12 +304,14 @@ export class Moderation extends HttpApiGroup.make("moderation")
       query: { owner: Schema.optionalKey(GithubId) },
       success: Changed,
     }).annotate(HttpApi.QueryParseOptions, strictQuery),
+    HttpApiEndpoint.get("hostBlocks", "/host-blocks", { success: HostBlockList }),
     HttpApiEndpoint.post("changeHostBlock", "/host-blocks", {
       payload: HostBlockChange,
       success: Changed,
     }),
   )
-  // The last middleware runs first: the key is checked before the request is decoded.
+  // The last middleware runs first: the key is checked, then the layer, then the request is decoded.
+  .middleware(MountedLayers)
   .middleware(RequestCheck)
   .middleware(ModerationKey)
   .prefix("/moderation") {}
