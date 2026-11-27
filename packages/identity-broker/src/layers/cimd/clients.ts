@@ -43,6 +43,8 @@ export const BeginResult = Schema.Union([
 
 export const PutArgs = Schema.Struct({
   clientId: UrlClientId,
+  /** The return address of the sign-in that read the document. */
+  redirectUri: Str,
   fetchStartedAt: Schema.Finite,
   freshUntil: Schema.Finite,
   redirectUris: Strs,
@@ -55,6 +57,7 @@ export const PutResult = Schema.Literals([
   "older",
   "stopped",
   "rate_limited",
+  "not_listed",
 ]);
 
 export const RemoveArgs = Schema.Struct({ clientId: UrlClientId, fetchStartedAt: Schema.Finite });
@@ -119,8 +122,10 @@ export const begin = Effect.fnUntraced(function* (args: typeof BeginArgs.Type, s
 /**
  * The card from a document that the layer accepted. With no card of the id, a token of the
  * new-client budget makes one. A card is replaced only by a fetch that started after the fetch that
- * it holds: an older, slower fetch changes nothing. The block and the id are checked again here,
- * so no other path writes a public card of a blocked host or of another kind of id.
+ * it holds: an older, slower fetch changes nothing. A document that does not list the sign-in's
+ * address still replaces a card, but makes none, and the answer is `not_listed`. The block and the
+ * id are checked again here, so no other path writes a public card of a blocked host or of another
+ * kind of id.
  */
 export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step: Step) {
   const tx = yield* CimdTx;
@@ -128,9 +133,13 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
   if (yield* isStopped(host)) {
     return "stopped" as const;
   }
+  const listed = args.redirectUris.includes(args.redirectUri);
   const cimd = { fetchStartedAt: args.fetchStartedAt, freshUntil: args.freshUntil };
   const card = yield* cardOf(args.clientId);
   if (card === undefined) {
+    if (!listed) {
+      return "not_listed" as const;
+    }
     if (!(yield* spendBudget(NEW_CLIENT_BUDGET, step.now, args.newClients))) {
       return "rate_limited" as const;
     }
@@ -152,7 +161,7 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
     return "inserted" as const;
   }
   if (card.fetched.fetchStartedAt >= args.fetchStartedAt) {
-    return "older" as const;
+    return listed ? ("older" as const) : ("not_listed" as const);
   }
   yield* tx.replace("clients", card.id, {
     ...card.doc,
@@ -162,16 +171,24 @@ export const put = Effect.fnUntraced(function* (args: typeof PutArgs.Type, step:
     removeAt: Math.max(card.doc.removeAt ?? 0, step.now + UNUSED_MS),
     cimd,
   });
-  return "replaced" as const;
+  return listed ? ("replaced" as const) : ("not_listed" as const);
 });
 
-/** A fetch whose document is gone or refused deletes the card, when it started after the card's. */
+/**
+ * A fetch whose document is gone or refused deletes the card, when it started after the card's,
+ * and the budget row of the card's host.
+ */
 export const remove = Effect.fnUntraced(function* (args: typeof RemoveArgs.Type) {
+  const tx = yield* CimdTx;
   const card = yield* cardOf(args.clientId);
   if (card === undefined || card.fetched.fetchStartedAt >= args.fetchStartedAt) {
     return { removed: false };
   }
-  yield* (yield* CimdTx).delete("clients", card.id);
+  yield* tx.delete("clients", card.id);
+  const budget = yield* unique(tx, "signInBudgets", "by_key", [card.doc.budget]);
+  if (budget !== undefined) {
+    yield* tx.delete("signInBudgets", budget.id);
+  }
   return { removed: true };
 });
 

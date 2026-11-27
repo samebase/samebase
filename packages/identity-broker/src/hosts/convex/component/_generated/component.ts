@@ -257,11 +257,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             fetchStartedAt: number;
             freshUntil: number;
             newClients: { capacity: number; periodMs: number; rate: number };
+            redirectUri: string;
             redirectUris: Array<string>;
           };
           now: number;
         },
-        "inserted" | "replaced" | "older" | "stopped" | "rate_limited",
+        | "inserted"
+        | "replaced"
+        | "older"
+        | "stopped"
+        | "rate_limited"
+        | "not_listed",
         Name
       >;
       remove: FunctionReference<

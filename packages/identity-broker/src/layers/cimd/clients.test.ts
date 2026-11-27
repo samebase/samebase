@@ -3,9 +3,9 @@
 // two fetches interleave as two sign-ins at the same time can make them.
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vite-plus/test";
-import { rowsOf, testHosts, type TestHost } from "../../rules/testing.ts";
+import { rowsOf, seed, testHosts, type TestHost } from "../../rules/testing.ts";
 import type { Args } from "../../store/commands.ts";
-import { FETCH_BUDGET, NEW_CLIENT_BUDGET } from "./clients.ts";
+import { FETCH_BUDGET, hostKey, NEW_CLIENT_BUDGET } from "./clients.ts";
 
 const hosts = testHosts(() => new DatabaseSync(":memory:"));
 
@@ -14,6 +14,7 @@ const ID = "https://app.example.com/oauth-client.json";
 const OLD_URI = "https://app.example.com/old";
 const NEW_URI = "https://app.example.com/new";
 const LIMITS = { rate: 120, periodMs: 60_000, capacity: 120 };
+const HOST_BUDGET = hostKey("app.example.com");
 
 /** The fetch that `begin` started, or its refusal. */
 const begin = (t: TestHost, redirectUri = OLD_URI, fetches = LIMITS) =>
@@ -35,6 +36,7 @@ const put = (
 ) =>
   t.run("cimd.put", {
     clientId: ID,
+    redirectUri: redirectUris[0] ?? OLD_URI,
     fetchStartedAt,
     freshUntil: fetchStartedAt + 3_600_000,
     redirectUris,
@@ -120,6 +122,19 @@ describe.each(hosts)("%s", (_name, make) => {
     expect(cards(t)).toMatchObject([{ createdAt: T + 3_600_001 }]);
     // An hour refilled the budget, and the card made again spent one token of it.
     expect(budget(t, NEW_CLIENT_BUDGET)).toBe(29);
+  });
+
+  test("the removal of a card deletes the budget row of its host, and never the two broker-wide rows", () => {
+    const t = make({ now: T });
+    expect(put(t, startedAt(t), [OLD_URI])).toBe("inserted");
+    seed(t, "signInBudgets", [{ key: HOST_BUDGET, tokens: 3, at: T }]);
+    t.setNow(T + 1);
+    expect(t.run("cimd.remove", { clientId: ID, fetchStartedAt: startedAt(t, NEW_URI) })).toEqual({
+      removed: true,
+    });
+    expect(budget(t, HOST_BUDGET)).toBeUndefined();
+    expect(budget(t, FETCH_BUDGET)).toBeDefined();
+    expect(budget(t, NEW_CLIENT_BUDGET)).toBeDefined();
   });
 
   test("the budgets: a refused fetch or card stores nothing", () => {

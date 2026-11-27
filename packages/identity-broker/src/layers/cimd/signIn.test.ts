@@ -17,6 +17,8 @@ import {
 import { PROVIDERS } from "../../integrations/testing.ts";
 import { integrationsPart } from "../../integrations/routes.ts";
 import { githubActions } from "../github/routes.ts";
+import { FETCH_BUDGET } from "./clients.ts";
+import { policyRefusals } from "./policy.ts";
 import { clientIdMetadataDocuments } from "./registration.ts";
 
 const CLIENT_ID = "https://app.example.com/oauth-client.json";
@@ -141,17 +143,18 @@ describe("a stored card of the layer", () => {
   const storeCard = (h: Broker) =>
     h.memory.run("cimd.put", {
       clientId: CLIENT_ID,
+      redirectUri: REDIRECT_URI,
       fetchStartedAt: h.clock.now(),
       freshUntil: h.clock.now() + 3_600_000,
       redirectUris: [REDIRECT_URI],
       connectors: ["fake"],
       newClients: { rate: 30, periodMs: 3_600_000, capacity: 30 },
     });
-  const authorize = (h: Broker) =>
+  const authorize = (h: Broker, redirectUri = REDIRECT_URI) =>
     h.fetchBroker(
       `${h.issuer}/authorize?${new URLSearchParams({
         client_id: CLIENT_ID,
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: redirectUri,
         response_type: "code",
         scope: "openid",
         code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
@@ -164,6 +167,20 @@ describe("a stored card of the layer", () => {
     expect(storeCard(h)).toBe("inserted");
     expect((await authorize(h)).status).toBe(200);
     expect(h.fetch.requests).toEqual([]);
+  });
+
+  test("a return address that no document of the id can give: refused with no read and no spent fetch", async () => {
+    const h = await brokerWith([clientIdMetadataDocuments()]);
+    expect(storeCard(h)).toBe("inserted");
+    const page = await authorize(h, "https://other.example.com/auth/callback");
+    expect([page.status, await page.text()]).toEqual([
+      400,
+      expect.stringContaining(policyRefusals.redirect_uri_not_listed),
+    ]);
+    expect(h.fetch.requests).toEqual([]);
+    expect(h.memory.db.contents().signInBudgets.filter((row) => row.key === FETCH_BUDGET)).toEqual(
+      [],
+    );
   });
 
   test("gives no new sign-in once the layer is removed from the broker", async () => {

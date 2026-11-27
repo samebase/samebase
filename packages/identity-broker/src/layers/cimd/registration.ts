@@ -22,6 +22,7 @@ import { isDnsName } from "../clientRegistration.ts";
 import { command } from "./commands.ts";
 import {
   acceptDocument,
+  acceptsRedirectUri,
   hostRefusal,
   policyRefusals,
   readClientId,
@@ -96,6 +97,11 @@ const resolver = (settings: {
       refused(policy);
       return invalid(policy);
     }
+    // An address that no document of this id can give costs no read.
+    if (!acceptsRedirectUri(id, request.redirectUri)) {
+      refused("redirect_uri_not_listed");
+      return invalid("redirect_uri_not_listed");
+    }
     const connectors = [
       ...new Set(
         (settings.connectors ?? broker.configured).filter((name) =>
@@ -153,13 +159,9 @@ const resolver = (settings: {
     if (accepted._tag === "Refused") {
       return yield* gone(accepted.code);
     }
-    // An address that the document does not list stores nothing.
-    if (!accepted.redirectUris.includes(request.redirectUri)) {
-      refused("redirect_uri_not_listed");
-      return invalid("redirect_uri_not_listed");
-    }
     const put = yield* command("cimd.put", {
       clientId,
+      redirectUri: request.redirectUri,
       fetchStartedAt,
       freshUntil: fetched.freshUntil,
       redirectUris: accepted.redirectUris,
@@ -178,6 +180,9 @@ const resolver = (settings: {
       case "rate_limited":
         refused("rate_limited");
         return { reason: "rate_limited" } as const;
+      case "not_listed":
+        refused("redirect_uri_not_listed");
+        return invalid("redirect_uri_not_listed");
       default:
         return put satisfies never;
     }

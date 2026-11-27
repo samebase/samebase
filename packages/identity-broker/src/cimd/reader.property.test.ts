@@ -350,6 +350,8 @@ const FETCHED_IDS = [
   { raw: "https://127.0.0.1/c", special: true },
   { raw: "https://localhost/c", special: true },
   { raw: "https://a.LOCALHOST/c", special: true },
+  { raw: "https://localhost./c", special: true },
+  { raw: "https://sub.localhost./c", special: true },
   { raw: "https://10.1.2.3/c", special: true },
   { raw: "https://172.16.0.1/c", special: true },
   { raw: "https://192.168.0.1/c", special: true },
@@ -392,6 +394,13 @@ const anyBody = fc.oneof(
   { weight: 2, arbitrary: fc.uint8Array({ maxLength: 6000 }) },
   { weight: 1, arbitrary: fc.constant(null) },
 );
+/** A number too large to read: from 310 digits, `Number` gives Infinity. */
+const longDigits = fc
+  .tuple(
+    fc.constantFrom(..."123456789"),
+    fc.string({ unit: fc.constantFrom(..."0123456789"), minLength: 309, maxLength: 400 }),
+  )
+  .map(([head, tail]) => head + tail);
 const headerValue = fc.oneof(
   fc.nat({ max: 99_999 }).map(String),
   fc.constantFrom("no-store", "max-age=60", "max-age=99999999", "-1", "abc", ""),
@@ -580,8 +589,7 @@ describe("fetchDocument: draft sections 6, 6.2, 10.7 and 10.11", () => {
     );
   });
 
-  // Fails today: the reader trusts the fetch function to honour `redirect: "manual"` and never reads `redirected`.
-  test.fails("MUST NOT follow redirects: an answer that a platform fetch reached by a redirect never gives a Document", async () => {
+  test("MUST NOT follow redirects: an answer that a platform fetch reached by a redirect never gives a Document", async () => {
     const redirectedAnswer = members.map((object): Answer => ({
       kind: "response",
       status: 200,
@@ -594,9 +602,48 @@ describe("fetchDocument: draft sections 6, 6.2, 10.7 and 10.11", () => {
     await fc.assert(
       fc.asyncProperty(redirectedAnswer, async (given) => {
         const exit = await runExit(fetchDocument(id, answering(given, true).fetch));
-        expect(Exit.isSuccess(exit) && exit.value._tag).not.toBe("Document");
+        expect(Exit.isSuccess(exit) && exit.value).toMatchObject({
+          _tag: "Terminal",
+          code: "redirect",
+        });
       }),
       { numRuns: 20, seed: 6_1012 },
+    );
+  });
+
+  test("Retry-After of a 429 or 5xx answer gives a whole number of seconds from 0 to 86,400, or nothing", async () => {
+    const retryAfterValue = fc.oneof(
+      fc.nat({ max: 200_000 }).map(String),
+      fc.bigInt({ min: 0n, max: 10n ** 30n }).map(String),
+      longDigits,
+      fc
+        .integer({ min: -DAY_MS * 400, max: DAY_MS * 3_000_000 })
+        .map((offset) => new Date(T + offset).toUTCString()),
+      fc.stringMatching(/^[ -~]{0,16}$/),
+    );
+    const id = accepted("https://app.example.com/oauth-client.json");
+    await fc.assert(
+      fc.asyncProperty(fc.constantFrom(429, 500, 503), retryAfterValue, async (status, value) => {
+        const given: Answer = {
+          kind: "response",
+          status,
+          headers: [["retry-after", value]],
+          body: null,
+          chunks: [1],
+          failAtEnd: false,
+        };
+        const exit = await runExit(fetchDocument(id, answering(given).fetch));
+        if (!Exit.isSuccess(exit) || exit.value._tag !== "Transient") {
+          return expect.fail("a 429 or 5xx answer is not Transient");
+        }
+        const seconds = exit.value.retryAfter;
+        if (seconds !== undefined) {
+          expect(Number.isInteger(seconds)).toBe(true);
+          expect(seconds).toBeGreaterThanOrEqual(0);
+          expect(seconds).toBeLessThanOrEqual(86_400);
+        }
+      }),
+      RUNS,
     );
   });
 });
@@ -621,13 +668,18 @@ const directive = fc.oneof(
   fc.integer({ min: -100, max: -1 }).map((n) => `max-age=${n}`),
   fc.nat().map((n) => `MAX-AGE=${n}`),
   fc.stringMatching(/^[ -~]{0,12}$/),
+  longDigits.map((digits) => `max-age=${digits}`),
 );
 const cacheControl = fc
   .tuple(fc.array(directive, { maxLength: 4 }), fc.constantFrom(",", ", ", " ,"))
   .map(([directives, separator]) => directives.join(separator));
 const otherHeaders = fc.record(
   {
-    age: fc.oneof(fc.nat({ max: 200_000 }).map(String), fc.stringMatching(/^[ -~]{0,6}$/)),
+    age: fc.oneof(
+      fc.nat({ max: 200_000 }).map(String),
+      fc.stringMatching(/^[ -~]{0,6}$/),
+      longDigits,
+    ),
     expires: fc.constantFrom(new Date(T + DAY_MS * 3).toUTCString(), "0", "never"),
     "content-type": fc.constantFrom("application/json", "text/html"),
   },

@@ -9,7 +9,7 @@
 //   sign-ins            pending, at the provider, or finished
 // Events (store commands):
 //   a read starts       cimd.begin: "stopped", "fresh" (a sign-in starts at once), "fetch" (a read)
-//   a read ends, good   cimd.put when the document lists the read's address; then its sign-in starts
+//   a read ends, good   cimd.put; its sign-in starts when the document lists the read's address
 //   a read ends, gone   cimd.remove: the file answers 404, or the reader or the policy refuses it
 //   a read ends, short  nothing: no answer, 429 or 5xx, and the card stays
 //   block, unblock      cimd.blockHost, cimd.unblockHost
@@ -179,6 +179,9 @@ function play(events: ReadonlyArray<Event>, strict = false) {
     return card !== undefined && gone.every((start) => start <= card.start);
   };
 
+  const onCard = (client: number, redirectUri: string) =>
+    model(client).card?.redirectUris.includes(redirectUri) === true;
+
   const startSignIn = (client: number, redirectUri: string) => {
     const requestId = `r${signIns.length}`;
     const created = t.run("authRequests.create", {
@@ -194,7 +197,7 @@ function play(events: ReadonlyArray<Event>, strict = false) {
       createdAt: now,
       expiresAt: now + REQUEST_MS,
     });
-    if (blocked.has(hostOf(client))) {
+    if (blocked.has(hostOf(client)) || !onCard(client, redirectUri)) {
       expect(created.ok).toBe(false);
     }
     if (created.ok) {
@@ -256,14 +259,11 @@ function play(events: ReadonlyArray<Event>, strict = false) {
         const redirectUris = (DOCUMENTS[e.document] ?? [])
           .map((path) => uriOf(read.client, path))
           .sort();
-        // An address that the document does not list stores nothing.
-        if (!redirectUris.includes(read.redirectUri)) {
-          return;
-        }
         const client = model(read.client);
         const { card } = client;
         const put = t.run("cimd.put", {
           clientId: CLIENTS[read.client]?.id ?? "",
+          redirectUri: read.redirectUri,
           fetchStartedAt: read.start,
           freshUntil: now + e.freshMs,
           redirectUris,
@@ -272,6 +272,24 @@ function play(events: ReadonlyArray<Event>, strict = false) {
         });
         expect(put === "stopped").toBe(blocked.has(hostOf(read.client)));
         if (put === "stopped") {
+          return;
+        }
+        if (!redirectUris.includes(read.redirectUri)) {
+          // An address that the document does not list makes no card, and a later read still replaces one.
+          expect(put).toBe("not_listed");
+          if (card === undefined) {
+            return;
+          }
+          const stored = { start: read.start, redirectUris, freshUntil: now + e.freshMs };
+          client.stored.push(stored);
+          if (read.start > card.start) {
+            client.card = stored;
+            client.lastGoodAt = now;
+          }
+          // The resolver refuses; a sign-in that tried anyway with an address off the card would not start.
+          if (!onCard(read.client, read.redirectUri)) {
+            startSignIn(read.client, read.redirectUri);
+          }
           return;
         }
         expect(put === "inserted" || put === "rate_limited").toBe(card === undefined);
@@ -370,7 +388,8 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           ...BROKER,
           now,
         });
-        if (blocked.has(hostOf(signIn.client))) {
+        // A sign-in goes on only while the card holds its address.
+        if (blocked.has(hostOf(signIn.client)) || !onCard(signIn.client, signIn.redirectUri)) {
           expect(started.ok).toBe(false);
         }
         if (started.ok) {
@@ -393,7 +412,7 @@ function play(events: ReadonlyArray<Event>, strict = false) {
           ...BROKER,
           now,
         });
-        if (isBlocked) {
+        if (isBlocked || !onCard(signIn.client, signIn.redirectUri)) {
           expect(claimed.status).not.toBe("claimed");
         }
         if (claimed.status !== "claimed") {

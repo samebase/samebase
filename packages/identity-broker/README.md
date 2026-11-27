@@ -78,9 +78,10 @@ sign-ins at the next read.
 
 For a broker's owner. The layer reads each client's file at `/authorize` through the broker's
 `Fetch`, and keeps a card while the file is fresh. A sign-in whose return address is not on the
-fresh card reads the file again, so an app that adds an address does not wait, and each such request
-takes one read of the broker's budget. A card that nobody signs in with goes 24 hours after its last
-good read; after a sign-in it stays 14 days, as other temporary clients.
+fresh card, but is https on the file's origin, reads the file again, so an app that adds an address
+does not wait, and each such request takes one read of the broker's budget. A card that nobody signs
+in with goes 24 hours after its last good read; after a sign-in it stays 14 days, as other temporary
+clients.
 
 ```ts
 Registration.clientIdMetadataDocuments(); // any host: the broker needs `service`

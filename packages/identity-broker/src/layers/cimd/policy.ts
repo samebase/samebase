@@ -75,11 +75,16 @@ export const hostRefusal = (
       ? ("broker_origin" as const)
       : undefined;
 
+/** Whether a card of `id` can hold `uri`: a return address of the broker, https on `id`'s origin. */
+export const acceptsRedirectUri = (id: ClientId, uri: string) => {
+  const read = readRedirectUri(uri);
+  return read !== null && !read.loopback && read.url.origin === id.origin;
+};
+
 /**
  * What the layer takes of a checked document of `id`: a `none` client of the code flow (its keys,
- * if any, are ignored), with the redirect URIs that the broker's rule for a return address takes
- * and that are https on the origin of `id`, sorted and unique. The others are ignored; 1 to 8 must
- * be left.
+ * if any, are ignored), with the redirect URIs that `acceptsRedirectUri` takes, sorted and unique.
+ * The others are ignored; 1 to 8 must be left.
  */
 export function acceptDocument(id: ClientId, document: CheckedDocument) {
   if (!document.authMethods.includes("none")) {
@@ -93,10 +98,7 @@ export function acceptDocument(id: ClientId, document: CheckedDocument) {
   }
   const redirectUris = [
     ...new Set(
-      document.redirectUris
-        .map(({ uri }) => ({ uri, read: readRedirectUri(uri) }))
-        .filter(({ read }) => read !== null && !read.loopback && read.url.origin === id.origin)
-        .map(({ uri }) => uri),
+      document.redirectUris.map(({ uri }) => uri).filter((uri) => acceptsRedirectUri(id, uri)),
     ),
   ].sort();
   if (redirectUris.length === 0) {

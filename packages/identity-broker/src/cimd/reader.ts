@@ -49,6 +49,7 @@ export const MAX_DOCUMENT_BYTES = 5 * 1024;
 const FETCH_TIMEOUT = Duration.seconds(5);
 const DEFAULT_FRESHNESS_SECONDS = 60 * 60;
 const MAX_FRESHNESS_SECONDS = 24 * 60 * 60;
+const MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60;
 
 const refuse = (code: RefusalCode, member?: string) => ({ _tag: "Refused", code, member }) as const;
 
@@ -120,6 +121,9 @@ export function parseClientId(raw: string) {
 
 export type ClientId = Extract<ReturnType<typeof parseClientId>, { _tag: "ClientId" }>;
 
+/** Digits as a number of seconds; a number too large to read is the largest safe integer. */
+const delta = (digits: string) => Math.min(Number(digits), Number.MAX_SAFE_INTEGER);
+
 /**
  * The time (epoch milliseconds) until which an answer is fresh, from its `Cache-Control` and `Age`
  * (RFC 9111): `no-store` and `no-cache` give `now`; `max-age` less the age, at most 24 hours; no
@@ -139,10 +143,10 @@ export function freshUntil(headers: Headers, now: number) {
     return now + DEFAULT_FRESHNESS_SECONDS * 1000;
   }
   const seconds = /^"?(\d+)"?$/.exec(maxAge)?.[1];
-  const age = /^\d+$/.test(headers.get("age") ?? "") ? Number(headers.get("age")) : 0;
+  const age = /^\d+$/.test(headers.get("age") ?? "") ? delta(headers.get("age") ?? "") : 0;
   return seconds === undefined
     ? now
-    : now + Math.max(0, Math.min(Number(seconds) - age, MAX_FRESHNESS_SECONDS)) * 1000;
+    : now + Math.max(0, Math.min(delta(seconds) - age, MAX_FRESHNESS_SECONDS)) * 1000;
 }
 
 // The IPv4 blocks of the IANA special-purpose registry (RFC 6890 and its updates), and multicast.
@@ -185,7 +189,9 @@ function ipv6Groups(address: string) {
  * host itself shows it: a special-use IP address, or a localhost name (RFC 6761). What a DNS name
  * resolves to is the platform's part.
  */
-function isSpecialUseHost(host: string) {
+function isSpecialUseHost(written: string) {
+  // A name with one dot at the end is the same name (RFC 1034 section 3.1).
+  const host = written.endsWith(".") ? written.slice(0, -1) : written;
   if (host === "localhost" || host.endsWith(".localhost")) {
     return true;
   }
@@ -238,6 +244,7 @@ async function get(fetch: FetchFunction, id: string, signal: AbortSignal) {
     new Request(id, { headers: { Accept: "application/json" }, redirect: "manual", signal }),
   );
   if (
+    response.redirected ||
     response.status !== 200 ||
     Number(response.headers.get("content-length")) > MAX_DOCUMENT_BYTES
   ) {
@@ -247,17 +254,19 @@ async function get(fetch: FetchFunction, id: string, signal: AbortSignal) {
   return { response, body: await readLimited(response.body) };
 }
 
-/** Seconds from `Retry-After` (RFC 9110 section 10.2.3): delay-seconds or an HTTP date. */
+/** Seconds from `Retry-After` (RFC 9110 section 10.2.3), at most 24 hours: delay-seconds or a date. */
 function retryAfter(headers: Headers, now: number) {
   const value = headers.get("retry-after");
   if (value === null) {
     return undefined;
   }
   if (/^\d+$/.test(value)) {
-    return Number(value);
+    return Math.min(Number(value), MAX_RETRY_AFTER_SECONDS);
   }
   const date = Date.parse(value);
-  return Number.isNaN(date) ? undefined : Math.max(0, Math.ceil((date - now) / 1000));
+  return Number.isNaN(date)
+    ? undefined
+    : Math.max(0, Math.min(Math.ceil((date - now) / 1000), MAX_RETRY_AFTER_SECONDS));
 }
 
 const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
@@ -268,8 +277,9 @@ const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
 /**
  * One fetch of the document at `clientId.id` (draft section 6): no redirect followed, 5 seconds for
  * the whole request with its body, at most 5 KB read. `fetch` is the platform's: the request carries
- * `redirect: "manual"`, and a platform that ignores it must be given a function that does not
- * follow. The result is a `Document` (a JSON object, and the time until which it is fresh), a
+ * `redirect: "manual"`, and an answer that a fetch reached by a redirect anyway is refused, so a
+ * platform that ignores it must be given a function that does not follow. The result is a
+ * `Document` (a JSON object, and the time until which it is fresh), a
  * `Transient` failure (draft section 6.1: the trust of a cached document stays), or a `Terminal`
  * one. Nothing of a failed answer is kept.
  */
@@ -305,6 +315,10 @@ export const fetchDocument = Effect.fnUntraced(function* (
 
   const { response, body } = answer.success.value;
   const status = response.status;
+  // A fetch function that followed a redirect anyway.
+  if (response.redirected) {
+    return { _tag: "Terminal", code: "redirect", status } as const;
+  }
   if (status === 429 || status >= 500) {
     return {
       _tag: "Transient",
