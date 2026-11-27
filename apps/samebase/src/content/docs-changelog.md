@@ -3,6 +3,14 @@
 What changed in Samebase, newest first. Each `v` number is the Samebase version that shipped the
 change. If a change needs action from you, the entry says so.
 
+## 2026-11-27
+
+- **v2420: Sign-in at login.samebase.com.** A new app signs in with Google and GitHub through
+  `https://login.samebase.com`. Each deployment serves `/oauth-client.json` and is its own client,
+  so nothing is registered at deploy and the app holds no client secret. An app made before this
+  keeps working at `id.samebase.com`. To move it, follow the starter changelog entry v2420: two
+  deploys, and its users keep their accounts.
+
 ## 2026-11-20
 
 - **v2382: Stack diagram.** The stack cards of a repository now show each stage's main resources as

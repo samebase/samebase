@@ -22,6 +22,32 @@ relevant, and preserve unrelated user changes.
 For a review of several apps, compare each repository independently. Do not reuse one app's starter
 build or relevance result for another app.
 
+## v2420: Sign-in at login.samebase.com, with no client registration
+
+On 2026-11-27 the starter moved its Google and GitHub sign-in from `https://id.samebase.com` to
+`https://login.samebase.com`. Each deployment is its own client: it serves `/oauth-client.json` (an
+OAuth Client ID Metadata Document), and its client id is that file's address. Nothing is registered
+at deploy, there is no client secret, and there is no `dev-<name>` stage. A user keeps the same
+account, because the account key is the provider's own id (`google:<id>`, `github:<id>`).
+
+Relevant when `alchemy.run.ts` declares `IdentityBroker.Client`. Apply it in two steps, each one a
+deploy on `main` and on every open pull request:
+
+1. Take commit
+   [`5ffcef4`](https://github.com/samebase/base/commit/5ffcef4740a04d68e16ad79610bb82739652113e) of
+   [samebase/base](https://github.com/samebase/base). Its deploy deletes the old client row (and a
+   preview's client at the broker), removes the variables `IDENTITY_BROKER_ISSUER`,
+   `IDENTITY_BROKER_CLIENT_ID` and `IDENTITY_BROKER_CLIENT_SECRET`, and sets `OAUTH_CLIENT_ID`.
+2. Then take commit
+   [`0197304`](https://github.com/samebase/base/commit/019730459736ea8602176cfe453d1d7e31943b64),
+   which removes that cleanup from `alchemy.run.ts` and the `@samebase/identity-broker` dependency.
+
+A stage that skips step 1 stops at the plan on the old client row, and a pull request preview with
+the old `Site` row loses its deployment. Verify sign-in on the preview after each step.
+
+A local Convex backend (a linked worktree) has an `http://` site, which the broker refuses: there
+only guest sign-in works. A cloud development deployment signs in as before.
+
 ## v2417: The client resource comes from @samebase/identity-broker
 
 On 2026-11-26 the starter moved to `@samebase/identity-broker` 0.44.0 and `@samebase/alchemy-convex`
