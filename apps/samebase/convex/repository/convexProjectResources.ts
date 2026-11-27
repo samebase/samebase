@@ -8,6 +8,7 @@ import {
   type ConvexCloudDeployment,
   type ConvexDeployment,
   type ConvexProject,
+  vConvexDeployment,
 } from "../convexManagementApi";
 
 function requireDefaultProductionDeployment(args: {
@@ -20,9 +21,7 @@ function requireDefaultProductionDeployment(args: {
   if (
     args.deployment.deploymentType !== "prod" ||
     String(args.deployment.projectId) !== args.projectId ||
-    args.deployment.isDefault !== true ||
-    !args.deployment.name ||
-    !args.deployment.deploymentUrl
+    args.deployment.isDefault !== true
   ) {
     throw new Error("Convex returned an inconsistent default production deployment.");
   }
@@ -55,10 +54,12 @@ export async function readConvexProductionDeployment(args: {
   projectId: string;
 }): Promise<ConvexCloudDeployment | null> {
   try {
-    const deployment = await runConvexManagement(args.token, management.getProjectDeployment, {
-      projectId: toConvexId(args.projectId, "Convex project ID"),
-      defaultProd: true,
-    });
+    const deployment = await runConvexManagement(
+      args.token,
+      management.getProjectDeployment,
+      { projectId: toConvexId(args.projectId, "Convex project ID"), defaultProd: true },
+      vConvexDeployment,
+    );
     return requireDefaultProductionDeployment({ deployment, projectId: args.projectId });
   } catch (error) {
     if (isConvexManagementNotFoundError(error)) {

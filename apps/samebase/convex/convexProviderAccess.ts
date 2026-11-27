@@ -6,9 +6,10 @@ import * as management from "@distilled.cloud/convex/management";
 
 import {
   listConvexManagementProjects,
-  readConvexId,
+  readConvexTokenDetails,
   runConvexManagement,
   toConvexId,
+  vConvexDeploymentPage,
 } from "./convexManagementApi";
 import { organizationProviderCredentialAad } from "./organization/providerCredentialModel";
 import { openSecret } from "./sealedSecret";
@@ -93,7 +94,7 @@ export const checkConvexConnectionAccess = action({
     const tokenProbe = await runConvexProbe({
       key: "token",
       run: async () => {
-        return await readConvexTokenDetails(token);
+        return await readConvexTokenIdentity(token);
       },
     });
     checks.push({
@@ -115,10 +116,12 @@ export const checkConvexConnectionAccess = action({
       runConvexProbe({
         key: "deployments",
         run: async () => {
-          return await runConvexManagement(token, management.listTeamDeployments, {
-            teamId: toConvexId(teamId, "Convex team ID"),
-            limit: 100,
-          });
+          return await runConvexManagement(
+            token,
+            management.listTeamDeployments,
+            { teamId: toConvexId(teamId, "Convex team ID"), limit: 100 },
+            vConvexDeploymentPage,
+          );
         },
       }),
     ]);
@@ -174,12 +177,12 @@ async function runConvexProbe<Value>({
   }
 }
 
-async function readConvexTokenDetails(token: string): Promise<ConvexTokenIdentity> {
-  const details = await runConvexManagement(token, management.getTokenDetails, {});
+async function readConvexTokenIdentity(token: string): Promise<ConvexTokenIdentity> {
+  const details = await readConvexTokenDetails(token);
   if (details.type === "teamToken") {
     return {
       type: "team_token",
-      teamId: readConvexId(details.teamId, "Convex token team ID"),
+      teamId: String(details.teamId),
     };
   }
 

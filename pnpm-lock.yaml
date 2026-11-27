@@ -587,6 +587,9 @@ importers:
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
+      lossless-json:
+        specifier: ^4.3.4
+        version: 4.3.4
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.3.0)
@@ -6315,6 +6318,9 @@ packages:
 
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
+
+  lossless-json@4.3.4:
+    resolution: {integrity: sha512-zfmBtt+IgL7aiem9qNhAmW8/kZOVzA0Y219UNj/FN7p21hQ4ZOghT4y9FzxQAm/64e4wi4jR7lBXUXy2IrjaMA==}
 
   lower-case@2.0.2:
     resolution: {integrity: sha512-7fm3l3NAF9WfN6W3JOmf5drwpVqX78JtoGJ3A6W0a6ZnldM41w2fV5D490psKFTpMds8TJse/eHLFFsNHHjHgg==}
@@ -13758,6 +13764,8 @@ snapshots:
       yoctocolors: 2.1.2
 
   longest-streak@3.1.0: {}
+
+  lossless-json@4.3.4: {}
 
   lower-case@2.0.2:
     dependencies:

@@ -1,6 +1,7 @@
 import * as management from "@distilled.cloud/convex/management";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { readConvexProductionDeployment } from "./repository/convexProjectResources";
 import {
   fetchConvexTeamTokenDetails,
   isConvexManagementNotFoundError,
@@ -24,6 +25,20 @@ function project(id: number) {
     createTime: 1_710_000_000_000,
   };
 }
+
+const cloudDeployment = {
+  kind: "cloud",
+  id: 5,
+  name: "happy-otter-123",
+  createTime: 1,
+  deploymentType: "prod",
+  projectId: 1,
+  region: "aws-us-east-1",
+  isDefault: true,
+  reference: "production",
+  deploymentUrl: "https://happy-otter-123.convex.cloud",
+  class: "s16",
+};
 
 function answer(...responses: Response[]) {
   const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
@@ -72,12 +87,57 @@ describe("Convex Management API", () => {
     ).rejects.toThrow("Convex Management API GET /projects/{project_id} failed (200)");
   });
 
-  it("rejects team token details without a team ID", async () => {
-    answer(Response.json({ id: 7, name: "CI", createTime: 1, type: "teamToken" }));
+  it.each([
+    {
+      name: "team token details without a team ID",
+      body: { id: 7, name: "CI", createTime: 1, type: "teamToken" },
+      run: () => fetchConvexTeamTokenDetails("token"),
+    },
+    {
+      name: "a production deployment with a numeric URL",
+      body: { ...cloudDeployment, deploymentUrl: 123 },
+      run: () => readConvexProductionDeployment({ token: "token", projectId: "1" }),
+    },
+  ])("rejects $name", async ({ body, run }) => {
+    answer(Response.json(body));
 
-    await expect(fetchConvexTeamTokenDetails("token")).rejects.toThrow(
-      "Convex token team ID must be a decimal identifier.",
+    await expect(run()).rejects.toThrow("ResponseSchemaMismatch");
+  });
+
+  it("rejects an ID that JavaScript cannot hold exactly", async () => {
+    answer(
+      new Response(
+        '{"items":[{"id":9007199254740993,"name":"P","slug":"p","teamId":41,"teamSlug":"acme","createTime":1}],"pagination":{"hasMore":false}}',
+      ),
     );
+
+    await expect(listConvexManagementProjects({ token: "token", teamId: " 41 " })).rejects.toThrow(
+      "Convex Management API GET /teams/{team_id}/projects failed (200)",
+    );
+  });
+
+  it("accepts a text body for a call without a result and rejects a redirect", async () => {
+    answer(new Response("OK"), new Response(null, { status: 304 }));
+    const deleteKey = () =>
+      runConvexManagement("token", management.deleteDeployKey, {
+        deploymentName: "happy-otter-123",
+        id: "key",
+      });
+
+    await expect(deleteKey()).resolves.toBeDefined();
+    await expect(deleteKey()).rejects.toThrow("failed (304)");
+  });
+
+  it("reports a stalled error body as a timeout without its status", async () => {
+    vi.useFakeTimers();
+    answer(new Response(new ReadableStream({ start: () => undefined }), { status: 403 }));
+
+    const result = runConvexManagement("token", management.getTokenDetails, {}).catch(
+      (error: unknown) => error,
+    );
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await expect(result).resolves.toMatchObject({ status: null });
   });
 
   it("rejects a provider error with its status and without the response body", async () => {

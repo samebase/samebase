@@ -107,6 +107,17 @@ function withoutSecretValues(stage: AlchemyStoredStage): AlchemyStoredStage {
   };
 }
 
+/** A custom domain's destination, or null for one that Samebase does not show. */
+function readCustomDomainDestination(destination: string): "convexCloud" | "convexSite" | null {
+  switch (destination) {
+    case "convexCloud":
+    case "convexSite":
+      return destination;
+    default:
+      return null;
+  }
+}
+
 /** The production deployment of the connected team's `alchemy-state-store` project. */
 async function findAlchemyDeployment(target: Pick<ConvexInspectionTarget, "teamId" | "token">) {
   const project = (
@@ -700,7 +711,10 @@ async function readLiveDeployments(
             (left, right) =>
               left.creationTime - right.creationTime || left.domain.localeCompare(right.domain),
           )
-          .map(({ domain, requestDestination }) => ({ domain, requestDestination })),
+          .flatMap(({ domain, requestDestination }) => {
+            const destination = readCustomDomainDestination(requestDestination);
+            return destination ? [{ domain, requestDestination: destination }] : [];
+          }),
       };
     }),
   );

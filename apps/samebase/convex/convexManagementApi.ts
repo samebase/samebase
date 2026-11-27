@@ -4,8 +4,9 @@ import * as Retry from "@distilled.cloud/convex/Retry";
 import * as management from "@distilled.cloud/convex/management";
 import { ResponseValidation } from "@distilled.cloud/core";
 import { guard } from "@samebase/dependent/main";
-import { Effect, Layer, Redacted, type Schema } from "effect";
+import { Effect, Layer, Redacted, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
+import { isSafeNumber, parse } from "lossless-json";
 
 const API_PATH_PREFIX = "/v1";
 const TIMEOUT = "10 seconds";
@@ -13,6 +14,54 @@ const TIMEOUT = "10 seconds";
 export type ConvexProject = management.ProjectResponse;
 export type ConvexDeployment = management.PlatformDeploymentResponse;
 export type ConvexCloudDeployment = Extract<ConvexDeployment, { kind: "cloud" }>;
+
+/*
+The schemas that distilled 1.0.0-rc.20 generates for these union answers accept any value. These
+check the members that each answer case requires, as the old OpenAPI client did.
+*/
+const vConvexTokenDetails = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("teamToken"),
+    id: Schema.Number,
+    teamId: Schema.Number,
+    name: Schema.String,
+    createTime: Schema.Number,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("projectToken"),
+    id: Schema.Number,
+    projectId: Schema.Number,
+    name: Schema.String,
+    createTime: Schema.Number,
+  }),
+]);
+export const vConvexDeployment = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("cloud"),
+    id: Schema.Number,
+    name: Schema.String,
+    createTime: Schema.Number,
+    deploymentType: Schema.String,
+    projectId: Schema.Number,
+    region: Schema.String,
+    isDefault: Schema.Boolean,
+    reference: Schema.String,
+    deploymentUrl: Schema.String,
+    class: Schema.String,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("local"),
+    name: Schema.String,
+    createTime: Schema.Number,
+    deploymentType: Schema.String,
+    projectId: Schema.Number,
+    creator: Schema.Number,
+    port: Schema.Number,
+    deviceName: Schema.String,
+    isActive: Schema.Boolean,
+  }),
+]);
+export const vConvexDeploymentPage = Schema.Struct({ items: Schema.Array(vConvexDeployment) });
 
 export const isConvexCloudDeployment = guard<ConvexDeployment, ConvexCloudDeployment>(
   (deployment) => (deployment.kind === "cloud" ? deployment : null),
@@ -38,22 +87,11 @@ export function isConvexManagementNotFoundError(error: unknown): boolean {
 
 /** A team or project ID as the Management API takes it. Samebase stores these IDs as strings. */
 export function toConvexId(value: string, label: string): number {
-  const id = Number(value);
-  if (!/^[0-9]+$/.test(value) || !Number.isSafeInteger(id)) {
+  const id = Number(value.trim());
+  if (!/^[0-9]+$/.test(value.trim()) || !Number.isSafeInteger(id)) {
     throw new Error(`${label} must be a decimal identifier.`);
   }
   return id;
-}
-
-/**
-A team or project ID from a response, as Samebase stores it. The distilled schemas of union
-responses (token details, deployments) accept any value, so a caller checks the IDs it reads.
-*/
-export function readConvexId(value: number, label: string): string {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${label} must be a decimal identifier.`);
-  }
-  return String(value);
 }
 
 function readRoute(request: Request): string {
@@ -63,6 +101,24 @@ function readRoute(request: Request): string {
     .replace(/^\/projects\/[^/]+/, "/projects/{project_id}")
     .replace(/^\/deployments\/[^/]+/, "/deployments/{deployment_name}");
   return `${request.method} ${path}`;
+}
+
+/**
+The body of an answer: its JSON, or the text itself when it is not JSON, which fails every schema
+except a void one. A number that JavaScript cannot hold exactly, such as a large ID, fails.
+*/
+function readBody(text: string): unknown {
+  try {
+    return parse(text, null, (value) => {
+      if (!isSafeNumber(value, { approx: false })) {
+        throw new Error("Convex answered a number outside JavaScript's safe range.");
+      }
+      return Number(value);
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError) return text;
+    throw error;
+  }
 }
 
 function describeError(error: unknown): string {
@@ -78,21 +134,24 @@ type ConvexOperation<I, O, E> = ((input: I) => Effect.Effect<O, E, ConvexOpConte
 
 /**
 Runs one `@distilled.cloud/convex` operation with `token`, without retries and with a 10-second
-limit. The JSON body of a successful answer must match the operation's schema: the distilled
-Convex protocol returns a response as read and never checks it, even with a validation mode. A
-failure rejects with a ConvexManagementApiError:
-distilled errors can quote the response body, and Convex logs an exception that leaves an action.
+limit. The body of a 2xx answer must match the operation's schema, or `unionSchema` for an answer
+whose generated schema accepts any value: the distilled Convex protocol returns a response as read
+and never checks it, even with a validation mode. A failure rejects with a
+ConvexManagementApiError: distilled errors can quote the response body, and Convex logs an
+exception that leaves an action.
 */
 export async function runConvexManagement<I, O, E>(
   token: string,
   operation: ConvexOperation<I, O, E>,
   input: I,
+  unionSchema?: Schema.Top,
 ): Promise<O> {
   if (!token) throw new Error("Convex access token is required.");
   let route = "request";
   let status: number | null = null;
-  // The JSON of the last successful answer. delete_deploy_key answers with an empty body.
-  let body: { json: unknown } | null = null;
+  // The body of the last 2xx answer, as JSON when it is JSON. delete_deploy_key can answer with
+  // an empty body.
+  let body: { value: unknown } | null = null;
   // Read at call time: Effect caches its default fetch on first use, which would keep test stubs.
   const send = globalThis.fetch;
   const fetchRecordingStatus = async (input: string | URL | Request, init?: RequestInit) => {
@@ -100,9 +159,12 @@ export async function runConvexManagement<I, O, E>(
     route = readRoute(request);
     const response = await send(request);
     status = response.status;
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error(`Convex answered ${response.status} without a result.`);
+    }
     if (!response.ok) return response;
     const text = await response.text();
-    body = text ? { json: JSON.parse(text) } : null;
+    body = text ? { value: readBody(text) } : null;
     return new Response(text || null, {
       status: response.status,
       statusText: response.statusText,
@@ -110,21 +172,28 @@ export async function runConvexManagement<I, O, E>(
     });
   };
   return await operation(input).pipe(
-    Effect.tap(() =>
-      body === null
+    Effect.tap((result) => {
+      if (unionSchema) {
+        return Schema.is(unionSchema)(result) ? Effect.void : Effect.fail("ResponseSchemaMismatch");
+      }
+      return body === null
         ? Effect.void
         : ResponseValidation.validateResponse(
             operation.output.ast,
-            body.json,
+            body.value,
             () => "ResponseSchemaMismatch",
-          ),
-    ),
+          );
+    }),
     Retry.none,
     Effect.timeout(TIMEOUT),
     Effect.mapError(
       (error) =>
         new ConvexManagementApiError({
-          status: status !== null && status >= 400 ? status : null,
+          // A body that stalls after error headers is a timeout, not that HTTP status.
+          status:
+            status !== null && status >= 400 && describeError(error) !== "TimeoutError"
+              ? status
+              : null,
           message: `Convex Management API ${route} failed${status === null ? "" : ` (${status})`}: ${describeError(error)}.`,
         }),
     ),
@@ -141,11 +210,15 @@ export async function runConvexManagement<I, O, E>(
 }
 
 export async function fetchConvexTeamTokenDetails(token: string): Promise<{ teamId: string }> {
-  const details = await runConvexManagement(token, management.getTokenDetails, {});
+  const details = await readConvexTokenDetails(token);
   if (details.type !== "teamToken") {
     throw new Error("Convex token is missing team access.");
   }
-  return { teamId: readConvexId(details.teamId, "Convex token team ID") };
+  return { teamId: String(details.teamId) };
+}
+
+export async function readConvexTokenDetails(token: string) {
+  return await runConvexManagement(token, management.getTokenDetails, {}, vConvexTokenDetails);
 }
 
 /** One cheap read against the team: the token can list the team's projects. */
