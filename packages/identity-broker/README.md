@@ -98,8 +98,8 @@ Registration.clientIdMetadataDocuments({ hosts: ["app.example.com", "*.previews.
 Each host also has the sign-in budget of every client, 120 each minute, shared by every file of the
 host. To block a host at once, `POST /moderation/host-blocks` with
 `{ "action": "block", "host": "app.example.com" }` (`"unblock"` undoes it), on the moderation API
-that `Registration.githubActions` mounts ([Moderation](#moderation)). The block refuses each next
-step of its sign-ins; an access token that is already issued lives its 5 minutes.
+([Moderation](#moderation)). The block refuses each next step of its sign-ins; an access token that
+is already issued lives its 5 minutes.
 
 On Convex the broker must run in an HTTP action (as `convexBroker` mounts it), never in a
 `"use node"` action: only the default runtime refuses a fetch to a private address. Cloudflare
@@ -515,33 +515,40 @@ issuers and resources of both lists at its start.
 
 ## Moderation
 
-`Registration.githubActions` can mount the moderation API, for the broker's administrator page.
-Every request needs the moderation key as a Bearer token.
+A broker can mount the moderation API, for its administrator page. Every request needs the
+moderation key as a Bearer token.
 
 ```ts
 import { Config } from "effect";
 import { moderation } from "@samebase/identity-broker/moderation";
-import * as Registration from "@samebase/identity-broker/registration";
 
-const registration = Registration.githubActions("any", {
+identityBroker({
+  // ...
   moderation: moderation({ key: Config.Redacted("IDENTITY_BROKER_MODERATION_KEY") }),
 });
 ```
 
-Give `registration` to `identityBroker(options)`. A broker without `moderation` has no `/moderation`
-route. The broker reads the key in each request, and refuses every request while it is unset or
-empty. On Cloudflare, bind it to the Worker in your stack, as the keys of `Registration.keys` are
-bound.
+A host of your own gives it to `makeHandle(registration, part, moderation)`. A broker without
+`moderation` has no `/moderation` route. The broker reads the key in each request, and refuses every
+request while it is unset or empty. On Cloudflare, bind it to the Worker in your stack, as the keys
+of `Registration.keys` are bound.
 
-| Request                                    | Answer                                                               |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| `GET /moderation/counts`                   | The registrations of the last day and of the last week               |
-| `GET`, `POST /moderation/blocks`           | The blocks and their history; block or unblock a repository or owner |
-| `GET`, `POST /moderation/sign-in-page`     | The exemptions from the sign-in page; set or remove one              |
-| `GET`, `POST /moderation/connector-grants` | The connector grants; grant or revoke one                            |
-| `GET /moderation/clients`                  | The newest clients, or with `?owner=` those of one GitHub owner      |
-| `DELETE /moderation/clients/<client id>`   | Deletes one client                                                   |
-| `POST /moderation/host-blocks`             | Blocks or unblocks every client of one host of the CIMD layer        |
+Each endpoint belongs to a registration layer: while the broker does not mount that layer, it
+answers 404.
+
+| Request                                    | Layer        | Answer                                                               |
+| ------------------------------------------ | ------------ | -------------------------------------------------------------------- |
+| `GET /moderation/counts`                   | GitHub       | The registrations of the last day and of the last week               |
+| `GET`, `POST /moderation/blocks`           | GitHub       | The blocks and their history; block or unblock a repository or owner |
+| `GET`, `POST /moderation/sign-in-page`     | GitHub       | The exemptions from the sign-in page; set or remove one              |
+| `GET`, `POST /moderation/connector-grants` | GitHub       | The connector grants; grant or revoke one                            |
+| `GET /moderation/clients`                  | GitHub, CIMD | The newest clients (below)                                           |
+| `DELETE /moderation/clients/<client id>`   | GitHub       | Deletes one client                                                   |
+| `GET`, `POST /moderation/host-blocks`      | CIMD         | The newest blocks of hosts; block or unblock every client of a host  |
+
+`GET /moderation/clients` lists the GitHub layer's clients in `clients`, or with `?owner=` those of
+one GitHub owner. Without `?owner=`, while the broker mounts the CIMD layer, `cimd.clients` lists
+that layer's clients: each with its `clientId`, `host`, `createdAt` and `lastSignInAt`.
 
 A change applies at once: a block refuses the next step of each sign-in, and a grant or an exemption
 rewrites the clients it covers.
@@ -758,7 +765,7 @@ On Convex, set them on the deployment, for example
 `Config` secret that the broker reads at its start to the Worker as a secret, with the value of the
 deploying shell's variable of that name. These are the secrets of `connectors`, `integrations` and
 `keys` that are a bare `Config`, not one inside another Effect. The broker reads the other `Config`
-values in each request: the keys of `Registration.keys`, the moderation `key` and `paused` of
+values in each request: the keys of `Registration.keys`, the moderation `key`, and `paused` of
 `Registration.githubActions`. The stack binds those, as `broker.bind(...)` in `alchemy.run.ts` shows
 ([On Cloudflare](#on-cloudflare)).
 

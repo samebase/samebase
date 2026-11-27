@@ -73,6 +73,8 @@ export const commandNames = [
   "cimd.remove",
   "cimd.blockHost",
   "cimd.unblockHost",
+  "cimd.hostBlocks",
+  "cimd.clients",
   "connections.create",
   "connections.claim",
   "connections.complete",

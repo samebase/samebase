@@ -137,6 +137,14 @@ export const commandFunctions = (component: ComponentApi | typeof api): CommandF
     kind: "mutation",
     reference: component.cimd.unblockHost,
   },
+  "cimd.hostBlocks": {
+    kind: "query",
+    reference: component.cimd.hostBlocks,
+  },
+  "cimd.clients": {
+    kind: "query",
+    reference: component.cimd.clients,
+  },
   "connections.create": {
     kind: "mutation",
     reference: component.connections.create,

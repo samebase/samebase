@@ -20,8 +20,9 @@ export const UNUSED_MS = 24 * 60 * 60 * 1000;
 export const FETCH_BUDGET = "cimd:fetches";
 export const NEW_CLIENT_BUDGET = "cimd:new-clients";
 
+const HOST_KEY_PREFIX = "cimd:host:";
 /** The gate and the sign-in budget of every card of `host`, and the key of its stop. */
-export const hostKey = (host: string) => `cimd:host:${host}`;
+export const hostKey = (host: string) => `${HOST_KEY_PREFIX}${host}`;
 
 const Limits = Schema.Struct({
   rate: Schema.Finite,
@@ -200,6 +201,57 @@ export const blockHost = Effect.fnUntraced(function* (args: typeof HostArgs.Type
   }
   yield* tx.insert("stops", { key: hostKey(args.host), at: step.now });
   return { changed: true };
+});
+
+/** The rows that one list reads: every stop of a host, or every card of the layer. */
+const MAX_LISTED_ROWS = 5_000;
+const HOST_BLOCK_LIST_LIMIT = 200;
+const CLIENT_LIST_LIMIT = 500;
+
+/** Code-unit order, the same on every host. */
+const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** The rows of an index whose key starts with `prefix`, at most `MAX_LISTED_ROWS`. */
+const startingWith = (prefix: `${string}:`) => ({
+  eq: [],
+  // `;` is the code unit after `:`.
+  range: [
+    { op: "gte" as const, value: prefix },
+    { op: "lt" as const, value: `${prefix.slice(0, -1)};` },
+  ],
+  order: "asc" as const,
+  limit: MAX_LISTED_ROWS,
+});
+
+/** The newest blocks of hosts; `limitReached` when the read or the list is full. */
+export const hostBlocks = Effect.fnUntraced(function* () {
+  const rows = yield* (yield* CimdTx).query("stops", "by_key", startingWith(HOST_KEY_PREFIX));
+  const blocks = rows
+    .map(({ doc }) => ({ host: doc.key.slice(HOST_KEY_PREFIX.length), createdAt: doc.at }))
+    .sort((a, b) => b.createdAt - a.createdAt || compare(a.host, b.host));
+  return {
+    blocks: blocks.slice(0, HOST_BLOCK_LIST_LIMIT),
+    limitReached: rows.length === MAX_LISTED_ROWS || blocks.length > HOST_BLOCK_LIST_LIMIT,
+  };
+});
+
+/** The newest cards of the layer; `limitReached` when the read or the list is full. */
+export const listClients = Effect.fnUntraced(function* () {
+  const rows = yield* (yield* CimdTx).query("clients", "by_ref", startingWith("cimd:"));
+  const clients = [];
+  for (const { doc } of rows) {
+    clients.push({
+      clientId: doc.clientId,
+      host: yield* hostOf(doc.clientId),
+      createdAt: doc.createdAt,
+      lastSignInAt: doc.lastSignInAt ?? null,
+    });
+  }
+  clients.sort((a, b) => b.createdAt - a.createdAt || compare(a.clientId, b.clientId));
+  return {
+    clients: clients.slice(0, CLIENT_LIST_LIMIT),
+    limitReached: rows.length === MAX_LISTED_ROWS || clients.length > CLIENT_LIST_LIMIT,
+  };
 });
 
 /** Removes the block of `host`. */

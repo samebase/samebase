@@ -7,6 +7,21 @@
   `/userinfo` answers the preflight with 204. No other route sends a CORS header, and none allows
   credentials. So a site with no server, such as a static site, can sign in with the code flow and
   PKCE as a public client. On Convex, `addHttpRoutes` also routes `OPTIONS` to the broker.
+- New: the moderation API is a part of the broker, so a broker with only the CIMD layer has it too.
+  Each endpoint belongs to a layer, and answers 404 while the broker does not mount that layer:
+  `POST /moderation/host-blocks` now answers 404 on a broker without the CIMD layer. See
+  [Moderation](./README.md#moderation).
+- New: `GET /moderation/host-blocks` lists the newest blocks of hosts, each with its time, newest
+  first (typed client: `moderation.hostBlocks`).
+- New: without `?owner=`, `GET /moderation/clients` has `cimd.clients` while the broker mounts the
+  CIMD layer: that layer's clients, newest first, each with `clientId`, `host`, `createdAt` and
+  `lastSignInAt`. Its answer is otherwise unchanged.
+- Breaking: `moderation` moves to `identityBroker`. Change
+  `Registration.githubActions(allowList, { moderation: moderation({ key }) })` to
+  `identityBroker({ ..., moderation: moderation({ key }) })`. A host of your own gives it to
+  `makeHandle(registration, part, moderation)`, or as the fourth argument of `brokerRuntime`.
+- For a store of your own: the read-only commands `cimd.hostBlocks` and `cimd.clients` join the
+  catalog. Stored rows of 0.45.0 stay valid, and no index changes.
 
 ## 0.45.0
 

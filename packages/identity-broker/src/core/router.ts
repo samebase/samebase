@@ -6,6 +6,7 @@ import type { Store } from "../store/Store.ts";
 import type { CommandFailed } from "./command.ts";
 import type { ProviderUnavailable } from "./connectors/upstream.ts";
 import { json, readParameters } from "./responses.ts";
+import type { ModerationPart, ModerationRoutes } from "../moderation/server.ts";
 import type { GateNamespace } from "../rules/schemas.ts";
 import {
   BrokerConfig,
@@ -72,6 +73,8 @@ export type Registration<R = never> = {
   readonly resolveClient?: ClientResolver;
   /** Strangers use the layer, so the broker needs its `service` settings. */
   readonly public?: true;
+  /** The layer's endpoints of the moderation API. Absent: it has none. */
+  readonly moderation?: ModerationPart;
 };
 
 /** A registration layer where strangers register, so `identityBroker(options)` needs the broker's `service`. */
@@ -99,12 +102,12 @@ export type Part = {
   readonly metadata: (document: Metadata) => object;
 };
 
-/**
- * A route of the table, with its full path. The core's sign-in routes read `LiveGates`. With
- * `cors`, a page's script on any origin may read every answer of the route: the route reads no
- * cookie, so the answer gives a page nothing more than a server gets.
- */
-type Mounted<R> = Route<R | LiveGates> & { readonly fullPath: string; readonly cors?: true };
+/** A route of the table, with its full path. The core's sign-in routes read `LiveGates`. */
+type Mounted<R> = Route<R | LiveGates> & {
+  readonly fullPath: string;
+  /** A page's script on any origin may read the route's answers: the route reads no cookie. */
+  readonly cors?: true;
+};
 
 /** The answer to a CORS-preflight request (Fetch Standard section 4.8): an ok status. */
 const preflight = (methods: string) => () =>
@@ -155,12 +158,15 @@ export const serverError = (annotations: {
  * `registration` is the layer, or the layers, that the broker mounts: their routes, such as the
  * client registration endpoint, beside the core's sign-in routes, their live gates, and at most one
  * resolver. `part` is an optional part of the broker, such as integrations; without it the broker
- * has none of its routes. It fails when two routes have the same method, path and match, when two
- * layers have a resolver, and when a layer is public and the broker has no `service`.
+ * has none of its routes. `moderation` is the moderation API (src/moderation/server.ts) over the
+ * layers' endpoints; without it the broker has no `/moderation/` route. It fails when two routes
+ * have the same method, path and match, when two layers have a resolver, and when a layer is
+ * public and the broker has no `service`.
  */
 export const makeHandle = Effect.fnUntraced(function* <R = never>(
   registration: Registration<R> | ReadonlyArray<Registration<R>>,
   part?: Part,
+  moderation?: ModerationRoutes,
 ) {
   const broker = yield* BrokerConfig;
   const layers: ReadonlyArray<Registration<R>> = Array.isArray(registration)
@@ -328,6 +334,7 @@ export const makeHandle = Effect.fnUntraced(function* <R = never>(
     ),
     ...(part?.routes ?? []).map(at),
     ...layerRoutes.map(at),
+    ...(moderation?.(layers.flatMap((layer) => layer.moderation ?? [])) ?? []).map(at),
   ];
   const mounted = new Set<string>();
   for (const route of routes) {

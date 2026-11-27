@@ -49,8 +49,6 @@ export type GithubOptions = {
    * `Config.boolean("APPS_PAUSED").pipe(Config.withDefault(false))`. Read in each request.
    */
   readonly paused?: Config.Config<boolean>;
-  /** The moderation API (`moderation` of `@samebase/identity-broker/moderation`). */
-  readonly moderation?: ReadonlyArray<Route<GithubSettings>>;
 };
 
 /**
@@ -70,11 +68,12 @@ export const githubActions = (
     Effect.map(paused, (value) => GithubSettings.of({ allowList, paused: value })),
   );
   return {
-    routes: [...githubRoutes, ...(options.moderation ?? [])].map((route) => ({
+    routes: githubRoutes.map((route) => ({
       ...route,
       handler: (request: Request) => route.handler(request).pipe(Effect.provide(settings)),
     })),
     liveGates: Effect.map(paused, (value) => (value ? [{ prefix: GATE_PREFIX, live: [] }] : [])),
     public: true,
+    moderation: { layer: "github", settings },
   };
 };

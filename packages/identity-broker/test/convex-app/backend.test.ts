@@ -530,6 +530,19 @@ test("the moderation API answers its typed client from an httpAction", async () 
   expect((await Effect.runPromise(moderation.blocks())).blocks).toMatchObject([
     { kind: "owner", githubId: "66" },
   ]);
+  // The CIMD layer's lists read a range of a string index.
+  const hostBlock = { action: "block", host: "app.example.com" } as const;
+  expect(await Effect.runPromise(moderation.changeHostBlock({ payload: hostBlock }))).toEqual({
+    changed: true,
+  });
+  expect(await Effect.runPromise(moderation.hostBlocks())).toMatchObject({
+    blocks: [{ host: "app.example.com" }],
+    limitReached: false,
+  });
+  expect((await Effect.runPromise(moderation.clients({ query: {} }))).cimd).toEqual({
+    clients: [],
+    limitReached: false,
+  });
 
   const anonymous = await fetch(`${siteUrl}/moderation/counts`);
   expect([

@@ -4,7 +4,14 @@ import { Config, Effect, Redacted } from "effect";
 import { FetchHttpClient, HttpClientRequest } from "effect/http";
 import { HttpApiClient, HttpApiMiddleware } from "effect/http-api";
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { createBroker, pkce } from "../core/testing/harness.ts";
+import {
+  createBroker,
+  fakeUpstream,
+  pkce,
+  stubFetch,
+  type Broker,
+} from "../core/testing/harness.ts";
+import { clientIdMetadataDocuments } from "../layers/cimd/registration.ts";
 import { repositoryStop } from "../layers/github/clients.ts";
 import { githubActions } from "../layers/github/routes.ts";
 import {
@@ -38,7 +45,7 @@ const moderatedBroker = (allowList: Parameters<typeof createGithubBroker>[0] = {
   });
 
 /** The typed client of the declaration, with `key` as its Bearer token, over the broker's fetch. */
-const clientOf = (h: GithubBroker, key = KEY) =>
+const clientOf = (h: Broker, key = KEY) =>
   Effect.runPromise(
     HttpApiClient.make(ModerationApi, { baseUrl: h.issuer }).pipe(
       Effect.provide(
@@ -261,12 +268,108 @@ describe("the key, as a Bearer token of RFC 6750", () => {
     expect(anonymous.status).toBe(401);
   });
 
-  test("a broker without the part has no moderation route", async () => {
+  test("a broker without moderation has no moderation route", async () => {
     const h = await createGithubBroker();
     const response = await h.fetchBroker(`${h.issuer}/moderation/counts`, {
       headers: { Authorization: `Bearer ${KEY}` },
     });
     expect(response.status).toBe(404);
+  });
+});
+
+describe("each endpoint belongs to a layer", () => {
+  const CLIENT_ID = "https://app.example.com/oauth-client.json";
+  const REDIRECT_URI = "https://app.example.com/auth/callback";
+
+  /** A broker with the CIMD layer alone and moderation, and the app's file on its `Fetch`. */
+  const cimdBroker = async () => {
+    const fetch = stubFetch();
+    const { connector } = fakeUpstream(fetch);
+    fetch.json(CLIENT_ID, {
+      client_id: CLIENT_ID,
+      redirect_uris: [REDIRECT_URI],
+      token_endpoint_auth_methods_supported: ["none"],
+    });
+    return await createBroker({
+      fetch,
+      config: { connectors: [connector] },
+      registration: clientIdMetadataDocuments(),
+      moderation: moderation({ key: Config.succeed(Redacted.make(KEY)) }),
+    });
+  };
+
+  const authorizeCimd = async (h: Broker) => {
+    const url = new URL(`${h.issuer}/authorize`);
+    url.search = new URLSearchParams({
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      response_type: "code",
+      scope: "openid",
+      code_challenge: (await pkce()).challenge,
+      code_challenge_method: "S256",
+    }).toString();
+    return (await h.fetchBroker(url)).status;
+  };
+
+  test("a broker with only the CIMD layer lists and blocks its hosts and lists its clients", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const h = await cimdBroker();
+    const { moderation: api } = await clientOf(h);
+    expect(await authorizeCimd(h)).toBe(200);
+    const signedUpAt = h.clock.now();
+
+    expect(await run(api.clients({ query: {} }))).toEqual({
+      clients: [],
+      limitReached: false,
+      cimd: {
+        clients: [
+          {
+            clientId: CLIENT_ID,
+            host: "app.example.com",
+            createdAt: signedUpAt,
+            lastSignInAt: null,
+          },
+        ],
+        limitReached: false,
+      },
+    });
+
+    h.clock.advance(1_000);
+    const change = { action: "block", host: "app.example.com" } as const;
+    expect(await run(api.changeHostBlock({ payload: change }))).toEqual({ changed: true });
+    h.clock.advance(1_000);
+    expect(
+      await run(api.changeHostBlock({ payload: { ...change, host: "other.example.com" } })),
+    ).toEqual({ changed: true });
+    expect(await run(api.hostBlocks())).toEqual({
+      blocks: [
+        { host: "other.example.com", createdAt: signedUpAt + 2_000 },
+        { host: "app.example.com", createdAt: signedUpAt + 1_000 },
+      ],
+      limitReached: false,
+    });
+    expect(await authorizeCimd(h)).toBe(400);
+  });
+
+  test("an endpoint of a layer that the broker does not mount answers 404 before decoding", async () => {
+    const headers = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
+    const cimd = await cimdBroker();
+    expect((await cimd.fetchBroker(`${cimd.issuer}/moderation/counts`, { headers })).status).toBe(
+      404,
+    );
+    const badBlock = { method: "POST", headers, body: JSON.stringify({ action: "ban" }) };
+    expect((await cimd.fetchBroker(`${cimd.issuer}/moderation/blocks`, badBlock)).status).toBe(404);
+    // The key is checked first.
+    expect((await cimd.fetchBroker(`${cimd.issuer}/moderation/counts`)).status).toBe(401);
+
+    const github = await moderatedBroker();
+    expect(
+      (await github.fetchBroker(`${github.issuer}/moderation/host-blocks`, { headers })).status,
+    ).toBe(404);
+    expect(await run((await clientOf(github)).moderation.clients({ query: {} }))).toEqual({
+      clients: [],
+      limitReached: false,
+    });
   });
 });
 
