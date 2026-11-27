@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: November 7, 2026
+Effective: November 27, 2026
 
 This Privacy Policy explains how Samebase handles personal information when you use samebase.com,
 the Samebase web app, the Samebase remote MCP server, a published Samebase agent plugin, or the
@@ -82,14 +82,16 @@ Samebase does not sell personal information or share it for cross-context behavi
 ## Shared sign-in service
 
 Apps that other developers deploy can let you sign in with Google or GitHub through Samebase's
-shared sign-in service at auth.samebase.com. When you sign in to such an app, the service passes
-that app your name, email address, whether the email address is verified, profile picture, whether
-you used Google or GitHub, and an ID made of that provider and your account ID there. The ID is the
-same in every app that uses the service, so those apps can tell that they have the same user. The
-legal basis is Samebase's legitimate interest in providing the sign-in that you ask for.
+shared sign-in service at login.samebase.com and id.samebase.com. When you sign in to such an app,
+the service passes that app your name, email address, whether the email address is verified, profile
+picture, whether you used Google or GitHub, and an ID made of that provider and your account ID
+there. The ID is the same in every app that uses the service, so those apps can tell that they have
+the same user. The legal basis is Samebase's legitimate interest in providing the sign-in that you
+ask for.
 
-The service keeps records of sign-ins for 90 days. It keeps a registration record for each app, with
-the developer's GitHub repository, GitHub login, and commit.
+The service keeps records of sign-ins for up to 90 days. It keeps a registration record for each
+app, with the address of the app's site, or with the developer's GitHub repository, GitHub login,
+and commit.
 
 Samebase controls the service's records. Each app's developer controls the information that their
 app receives. Email contact@samebase.com for questions or requests about the service's records.
