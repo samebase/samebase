@@ -93,7 +93,7 @@ Registration.clientIdMetadataDocuments({ hosts: ["app.example.com", "*.previews.
 | `hosts`             | any host                   | The hosts that may sign in. `*.` matches one or more labels. |
 | `connectors`        | every configured connector | The connectors of the layer's clients.                       |
 | `fetchesPerMinute`  | 120                        | Reads of files for the whole broker. More get 429.           |
-| `clientsPerHost`    | 20                         | Clients of one host at a time. More get 429.                 |
+| `clientsPerHost`    | 5                          | Clients of one host at a time. More get 429.                 |
 | `newClientsPerHour` | 200                        | New clients for the whole broker. More get 429.              |
 
 When no read is possible (`fetchesPerMinute` is spent), a card that holds the return address is used

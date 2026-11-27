@@ -7,7 +7,7 @@
   who spend the budget no longer stop sign-in at sites that already have a card. A blocked host is
   still refused first, and a site with no such card still gets 429.
 - New option of the CIMD layer: `clientsPerHost`, the most clients of one host at a time (default
-  20). One more answers 429 and spends no token of `newClientsPerHour`. `a.example.com` and
+  5). One more answers 429 and spends no token of `newClientsPerHour`. `a.example.com` and
   `example.com` are two hosts.
 - Changed: the default of `newClientsPerHour` is 200 (was 30).
 - Changed in the CIMD layer: a client id whose scheme or host is not in lower case is refused

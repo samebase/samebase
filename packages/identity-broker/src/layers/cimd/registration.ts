@@ -39,7 +39,7 @@ export type ClientIdMetadataDocumentOptions = {
   readonly connectors?: ReadonlyArray<string>;
   /** Fetches of documents for the whole broker. Default: 120 each minute. */
   readonly fetchesPerMinute?: number;
-  /** The most clients of one host at a time. Default: 20. */
+  /** The most clients of one host at a time. Default: 5. */
   readonly clientsPerHost?: number;
   /** New clients for the whole broker. Default: 200 each hour. */
   readonly newClientsPerHour?: number;
@@ -222,7 +222,7 @@ export function clientIdMetadataDocuments(
     hosts: options.hosts?.map(checkPattern),
     connectors: options.connectors,
     fetches: perPeriod(options.fetchesPerMinute ?? 120, MINUTE_MS, "fetchesPerMinute"),
-    clientsPerHost: wholeNumber(options.clientsPerHost ?? 20, "clientsPerHost"),
+    clientsPerHost: wholeNumber(options.clientsPerHost ?? 5, "clientsPerHost"),
     newClients: perPeriod(options.newClientsPerHour ?? 200, HOUR_MS, "newClientsPerHour"),
   });
   const moderation = { layer: "cimd" } as const;
