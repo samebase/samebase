@@ -785,6 +785,7 @@ describe("AdminBrokerClientsPage", () => {
             host: "notes.example.test",
             createdAt: 1,
             lastSignInAt: null,
+            file: { status: "refused", reason: "The document is not UTF-8 JSON." },
           },
         ],
         limitReached: true,
@@ -805,6 +806,9 @@ describe("AdminBrokerClientsPage", () => {
     try {
       expect(page.rootElement.textContent).toContain(
         "https://notes.example.test/oauth-client.json",
+      );
+      expect(page.rootElement.textContent).toContain(
+        "File refused: The document is not UTF-8 JSON.",
       );
       expect(page.rootElement.textContent).toContain("The newest 1 sites.");
       await act(async () => button(page.rootElement, "Host blocks 1").click());

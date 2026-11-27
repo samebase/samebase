@@ -1,4 +1,10 @@
 import {
+  checkDocument,
+  fetchDocument,
+  parseClientId,
+  refusalDescriptions,
+} from "@samebase/identity-broker/cimd";
+import {
   Client,
   ModerationApi,
   ModerationKey,
@@ -131,6 +137,18 @@ const vConnectorGrantList = object({
   ),
 });
 
+/** A site's metadata file as it is now: what it says about the site, or why the broker refuses it. */
+const vSiteFile = union(
+  object({
+    status: literal("ok"),
+    clientName: union(string(), v.null()),
+    clientUri: union(string(), v.null()),
+    logoUri: union(string(), v.null()),
+    redirectUris: array(string()),
+  }),
+  object({ status: literal("refused"), reason: string() }),
+);
+
 /** The sites of a broker's CIMD layer: each `clientId` is the address of a metadata file on `host`. */
 const vSiteList = object({
   clients: array(
@@ -139,10 +157,43 @@ const vSiteList = object({
       host: string(),
       createdAt: number(),
       lastSignInAt: union(number(), v.null()),
+      /** Null past the newest `SITE_FILES_READ` sites. */
+      file: union(vSiteFile, v.null()),
     }),
   ),
   limitReached: boolean(),
 });
+
+/** The files that one read of the page fetches, so the page stays fast. */
+const SITE_FILES_READ = 50;
+
+/**
+Reads one site's file now with the broker's own reader (`@samebase/identity-broker/cimd`): no
+redirect, no private or special-use address, at most 5 KB, 5 seconds. A stranger writes the file, so
+nothing of it is followed or loaded, only shown as text.
+*/
+const readSiteFile = (clientId: string) =>
+  Effect.gen(function* () {
+    const parsed = parseClientId(clientId);
+    if (parsed._tag !== "ClientId") {
+      return { status: "refused" as const, reason: refusalDescriptions[parsed.code] };
+    }
+    const fetched = yield* fetchDocument(parsed, (request) => fetch(request));
+    if (fetched._tag !== "Document") {
+      return { status: "refused" as const, reason: refusalDescriptions[fetched.code] };
+    }
+    const checked = checkDocument(parsed.id, fetched.json);
+    if (checked._tag !== "Checked") {
+      return { status: "refused" as const, reason: refusalDescriptions[checked.code] };
+    }
+    return {
+      status: "ok" as const,
+      clientName: checked.selfAsserted.clientName ?? null,
+      clientUri: checked.selfAsserted.clientUri ?? null,
+      logoUri: checked.selfAsserted.logoUri ?? null,
+      redirectUris: checked.redirectUris.map(({ uri }) => uri),
+    };
+  });
 
 /** The blocked hosts of a broker's CIMD layer, newest first. */
 const vHostBlockList = object({
@@ -504,10 +555,22 @@ export const readLoginBroker = action({
     if (clientList.cimd === undefined) {
       throw new Error("login.samebase.com answered without its CIMD layer.");
     }
+    const sites = clientList.cimd.clients;
+    const clients = await Effect.runPromise(
+      Effect.forEach(
+        sites,
+        (site, index) =>
+          Effect.gen(function* () {
+            const file = index < SITE_FILES_READ ? yield* readSiteFile(site.clientId) : null;
+            return { ...site, file };
+          }),
+        { concurrency: 8 },
+      ),
+    );
     return {
       status: "on" as const,
       siteList: {
-        clients: [...clientList.cimd.clients],
+        clients,
         limitReached: clientList.cimd.limitReached,
       },
       hostBlockList: {

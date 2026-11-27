@@ -333,13 +333,24 @@ function SitesSection({ siteList }: { siteList: LoginBroker["siteList"] }) {
       <ul className="mt-4 divide-y border-y">
         {siteList.clients.map((site) => (
           <li key={site.clientId} className="py-3 text-sm">
-            <span className="block break-all">{site.clientId}</span>
+            {site.file?.status === "ok" && site.file.clientName !== null ? (
+              <span className="block font-medium break-words">{site.file.clientName}</span>
+            ) : null}
+            <a
+              className="block break-all"
+              href={site.clientId}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {site.clientId}
+            </a>
             <span className="block text-muted-foreground">
               {site.host}, first use {formatTime(site.createdAt)},{" "}
               {site.lastSignInAt === null
                 ? "no sign-in"
                 : `last sign-in ${formatTime(site.lastSignInAt)}`}
             </span>
+            <SiteFile file={site.file} />
           </li>
         ))}
       </ul>
@@ -349,6 +360,23 @@ function SitesSection({ siteList }: { siteList: LoginBroker["siteList"] }) {
         </p>
       ) : null}
     </>
+  );
+}
+
+/** What the site's file says now, as text: a stranger wrote it, so no address of it is loaded. */
+function SiteFile({ file }: { file: LoginBroker["siteList"]["clients"][number]["file"] }) {
+  if (file === null) {
+    return null;
+  }
+  if (file.status === "refused") {
+    return <span className="block text-destructive">File refused: {file.reason}</span>;
+  }
+  return (
+    <span className="block break-all text-muted-foreground">
+      Returns to {file.redirectUris.join(", ")}
+      {file.clientUri === null ? null : `; site ${file.clientUri}`}
+      {file.logoUri === null ? null : `; logo ${file.logoUri}`}
+    </span>
   );
 }
 

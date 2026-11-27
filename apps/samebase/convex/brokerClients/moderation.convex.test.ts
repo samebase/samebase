@@ -598,26 +598,63 @@ describe("broker client moderation", () => {
     ]);
   });
 
-  it("reads the sites and the host blocks at login.samebase.com with its own key", async () => {
+  it("reads the sites, each site's file as it is now, and the host blocks at login.samebase.com", async () => {
     const t = makeConvexTest();
     turnModerationOn();
     vi.stubEnv("LOGIN_BROKER_MODERATION_KEY", LOGIN_MODERATION_KEY);
-    const requests = stubBroker((request) =>
-      jsonResponse(
-        new URL(request.url).pathname === "/moderation/host-blocks" ? hostBlockList : siteList,
-      ),
-    );
+    const notesFile = {
+      client_id: "https://notes.example.test/oauth-client.json",
+      client_name: "Notes",
+      redirect_uris: ["https://notes.example.test/callback"],
+    };
+    const requests = stubBroker((request) => {
+      const { host, pathname } = new URL(request.url);
+      if (host === "notes.example.test") {
+        return jsonResponse(notesFile);
+      }
+      if (host === "spam.example.test") {
+        return new Response("Not found", { status: 404 });
+      }
+      return jsonResponse(pathname === "/moderation/host-blocks" ? hostBlockList : siteList);
+    });
     const admin = await viewerWith(t, "nicu@samebase.com");
 
+    const [notes, spam] = siteList.cimd?.clients ?? [];
     expect(await admin.action(api.brokerClients.moderation.readLoginBroker, {})).toEqual({
       status: "on",
-      siteList: siteList.cimd,
+      siteList: {
+        clients: [
+          {
+            ...notes,
+            file: {
+              status: "ok",
+              clientName: "Notes",
+              clientUri: null,
+              logoUri: null,
+              redirectUris: ["https://notes.example.test/callback"],
+            },
+          },
+          {
+            ...spam,
+            file: { status: "refused", reason: "The host answered with a status that is not 200." },
+          },
+        ],
+        limitReached: true,
+      },
       hostBlockList,
     });
-    expect(requests.map(({ url, authorization }) => [url, authorization])).toEqual([
+    expect(
+      requests
+        .filter(({ url }) => url.startsWith(LOGIN_ISSUER))
+        .map(({ url, authorization }) => [url, authorization]),
+    ).toEqual([
       [`${LOGIN_ISSUER}/moderation/clients`, `Bearer ${LOGIN_MODERATION_KEY}`],
       [`${LOGIN_ISSUER}/moderation/host-blocks`, `Bearer ${LOGIN_MODERATION_KEY}`],
     ]);
+    // A site's file is fetched with no key of the broker.
+    expect(
+      requests.filter(({ url }) => !url.startsWith(LOGIN_ISSUER)).map((sent) => sent.authorization),
+    ).toEqual([null, null]);
   });
 
   it("blocks and unblocks a host at login.samebase.com by its lower-case name", async () => {
