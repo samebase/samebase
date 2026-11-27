@@ -68,11 +68,11 @@ to the broker.
 The broker reads the file at the first sign-in, and again at the first sign-in after the file's
 `Cache-Control: max-age` (1 hour without one, at most 24 hours). Its rules
 ([draft-ietf-oauth-client-id-metadata-document-03](https://www.ietf.org/archive/id/draft-ietf-oauth-client-id-metadata-document-03.html)):
-the address has no query and no port; `client_id` is the address, character for character; the file
-offers `none`; and each return address is https on the file's origin. The broker ignores other
-return addresses, such as a loopback address, and keeps at most 8. The user sees the broker's page
-with the app's host before the provider. A file that answers 404 or is refused ends the app's
-sign-ins at the next read.
+the address has no query and no port, and its scheme and host are in lower case; `client_id` is the
+address, character for character; the file offers `none`; and each return address is https on the
+file's origin. The broker ignores other return addresses, such as a loopback address, and keeps at
+most 8. The user sees the broker's page with the app's host before the provider. A file that answers
+404 or is refused ends the app's sign-ins at the next read.
 
 ## The CIMD layer
 
@@ -93,10 +93,12 @@ Registration.clientIdMetadataDocuments({ hosts: ["app.example.com", "*.previews.
 | `hosts`             | any host                   | The hosts that may sign in. `*.` matches one or more labels. |
 | `connectors`        | every configured connector | The connectors of the layer's clients.                       |
 | `fetchesPerMinute`  | 120                        | Reads of files for the whole broker. More get 429.           |
-| `newClientsPerHour` | 30                         | New clients for the whole broker. More get 429.              |
+| `clientsPerHost`    | 20                         | Clients of one host at a time. More get 429.                 |
+| `newClientsPerHour` | 200                        | New clients for the whole broker. More get 429.              |
 
-Each host also has the sign-in budget of every client, 120 each minute, shared by every file of the
-host. To block a host at once, `POST /moderation/host-blocks` with
+When no read is possible (`fetchesPerMinute` is spent), a card that holds the return address is used
+as it is. Each host also has the sign-in budget of every client, 120 each minute, shared by every
+file of the host. To block a host at once, `POST /moderation/host-blocks` with
 `{ "action": "block", "host": "app.example.com" }` (`"unblock"` undoes it), on the moderation API
 ([Moderation](#moderation)). The block refuses each next step of its sign-ins; an access token that
 is already issued lives its 5 minutes.
@@ -108,8 +110,9 @@ Workers refuse one too. A broker with its own page function must show the host i
 Known limits of this version:
 
 - No limit for each caller: the broker has no trusted caller address. One caller can spend the two
-  broker-wide budgets, and a new host then gets 429 until they refill; hosts with a fresh card are
-  not affected. Put a rate limit for each address at the edge in front of a public broker.
+  broker-wide budgets, and a new client then gets 429 until they refill; a client with a card that
+  holds the return address is not affected. Put a rate limit for each address at the edge in front
+  of a public broker.
 - Two publishers on one host look the same on the page. On a host where people publish by path, use
   `hosts`.
 - An app that removes its file and puts it back with the same return address can finish a sign-in
