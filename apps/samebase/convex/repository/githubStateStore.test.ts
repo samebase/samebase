@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Octokit } from "@octokit/rest";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import ciLabel from "./fixtures/githubStateStore/branch/github-state-spike/ci/Label.json";
@@ -139,6 +140,43 @@ describe("readGitHubStateStore", () => {
         .map(blobUrl)
         .sort(),
     );
+  });
+
+  it("reads a file that Alchemy's state encryption sealed, without its header or ciphertext", async () => {
+    const sealed = readFileSync(
+      new URL("./fixtures/githubStateStore/sealed/Secret.txt", import.meta.url),
+      "utf8",
+    );
+    const { octokit } = fakeGitHub({
+      urls: { [blobUrl("github-state-spike/demo/Secret.json")]: () => new Response(sealed) },
+    });
+
+    const found = await readGitHubStateStore({
+      octokit,
+      repository: "my-org/my-app",
+      treeOnly: false,
+    });
+
+    expect(found).toMatchObject({
+      state: "found",
+      stacks: [
+        {
+          stages: [
+            {
+              resources: [
+                { fqn: "Label" },
+                { fqn: "Note" },
+                {
+                  fqn: "Secret",
+                  value: JSON.stringify({ ...demoSecret, attr: { text: { __redacted__: null } } }),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    expect(JSON.stringify(found)).not.toMatch(/alchemy:sealed|__sealed__/);
   });
 
   it("shows no stage whose run record names another repository", async () => {

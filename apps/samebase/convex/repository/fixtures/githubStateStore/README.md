@@ -20,3 +20,13 @@ Replaced values: the owner and name of the private repository are `my-org` and `
 payload, URLs and file texts included. Each sealed secret value is `v1.fixture.fixture`. The SHAs
 and sizes are the recorded ones. The `README.md` of the branch is not recorded: the reader never
 reads it. No file contains a token or a key.
+
+## sealed/Secret.txt
+
+Made on 2026-11-19 with the state codec of the Alchemy preview build
+`https://pkg.alchemy.run/alchemy/pr:3167:44fd6d0` (`makeSealingCodec` with `passphraseEncryption`),
+not read from GitHub. The kit on that build writes each state file with this codec. The record is
+`branch/github-state-spike/demo/Secret.json` for the stack `github-state-spike` and the stage
+`demo`, with the dummy secret `dummy-fixture-secret` sealed under the dummy passphrase
+`dummy-fixture-passphrase`. The text is the codec output as it is: the `alchemy:sealed:1:` header
+line, then the JSON.
