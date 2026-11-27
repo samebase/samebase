@@ -48,7 +48,6 @@ export const commandNames = [
   "authRequests.abandon",
   "authRequests.exchangeCode",
   "clients.get",
-  "signIns.record",
   "lifecycle.cleanup",
   "github.admit",
   "github.createClient",

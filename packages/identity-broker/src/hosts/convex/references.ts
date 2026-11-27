@@ -37,10 +37,6 @@ export const commandFunctions = (component: ComponentApi | typeof api): CommandF
     kind: "query",
     reference: component.clients.get,
   },
-  "signIns.record": {
-    kind: "mutation",
-    reference: component.signIns.record,
-  },
   "lifecycle.cleanup": {
     kind: "mutation",
     reference: component.lifecycle.cleanup,

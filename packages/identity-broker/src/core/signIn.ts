@@ -865,13 +865,6 @@ export const token = Effect.fn("token")(function* (request: Request, publicClien
       signAccessToken({ keySet: keys, issuer: broker.issuer, clientId: exchange.clientId, claims }),
     ]),
   );
-  yield* command("signIns.record", {
-    clientId: exchange.clientId,
-    ref: exchange.ref,
-    connector: exchange.identity.connector,
-    sub,
-    at: now,
-  });
   logBrokerEvent({
     event: "sign_in",
     clientId: exchange.clientId,

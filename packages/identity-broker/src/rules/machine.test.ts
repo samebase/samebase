@@ -440,7 +440,7 @@ const search = (requestIds: ReadonlyArray<string>, depth: number, publicClient =
         }));
         break;
       case "cleanup":
-        run("lifecycle.cleanup", { now, signInRetentionMs: 90 * 86_400_000 });
+        run("lifecycle.cleanup", { now });
         break;
       default:
         return action satisfies never;

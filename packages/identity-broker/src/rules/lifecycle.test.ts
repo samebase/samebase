@@ -58,8 +58,7 @@ describe.each(hosts)("%s", (_name, make) => {
     rowsOf(t, "clients", "by_client_id")
       .map((client) => client.clientId)
       .sort();
-  const cleanup = (t: TestHost) =>
-    t.run("lifecycle.cleanup", { now: NOW, signInRetentionMs: 90 * DAY });
+  const cleanup = (t: TestHost) => t.run("lifecycle.cleanup", { now: NOW });
 
   describe("card cleanup", () => {
     test("a card past its removal date goes with its layer's fields, and a card without one stays", () => {
@@ -113,7 +112,7 @@ describe.each(hosts)("%s", (_name, make) => {
     });
   });
 
-  test("expired requests and codes and old audit rows go, strictly before the cutoff", () => {
+  test("expired requests and codes go, strictly before the cutoff, and every sign-in row goes", () => {
     const t = make();
     const request = {
       status: "pending",
@@ -135,16 +134,17 @@ describe.each(hosts)("%s", (_name, make) => {
       { codeHash: "past", requestId: "past", clientId: "c", expiresAt: NOW - 1 },
       { codeHash: "at-cutoff", requestId: "at-cutoff", clientId: "c", expiresAt: NOW },
     ]);
+    // Rows of 0.46.0 and earlier: every one goes, whatever its age.
     const signIn = { clientId: "c", ref: "test:app", connector: "g", sub: "s" };
     seed(t, "signIns", [
-      { ...signIn, at: NOW - 90 * DAY - 1 },
       { ...signIn, at: NOW - 90 * DAY },
+      { ...signIn, at: NOW + DAY },
     ]);
     expect(cleanup(t)).toEqual({
       authRequests: 1,
       authorizationCodes: 1,
       clients: 0,
-      signIns: 1,
+      signIns: 2,
       more: false,
     });
     expect(rowsOf(t, "authRequests", "by_request_id").map((row) => row.requestId)).toEqual([
@@ -153,6 +153,6 @@ describe.each(hosts)("%s", (_name, make) => {
     expect(rowsOf(t, "authorizationCodes", "by_code_hash").map((row) => row.codeHash)).toEqual([
       "at-cutoff",
     ]);
-    expect(rowsOf(t, "signIns", "by_at").map((row) => row.at)).toEqual([NOW - 90 * DAY]);
+    expect(rowsOf(t, "signIns", "by_at")).toEqual([]);
   });
 });

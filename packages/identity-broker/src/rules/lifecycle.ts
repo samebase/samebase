@@ -12,9 +12,9 @@ const BUDGET_IDLE_MS = 60 * 60 * 1000;
 /**
  * Deletes one batch of what has run out: expired requests and codes, cards past their removal date
  * (a layer's fields of a card are on its row and go with it) with the budget row of each card when
- * nothing spent from it for an hour, and audit rows older than
- * `signInRetentionMs`. A category that filled its batch may hold more: `more` asks the host for
- * another call with the same arguments. The cutoff never moves, so the calls end.
+ * nothing spent from it for an hour, and every row of `signIns`, which nothing writes since
+ * 0.47.0. A category that filled its batch may hold more: `more` asks the host for another call
+ * with the same arguments. The cutoff never moves, so the calls end.
  */
 export const cleanup = Effect.fnUntraced(function* (args: typeof CleanupArgs.Type) {
   const tx = yield* Tx;
@@ -49,7 +49,7 @@ export const cleanup = Effect.fnUntraced(function* (args: typeof CleanupArgs.Typ
       yield* tx.delete("signInBudgets", budget.id);
     }
   }
-  const signIns = yield* tx.query("signIns", "by_at", expired(args.now - args.signInRetentionMs));
+  const signIns = yield* tx.query("signIns", "by_at", { eq: [], order: "asc", limit: BATCH });
   for (const signIn of signIns) {
     yield* tx.delete("signIns", signIn.id);
   }
