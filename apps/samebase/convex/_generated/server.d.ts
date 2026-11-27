@@ -50,6 +50,7 @@ type Env = {
   readonly IDENTITY_HUB_CLIENT_ID: string;
   readonly IDENTITY_HUB_CLIENT_SECRET: string;
   readonly IDENTITY_HUB_ISSUER: string;
+  readonly LOGIN_BROKER_MODERATION_KEY: string | undefined;
   readonly OPENAI_APPS_CHALLENGE_TOKEN: string | undefined;
   readonly PASSWORD_AUTH_ENABLED: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;

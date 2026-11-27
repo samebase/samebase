@@ -3,6 +3,7 @@ import {
   ClientList,
   ConnectorGrantList,
   Counts,
+  HostBlockList,
   InvalidToken,
   OwnerChanged,
   SignInPageList,
@@ -155,6 +156,37 @@ const connectorGrants: typeof ConnectorGrantList.Encoded = {
   ],
 };
 
+const LOGIN_ISSUER = "https://login.samebase.com";
+const LOGIN_MODERATION_KEY = "login-moderation-key";
+
+/** login.samebase.com's list: no client of the GitHub layer, the sites of its CIMD layer. */
+const siteList: typeof ClientList.Encoded = {
+  clients: [],
+  limitReached: false,
+  cimd: {
+    clients: [
+      {
+        clientId: "https://notes.example.test/oauth-client.json",
+        host: "notes.example.test",
+        createdAt: 1_800_000_001_000,
+        lastSignInAt: 1_800_000_002_000,
+      },
+      {
+        clientId: "https://spam.example.test/client.json",
+        host: "spam.example.test",
+        createdAt: 1_800_000_000_000,
+        lastSignInAt: null,
+      },
+    ],
+    limitReached: true,
+  },
+};
+
+const hostBlockList: typeof HostBlockList.Encoded = {
+  blocks: [{ host: "spam.example.test", createdAt: 1_800_000_003_000 }],
+  limitReached: false,
+};
+
 // Source: https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#get-a-repository,
 // the start of the example answer.
 const gitHubRepository = {
@@ -287,6 +319,15 @@ describe("broker client moderation", () => {
           fullName: "octocat/Hello-World",
         }),
       ).rejects.toThrow("Access denied");
+      await expect(viewer.action(api.brokerClients.moderation.readLoginBroker, {})).rejects.toThrow(
+        "Access denied",
+      );
+      await expect(
+        viewer.action(api.brokerClients.moderation.changeLoginHostBlock, {
+          action: "block",
+          host: "spam.example.test",
+        }),
+      ).rejects.toThrow("Access denied");
       expect(requests).toEqual([]);
     },
   );
@@ -295,12 +336,22 @@ describe("broker client moderation", () => {
     const t = makeConvexTest();
     vi.stubEnv("PUBLIC_IDENTITY_HUB_ISSUER", BROKER_ISSUER);
     vi.stubEnv("PUBLIC_IDENTITY_HUB_MODERATION_KEY", " ");
+    vi.stubEnv("LOGIN_BROKER_MODERATION_KEY", " ");
     const requests = stubBroker();
     const admin = await viewerWith(t, "nicu@samebase.com");
 
     expect(await admin.action(api.brokerClients.moderation.readOverview, {})).toEqual({
       status: "off",
     });
+    expect(await admin.action(api.brokerClients.moderation.readLoginBroker, {})).toEqual({
+      status: "off",
+    });
+    expect(
+      await admin.action(api.brokerClients.moderation.changeLoginHostBlock, {
+        action: "block",
+        host: "spam.example.test",
+      }),
+    ).toEqual({ status: "off" });
     expect(
       await admin.action(api.brokerClients.moderation.changeBlock, {
         action: "block",
@@ -545,6 +596,58 @@ describe("broker client moderation", () => {
         },
       },
     ]);
+  });
+
+  it("reads the sites and the host blocks at login.samebase.com with its own key", async () => {
+    const t = makeConvexTest();
+    turnModerationOn();
+    vi.stubEnv("LOGIN_BROKER_MODERATION_KEY", LOGIN_MODERATION_KEY);
+    const requests = stubBroker((request) =>
+      jsonResponse(
+        new URL(request.url).pathname === "/moderation/host-blocks" ? hostBlockList : siteList,
+      ),
+    );
+    const admin = await viewerWith(t, "nicu@samebase.com");
+
+    expect(await admin.action(api.brokerClients.moderation.readLoginBroker, {})).toEqual({
+      status: "on",
+      siteList: siteList.cimd,
+      hostBlockList,
+    });
+    expect(requests.map(({ url, authorization }) => [url, authorization])).toEqual([
+      [`${LOGIN_ISSUER}/moderation/clients`, `Bearer ${LOGIN_MODERATION_KEY}`],
+      [`${LOGIN_ISSUER}/moderation/host-blocks`, `Bearer ${LOGIN_MODERATION_KEY}`],
+    ]);
+  });
+
+  it("blocks and unblocks a host at login.samebase.com by its lower-case name", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("LOGIN_BROKER_MODERATION_KEY", LOGIN_MODERATION_KEY);
+    const requests = stubBroker(() => jsonResponse({ changed: true }));
+    const admin = await viewerWith(t, "nicu@samebase.com");
+    const change = async (action: "block" | "unblock", host: string) =>
+      await admin.action(api.brokerClients.moderation.changeLoginHostBlock, { action, host });
+
+    expect(await change("block", " Spam.Example.TEST ")).toEqual({ status: "on", changed: true });
+    expect(await change("unblock", "spam.example.test")).toEqual({ status: "on", changed: true });
+    expect(requests).toEqual([
+      {
+        url: `${LOGIN_ISSUER}/moderation/host-blocks`,
+        method: "POST",
+        authorization: `Bearer ${LOGIN_MODERATION_KEY}`,
+        body: { action: "block", host: "spam.example.test" },
+      },
+      {
+        url: `${LOGIN_ISSUER}/moderation/host-blocks`,
+        method: "POST",
+        authorization: `Bearer ${LOGIN_MODERATION_KEY}`,
+        body: { action: "unblock", host: "spam.example.test" },
+      },
+    ]);
+
+    // A host that is not a DNS name never reaches the broker.
+    await expect(change("block", "https://spam.example.test/")).rejects.toThrow();
+    expect(requests).toHaveLength(2);
   });
 
   it("fails when the broker refuses the key", async () => {

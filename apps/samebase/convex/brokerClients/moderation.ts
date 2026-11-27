@@ -131,6 +131,25 @@ const vConnectorGrantList = object({
   ),
 });
 
+/** The sites of a broker's CIMD layer: each `clientId` is the address of a metadata file on `host`. */
+const vSiteList = object({
+  clients: array(
+    object({
+      clientId: string(),
+      host: string(),
+      createdAt: number(),
+      lastSignInAt: union(number(), v.null()),
+    }),
+  ),
+  limitReached: boolean(),
+});
+
+/** The blocked hosts of a broker's CIMD layer, newest first. */
+const vHostBlockList = object({
+  blocks: array(object({ host: string(), createdAt: number() })),
+  limitReached: boolean(),
+});
+
 const vSignInPageTarget = union(
   object({ scope: literal("every_app") }),
   object({ scope: literal("repository"), repositoryId: string(), expectedOwnerId: string() }),
@@ -164,6 +183,18 @@ function readModeration(): Moderation | null {
   const issuer = env.PUBLIC_IDENTITY_HUB_ISSUER;
   const key = env.PUBLIC_IDENTITY_HUB_MODERATION_KEY?.trim();
   return issuer && key ? { issuer, key } : null;
+}
+
+const LOGIN_BROKER_ISSUER = "https://login.samebase.com";
+
+/**
+The moderation endpoints of login.samebase.com (samebase/public-identity-broker), whose only clients
+are sites of its CIMD layer, or null while LOGIN_BROKER_MODERATION_KEY is unset. Only an admin uses
+them: a site belongs to no organization.
+*/
+function readLoginModeration(): Moderation | null {
+  const key = env.LOGIN_BROKER_MODERATION_KEY?.trim();
+  return key ? { issuer: LOGIN_BROKER_ISSUER, key } : null;
 }
 
 type BrokerClient = HttpApiClient.ForApi<typeof ModerationApi>["moderation"];
@@ -445,6 +476,65 @@ export const changeBlock = action({
           reason: args.reason,
           adminEmail: ctx.viewer.user.email,
         },
+      }),
+    );
+    return { status: "on" as const, changed };
+  },
+});
+
+/** The newest sites that sign in at login.samebase.com, and its newest blocked hosts. */
+export const readLoginBroker = action({
+  access: "access_admin",
+  args: {},
+  returns: union(
+    vOff,
+    object({ status: literal("on"), siteList: vSiteList, hostBlockList: vHostBlockList }),
+  ),
+  handler: async () => {
+    const moderation = readLoginModeration();
+    if (moderation === null) {
+      return { status: "off" as const };
+    }
+
+    const [clientList, hostBlockList] = await askBroker(moderation, (broker) =>
+      Effect.all([broker.clients({ query: {} }), broker.hostBlocks()], {
+        concurrency: "unbounded",
+      }),
+    );
+    if (clientList.cimd === undefined) {
+      throw new Error("login.samebase.com answered without its CIMD layer.");
+    }
+    return {
+      status: "on" as const,
+      siteList: {
+        clients: [...clientList.cimd.clients],
+        limitReached: clientList.cimd.limitReached,
+      },
+      hostBlockList: {
+        blocks: [...hostBlockList.blocks],
+        limitReached: hostBlockList.limitReached,
+      },
+    };
+  },
+});
+
+/**
+Blocks or unblocks sign-in at login.samebase.com for every site on one host. The broker takes a DNS
+name in lower case; the typed client refuses another one before it sends the request.
+*/
+export const changeLoginHostBlock = action({
+  access: "access_admin",
+  args: { action: vBlockAction, host: string() },
+  returns: union(vOff, object({ status: literal("on"), changed: boolean() })),
+  handler: async (_ctx, args) => {
+    const moderation = readLoginModeration();
+    if (moderation === null) {
+      return { status: "off" as const };
+    }
+
+    const { changed } = await askBroker(moderation, (broker) =>
+      broker.changeHostBlock({
+        payload: { action: args.action, host: args.host.trim().toLowerCase() },
       }),
     );
     return { status: "on" as const, changed };
