@@ -1,4 +1,4 @@
-// The command `alchemy-convex stack-comment`: one comment on a pull request with the stacks of the
+// The command `alchemy-kit stack-comment`: one comment on a pull request with the stacks of the
 // repository, read from the state store after the deploys.
 //
 // A stack sees only itself, so a comment that a stack declares cannot show the other stacks of the
@@ -27,7 +27,7 @@ import { State } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { RUN_RECORD_KEY, runRecord } from "@samebase/alchemy-kit/run-record";
+import { RUN_RECORD_KEY, runRecord } from "../run-record/RunRecord.ts";
 import {
   boxSubtitle,
   stageDiagram,
@@ -35,8 +35,8 @@ import {
   type DiagramBox,
   type StageDiagram,
   type StageTreeNode,
-} from "@samebase/alchemy-kit/stack";
-import { resourceTypeUI } from "@samebase/alchemy-kit/ui";
+} from "../stack/StackDiagram.ts";
+import { resourceTypeUI } from "../ui/ResourceTypeUI.ts";
 
 /** The first text of the comment, which finds it again. */
 const MARKER = "<!-- samebase-stacks -->";
