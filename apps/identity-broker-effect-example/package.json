@@ -12,16 +12,16 @@
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
   },
   "dependencies": {
-    "effect": "4.1.4",
-    "openid-client": "6.9.0"
+    "effect": "4.1.5",
+    "openid-client": "6.9.1"
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
-    "@cloudflare/workers-types": "5.20261028.1",
-    "@effect/vitest": "4.1.4",
+    "@cloudflare/workers-types": "5.20261121.1",
+    "@effect/vitest": "4.1.5",
     "@samebase/alchemy-convex": "workspace:*",
     "@samebase/identity-broker": "workspace:*",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "alchemy": "2.0.0-beta.87",
     "typescript": "7.0.2"
   },
