@@ -42,18 +42,10 @@ You may not use Samebase to:
   regulated or highly sensitive data unless clearly required and lawfully authorized
 - use the service in a way that violates the terms of a connected third-party service
 
-## 6. Shared sign-in service
+## 6. Samebase Login
 
-Samebase runs a shared sign-in service at login.samebase.com. A site or an app can use it to offer
-sign-in with Google or GitHub, with no Samebase account. These Terms apply to that use.
-
-- Use the service only to sign people in to your app.
-- Do not use it to pretend to be another person, app, or service, or for anything that section 5
-  forbids.
-- You are responsible for your app and for the personal information that it receives from the
-  service.
-- Samebase may block a site's host, a GitHub repository, or a GitHub owner at any time. A block
-  stops new sign-ins to the apps of that host, repository, or owner.
+The sign-in service at login.samebase.com has its own terms at
+[login.samebase.com/terms](https://login.samebase.com/terms).
 
 ## 7. Automation
 
