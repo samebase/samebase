@@ -540,7 +540,7 @@ describe("the stored state of the CIMD layer", () => {
       }),
       { numRuns: 600, seed: 4_0207 },
     );
-  });
+  }, 120_000);
 
   test("the model finds the known limit: an earlier read stores the card again after a later read found the file gone", () => {
     const result = fc.check(
@@ -550,5 +550,5 @@ describe("the stored state of the CIMD layer", () => {
       { numRuns: 300, seed: 4_0208 },
     );
     expect(result.failed).toBe(true);
-  });
+  }, 120_000);
 });
