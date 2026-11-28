@@ -1,6 +1,6 @@
 # Terms of Service
 
-Last updated: November 27, 2026
+Last updated: November 28, 2026
 
 These Terms of Service govern your use of Samebase and the samebase.com website. In these Terms,
 "Samebase", "we", "us", and "our" refer to the operator of the Samebase service. By using Samebase,
@@ -44,9 +44,8 @@ You may not use Samebase to:
 
 ## 6. Shared sign-in service
 
-Samebase runs a shared sign-in service at login.samebase.com and id.samebase.com. A site or an app
-can use it to offer sign-in with Google or GitHub, with no Samebase account. These Terms apply to
-that use.
+Samebase runs a shared sign-in service at login.samebase.com. A site or an app can use it to offer
+sign-in with Google or GitHub, with no Samebase account. These Terms apply to that use.
 
 - Use the service only to sign people in to your app.
 - Do not use it to pretend to be another person, app, or service, or for anything that section 5

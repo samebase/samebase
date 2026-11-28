@@ -90,8 +90,8 @@ export const defaultApp = (stackName: string): string | undefined => {
 };
 
 /**
- * An identity broker of @samebase/identity-broker, such as Samebase's public broker:
- * `{ issuer: "https://id.samebase.com" }`.
+ * An identity broker of @samebase/identity-broker, such as
+ * `{ issuer: "https://broker.example.com" }`.
  */
 export interface BrokerEndpoint {
   /**

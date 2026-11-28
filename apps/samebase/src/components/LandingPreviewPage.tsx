@@ -77,10 +77,10 @@ const LANDING_PARTS = [
     href: "https://github.com/samebase/samebase/tree/main/packages/identity-broker",
   },
   {
-    name: "samebase/identity-hub",
+    name: "samebase/public-identity-broker",
     meta: "Template · MIT",
-    description: "identity-broker, ready to deploy. Ours runs at id.samebase.com.",
-    href: "https://github.com/samebase/identity-hub",
+    description: "identity-broker for any site, at login.samebase.com.",
+    href: "https://github.com/samebase/public-identity-broker",
   },
   {
     name: "@samebase/convex-hosting",
