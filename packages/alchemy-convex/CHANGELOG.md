@@ -2,9 +2,11 @@
 
 ## 0.48.0
 
-- Takes `@samebase/alchemy-kit` 0.8.0. The pull request comment is now
-  `@samebase/alchemy-kit/stack-comment`; `alchemy-convex stack-comment` runs it over the Convex
-  store as before.
+- Breaking: the command `alchemy-convex stack-comment` is gone, and the package has no command. The
+  pull request comment is `alchemy-kit stack-comment` of `@samebase/alchemy-kit` 0.8.0, which reads
+  the store that `alchemy.run.ts` configures.
+- To upgrade, add `@samebase/alchemy-kit` to the package of the stack, and run
+  `alchemy-kit stack-comment` in the step of the workflow.
 
 ## 0.47.0
 

@@ -331,40 +331,6 @@ A client of an identity broker, `IdentityBroker.Client`, is in `@samebase/identi
 see
 [An app that uses a broker](https://github.com/samebase/samebase/tree/main/packages/identity-broker#an-app-that-uses-a-broker).
 
-## Pull request comment
-
-`alchemy-convex stack-comment` keeps one comment on a pull request. The comment has a card for each
-stack of the repository at the stage `pr-<number>`: the folder, the address, the last run, and a row
-for each main resource, with its type, its link and its schedule, each under the resource that uses
-it. The rows come from `stageDiagram` of `@samebase/alchemy-kit/stack`, the same model as Samebase's
-stack diagram, so a project or a broker client shows under its deployment and not as a row of its
-own. A stack sees only itself, so a comment that a stack declares cannot show this. The comment is
-`updateStackComment` of `@samebase/alchemy-kit/stack-comment`; for a store other than Convex, run
-`alchemy-kit stack-comment`, which reads the store that `alchemy.run.ts` configures.
-
-Run it after every deploy of the workflow. The run record gives the repository and the pull request,
-so the command needs no argument with a team access token:
-
-```yaml
-permissions:
-  pull-requests: write
-
-steps:
-  # The deploy steps of each stack.
-  - name: Update the stack comment
-    if: github.event_name == 'pull_request'
-    run: pnpm exec alchemy-convex stack-comment
-    env:
-      CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-      GITHUB_TOKEN: ${{ github.token }}
-```
-
-A stage whose version 2 run record has the repository id of the run belongs to the repository, under
-any stack name. A stage with another repository id does not. A stage without a version 2 record
-belongs to the repository `owner/name` when its stack is named `owner/name`, or
-`owner/name/<folder>` for a stack in a folder. A stack without the stage of the pull request has no
-card.
-
 ## Data safety
 
 - `Convex.Project` and `Convex.Deployment` have the removal policy `retain`. `alchemy destroy`

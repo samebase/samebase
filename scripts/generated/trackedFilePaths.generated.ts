@@ -1781,7 +1781,6 @@ export const trackedFilePaths = [
   "packages/alchemy-convex/src/Providers.ts",
   "packages/alchemy-convex/src/Push.ts",
   "packages/alchemy-convex/src/State.ts",
-  "packages/alchemy-convex/src/cli.ts",
   "packages/alchemy-convex/src/index.ts",
   "packages/alchemy-convex/src/store/.gitignore",
   "packages/alchemy-convex/src/store/component/_generated/api.ts",

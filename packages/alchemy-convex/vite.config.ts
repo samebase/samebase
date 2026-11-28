@@ -4,7 +4,6 @@ export default defineConfig({
   pack: {
     entry: {
       index: "src/index.ts",
-      cli: "src/cli.ts",
       sealedSecret: "src/store/sealedSecret.ts",
     },
     outDir: "lib",

@@ -68,8 +68,8 @@ stack in `apps/samebase/alchemy.run.ts`, then the sidebars example with the stac
 - Every pull request from this repository deploys the stage `pr-<number>` of both stacks: a Convex
   preview deployment with that name, through `apps/samebase/scripts/deploy-preview.ts`, which also
   sets its `SITE_URL` and seeds its password account, and a sidebars example Worker with the stage
-  in its name. `alchemy-convex stack-comment` then keeps one comment with the stacks of the
-  repository. Closing the pull request destroys both stages.
+  in its name. `alchemy-kit stack-comment` then keeps one comment with the stacks of the repository.
+  Closing the pull request destroys both stages.
 - The state of every stage is in the `alchemy-state-store` project of the Convex team `nicu`, under
   the stack name `samebase/samebase/<folder>`, such as `samebase/samebase/apps/samebase`. Every run
   needs the `CONVEX_ACCESS_TOKEN` repository secret, a team access token; each push mints its own

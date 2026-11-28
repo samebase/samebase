@@ -17,10 +17,8 @@
   `STATE_KEY_<keyId>` of its deployment. A client makes a key once and never reads a key back. Never
   write to an existing key variable: a key that a row needs must stay. See
   `src/store/convex/sealing.ts` and `docs/design/convex-state.md`.
-- `alchemy-convex stack-comment` runs `updateStackComment` of `@samebase/alchemy-kit/stack-comment`
-  over this store. The comment itself, and the reason for each choice of its markup, is in
-  `packages/alchemy-kit/src/stack-comment/StackComment.ts`. Its icons stay in `assets/stack-comment`
-  here, so old comments keep their images.
+- The pull request comment is `alchemy-kit stack-comment` of `@samebase/alchemy-kit`. Its icons stay
+  in `assets/stack-comment` here, so old comments keep their images.
 - The Convex CLI owns typecheck, codegen, bundling, and the code push. `Convex.Deployment` only runs
   the installed `convex deploy`. Do not move work of the Convex CLI into this package.
 - No backwards compatibility with earlier versions of this package, its store, or its data:
