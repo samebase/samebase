@@ -57,7 +57,6 @@ import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menge
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
-import { Route as orgBrokerClientsRouteImport } from "./routes/org-broker-clients";
 import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
 import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
 import { Route as orgProvidersRouteImport } from "./routes/org-providers";
@@ -313,11 +312,6 @@ const mcpConsentRoute = mcpConsentRouteImport.update({
   path: "/oauth/mcp/consent",
   getParentRoute: () => rootRouteImport,
 } as any);
-const orgBrokerClientsRoute = orgBrokerClientsRouteImport.update({
-  id: "/org/$owner/broker-clients",
-  path: "/org/$owner/broker-clients",
-  getParentRoute: () => authedRoute,
-} as any);
 const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
   id: "/org/$owner/connect-repo",
   path: "/org/$owner/connect-repo",
@@ -429,7 +423,6 @@ export interface FileRoutesByFullPath {
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
-  "/org/$owner/broker-clients": typeof orgBrokerClientsRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
@@ -491,7 +484,6 @@ export interface FileRoutesByTo {
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
-  "/org/$owner/broker-clients": typeof orgBrokerClientsRoute;
   "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/org/$owner/new-app": typeof orgNewAppRoute;
   "/org/$owner/providers": typeof orgProvidersRoute;
@@ -555,7 +547,6 @@ export interface FileRoutesById {
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
-  "/_authed/org/$owner/broker-clients": typeof orgBrokerClientsRoute;
   "/_authed/org/$owner/connect-repo": typeof orgConnectRepoRoute;
   "/_authed/org/$owner/new-app": typeof orgNewAppRoute;
   "/_authed/org/$owner/providers": typeof orgProvidersRoute;
@@ -619,7 +610,6 @@ export interface FileRouteTypes {
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
-    | "/org/$owner/broker-clients"
     | "/org/$owner/connect-repo"
     | "/org/$owner/new-app"
     | "/org/$owner/providers"
@@ -681,7 +671,6 @@ export interface FileRouteTypes {
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
-    | "/org/$owner/broker-clients"
     | "/org/$owner/connect-repo"
     | "/org/$owner/new-app"
     | "/org/$owner/providers"
@@ -744,7 +733,6 @@ export interface FileRouteTypes {
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
-    | "/_authed/org/$owner/broker-clients"
     | "/_authed/org/$owner/connect-repo"
     | "/_authed/org/$owner/new-app"
     | "/_authed/org/$owner/providers"
@@ -1132,13 +1120,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof mcpConsentRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/_authed/org/$owner/broker-clients": {
-      id: "/_authed/org/$owner/broker-clients";
-      path: "/org/$owner/broker-clients";
-      fullPath: "/org/$owner/broker-clients";
-      preLoaderRoute: typeof orgBrokerClientsRouteImport;
-      parentRoute: typeof authedRoute;
-    };
     "/_authed/org/$owner/connect-repo": {
       id: "/_authed/org/$owner/connect-repo";
       path: "/org/$owner/connect-repo";
@@ -1243,7 +1224,6 @@ interface authedRouteChildren {
   orgRoute: typeof orgRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
   repositoryFileRoute: typeof repositoryFileRoute;
-  orgBrokerClientsRoute: typeof orgBrokerClientsRoute;
   orgConnectRepoRoute: typeof orgConnectRepoRoute;
   orgNewAppRoute: typeof orgNewAppRoute;
   orgProvidersRoute: typeof orgProvidersRoute;
@@ -1275,7 +1255,6 @@ const authedRouteChildren: authedRouteChildren = {
   orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
   repositoryFileRoute: repositoryFileRoute,
-  orgBrokerClientsRoute: orgBrokerClientsRoute,
   orgConnectRepoRoute: orgConnectRepoRoute,
   orgNewAppRoute: orgNewAppRoute,
   orgProvidersRoute: orgProvidersRoute,
