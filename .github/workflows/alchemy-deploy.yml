@@ -150,7 +150,7 @@ jobs:
           BUILD: ${{ inputs.build }}
         run: bash -eo pipefail -c "$BUILD"
       # Every step after this one runs Alchemy. The values are not secrets of this job, so the step
-      # masks each one.
+      # masks each one. A workflow command reads `%` as an escape, so the step writes it as `%25`.
       - &alchemy-env
         name: Give the Alchemy steps their variables
         env:
@@ -158,7 +158,7 @@ jobs:
         run: |
           while IFS= read -r line; do
             value=${line#*=}
-            if [ -n "$value" ]; then echo "::add-mask::$value"; fi
+            if [ -n "$value" ]; then echo "::add-mask::${value//%/%25}"; fi
           done <<< "$ALCHEMY_ENV"
           printf '%s\n' "$ALCHEMY_ENV" >> "$GITHUB_ENV"
       - name: Deploy

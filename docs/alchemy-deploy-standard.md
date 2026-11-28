@@ -22,8 +22,8 @@ on Cloudflare. A stack with a Convex deployment can keep it in Convex.
    `samebase/samebase`, pinned to a commit. That file holds the order of a run: one run per stage, a
    destroy that waits for its deploy, and a check of GitHub after each run gets its turn. It names
    no provider. The caller gives the variables of the Alchemy steps in the one secret `ALCHEMY_ENV`,
-   one `NAME=value` on each line. A repository with several stacks, or with its own step after the
-   deploy, keeps its own workflow and the same rules.
+   one `NAME=value` on each line. A value is one line, and the log masks it. A repository with
+   several stacks, or with its own step after the deploy, keeps its own workflow and the same rules.
 
    ```yaml
    on:
@@ -45,7 +45,7 @@ on Cloudflare. A stack with a Convex deployment can keep it in Convex.
    so it works with any store. The stack's package installs `@samebase/alchemy-kit`.
 5. **State in a store that every run can reach**, wrapped in `withRunRecord` of
    `@samebase/alchemy-kit/run-record`, which adds the run (PR, branch, commit, run link) to each
-   successful stage output. Use the store of a provider that the stack already has, so the
+   successful stage output. Prefer the store of a provider that the stack already has, so the
    repository holds no extra token: `Cloudflare.state()` for a stack on Cloudflare, `Convex.state()`
    of `@samebase/alchemy-convex` for a stack with a Convex deployment. Never a local `.alchemy/`
    directory in CI, never a state artifact.
@@ -55,18 +55,18 @@ on Cloudflare. A stack with a Convex deployment can keep it in Convex.
    find the stack by the repository id in its run record. A stack in a folder of a repository is
    `owner/name/<folder>`. The identity hub names the stack's app the same way: `<folder>`, or `app`
    for a stack named after the repository, unless `IdentityHub.Client` gets an explicit `app`.
-7. **As few secrets as the providers need**: one token for each provider of the stack, and no token
-   only for state. The identity hub needs no secret: `IdentityHub.Client` asks it with the run's
-   GitHub OIDC token (`id-token: write`).
+7. **As few secrets as the providers need**: one token for each provider of the stack. The identity
+   hub needs no secret: `IdentityHub.Client` asks it with the run's GitHub OIDC token
+   (`id-token: write`).
 8. **Existing resources are adopted once**: a resource that predates the stack is taken over by one
    run with `--adopt` (the workflow's `adopt` input). Production resources are retained on destroy;
    previews are destroyed.
 9. **Same versions, same day**: repositories that share one store get an Alchemy or store package
    upgrade in one round, with dated release-age exceptions in `pnpm-workspace.yaml` while the
-   versions are younger than the policy. The stacks of this repository pin the published
-   `@samebase/alchemy-convex` and `@samebase/alchemy-kit`, as the other repositories do, so a store
-   change reaches the store only after its release: release it, merge the pull request that changes
-   the pins here, and upgrade the other repositories the same day.
+   versions are younger than the policy. The stacks of this repository pin a published
+   `@samebase/alchemy-convex`, as the other repositories do, so a store change reaches the store
+   only after its release: release it, merge the pull request that changes the pins here, and
+   upgrade the other repositories the same day.
 
 ## A stack with a Convex deployment
 
