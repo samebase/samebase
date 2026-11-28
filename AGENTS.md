@@ -392,7 +392,7 @@ UI code:
 ## Task-Specific References
 
 - Git, PR, and shipping details: `docs/agent-workflows.md`.
-- How every repository deploys (Alchemy stack, team state store, one secret):
+- How every repository deploys (Alchemy stack, preview for each pull request, stack comment):
   `docs/alchemy-deploy-standard.md`.
 - Repository exports: `docs/repository-exports.md`.
 - Safe Convex production reads: `docs/convex-production-reads.md`.

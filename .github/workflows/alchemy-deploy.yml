@@ -9,8 +9,12 @@
 # - Each job checks GitHub after it gets its turn, so it sees what the runs ahead of it did. An old
 #   commit fails instead of putting older code over newer code. A closed pull request gets no
 #   preview, and a reopened one keeps its preview.
-# - Only the steps that run Alchemy get the secrets, so install and the build step do not see them.
+# - Only the steps that run Alchemy get the secret, so install and the build step do not see it.
 #   A build inside the deploy, such as `source.command`, runs under Alchemy and does.
+#
+# The file names no provider and no state store. The caller gives the variables of the Alchemy steps
+# in the one secret `ALCHEMY_ENV`: the token of each provider of the stack, which includes its state
+# store. The stack's package installs `@samebase/alchemy-kit`, for the comment on the pull request.
 #
 # The lockfile at the repository root picks the install: pnpm-lock.yaml or package-lock.json. With
 # pnpm, package.json names the version in `packageManager`. Another package manager needs a copy of
@@ -52,17 +56,13 @@ on:
         type: string
         default: ""
     secrets:
-      CONVEX_ACCESS_TOKEN:
-        required: true
-      CLOUDFLARE_API_TOKEN:
-        required: false
-      CLOUDFLARE_ACCOUNT_ID:
+      ALCHEMY_ENV:
+        description: The variables of the Alchemy steps, one `NAME=value` on each line
         required: false
 
 env:
   STAGE:
     ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'prod' }}
-  CONVEX_TEAM_ID: ${{ vars.CONVEX_TEAM_ID }}
 
 jobs:
   changes:
@@ -149,21 +149,30 @@ jobs:
         env:
           BUILD: ${{ inputs.build }}
         run: bash -eo pipefail -c "$BUILD"
+      # Every step after this one runs Alchemy. The values are not secrets of this job, so the step
+      # masks each one. A workflow command reads `%` as an escape, so the step writes it as `%25`.
+      - &alchemy-env
+        name: Give the Alchemy steps their variables
+        env:
+          ALCHEMY_ENV: ${{ secrets.ALCHEMY_ENV }}
+        run: |
+          while IFS= read -r line; do
+            value=${line#*=}
+            if [ -n "$value" ]; then echo "::add-mask::${value//%/%25}"; fi
+          done <<< "$ALCHEMY_ENV"
+          printf '%s\n' "$ALCHEMY_ENV" >> "$GITHUB_ENV"
       - name: Deploy
         if: steps.current.outputs.deploy == 'true'
         run: $TOOLS/alchemy deploy --stage "$STAGE" --yes --no-input $ADOPT $DRIFT
-        env: &deploy-env
+        env:
           ADOPT: ${{ inputs.adopt && github.event_name != 'pull_request' && '--adopt' || '' }}
           DRIFT: ${{ inputs.detect-drift && '--detect-drift' || '' }}
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
+      # One comment with a diagram of the stacks of the pull request, read from the state store.
       - name: Update the stack comment
         if: github.event_name == 'pull_request' && steps.current.outputs.deploy == 'true'
-        run: $TOOLS/alchemy-convex stack-comment
+        run: $TOOLS/alchemy-kit stack-comment
         env:
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
 
   destroy-preview:
@@ -213,15 +222,13 @@ jobs:
               exit 1
               ;;
           esac
+      - *alchemy-env
       - name: Destroy the stage of the pull request
         if: steps.current.outputs.destroy == 'true'
         run: |
           [[ "$STAGE" =~ ^pr-[0-9]+$ ]] || exit 1
           $TOOLS/alchemy destroy --stage "$STAGE" --yes --no-input
         env:
-          CONVEX_ACCESS_TOKEN: ${{ secrets.CONVEX_ACCESS_TOKEN }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
 
   skip-fork-preview:
