@@ -29,11 +29,6 @@ const app = defineApp({
     IDENTITY_HUB_CLIENT_ID: v.string(),
     IDENTITY_HUB_CLIENT_SECRET: v.string(),
     IDENTITY_HUB_ISSUER: v.string(),
-    // The public identity broker, where apps made from the starter sign in (samebase/identity-hub):
-    // its issuer and the key of its moderation endpoints, which /admin/broker-clients calls through
-    // brokerClients/moderation.ts. Set by hand. Unset, as in CI: the page says that moderation is off.
-    PUBLIC_IDENTITY_HUB_ISSUER: v.optional(v.string()),
-    PUBLIC_IDENTITY_HUB_MODERATION_KEY: v.optional(v.string()),
     // The key of the moderation endpoints of login.samebase.com (samebase/public-identity-broker),
     // which /admin/broker-clients calls through brokerClients/moderation.ts. Set by hand. Unset: the
     // page's login.samebase.com section says that moderation is off.
