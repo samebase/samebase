@@ -6,12 +6,13 @@
 Parts for [Alchemy v2](https://alchemy.run). Each part is its own entry, so your stack loads only
 the part that it imports.
 
-| Part                                      | Entry                                | What it is                                                                 |
-| ----------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------- |
-| [GitHub state store](#github-state-store) | `@samebase/alchemy-kit/github-state` | The state of a stack on a branch of its GitHub repository, secrets sealed. |
-| [Run record](#run-record)                 | `@samebase/alchemy-kit/run-record`   | A record of the run in each stage output, over any state layer.            |
-| [Resource type UI](#resource-type-ui)     | `@samebase/alchemy-kit/ui`           | A name, a Lucide icon, a colour and a category for each resource type.     |
-| [Stack diagram](#stack-diagram)           | `@samebase/alchemy-kit/stack`        | The main resources of a stage as boxes, with the lines between them.       |
+| Part                                          | Entry                                 | What it is                                                                 |
+| --------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------- |
+| [GitHub state store](#github-state-store)     | `@samebase/alchemy-kit/github-state`  | The state of a stack on a branch of its GitHub repository, secrets sealed. |
+| [Run record](#run-record)                     | `@samebase/alchemy-kit/run-record`    | A record of the run in each stage output, over any state layer.            |
+| [Resource type UI](#resource-type-ui)         | `@samebase/alchemy-kit/ui`            | A name, a Lucide icon, a colour and a category for each resource type.     |
+| [Stack diagram](#stack-diagram)               | `@samebase/alchemy-kit/stack`         | The main resources of a stage as boxes, with the lines between them.       |
+| [Pull request comment](#pull-request-comment) | `@samebase/alchemy-kit/stack-comment` | One comment on a pull request with the stacks of the repository.           |
 
 > The source is in
 > [`packages/alchemy-kit`](https://github.com/samebase/samebase/tree/main/packages/alchemy-kit) of
@@ -307,3 +308,23 @@ for (const { a, b, from, labels } of lines) {
   console.log(from ? `${from.name} uses ${other.name}` : `${a.name} and ${b.name}`, labels);
 }
 ```
+
+## Pull request comment
+
+`alchemy-kit stack-comment` keeps one comment on a pull request, with a card for each stack of the
+repository at the stage `pr-<number>`. It reads the state store that your `alchemy.run.ts`
+configures (Cloudflare, GitHub, Convex or any other), so run it from the folder of that file, after
+the deploys, with `GITHUB_TOKEN` and the credentials of the store:
+
+```yaml
+- name: Update the stack comment
+  if: github.event_name == 'pull_request'
+  run: pnpm exec alchemy-kit stack-comment
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    GITHUB_TOKEN: ${{ github.token }}
+```
+
+The job needs `pull-requests: write`. The entry gives `readStackCards`, `renderStackComment` and
+`updateStackComment` over any `State` layer.

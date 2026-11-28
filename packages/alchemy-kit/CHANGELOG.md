@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- The pull request comment moved here from `@samebase/alchemy-convex`: the entry
+  `@samebase/alchemy-kit/stack-comment` and the command `alchemy-kit stack-comment`. The command
+  reads the state store that the repository's `alchemy.run.ts` configures, opened for the stage
+  `pr-<number>`, so a stack in any store gets the comment.
+
 ## 0.7.0
 
 - Each box of `stageDiagram` has `bindings`: the resource bindings of its Workers, each with its
@@ -9,9 +16,10 @@
   is read, not only R2. A binding that holds a value (plain text, secret, JSON, secret key) is left
   out. A binding to a box that `downstream` does not connect gets a line too.
 - A binding names a row only of its target type, by the identifiers of that type: an R2 bucket by
-  its name and jurisdiction, a D1 database by its id, a Worker by its name, and so on. A binding name
-  that only looks like the logical id of a row no longer names it. A line carries only the binding
-  names of the box that uses the other, and two Workers that bind each other get a line each way.
+  its name and jurisdiction, a D1 database by its id, a Worker by its name, and so on. A binding
+  name that only looks like the logical id of a row no longer names it. A line carries only the
+  binding names of the box that uses the other, and two Workers that bind each other get a line each
+  way.
 
 ## 0.6.0
 

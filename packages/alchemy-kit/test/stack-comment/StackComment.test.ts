@@ -4,36 +4,49 @@ import { readFileSync } from "node:fs";
 import { inMemoryState } from "alchemy/State";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Schema from "effect/Schema";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RUN_RECORD_KEY } from "@samebase/alchemy-kit/run-record";
+import { RUN_RECORD_KEY } from "../../src/run-record/RunRecord.ts";
 import {
   readStackCards,
   renderStackComment,
   saveStackComment,
   type StackCard,
-} from "../src/StackComment.ts";
+} from "../../src/stack-comment/StackComment.ts";
 
-interface RecordedStage {
-  readonly stack: string;
-  readonly stage: string;
-  readonly rows: readonly { readonly fqn: string; readonly attr?: object }[];
-  readonly output: unknown;
-}
+const RecordedStage = Schema.Struct({
+  stack: Schema.String,
+  stage: Schema.String,
+  rows: Schema.Array(
+    Schema.StructWithRest(
+      Schema.Struct({
+        fqn: Schema.String,
+        attr: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+      }),
+      [Schema.Record(Schema.String, Schema.Unknown)],
+    ),
+  ),
+  output: Schema.Unknown,
+});
+type RecordedStage = typeof RecordedStage.Type;
 
 const recorded = (path: string): unknown =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 
-const stages = recorded("./fixtures/state/stack_comment_stages.json") as readonly RecordedStage[];
+const stages = Schema.decodeUnknownSync(Schema.Array(RecordedStage))(
+  recorded("./fixtures/state/stack_comment_stages.json"),
+);
 
 const repository = "samebase/samebase";
 
 const stateOf = (recordedStages: readonly RecordedStage[]) => {
-  const rows: Record<string, Record<string, Record<string, never>>> = {};
+  const rows: Parameters<typeof inMemoryState>[0] = {};
   const outputs: Record<string, Record<string, unknown>> = {};
   for (const { output, rows: stageRows, stack, stage } of recordedStages) {
+    // @ts-expect-error -- A recorded row keeps only the fields that readStackCards reads.
     rows[stack] = {
       ...rows[stack],
-      [stage]: Object.fromEntries(stageRows.map((row) => [row.fqn, row as never])),
+      [stage]: Object.fromEntries(stageRows.map((row) => [row.fqn, row])),
     };
     outputs[stack] = { ...outputs[stack], [stage]: output };
   }

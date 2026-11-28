@@ -4,13 +4,13 @@
 //   alchemy-convex stack-comment
 //
 // stack-comment runs as a step of a pull request workflow after the deploys, and keeps one comment
-// with the stacks of the repository: see src/StackComment.ts. It needs GITHUB_TOKEN, and reads the
-// store of the team of CONVEX_ACCESS_TOKEN or of the Convex CLI login.
+// with the stacks of the repository: see `@samebase/alchemy-kit/stack-comment`. It needs
+// GITHUB_TOKEN, and reads the store of the team of CONVEX_ACCESS_TOKEN or of the Convex CLI login.
 import { parseArgs } from "node:util";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { updateStackComment } from "./StackComment.ts";
+import { updateStackComment } from "@samebase/alchemy-kit/stack-comment";
 import { state } from "./State.ts";
 
 const { positionals } = parseArgs({ allowPositionals: true, options: {} });

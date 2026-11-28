@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.48.0
+
+- Takes `@samebase/alchemy-kit` 0.8.0. The pull request comment is now
+  `@samebase/alchemy-kit/stack-comment`; `alchemy-convex stack-comment` runs it over the Convex
+  store as before.
+
 ## 0.47.0
 
 - Breaking: `IdentityBroker.Client` moved to `@samebase/identity-broker/alchemy` (0.43.0). The

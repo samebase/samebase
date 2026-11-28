@@ -1,6 +1,6 @@
 {
   "name": "@samebase/alchemy-kit",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "A kit of parts for Alchemy v2: a state store on a branch of a GitHub repository, with sealed secrets, a run record in each stage output, and a name and icon for each resource type",
   "keywords": [
     "alchemy",
@@ -20,6 +20,9 @@
     "url": "git+https://github.com/samebase/samebase.git",
     "directory": "packages/alchemy-kit"
   },
+  "bin": {
+    "alchemy-kit": "./src/cli.ts"
+  },
   "files": [
     "lib",
     "src",
@@ -33,9 +36,13 @@
     "./github-state": "./src/github-state/GitHubState.ts",
     "./run-record": "./src/run-record/RunRecord.ts",
     "./ui": "./src/ui/ResourceTypeUI.ts",
-    "./stack": "./src/stack/StackDiagram.ts"
+    "./stack": "./src/stack/StackDiagram.ts",
+    "./stack-comment": "./src/stack-comment/StackComment.ts"
   },
   "publishConfig": {
+    "bin": {
+      "alchemy-kit": "./lib/cli.js"
+    },
     "exports": {
       "./github-state": {
         "types": "./lib/github-state.d.ts",
@@ -52,6 +59,10 @@
       "./stack": {
         "types": "./lib/stack.d.ts",
         "import": "./lib/stack.js"
+      },
+      "./stack-comment": {
+        "types": "./lib/stack-comment.d.ts",
+        "import": "./lib/stack-comment.js"
       }
     },
     "access": "public"

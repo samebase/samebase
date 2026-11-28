@@ -7,6 +7,8 @@ export default defineConfig({
       "run-record": "src/run-record/RunRecord.ts",
       ui: "src/ui/ResourceTypeUI.ts",
       stack: "src/stack/StackDiagram.ts",
+      "stack-comment": "src/stack-comment/StackComment.ts",
+      cli: "src/cli.ts",
     },
     outDir: "lib",
     // "type": "module" makes the ESM output `github-state.js`, the file that `publishConfig` names.

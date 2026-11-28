@@ -88,6 +88,7 @@ export default defineConfig({
       "packages/alchemy-convex/test/fixtures/**",
       "packages/identity-broker/src/alchemy/fixtures/**",
       "packages/alchemy-kit/test/run-record/fixtures/**",
+      "packages/alchemy-kit/test/stack-comment/fixtures/**",
       // One resource type or icon per line, written by scripts/ui/generate.ts.
       "packages/alchemy-kit/src/ui/*.generated.ts",
       "apps/samebase/AGENTS.md",

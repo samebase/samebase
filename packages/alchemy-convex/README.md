@@ -338,7 +338,9 @@ stack of the repository at the stage `pr-<number>`: the folder, the address, the
 for each main resource, with its type, its link and its schedule, each under the resource that uses
 it. The rows come from `stageDiagram` of `@samebase/alchemy-kit/stack`, the same model as Samebase's
 stack diagram, so a project or a broker client shows under its deployment and not as a row of its
-own. A stack sees only itself, so a comment that a stack declares cannot show this.
+own. A stack sees only itself, so a comment that a stack declares cannot show this. The comment is
+`updateStackComment` of `@samebase/alchemy-kit/stack-comment`; for a store other than Convex, run
+`alchemy-kit stack-comment`, which reads the store that `alchemy.run.ts` configures.
 
 Run it after every deploy of the workflow. The run record gives the repository and the pull request,
 so the command needs no argument with a team access token:
