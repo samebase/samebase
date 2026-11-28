@@ -29,7 +29,13 @@ export function answerCloudflareRequest(
       return Response.json({ version: 7 });
     case `GET ${cloudflareApi}/secrets_store/stores`:
       return cloudflare([
-        { id: "secrets-store", account_id: cloudflareAccountId, name: "default" },
+        {
+          id: "secrets-store",
+          account_id: cloudflareAccountId,
+          name: "default",
+          created: "2026-11-01T10:00:00Z",
+          modified: "2026-11-01T10:00:00Z",
+        },
       ]);
     case `GET ${cloudflareApi}/workers/subdomain/edge-preview`:
       return cloudflare({ token: "session-token", exchange_url: "https://exchange.example/x" });

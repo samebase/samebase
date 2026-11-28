@@ -1,6 +1,10 @@
-import { isRecord, notEmpty } from "@samebase/dependent/main";
+import type { CloudflareOpContext } from "@distilled.cloud/cloudflare/Protocol";
+import * as secretsStore from "@distilled.cloud/cloudflare/secrets-store";
+import * as workers from "@distilled.cloud/cloudflare/workers";
+import { notEmpty } from "@samebase/dependent/main";
 import { validate } from "convex-helpers/validators";
 import { v } from "convex/values";
+import type { Effect } from "effect";
 import {
   parseWithoutSecretValues,
   readDeployedStacks,
@@ -10,13 +14,14 @@ import type { AlchemyStack, CloudflareStacksRead } from "../../shared/alchemySta
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalQuery, type ActionCtx } from "../_generated/server";
+import { CloudflareApiError, runCloudflare } from "../cloudflareApi";
 import type { ResolvedCloudflareConnection } from "../cloudflareOAuth";
 import { organizationProviderCredentialAad } from "../organization/providerCredentialModel";
 import { openSecret } from "../sealedSecret";
 import { requireLiveRepositoryForUser } from "./convexDeploymentInspection";
 import { limiter } from "./requestLimiter";
 
-const { array, id, number, object, optional, string } = v;
+const { array, id, number, object, string } = v;
 
 /**
 The read of the store for one repository, before the Convex metadata of its deployments.
@@ -55,12 +60,9 @@ const STORE_REQUEST_LIMIT = 16;
 /** The preview Worker answers with the value of the bound secret. */
 const TOKEN_PROBE_SOURCE = `export default { async fetch(_request, env) { return new Response(await env.SECRET.get()); } };`;
 
-const vSubdomain = object({ subdomain: string() });
 const vVersion = object({ version: number() });
-const vSecretsStores = array(object({ id: string() }));
-const vEdgePreviewSession = object({ token: string(), exchange_url: optional(string()) });
 const vExchangedToken = object({ token: string() });
-const vEdgePreview = object({ preview_token: string() });
+const vEdgePreview = object({ result: object({ preview_token: string() }) });
 const vNames = array(string());
 
 /**
@@ -100,21 +102,25 @@ async function fetchText(url: string, init: RequestInit = {}) {
 }
 
 /**
-The `result` of a Cloudflare API reply. Cloudflare answers 401 or 403 when the token is refused or
-lacks a permission, such as Secrets Store Edit, which binding the secret needs. It answers 404 when
-the subdomain or the store Worker is missing.
+Cloudflare answers 401 or 403 when the token is refused or lacks a permission, such as Secrets Store
+Edit, which binding the secret needs. It answers 404 when the subdomain or the store Worker is
+missing.
 */
-async function cloudflareResult(token: string, path: string, init: RequestInit = {}) {
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-  const { status, text } = await fetchText(`${CLOUDFLARE_API_URL}${path}`, { ...init, headers });
-  const body = parseStoreJson(text);
-  if (status === 200 && isRecord(body)) {
-    return body["result"];
+function stopState(status: number | null): StoreReadStop["state"] {
+  return status === 401 || status === 403 ? "reconnect" : status === 404 ? "no_store" : "failed";
+}
+
+async function cloudflareResult<A, E>(
+  token: string,
+  operation: Effect.Effect<A, E, CloudflareOpContext>,
+) {
+  try {
+    return await runCloudflare(token, operation);
+  } catch (error) {
+    throw error instanceof CloudflareApiError
+      ? new StoreReadStop(stopState(error.status), error.message)
+      : error;
   }
-  const state =
-    status === 401 || status === 403 ? "reconnect" : status === 404 ? "no_store" : "failed";
-  throw new StoreReadStop(state, `${init.method ?? "GET"} ${path}: ${status}`);
 }
 
 /**
@@ -132,29 +138,25 @@ async function readStoreTokenOnce(args: {
 }) {
   const session = await cloudflareResult(
     args.token,
-    `/accounts/${args.accountId}/workers/subdomain/edge-preview`,
+    workers.createSubdomainEdgePreviewSession({ accountId: args.accountId }),
   );
-  if (!validate(vEdgePreviewSession, session, { allowUnknownFields: true })) {
-    throw new StoreReadStop("failed", "edge-preview session: unexpected reply");
-  }
   // Some accounts get an `exchange_url` that swaps the session token for an upload token. The
   // session token still works when the exchange fails.
-  const exchanged =
-    session.exchange_url === undefined
-      ? undefined
-      : parseStoreJson(
-          await fetchText(session.exchange_url).then(
-            ({ text }) => text,
-            () => "",
-          ),
-        );
+  const exchanged = session.exchangeUrl
+    ? parseStoreJson(
+        await fetchText(session.exchangeUrl).then(
+          ({ text }) => text,
+          () => "",
+        ),
+      )
+    : undefined;
   const uploadToken = validate(vExchangedToken, exchanged, { allowUnknownFields: true })
     ? exchanged.token
     : session.token;
 
-  // The body is built here, not with `FormData`: the Convex runtime sends a `Blob` part as
-  // `application/octet-stream`, and Cloudflare then refuses the upload with 10021, "Main module
-  // must be an ES module".
+  // The body is built here, not with `FormData` or distilled's `createScriptEdgePreview`: the
+  // Convex runtime sends a `Blob` part as `application/octet-stream`, and Cloudflare then refuses
+  // the upload with 10021, "Main module must be an ES module".
   const boundary = `samebase-${crypto.randomUUID()}`;
   const part = (headers: string, content: string) =>
     `--${boundary}\r\n${headers}\r\n\r\n${content}\r\n`;
@@ -177,23 +179,27 @@ async function readStoreTokenOnce(args: {
     'Content-Disposition: form-data; name="probe.js"; filename="probe.js"\r\nContent-Type: application/javascript+module',
     TOKEN_PROBE_SOURCE,
   )}--${boundary}--\r\n`;
-  const preview = await cloudflareResult(
-    args.token,
-    `/accounts/${args.accountId}/workers/scripts/${STORE_WORKER_NAME}/edge-preview`,
+  const upload = await fetchText(
+    `${CLOUDFLARE_API_URL}/accounts/${args.accountId}/workers/scripts/${STORE_WORKER_NAME}/edge-preview`,
     {
       method: "POST",
       body,
       headers: {
+        Authorization: `Bearer ${args.token}`,
         "Content-Type": `multipart/form-data; boundary=${boundary}`,
         "cf-preview-upload-config-token": uploadToken,
       },
     },
   );
+  if (upload.status !== 200) {
+    throw new StoreReadStop(stopState(upload.status), `edge-preview upload: ${upload.status}`);
+  }
+  const preview = parseStoreJson(upload.text);
   if (!validate(vEdgePreview, preview, { allowUnknownFields: true })) {
     throw new StoreReadStop("failed", "edge-preview upload: unexpected reply");
   }
   const probe = await fetchText(args.storeUrl, {
-    headers: { "cf-workers-preview-token": preview.preview_token },
+    headers: { "cf-workers-preview-token": preview.result.preview_token },
   });
   const bearer = probe.text.trim();
   // While the preview is not routed yet, workers.dev answers with an HTML error page.
@@ -319,14 +325,11 @@ export async function readCloudflareStateStore(args: {
   stopAtNamedStack: boolean;
 }): Promise<CloudflareStoreRead> {
   try {
-    const subdomain = await cloudflareResult(
+    const { subdomain } = await cloudflareResult(
       args.token,
-      `/accounts/${args.accountId}/workers/subdomain`,
+      workers.getSubdomain({ accountId: args.accountId }),
     );
-    if (!validate(vSubdomain, subdomain, { allowUnknownFields: true })) {
-      return { state: "no_store" };
-    }
-    const storeUrl = `https://${STORE_WORKER_NAME}.${subdomain.subdomain}.workers.dev`;
+    const storeUrl = `https://${STORE_WORKER_NAME}.${subdomain}.workers.dev`;
     // `/version` needs no token, so an account without a store gets no preview upload.
     const version = await fetchText(`${storeUrl}/version`);
     if (version.status === 404) {
@@ -341,21 +344,18 @@ export async function readCloudflareStateStore(args: {
     }
 
     // An account has at most one Secrets Store, and the store's secrets are in it.
-    const secretsStores = await cloudflareResult(
+    const { result: secretsStores } = await cloudflareResult(
       args.token,
-      `/accounts/${args.accountId}/secrets_store/stores`,
+      secretsStore.listStores({ accountId: args.accountId }),
     );
-    if (!validate(vSecretsStores, secretsStores, { allowUnknownFields: true })) {
-      throw new StoreReadStop("failed", "secrets_store/stores: unexpected reply");
-    }
-    const secretsStore = secretsStores.at(0);
-    if (secretsStore === undefined) {
+    const accountSecretsStore = secretsStores.at(0);
+    if (accountSecretsStore === undefined) {
       return { state: "no_store" };
     }
     const bearer = await readStoreToken({
       token: args.token,
       accountId: args.accountId,
-      secretsStoreId: secretsStore.id,
+      secretsStoreId: accountSecretsStore.id,
       storeUrl,
     });
     return await readStacks(storeUrl, bearer, {

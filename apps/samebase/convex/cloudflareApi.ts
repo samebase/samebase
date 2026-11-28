@@ -26,6 +26,17 @@ function isSuccessEnvelope(text: string): boolean {
   }
 }
 
+/** A failed Cloudflare API call. `status` is the HTTP status, or null when no answer came in time. */
+export class CloudflareApiError extends Error {
+  readonly status: number | null;
+
+  constructor(args: { status: number | null; message: string }) {
+    super(args.message);
+    this.name = "CloudflareApiError";
+    this.status = args.status;
+  }
+}
+
 /** The `_tag` and Cloudflare `code` of a distilled error, without the provider body it can quote. */
 function describeError(error: unknown): string {
   if (typeof error !== "object" || error === null) return "unknown error";
@@ -40,9 +51,9 @@ retries "Authentication error" for about 25 seconds, and the access checks ask e
 Cloudflare refuses the token. The callers are user actions that report a failure at once.
 
 A 2xx answer must be a `success: true` envelope whose result matches the operation's schema.
-distilled returns any 2xx body as read unless a validation mode is provided. A failure rejects with an Error that names
-the route and the distilled error tag only: distilled errors can quote the provider body, and Convex
-logs an exception that leaves an action.
+distilled returns any 2xx body as read unless a validation mode is provided. A failure rejects with
+a CloudflareApiError that names the route and the distilled error tag only: distilled errors can
+quote the provider body, and Convex logs an exception that leaves an action.
 */
 export async function runCloudflare<A, E>(
   token: string,
@@ -51,12 +62,14 @@ export async function runCloudflare<A, E>(
   const apiToken = token.trim();
   if (!apiToken) throw new Error("Cloudflare token is required.");
   let route = "request";
+  let status: number | null = null;
   let envelopeFailure: string | null = null;
   // Read at call time: Effect caches its default fetch on first use, which would keep test stubs.
   const send = globalThis.fetch;
   const fetchSuccessEnvelope = async (input: string | URL | Request, init?: RequestInit) => {
     route = readRoute(input, init);
     const response = await send(input, init);
+    status = response.status;
     if (!response.ok) return response;
     const text = await response.text();
     if (!isSuccessEnvelope(text)) {
@@ -74,7 +87,11 @@ export async function runCloudflare<A, E>(
     Effect.timeout(TIMEOUT),
     Effect.mapError(
       (error) =>
-        new Error(envelopeFailure ?? `Cloudflare ${route} failed: ${describeError(error)}.`),
+        new CloudflareApiError({
+          // A body that stalls after the headers is a timeout, not that HTTP status.
+          status: describeError(error) === "TimeoutError" ? null : status,
+          message: envelopeFailure ?? `Cloudflare ${route} failed: ${describeError(error)}.`,
+        }),
     ),
     Effect.provide(
       Layer.mergeAll(
